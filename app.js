@@ -13,7 +13,11 @@ const LS_KEYS = {
 
 // Server ist für alle Nutzer gleich -> fest im Code statt in den Einstellungen.
 // Ohne Slash am Ende.
-const NEXTCLOUD_SERVER_URL = "https://EURE-DOMAIN.de";
+const NEXTCLOUD_SERVER_URL = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
+
+// Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
+// Wird bei Bedarf komplett angelegt (Ebene für Ebene).
+const TARGET_FOLDER_PATH = "Buero/Admin/test_zeit";
 
 const DEFAULT_SETTINGS = {
   projectNames: { P1: "P1", P2: "P2", P3: "P3" },
@@ -222,7 +226,8 @@ function davBaseUrl() {
   return `${server}/remote.php/dav/files/${encodeURIComponent(settings.username)}`;
 }
 function davFolderUrl() {
-  return `${davBaseUrl()}/Zeiterfassung`;
+  const segments = TARGET_FOLDER_PATH.split("/").filter(Boolean).map(encodeURIComponent);
+  return `${davBaseUrl()}/${segments.join("/")}`;
 }
 function davFileUrl() {
   const year = new Date().getFullYear();
@@ -230,10 +235,16 @@ function davFileUrl() {
 }
 
 async function ensureFolder() {
-  const res = await fetch(davFolderUrl(), { method: "MKCOL", headers: authHeader() });
-  // 201 = angelegt, 405 = existiert schon -> beides ok
-  if (!res.ok && res.status !== 405) {
-    throw new Error(`Ordner anlegen fehlgeschlagen (${res.status})`);
+  // MKCOL legt jeweils nur eine Ebene an -> Pfad Stück für Stück aufbauen.
+  const segments = TARGET_FOLDER_PATH.split("/").filter(Boolean).map(encodeURIComponent);
+  let path = davBaseUrl();
+  for (const segment of segments) {
+    path += `/${segment}`;
+    const res = await fetch(path, { method: "MKCOL", headers: authHeader() });
+    // 201 = angelegt, 405 = existiert schon -> beides ok, sonst Fehler
+    if (!res.ok && res.status !== 405) {
+      throw new Error(`Ordner anlegen fehlgeschlagen bei "${segment}" (${res.status})`);
+    }
   }
 }
 

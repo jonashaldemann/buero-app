@@ -18,9 +18,11 @@ Läuft offline und synchronisiert, sobald wieder Netz da ist.
 
 ## Ersteinrichtung
 
-1. **Einmalig im Code**: in `js/app.js` ganz oben `NEXTCLOUD_SERVER_URL` auf
-   eure tatsächliche Domain setzen, z.B. `"https://eure-domain.de"` (ohne
-   Slash am Ende). Das gilt für alle Nutzer gleich und wird committet.
+1. **Einmalig im Code**: in `js/app.js` ganz oben ist bereits eingetragen:
+   - `NEXTCLOUD_SERVER_URL = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone"`
+   - `TARGET_FOLDER_PATH = "Buero/Admin/test_zeit"`
+   Beides gilt für alle Nutzer gleich und wird committet. Ordner werden beim
+   ersten Sync automatisch angelegt, falls sie noch nicht existieren.
 2. In Nextcloud (pro Person, auf dem jeweiligen Gerät):
    **Einstellungen → Sicherheit → App-Passwörter** → neues App-Passwort
    erstellen (z.B. Name "Zeiterfassung-App").
@@ -62,7 +64,7 @@ könnt ihr die Server-Konfiguration evtl. nicht selbst anpassen. Optionen:
 
 Pro Person und Jahr eine Datei:
 ```
-/Zeiterfassung/zeiterfassung_2026.csv
+/Buero/Admin/test_zeit/zeiterfassung_2026.csv
 ```
 
 Spalten:
