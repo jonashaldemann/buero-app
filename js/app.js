@@ -11,9 +11,11 @@ const LS_KEYS = {
   pending: "zeit_pending"        // noch nicht synchronisierte Einträge
 };
 
-// Server ist für alle Nutzer gleich -> fest im Code statt in den Einstellungen.
-// Ohne Slash am Ende.
-const NEXTCLOUD_SERVER_URL = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
+// Die App spricht nicht mehr direkt mit Nextcloud, sondern mit einem
+// Cloudflare-Worker-Proxy, der die fehlenden CORS-Header ergänzt.
+// Nach dem Deployment des Workers hier die eigene *.workers.dev-URL eintragen
+// (ohne Slash am Ende) -- siehe README.
+const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
@@ -221,29 +223,32 @@ function authHeader() {
   return { Authorization: `Basic ${token}` };
 }
 
-function davBaseUrl() {
-  const server = NEXTCLOUD_SERVER_URL.replace(/\/+$/, "");
-  return `${server}/remote.php/dav/files/${encodeURIComponent(settings.username)}`;
+// Segmente relativ zum persönlichen Nextcloud-Dateibereich: [username, ordner1, ordner2, ...]
+function davSegments() {
+  return [settings.username, ...TARGET_FOLDER_PATH.split("/").filter(Boolean)];
 }
-function davFolderUrl() {
-  const segments = TARGET_FOLDER_PATH.split("/").filter(Boolean).map(encodeURIComponent);
-  return `${davBaseUrl()}/${segments.join("/")}`;
+
+// Ruft den Cloudflare-Worker-Proxy statt Nextcloud direkt auf.
+function proxyFetch(relativePath, options = {}) {
+  const url = `${PROXY_URL}?path=${encodeURIComponent(relativePath)}`;
+  return fetch(url, options);
 }
-function davFileUrl() {
+
+function davFileRelativePath() {
   const year = new Date().getFullYear();
-  return `${davFolderUrl()}/zeiterfassung_${year}.csv`;
+  return [...davSegments(), `zeiterfassung_${year}.csv`].join("/");
 }
 
 async function ensureFolder() {
   // MKCOL legt jeweils nur eine Ebene an -> Pfad Stück für Stück aufbauen.
-  const segments = TARGET_FOLDER_PATH.split("/").filter(Boolean).map(encodeURIComponent);
-  let path = davBaseUrl();
-  for (const segment of segments) {
-    path += `/${segment}`;
-    const res = await fetch(path, { method: "MKCOL", headers: authHeader() });
+  const segments = davSegments(); // [username, Buero, Admin, test_zeit]
+  let pathSoFar = segments[0]; // persönlicher Wurzelordner existiert immer schon
+  for (let i = 1; i < segments.length; i++) {
+    pathSoFar += `/${segments[i]}`;
+    const res = await proxyFetch(pathSoFar, { method: "MKCOL", headers: authHeader() });
     // 201 = angelegt, 405 = existiert schon -> beides ok, sonst Fehler
     if (!res.ok && res.status !== 405) {
-      throw new Error(`Ordner anlegen fehlgeschlagen bei "${segment}" (${res.status})`);
+      throw new Error(`Ordner anlegen fehlgeschlagen bei "${segments[i]}" (${res.status})`);
     }
   }
 }
@@ -260,9 +265,9 @@ async function trySync() {
   try {
     await ensureFolder();
 
-    const url = davFileUrl();
+    const relPath = davFileRelativePath();
     let existing = "";
-    const getRes = await fetch(url, { method: "GET", headers: authHeader() });
+    const getRes = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
     if (getRes.status === 200) {
       existing = await getRes.text();
     } else if (getRes.status === 404) {
@@ -287,7 +292,7 @@ async function trySync() {
     const sep = existing.endsWith("\n") ? "" : "\n";
     const updated = existing + sep + linesToAppend.join("\n") + "\n";
 
-    const putRes = await fetch(url, {
+    const putRes = await proxyFetch(relPath, {
       method: "PUT",
       headers: { ...authHeader(), "Content-Type": "text/csv" },
       body: updated
@@ -315,7 +320,7 @@ async function testConnection() {
   el.className = "test-result";
   try {
     await ensureFolder();
-    const res = await fetch(davFileUrl(), { method: "GET", headers: authHeader() });
+    const res = await proxyFetch(davFileRelativePath(), { method: "GET", headers: authHeader() });
     if (res.status === 200 || res.status === 404) {
       el.textContent = "Verbindung erfolgreich.";
       el.className = "test-result ok";

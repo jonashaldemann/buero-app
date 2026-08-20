@@ -40,25 +40,43 @@ als die Server-URL ist es geheim und pro Person unterschiedlich.
 Jede Person macht das auf ihrem eigenen Gerät mit ihrem eigenen Login —
 die App speichert die Zugangsdaten nur lokal auf diesem Gerät.
 
-## Wichtig: CORS
+## CORS-Proxy (Cloudflare Worker)
 
-Die App läuft im Browser und macht Cross-Origin-Requests an eure
-Nextcloud-Domain. Damit das funktioniert, muss der Server bei einer
-`OPTIONS`-Preflight-Anfrage korrekte CORS-Header zurückgeben.
+Die Managed Nextcloud bei hosting.de schickt bei Cross-Origin-Requests
+(Browser → Nextcloud von einer anderen Domain aus) keine
+`Access-Control-Allow-Origin`-Header — der Browser blockiert deshalb den
+direkten Zugriff. Deshalb läuft die App nicht direkt gegen Nextcloud,
+sondern über einen kleinen **Cloudflare Worker** als Proxy
+(`cloudflare-worker/worker.js`). Der Worker läuft server-seitig, hat also
+kein CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die
+fehlenden Header. Er speichert nichts — die Zeiterfassungsdaten liegen
+weiterhin ausschliesslich auf eurer eigenen Nextcloud.
 
-**Vor dem produktiven Einsatz testen:**
-Öffnet die App, tragt die Zugangsdaten ein und klickt "Verbindung testen".
-Falls ihr eine Fehlermeldung mit "Failed to fetch" o.ä. seht, blockiert der
-Server vermutlich CORS. Da ihr eine **managed** Nextcloud bei hosting.de habt,
-könnt ihr die Server-Konfiguration evtl. nicht selbst anpassen. Optionen:
+### Worker deployen (einmalig, ca. 10 Minuten)
 
-- Support von hosting.de fragen, ob CORS-Header für WebDAV aktiviert werden
-  können.
-- Alternative: ein kleines PHP-Proxy-Script auf eurem eigenen Webspace bei
-  hosting.de, das die WebDAV-Requests serverseitig weiterleitet (kein
-  CORS-Problem, da Server-zu-Server). Das können wir bei Bedarf nachrüsten,
-  ohne die App selbst gross umzubauen — nur die `davBaseUrl()`-Funktion in
-  `js/app.js` müsste dann auf den Proxy zeigen statt direkt auf Nextcloud.
+1. Kostenloses Konto auf [dash.cloudflare.com](https://dash.cloudflare.com)
+   erstellen (Free Plan reicht völlig, keine Kreditkarte nötig).
+2. Im Dashboard: **Workers & Pages → Create → Create Worker**.
+3. Einen Namen vergeben (z.B. `zeit-proxy`) → **Deploy** (legt erstmal einen
+   Platzhalter an).
+4. Auf **Edit Code** klicken, den kompletten Inhalt von
+   `cloudflare-worker/worker.js` einfügen, **Deploy** klicken.
+5. Cloudflare zeigt euch jetzt eure Worker-URL, z.B.
+   `https://zeit-proxy.euer-name.workers.dev`.
+6. Diese URL in `js/app.js` bei `PROXY_URL` eintragen (Zeile ganz oben,
+   ersetzt `https://zeit-proxy.DEIN-SUBDOMAIN.workers.dev`), committen und
+   pushen.
+
+Falls sich später die Nextcloud-Domain oder der Zielordner ändert, reicht es,
+`NEXTCLOUD_BASE` bzw. den Pfad-Aufbau in `worker.js` anzupassen und neu zu
+deployen (Copy-Paste im Cloudflare-Dashboard, kein CLI-Tool nötig).
+
+### Falls hosting.de doch noch CORS aktiviert
+
+Falls der Support meldet, dass CORS-Header für die Nextcloud-Instanz
+aktiviert wurden, könnte die App auch wieder direkt gegen Nextcloud laufen
+(ohne Worker) — das wäre ein kleiner Rückbau in `js/app.js`. Bis dahin ist
+der Worker die zuverlässigere Lösung.
 
 ## Datenformat
 
