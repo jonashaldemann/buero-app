@@ -1,21 +1,28 @@
 /**
- * Cloudflare Worker — CORS-Proxy für Nextcloud-WebDAV.
+ * Cloudflare Worker — CORS-Proxy für Nextcloud (WebDAV + öffentliche Links).
  *
  * Zweck: Die Zeiterfassungs-PWA läuft auf GitHub Pages und würde direkt
- * gegen die Nextcloud-WebDAV-Schnittstelle CORS-Fehler bekommen, weil die
- * Managed Nextcloud keine Access-Control-Allow-Origin-Header schickt.
- * Dieser Worker läuft server-seitig (kein Browser, kein CORS-Problem beim
- * Weiterleiten), reicht die Anfrage 1:1 an Nextcloud durch und ergänzt in
- * der Antwort nur die fehlenden CORS-Header.
+ * gegen Nextcloud CORS-Fehler bekommen, weil die Managed Nextcloud keine
+ * Access-Control-Allow-Origin-Header schickt. Dieser Worker läuft
+ * server-seitig (kein Browser, kein CORS-Problem beim Weiterleiten), reicht
+ * die Anfrage 1:1 an Nextcloud durch und ergänzt in der Antwort nur die
+ * fehlenden CORS-Header.
  *
  * Wichtig: Der Worker speichert NICHTS. Er kennt auch keine Zugangsdaten —
- * der Authorization-Header kommt bei jedem Request vom Browser und wird
- * nur durchgereicht. Die Zeiterfassungsdaten selbst liegen ausschliesslich
+ * der Authorization-Header (falls vorhanden) kommt bei jedem Request vom
+ * Browser und wird nur durchgereicht. Die Daten selbst liegen ausschliesslich
  * auf eurer eigenen Nextcloud.
+ *
+ * ?path= ist der komplette Pfad relativ zur Nextcloud-Domain, z.B.:
+ *   - "remote.php/dav/files/max%40firma.ch/Buero/Admin/test_zeit/datei.csv"
+ *     (persönliche Zeiterfassungsdatei, braucht Authorization-Header)
+ *   - "s/AbCdEfGh123/download"
+ *     (öffentlicher Freigabelink, z.B. für die zentrale Projektnamen-Datei,
+ *     braucht keine Zugangsdaten)
  */
 
 const ALLOWED_ORIGIN = "https://jonashaldemann.github.io";
-const NEXTCLOUD_BASE = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone/remote.php/dav/files/";
+const NEXTCLOUD_ORIGIN = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
 const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "OPTIONS"];
 
 function corsHeaders() {
@@ -44,14 +51,23 @@ export default {
       return new Response("Missing ?path= parameter", { status: 400, headers: corsHeaders() });
     }
 
-    // path kommt bereits als Klartext-Pfad an (z.B. "jonas@domain.ch/Buero/Admin/test_zeit/datei.csv"),
-    // URLSearchParams hat die Prozent-Codierung schon aufgelöst.
-    const targetUrl = NEXTCLOUD_BASE + path;
+    // path kommt bereits als Klartext-Pfad an (URLSearchParams hat die
+    // Prozent-Codierung schon aufgelöst), z.B.
+    // "remote.php/dav/files/max@firma.ch/Buero/Admin/test_zeit/datei.csv"
+    const targetUrl = `${NEXTCLOUD_ORIGIN}/${path.replace(/^\/+/, "")}`;
 
     const forwardHeaders = new Headers();
     const auth = request.headers.get("Authorization");
     if (auth) forwardHeaders.set("Authorization", auth);
     if (request.method === "PUT") forwardHeaders.set("Content-Type", "text/csv");
+    // Ohne einen "normalen" User-Agent stufen manche Hosting-Firewalls
+    // (z.B. bei hosting.de) den Request als Bot/Skript ein und blockieren ihn
+    // mit "Suspicious traffic detected" -- deshalb hier ein Browser-UA.
+    forwardHeaders.set(
+      "User-Agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    );
+    forwardHeaders.set("Accept", "*/*");
 
     const init = { method: request.method, headers: forwardHeaders };
     if (request.method === "PUT") {

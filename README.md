@@ -78,6 +78,43 @@ aktiviert wurden, könnte die App auch wieder direkt gegen Nextcloud laufen
 (ohne Worker) — das wäre ein kleiner Rückbau in `js/app.js`. Bis dahin ist
 der Worker die zuverlässigere Lösung.
 
+## Projektnamen zentral verwalten
+
+Die Projektnamen (P1/P2/P3) werden nicht mehr pro Gerät eingestellt, sondern
+zentral von der Büroleitung in einer einfachen Textdatei auf Nextcloud
+verwaltet. Alle Geräte laden sie automatisch (beim Start, danach alle 60
+Sekunden sowie beim Zurückkehren in den Tab).
+
+### Einmalige Einrichtung (als Admin)
+
+1. In Nextcloud eine Textdatei anlegen, z.B.
+   `Buero/Admin/test_zeit/projekte.txt`, mit **genau 3 Zeilen**:
+   ```
+   Projekt Nord
+   Projekt Süd
+   Verwaltung
+   ```
+   Zeile 1 = Name für P1, Zeile 2 = P2, Zeile 3 = P3.
+2. Datei in Nextcloud anklicken → **Teilen** → **Link erstellen** (öffentlicher
+   Freigabelink, keine Zugangsdaten nötig zum Lesen). Nextcloud zeigt einen
+   Link wie `https://.../s/AbCdEfGh123`.
+
+   **Sicherheitshinweis:** Wer diesen Link kennt, kann die Projektnamen
+   lesen (nicht aber eure Zeiterfassungsdaten — die liegen woanders und sind
+   weiterhin durch Benutzername/App-Passwort geschützt). Für reine
+   Projektnamen ist das ein akzeptabler Kompromiss; bei Bedarf lässt sich
+   der Link jederzeit in Nextcloud widerrufen oder mit einem Passwort
+   versehen (dafür müsste der Worker minimal angepasst werden).
+3. Den Teil nach `/s/` (den Token, z.B. `AbCdEfGh123`) in `js/app.js` bei
+   `PROJECTS_SHARE_TOKEN` eintragen, committen, pushen.
+
+### Projektnamen später ändern
+
+Einfach die Textdatei direkt in Nextcloud bearbeiten (z.B. über die
+Nextcloud-Weboberfläche mit der eingebauten Text-App) und speichern — alle
+Geräte übernehmen die neuen Namen automatisch innerhalb von 60 Sekunden,
+kein Code-Update nötig.
+
 ## Datenformat
 
 Pro Person und Jahr eine Datei:
