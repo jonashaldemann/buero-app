@@ -8,14 +8,20 @@ const LS_KEYS = {
   settings: "zeit_settings",
   current: "zeit_current",
   entries: "zeit_entries",       // alle lokal bekannten Einträge (für "Heute")
-  pending: "zeit_pending"        // noch nicht synchronisierte Einträge
+  pending: "zeit_pending",       // noch nicht synchronisierte Einträge
+  projectsCache: "zeit_projects_cache" // letzte erfolgreich geladene Projektnamen (Offline-Fallback)
 };
 
 // Die App spricht nicht mehr direkt mit Nextcloud, sondern mit einem
 // Cloudflare-Worker-Proxy, der die fehlenden CORS-Header ergänzt.
-// Nach dem Deployment des Workers hier die eigene *.workers.dev-URL eintragen
-// (ohne Slash am Ende) -- siehe README.
 const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
+
+// Öffentlicher Nextcloud-Freigabelink für die zentral verwaltete
+// Projektnamen-Datei (3 Zeilen Text: Name P1, Name P2, Name P3).
+// Token aus dem Freigabelink eintragen, z.B. bei
+// https://.../s/AbCdEfGh123 wäre der Token "AbCdEfGh123".
+// Leer lassen ("") um die zentrale Verwaltung zu deaktivieren.
+const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
@@ -28,6 +34,11 @@ const DEFAULT_SETTINGS = {
 };
 
 let settings = loadJSON(LS_KEYS.settings, DEFAULT_SETTINGS);
+// Zentral verwaltete Projektnamen überschreiben die (veralteten) Default-Werte,
+// falls schon einmal erfolgreich geladen -> vermeidet "P1/P2/P3" beim Start.
+const cachedProjects = loadJSON(LS_KEYS.projectsCache, null);
+if (cachedProjects) settings.projectNames = cachedProjects;
+
 let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|'P3', start: ISOString }
 let entries = loadJSON(LS_KEYS.entries, []);          // { date, start, end, durationSec, project, comment, synced }
 let pending = loadJSON(LS_KEYS.pending, []);          // Teilmenge von entries (Referenzen per id)
@@ -212,6 +223,30 @@ function entryToCsvLine(e) {
   return [e.date, e.start, e.end, durationMin, e.project, e.comment || ""].map(csvField).join(",");
 }
 
+// ---------- Zentral verwaltete Projektnamen ----------
+
+async function refreshProjectNames() {
+  if (!PROJECTS_SHARE_TOKEN) return; // Feature nicht aktiviert
+  try {
+    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const text = await res.text();
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const names = {
+      P1: lines[0] || settings.projectNames.P1,
+      P2: lines[1] || settings.projectNames.P2,
+      P3: lines[2] || settings.projectNames.P3
+    };
+    settings.projectNames = names;
+    saveJSON(LS_KEYS.projectsCache, names);
+    render();
+  } catch (err) {
+    // Offline oder Datei (noch) nicht erreichbar -> letzten bekannten Stand
+    // weiterverwenden, kein harter Fehler für die Zeiterfassung selbst.
+    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
+  }
+}
+
 // ---------- WebDAV Sync ----------
 
 function isConfigured() {
@@ -229,14 +264,20 @@ function davSegments() {
 }
 
 // Ruft den Cloudflare-Worker-Proxy statt Nextcloud direkt auf.
+// relativePath ist komplett relativ zur Nextcloud-Domain (siehe worker.js).
 function proxyFetch(relativePath, options = {}) {
   const url = `${PROXY_URL}?path=${encodeURIComponent(relativePath)}`;
   return fetch(url, options);
 }
 
+// Baut den vollen DAV-Pfad für die persönlichen Zeiterfassungsdateien.
+function davPath(relativeToUser) {
+  return `remote.php/dav/files/${relativeToUser}`;
+}
+
 function davFileRelativePath() {
   const year = new Date().getFullYear();
-  return [...davSegments(), `zeiterfassung_${year}.csv`].join("/");
+  return davPath([...davSegments(), `zeiterfassung_${year}.csv`].join("/"));
 }
 
 async function ensureFolder() {
@@ -245,7 +286,7 @@ async function ensureFolder() {
   let pathSoFar = segments[0]; // persönlicher Wurzelordner existiert immer schon
   for (let i = 1; i < segments.length; i++) {
     pathSoFar += `/${segments[i]}`;
-    const res = await proxyFetch(pathSoFar, { method: "MKCOL", headers: authHeader() });
+    const res = await proxyFetch(davPath(pathSoFar), { method: "MKCOL", headers: authHeader() });
     // 201 = angelegt, 405 = existiert schon -> beides ok, sonst Fehler
     if (!res.ok && res.status !== 405) {
       throw new Error(`Ordner anlegen fehlgeschlagen bei "${segments[i]}" (${res.status})`);
@@ -340,9 +381,6 @@ async function testConnection() {
 // ---------- Einstellungen UI ----------
 
 function openSettings() {
-  document.getElementById("inputP1").value = settings.projectNames.P1;
-  document.getElementById("inputP2").value = settings.projectNames.P2;
-  document.getElementById("inputP3").value = settings.projectNames.P3;
   document.getElementById("inputUser").value = settings.username;
   document.getElementById("inputPass").value = settings.appPassword;
   document.getElementById("testResult").textContent = "";
@@ -352,9 +390,6 @@ function closeSettingsFn() {
   document.getElementById("settingsOverlay").classList.add("hidden");
 }
 function saveSettings() {
-  settings.projectNames.P1 = document.getElementById("inputP1").value.trim() || "P1";
-  settings.projectNames.P2 = document.getElementById("inputP2").value.trim() || "P2";
-  settings.projectNames.P3 = document.getElementById("inputP3").value.trim() || "P3";
   settings.username = document.getElementById("inputUser").value.trim();
   settings.appPassword = document.getElementById("inputPass").value;
   saveJSON(LS_KEYS.settings, settings);
@@ -376,13 +411,15 @@ function init() {
 
   window.addEventListener("online", trySync);
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") trySync();
+    if (document.visibilityState === "visible") { trySync(); refreshProjectNames(); }
   });
 
   render();
   timerHandle = setInterval(() => { tickTimer(); renderToday(); }, 1000);
   setInterval(trySync, 30000); // periodischer Retry, falls offline verpasst
+  setInterval(refreshProjectNames, 60000); // zentrale Projektnamen alle 60s neu laden
 
+  refreshProjectNames();
   if (isConfigured()) trySync();
 
   if ("serviceWorker" in navigator) {
