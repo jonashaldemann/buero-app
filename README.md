@@ -117,23 +117,62 @@ kein Code-Update nötig.
 
 ## Datenformat
 
-Pro Person und Jahr eine Datei:
+Pro Person und Jahr eine Datei (im jeweils eigenen Nextcloud-Account):
 ```
 /Buero/Admin/test_zeit/zeiterfassung_2026.csv
 ```
 
 Spalten:
 ```
-Datum,Start,Ende,Dauer_Min,Projekt,Kommentar
-2026-08-13,08:02:15,09:41:03,98.80,Projekt 1,
-2026-08-13,09:41:03,09:47:30,6.45,Projekt 2,
+Datum,Projekt,Dauer_Min,Kommentar,Person
+2026-08-13,Projekt Nord,105.30,Vormittag Konzept, Nachmittag Umsetzung,Jonas
+2026-08-13,Projekt Süd,12.45,Kurzes Telefonat,Jonas
 ```
 
-- `Dauer_Min` ist auf 2 Nachkommastellen genau (aus Sekunden berechnet), damit
-  spätere Auswertungs-Scripts exakt aufsummieren können.
-- `Kommentar` ist aktuell immer leer — die Spalte ist bewusst schon da, damit
-  ihr später ohne Formatänderung Kommentare pro Zeitslot ergänzen könnt.
+**Wichtig, anders als in früheren Testversionen:** Es gibt **eine Zeile pro
+Tag und Projekt**, nicht mehr eine Zeile pro Start/Stop-Wechsel. Wechselst du
+z.B. dreimal zwischen P1 und P2 hin und her, werden die P1-Zeiten am Ende zu
+einer Summe zusammengezählt (genauso P2) — nicht drei einzelne Zeilen. Beim
+Sync wird die passende Zeile in der Datei gesucht und aktualisiert (Dauer neu
+berechnet, Kommentar übernommen); nur wirklich neue Tag/Projekt-Kombinationen
+werden angehängt.
+
+- `Dauer_Min` ist auf 2 Nachkommastellen genau (aus Sekunden berechnet).
+- `Kommentar` kannst du direkt in der App unter "Heute" pro Projekt eintragen
+  (Textfeld unter der Zeitanzeige) — er bezieht sich auf die Summe des ganzen
+  Tages für dieses Projekt, nicht auf einen einzelnen Zeitabschnitt. Kommentare
+  lassen sich aktuell nur für den **heutigen** Tag bearbeiten.
+- `Person` wird aus dem "Anzeigename" in den Einstellungen befüllt (fällt auf
+  den Benutzernamen zurück, falls leer) — nützlich, wenn ihr die Dateien
+  beider Personen später mit einem Script zusammenführen wollt.
 - Klicks unter 5 Sekunden werden ignoriert (Schutz vor Versehen-Klicks).
+
+**Falls du schon mit einer früheren Testversion synchronisiert hast:**
+Die alte Testdatei hatte ein anderes Spaltenformat (Datum, Start, Ende,
+Dauer_Min, Projekt, Kommentar — je Sitzung eine Zeile). Am einfachsten: die
+alte Testdatei im Zielordner löschen oder umbenennen, bevor die neue Version
+zum ersten Mal synchronisiert — sie wird sonst mit dem neuen Format
+weitergeschrieben und die alten Spalten falsch interpretiert.
+
+## Einrichtung für weitere Mitarbeitende (z.B. deinen Bürokollegen)
+
+Nichts Zusätzliches am Code oder am Worker nötig — jede Person macht einfach
+die normale Ersteinrichtung (siehe oben) auf ihrem eigenen Gerät, mit ihren
+eigenen Nextcloud-Zugangsdaten:
+
+1. Gleiche GitHub-Pages-URL öffnen, zum Home-Bildschirm hinzufügen.
+2. In den Einstellungen: **eigener** Nextcloud-Benutzername + **eigenes**
+   App-Passwort (siehe Ersteinrichtung oben) + Anzeigename (z.B. "Partner").
+3. Fertig — die App legt automatisch eine eigene, komplett getrennte CSV im
+   eigenen Nextcloud-Account an (`Buero/Admin/test_zeit/zeiterfassung_2026.csv`
+   unterhalb des eigenen Kontos). Keine Kollision mit deinen Daten, da jeder
+   Account seinen eigenen Dateibereich hat.
+4. Die zentral verwalteten Projektnamen (falls eingerichtet) gelten
+   automatisch für beide, da sie aus derselben geteilten Datei kommen.
+
+Falls ihr die beiden CSVs später zu einer gemeinsamen Übersicht
+zusammenführen wollt, hilft dabei genau die `Person`-Spalte, die jetzt in
+jeder Zeile mitläuft.
 
 ## Bekannte Grenzen
 
