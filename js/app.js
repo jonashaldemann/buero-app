@@ -7,9 +7,10 @@
 const LS_KEYS = {
   settings: "zeit_settings",
   current: "zeit_current",
-  entries: "zeit_entries",       // alle lokal bekannten Einträge (für "Heute")
-  pending: "zeit_pending",       // noch nicht synchronisierte Einträge
-  projectsCache: "zeit_projects_cache" // letzte erfolgreich geladene Projektnamen (Offline-Fallback)
+  entries: "zeit_entries",              // alle lokal bekannten Einträge (für "Heute")
+  dirtyBuckets: "zeit_dirty_buckets",   // "Datum|Projekt"-Kombis, die noch synchronisiert werden müssen
+  comments: "zeit_comments",            // Kommentare pro "Datum|Projekt"
+  projectsCache: "zeit_projects_cache"  // letzte erfolgreich geladene Projektnamen (Offline-Fallback)
 };
 
 // Die App spricht nicht mehr direkt mit Nextcloud, sondern mit einem
@@ -21,7 +22,7 @@ const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
 // Token aus dem Freigabelink eintragen, z.B. bei
 // https://.../s/AbCdEfGh123 wäre der Token "AbCdEfGh123".
 // Leer lassen ("") um die zentrale Verwaltung zu deaktivieren.
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
+const PROJECTS_SHARE_TOKEN = "";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
@@ -30,7 +31,8 @@ const TARGET_FOLDER_PATH = "Buero/Admin/test_zeit";
 const DEFAULT_SETTINGS = {
   projectNames: { P1: "P1", P2: "P2", P3: "P3" },
   username: "",
-  appPassword: ""
+  appPassword: "",
+  displayName: ""
 };
 
 let settings = loadJSON(LS_KEYS.settings, DEFAULT_SETTINGS);
@@ -40,8 +42,9 @@ const cachedProjects = loadJSON(LS_KEYS.projectsCache, null);
 if (cachedProjects) settings.projectNames = cachedProjects;
 
 let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|'P3', start: ISOString }
-let entries = loadJSON(LS_KEYS.entries, []);          // { date, start, end, durationSec, project, comment, synced }
-let pending = loadJSON(LS_KEYS.pending, []);          // Teilmenge von entries (Referenzen per id)
+let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, project }
+let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|Projekt Nord", ...]
+let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|Projekt Nord": "Kommentartext" }
 
 let timerHandle = null;
 
@@ -61,7 +64,8 @@ function saveJSON(key, value) {
 function saveState() {
   saveJSON(LS_KEYS.current, current);
   saveJSON(LS_KEYS.entries, entries);
-  saveJSON(LS_KEYS.pending, pending);
+  saveJSON(LS_KEYS.dirtyBuckets, dirtyBuckets);
+  saveJSON(LS_KEYS.comments, comments);
 }
 function pad(n) { return String(n).padStart(2, "0"); }
 function formatDate(d) {
@@ -104,24 +108,25 @@ function handleButton(action) {
   trySync();
 }
 
+function bucketKey(date, project) {
+  return `${date}|${project}`;
+}
+
+function markDirty(key) {
+  if (!dirtyBuckets.includes(key)) dirtyBuckets.push(key);
+}
+
 function closeCurrentSession(now) {
   if (!current) return;
   const start = new Date(current.start);
   const durationSec = Math.round((now - start) / 1000);
   if (durationSec < 5) return; // Miniklicks (Versehen) nicht loggen
 
-  const entry = {
-    id: uid(),
-    date: formatDate(start),
-    start: formatTime(start),
-    end: formatTime(now),
-    durationSec,
-    project: projectLabel(current.action),
-    comment: "",
-    synced: false
-  };
+  const date = formatDate(start);
+  const project = projectLabel(current.action);
+  const entry = { id: uid(), date, start: formatTime(start), end: formatTime(now), durationSec, project };
   entries.push(entry);
-  pending.push(entry.id);
+  markDirty(bucketKey(date, project));
 }
 
 // ---------- Rendering ----------
@@ -159,35 +164,82 @@ function tickTimer() {
   }
 }
 
+function computeTodayTotals(today) {
+  const totals = {};
+  entries
+    .filter((e) => e.date === today)
+    .forEach((e) => { totals[e.project] = (totals[e.project] || 0) + e.durationSec; });
+  if (current) {
+    const liveSec = Math.max(0, Math.round((Date.now() - new Date(current.start)) / 1000));
+    const label = projectLabel(current.action);
+    totals[label] = (totals[label] || 0) + liveSec;
+  }
+  return totals;
+}
+
 function renderToday() {
   const list = document.getElementById("todayList");
   const today = formatDate(new Date());
-  const todays = entries.filter((e) => e.date === today);
+  const totals = computeTodayTotals(today);
+  const projectKeys = Object.keys(totals).sort();
 
-  // laufende Session live mitzählen
-  const totals = {};
-  todays.forEach((e) => {
-    totals[e.project] = (totals[e.project] || 0) + e.durationSec;
-  });
-  if (current) {
-    const liveSec = Math.round((Date.now() - new Date(current.start)) / 1000);
-    const label = projectLabel(current.action);
-    totals[label] = (totals[label] || 0) + Math.max(0, liveSec);
-  }
-
-  const projectKeys = Object.keys(totals);
   if (projectKeys.length === 0) {
     list.innerHTML = '<li class="empty">Noch keine Einträge</li>';
     return;
   }
 
   list.innerHTML = projectKeys
-    .sort()
-    .map(
-      (p) =>
-        `<li><span class="proj-name">${escapeHtml(p)}</span><span class="proj-time">${formatHM(totals[p])}</span></li>`
-    )
+    .map((p) => {
+      const commentVal = comments[bucketKey(today, p)] || "";
+      return `<li data-project="${escapeHtml(p)}">
+        <div class="today-row-main">
+          <span class="proj-name">${escapeHtml(p)}</span>
+          <span class="proj-time" data-role="time">${formatHM(totals[p])}</span>
+        </div>
+        <input type="text" class="comment-input" data-project="${escapeHtml(p)}"
+               placeholder="Kommentar: was hast du gemacht?" value="${escapeHtml(commentVal)}">
+      </li>`;
+    })
     .join("");
+
+  list.querySelectorAll(".comment-input").forEach((input) => {
+    input.addEventListener("change", onCommentChange);
+  });
+}
+
+// Wird jede Sekunde aufgerufen -> nur Zeitanzeige aktualisieren, damit
+// Kommentarfelder beim Tippen nicht durch renderToday() neu aufgebaut
+// (und damit der Fokus verloren) werden.
+function updateTodayTimes() {
+  const today = formatDate(new Date());
+  const totals = computeTodayTotals(today);
+  const list = document.getElementById("todayList");
+  const rows = list.querySelectorAll("li[data-project]");
+  const shownProjects = new Set(Array.from(rows).map((li) => li.dataset.project));
+  const currentProjects = new Set(Object.keys(totals));
+
+  const sameSet =
+    shownProjects.size === currentProjects.size &&
+    [...shownProjects].every((p) => currentProjects.has(p));
+
+  if (!sameSet) {
+    renderToday(); // neues Projekt heute zum ersten Mal -> Liste neu aufbauen
+    return;
+  }
+  rows.forEach((li) => {
+    const timeEl = li.querySelector('[data-role="time"]');
+    if (timeEl) timeEl.textContent = formatHM(totals[li.dataset.project] || 0);
+  });
+}
+
+function onCommentChange(e) {
+  const project = e.target.dataset.project;
+  const today = formatDate(new Date());
+  const key = bucketKey(today, project);
+  comments[key] = e.target.value.replace(/[\r\n]+/g, " ").trim();
+  markDirty(key); // auch reine Kommentaränderungen ohne neue Zeit müssen synchronisiert werden
+  saveState();
+  trySync();
 }
 
 function renderSyncLine() {
@@ -196,12 +248,12 @@ function renderSyncLine() {
     line.textContent = "Nextcloud noch nicht eingerichtet · Einstellungen ⚙";
     return;
   }
-  if (pending.length === 0) {
+  if (dirtyBuckets.length === 0) {
     line.textContent = "Synchronisiert";
   } else if (!navigator.onLine) {
-    line.textContent = `Offline · ${pending.length} Eintrag/Einträge werden später synchronisiert`;
+    line.textContent = `Offline · ${dirtyBuckets.length} Projekttag(e) werden später synchronisiert`;
   } else {
-    line.textContent = `${pending.length} Eintrag/Einträge werden synchronisiert…`;
+    line.textContent = `${dirtyBuckets.length} Projekttag(e) werden synchronisiert…`;
   }
 }
 
@@ -210,17 +262,64 @@ function escapeHtml(s) {
 }
 
 // ---------- CSV ----------
-
-const CSV_HEADER = "Datum,Start,Ende,Dauer_Min,Projekt,Kommentar";
+// Format geändert: ein Zeile pro (Datum, Projekt) statt pro Sitzung -- mehrere
+// Wechsel zum selben Projekt am selben Tag werden zu einer Summe zusammengefasst.
+// ACHTUNG: Das ist ein anderes Spaltenformat als frühere Testversionen dieser
+// App (damals Datum,Start,Ende,Dauer_Min,Projekt,Kommentar). Alte Testdateien
+// im Zielordner vor dem ersten Sync mit dieser Version am besten löschen.
+const CSV_HEADER = "Datum,Projekt,Dauer_Min,Kommentar,Person";
 
 function csvField(v) {
   const s = String(v ?? "");
   if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
 }
-function entryToCsvLine(e) {
-  const durationMin = (e.durationSec / 60).toFixed(2);
-  return [e.date, e.start, e.end, durationMin, e.project, e.comment || ""].map(csvField).join(",");
+
+function personName() {
+  return (settings.displayName && settings.displayName.trim()) || settings.username || "";
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
+      } else {
+        cur += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      result.push(cur);
+      cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCsvRows(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+  return lines.slice(1).map((line) => {
+    const [date, project, durationMin, comment, person] = parseCsvLine(line);
+    return { date, project, durationMin, comment: comment || "", person: person || "" };
+  });
+}
+
+function rowToCsvLine(row) {
+  return [row.date, row.project, row.durationMin, row.comment || "", row.person || ""].map(csvField).join(",");
+}
+
+function sumDurationSec(date, project) {
+  return entries
+    .filter((e) => e.date === date && e.project === project)
+    .reduce((sum, e) => sum + e.durationSec, 0);
 }
 
 // ---------- Zentral verwaltete Projektnamen ----------
@@ -299,7 +398,7 @@ let syncing = false;
 async function trySync() {
   if (syncing) return;
   if (!isConfigured()) { renderSyncLine(); return; }
-  if (pending.length === 0) { renderSyncLine(); return; }
+  if (dirtyBuckets.length === 0) { renderSyncLine(); return; }
   if (!navigator.onLine) { renderSyncLine(); return; }
 
   syncing = true;
@@ -307,31 +406,35 @@ async function trySync() {
     await ensureFolder();
 
     const relPath = davFileRelativePath();
-    let existing = "";
+    let existingText = "";
     const getRes = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
     if (getRes.status === 200) {
-      existing = await getRes.text();
+      existingText = await getRes.text();
     } else if (getRes.status === 404) {
-      existing = CSV_HEADER + "\n";
+      existingText = CSV_HEADER + "\n";
     } else {
       throw new Error(`Lesen fehlgeschlagen (${getRes.status})`);
     }
 
-    const idsToSync = [...pending];
-    const linesToAppend = idsToSync
-      .map((id) => entries.find((e) => e.id === id))
-      .filter(Boolean)
-      .map(entryToCsvLine);
+    const rows = parseCsvRows(existingText);
+    const person = personName();
+    const keysToSync = [...dirtyBuckets];
 
-    if (linesToAppend.length === 0) {
-      pending = [];
-      saveState();
-      renderSyncLine();
-      return;
-    }
+    keysToSync.forEach((key) => {
+      const sepIdx = key.indexOf("|");
+      const date = key.slice(0, sepIdx);
+      const project = key.slice(sepIdx + 1);
+      const totalSec = sumDurationSec(date, project);
+      const durationMin = (totalSec / 60).toFixed(2);
+      const comment = comments[key] || "";
 
-    const sep = existing.endsWith("\n") ? "" : "\n";
-    const updated = existing + sep + linesToAppend.join("\n") + "\n";
+      const idx = rows.findIndex((r) => r.date === date && r.project === project && r.person === person);
+      const rowObj = { date, project, durationMin, comment, person };
+      if (idx >= 0) rows[idx] = rowObj;
+      else rows.push(rowObj);
+    });
+
+    const updated = CSV_HEADER + "\n" + rows.map(rowToCsvLine).join("\n") + "\n";
 
     const putRes = await proxyFetch(relPath, {
       method: "PUT",
@@ -340,11 +443,7 @@ async function trySync() {
     });
     if (!putRes.ok) throw new Error(`Schreiben fehlgeschlagen (${putRes.status})`);
 
-    idsToSync.forEach((id) => {
-      const e = entries.find((x) => x.id === id);
-      if (e) e.synced = true;
-    });
-    pending = pending.filter((id) => !idsToSync.includes(id));
+    dirtyBuckets = dirtyBuckets.filter((k) => !keysToSync.includes(k));
     saveState();
     renderSyncLine();
   } catch (err) {
@@ -381,6 +480,7 @@ async function testConnection() {
 // ---------- Einstellungen UI ----------
 
 function openSettings() {
+  document.getElementById("inputDisplayName").value = settings.displayName || "";
   document.getElementById("inputUser").value = settings.username;
   document.getElementById("inputPass").value = settings.appPassword;
   document.getElementById("testResult").textContent = "";
@@ -390,6 +490,7 @@ function closeSettingsFn() {
   document.getElementById("settingsOverlay").classList.add("hidden");
 }
 function saveSettings() {
+  settings.displayName = document.getElementById("inputDisplayName").value.trim();
   settings.username = document.getElementById("inputUser").value.trim();
   settings.appPassword = document.getElementById("inputPass").value;
   saveJSON(LS_KEYS.settings, settings);
@@ -415,7 +516,7 @@ function init() {
   });
 
   render();
-  timerHandle = setInterval(() => { tickTimer(); renderToday(); }, 1000);
+  timerHandle = setInterval(() => { tickTimer(); updateTodayTimes(); }, 1000);
   setInterval(trySync, 30000); // periodischer Retry, falls offline verpasst
   setInterval(refreshProjectNames, 60000); // zentrale Projektnamen alle 60s neu laden
 
