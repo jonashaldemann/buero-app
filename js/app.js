@@ -44,10 +44,10 @@ let settings = loadJSON(LS_KEYS.settings, DEFAULT_SETTINGS);
 // falls noch nie erfolgreich geladen und keine zentrale Verwaltung aktiv ist.
 let projectList = loadJSON(LS_KEYS.projectsCache, ["P1", "P2", "P3"]);
 
-let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|'P3', start: ISOString }
-let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, project }
-let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|Projekt Nord", ...]
-let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|Projekt Nord": "Kommentartext" }
+let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|..., start: ISOString }
+let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, projectId }
+let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|P1", ...] -- projectId, nicht Name!
+let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|P1": "Kommentartext" }
 
 let timerHandle = null;
 
@@ -100,6 +100,11 @@ function projectLabel(action) {
   if (idx >= 0 && projectList[idx]) return projectList[idx];
   return action;
 }
+function projectColor(action) {
+  const idx = projectIndexFromAction(action);
+  if (idx < 0) return null;
+  return PROJECT_COLOR_PALETTE[idx % PROJECT_COLOR_PALETTE.length];
+}
 
 // ---------- Zustandsautomat ----------
 
@@ -132,10 +137,10 @@ function closeCurrentSession(now) {
   if (durationSec < 5) return; // Miniklicks (Versehen) nicht loggen
 
   const date = formatDate(start);
-  const project = projectLabel(current.action);
-  const entry = { id: uid(), date, start: formatTime(start), end: formatTime(now), durationSec, project };
+  const projectId = current.action; // stabile ID, z.B. "P1" -- nicht der (änderbare) Anzeigename
+  const entry = { id: uid(), date, start: formatTime(start), end: formatTime(now), durationSec, projectId };
   entries.push(entry);
-  markDirty(bucketKey(date, project));
+  markDirty(bucketKey(date, projectId));
 }
 
 // ---------- Rendering ----------
@@ -189,11 +194,10 @@ function computeTodayTotals(today) {
   const totals = {};
   entries
     .filter((e) => e.date === today)
-    .forEach((e) => { totals[e.project] = (totals[e.project] || 0) + e.durationSec; });
+    .forEach((e) => { totals[e.projectId] = (totals[e.projectId] || 0) + e.durationSec; });
   if (current) {
     const liveSec = Math.max(0, Math.round((Date.now() - new Date(current.start)) / 1000));
-    const label = projectLabel(current.action);
-    totals[label] = (totals[label] || 0) + liveSec;
+    totals[current.action] = (totals[current.action] || 0) + liveSec;
   }
   return totals;
 }
@@ -202,22 +206,28 @@ function renderToday() {
   const list = document.getElementById("todayList");
   const today = formatDate(new Date());
   const totals = computeTodayTotals(today);
-  const projectKeys = Object.keys(totals).sort();
+  // Nach numerischem Index sortieren (P1, P2, P10, ...) statt alphabetisch nach Name,
+  // damit die Reihenfolge stabil bleibt und zur Button-Reihenfolge passt.
+  const projectIds = Object.keys(totals).sort(
+    (a, b) => projectIndexFromAction(a) - projectIndexFromAction(b)
+  );
 
-  if (projectKeys.length === 0) {
+  if (projectIds.length === 0) {
     list.innerHTML = '<li class="empty">Noch keine Einträge</li>';
     return;
   }
 
-  list.innerHTML = projectKeys
-    .map((p) => {
-      const commentVal = comments[bucketKey(today, p)] || "";
-      return `<li data-project="${escapeHtml(p)}">
+  list.innerHTML = projectIds
+    .map((id) => {
+      const commentVal = comments[bucketKey(today, id)] || "";
+      const name = projectLabel(id);
+      const color = projectColor(id) || "inherit";
+      return `<li data-project-id="${escapeHtml(id)}">
         <div class="today-row-main">
-          <span class="proj-name">${escapeHtml(p)}</span>
-          <span class="proj-time" data-role="time">${formatHM(totals[p])}</span>
+          <span class="proj-name" style="color:${color}">${escapeHtml(name)}</span>
+          <span class="proj-time" data-role="time">${formatHM(totals[id])}</span>
         </div>
-        <input type="text" class="comment-input" data-project="${escapeHtml(p)}"
+        <input type="text" class="comment-input" data-project-id="${escapeHtml(id)}"
                placeholder="Kommentar: was hast du gemacht?" value="${escapeHtml(commentVal)}">
       </li>`;
     })
@@ -235,13 +245,13 @@ function updateTodayTimes() {
   const today = formatDate(new Date());
   const totals = computeTodayTotals(today);
   const list = document.getElementById("todayList");
-  const rows = list.querySelectorAll("li[data-project]");
-  const shownProjects = new Set(Array.from(rows).map((li) => li.dataset.project));
-  const currentProjects = new Set(Object.keys(totals));
+  const rows = list.querySelectorAll("li[data-project-id]");
+  const shownIds = new Set(Array.from(rows).map((li) => li.dataset.projectId));
+  const currentIds = new Set(Object.keys(totals));
 
   const sameSet =
-    shownProjects.size === currentProjects.size &&
-    [...shownProjects].every((p) => currentProjects.has(p));
+    shownIds.size === currentIds.size &&
+    [...shownIds].every((id) => currentIds.has(id));
 
   if (!sameSet) {
     renderToday(); // neues Projekt heute zum ersten Mal -> Liste neu aufbauen
@@ -249,14 +259,14 @@ function updateTodayTimes() {
   }
   rows.forEach((li) => {
     const timeEl = li.querySelector('[data-role="time"]');
-    if (timeEl) timeEl.textContent = formatHM(totals[li.dataset.project] || 0);
+    if (timeEl) timeEl.textContent = formatHM(totals[li.dataset.projectId] || 0);
   });
 }
 
 function onCommentChange(e) {
-  const project = e.target.dataset.project;
+  const projectId = e.target.dataset.projectId;
   const today = formatDate(new Date());
-  const key = bucketKey(today, project);
+  const key = bucketKey(today, projectId);
   comments[key] = e.target.value.replace(/[\r\n]+/g, " ").trim();
   markDirty(key); // auch reine Kommentaränderungen ohne neue Zeit müssen synchronisiert werden
   saveState();
@@ -283,12 +293,13 @@ function escapeHtml(s) {
 }
 
 // ---------- CSV ----------
-// Format geändert: ein Zeile pro (Datum, Projekt) statt pro Sitzung -- mehrere
-// Wechsel zum selben Projekt am selben Tag werden zu einer Summe zusammengefasst.
-// ACHTUNG: Das ist ein anderes Spaltenformat als frühere Testversionen dieser
-// App (damals Datum,Start,Ende,Dauer_Min,Projekt,Kommentar). Alte Testdateien
-// im Zielordner vor dem ersten Sync mit dieser Version am besten löschen.
-const CSV_HEADER = "Datum,Projekt,Dauer_Min,Kommentar,Person";
+// Format: eine Zeile pro (Datum, Projekt) statt pro Sitzung -- mehrere Wechsel
+// zum selben Projekt am selben Tag werden zu einer Summe zusammengefasst.
+// ProjektID ist die stabile interne ID (z.B. "P1") -- damit bleibt die Zeile
+// beim Sync auch dann korrekt wiedererkennbar, wenn der Projektname
+// zwischenzeitlich umbenannt wurde (die Spalte "Projekt" zeigt immer den
+// aktuellen Namen, "ProjektID" ist nur für die interne Zuordnung).
+const CSV_HEADER = "Datum,Projekt,Dauer_Min,Kommentar,Person,ProjektID";
 
 function csvField(v) {
   const s = String(v ?? "");
@@ -328,18 +339,20 @@ function parseCsvLine(line) {
 function parseCsvRows(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   return lines.slice(1).map((line) => {
-    const [date, project, durationMin, comment, person] = parseCsvLine(line);
-    return { date, project, durationMin, comment: comment || "", person: person || "" };
+    const [date, project, durationMin, comment, person, projectId] = parseCsvLine(line);
+    return { date, project, durationMin, comment: comment || "", person: person || "", projectId: projectId || "" };
   });
 }
 
 function rowToCsvLine(row) {
-  return [row.date, row.project, row.durationMin, row.comment || "", row.person || ""].map(csvField).join(",");
+  return [row.date, row.project, row.durationMin, row.comment || "", row.person || "", row.projectId || ""]
+    .map(csvField)
+    .join(",");
 }
 
-function sumDurationSec(date, project) {
+function sumDurationSec(date, projectId) {
   return entries
-    .filter((e) => e.date === date && e.project === project)
+    .filter((e) => e.date === date && e.projectId === projectId)
     .reduce((sum, e) => sum + e.durationSec, 0);
 }
 
@@ -443,13 +456,14 @@ async function trySync() {
     keysToSync.forEach((key) => {
       const sepIdx = key.indexOf("|");
       const date = key.slice(0, sepIdx);
-      const project = key.slice(sepIdx + 1);
-      const totalSec = sumDurationSec(date, project);
+      const projectId = key.slice(sepIdx + 1);
+      const totalSec = sumDurationSec(date, projectId);
       const durationMin = (totalSec / 60).toFixed(2);
       const comment = comments[key] || "";
+      const name = projectLabel(projectId); // aktuellen Namen zum Sync-Zeitpunkt auflösen
 
-      const idx = rows.findIndex((r) => r.date === date && r.project === project && r.person === person);
-      const rowObj = { date, project, durationMin, comment, person };
+      const idx = rows.findIndex((r) => r.date === date && r.projectId === projectId && r.person === person);
+      const rowObj = { date, project: name, durationMin, comment, person, projectId };
       if (idx >= 0) rows[idx] = rowObj;
       else rows.push(rowObj);
     });
