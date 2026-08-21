@@ -98,9 +98,9 @@ main {
 }
 
 .status-timer {
-  font-family: var(--font-mono);
+  font-family: var(--font-medium);
   font-size: 44px;
-  font-weight: 500;
+  font-weight: normal;
   letter-spacing: 1px;
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
@@ -187,12 +187,15 @@ main {
 .today-row-main {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  gap: 12px;
   font-size: 15px;
   margin-bottom: 6px;
 }
 
 .today-list .proj-name { font-family: var(--font-medium); }
-.today-list .proj-time { font-family: var(--font-mono); color: var(--text-muted); }
+.today-list .proj-time { font-family: var(--font-light); color: var(--text-muted); }
 
 .comment-input {
   width: 100%;
