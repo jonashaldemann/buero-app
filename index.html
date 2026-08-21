@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#12161C">
+<meta name="theme-color" content="#F2EFEA">
 <title>Zeiterfassung</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -28,22 +28,13 @@
     <div class="sync-line" id="syncLine">&nbsp;</div>
   </section>
 
-  <section class="button-grid">
-    <button class="proj-btn" data-action="P1" style="--accent:#4C8DFF">
-      <span class="proj-label" id="labelP1">P1</span>
-    </button>
-    <button class="proj-btn" data-action="P2" style="--accent:#4FB6A6">
-      <span class="proj-label" id="labelP2">P2</span>
-    </button>
-    <button class="proj-btn" data-action="P3" style="--accent:#E8A33D">
-      <span class="proj-label" id="labelP3">P3</span>
-    </button>
-    <button class="proj-btn secondary" data-action="PAUSE" style="--accent:#6B7280">
-      <span class="proj-label">Pause</span>
-    </button>
-    <button class="proj-btn secondary stop" data-action="STOP" style="--accent:#E05252">
-      <span class="proj-label">Stop</span>
-    </button>
+  <section class="button-grid" id="projectButtons">
+    <!-- Wird dynamisch aus den zentral verwalteten Projektnamen befüllt -->
+  </section>
+
+  <section class="control-buttons">
+    <button class="proj-btn control" data-action="PAUSE">Pause</button>
+    <button class="proj-btn control stop" data-action="STOP">Stop</button>
   </section>
 
   <section class="today">

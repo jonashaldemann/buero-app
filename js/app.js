@@ -29,17 +29,20 @@ const PROJECTS_SHARE_TOKEN = "";
 const TARGET_FOLDER_PATH = "Buero/Admin/test_zeit";
 
 const DEFAULT_SETTINGS = {
-  projectNames: { P1: "P1", P2: "P2", P3: "P3" },
   username: "",
   appPassword: "",
   displayName: ""
 };
 
+// Farbpalette für dynamisch erzeugte Projekt-Buttons (zyklisch, falls mehr
+// Projekte als Farben vorhanden sind) -- abgeleitet vom Referenzbild
+// (gedeckte Erdtöne: Taubenblau, Salbeigrün, Terrakotta, Schiefergrün, Greige).
+const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
+
 let settings = loadJSON(LS_KEYS.settings, DEFAULT_SETTINGS);
-// Zentral verwaltete Projektnamen überschreiben die (veralteten) Default-Werte,
-// falls schon einmal erfolgreich geladen -> vermeidet "P1/P2/P3" beim Start.
-const cachedProjects = loadJSON(LS_KEYS.projectsCache, null);
-if (cachedProjects) settings.projectNames = cachedProjects;
+// Zentral verwaltete Projektliste (Array beliebiger Länge). Fallback P1/P2/P3,
+// falls noch nie erfolgreich geladen und keine zentrale Verwaltung aktiv ist.
+let projectList = loadJSON(LS_KEYS.projectsCache, ["P1", "P2", "P3"]);
 
 let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|'P3', start: ISOString }
 let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, project }
@@ -88,8 +91,14 @@ function formatHM(totalSec) {
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
+function projectIndexFromAction(action) {
+  const m = /^P(\d+)$/.exec(action);
+  return m ? parseInt(m[1], 10) - 1 : -1;
+}
 function projectLabel(action) {
-  return settings.projectNames[action] || action;
+  const idx = projectIndexFromAction(action);
+  if (idx >= 0 && projectList[idx]) return projectList[idx];
+  return action;
 }
 
 // ---------- Zustandsautomat ----------
@@ -131,9 +140,25 @@ function closeCurrentSession(now) {
 
 // ---------- Rendering ----------
 
+function renderProjectButtons() {
+  const container = document.getElementById("projectButtons");
+  container.innerHTML = projectList
+    .map((name, i) => {
+      const color = PROJECT_COLOR_PALETTE[i % PROJECT_COLOR_PALETTE.length];
+      return `<button class="proj-btn" data-action="P${i + 1}" style="--accent:${color}">${escapeHtml(name)}</button>`;
+    })
+    .join("");
+  container.querySelectorAll(".proj-btn").forEach((btn) => {
+    btn.addEventListener("click", () => handleButton(btn.dataset.action));
+  });
+  // Aktiven Zustand nach Neuaufbau sofort wieder anwenden
+  container.querySelectorAll(".proj-btn").forEach((btn) => {
+    btn.classList.toggle("active", current && current.action === btn.dataset.action);
+  });
+}
+
 function render() {
   const statusLabel = document.getElementById("statusLabel");
-  const statusTimer = document.getElementById("statusTimer");
 
   document.querySelectorAll(".proj-btn").forEach((btn) => {
     btn.classList.toggle("active", current && current.action === btn.dataset.action);
@@ -144,10 +169,6 @@ function render() {
   } else {
     statusLabel.textContent = "Pausiert";
   }
-
-  document.getElementById("labelP1").textContent = projectLabel("P1");
-  document.getElementById("labelP2").textContent = projectLabel("P2");
-  document.getElementById("labelP3").textContent = projectLabel("P3");
 
   renderToday();
   renderSyncLine();
@@ -330,14 +351,13 @@ async function refreshProjectNames() {
     const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const text = await res.text();
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const names = {
-      P1: lines[0] || settings.projectNames.P1,
-      P2: lines[1] || settings.projectNames.P2,
-      P3: lines[2] || settings.projectNames.P3
-    };
-    settings.projectNames = names;
+    const names = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (names.length === 0) return; // leere Datei -> alten Stand behalten
+
+    const changed = JSON.stringify(names) !== JSON.stringify(projectList);
+    projectList = names;
     saveJSON(LS_KEYS.projectsCache, names);
+    if (changed) renderProjectButtons();
     render();
   } catch (err) {
     // Offline oder Datei (noch) nicht erreichbar -> letzten bekannten Stand
@@ -502,7 +522,9 @@ function saveSettings() {
 // ---------- Init ----------
 
 function init() {
-  document.querySelectorAll(".proj-btn").forEach((btn) => {
+  renderProjectButtons(); // Projekt-Buttons dynamisch erzeugen (Klick-Listener inklusive)
+
+  document.querySelectorAll(".control-buttons .proj-btn").forEach((btn) => {
     btn.addEventListener("click", () => handleButton(btn.dataset.action));
   });
   document.getElementById("settingsBtn").addEventListener("click", openSettings);
