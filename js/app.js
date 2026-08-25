@@ -22,7 +22,7 @@ const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
 // Token aus dem Freigabelink eintragen, z.B. bei
 // https://.../s/AbCdEfGh123 wäre der Token "AbCdEfGh123".
 // Leer lassen ("") um die zentrale Verwaltung zu deaktivieren.
-const PROJECTS_SHARE_TOKEN = "";
+const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
