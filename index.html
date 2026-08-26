@@ -35,6 +35,7 @@
   <section class="control-buttons">
     <button class="proj-btn control" data-action="PAUSE">Pause</button>
     <button class="proj-btn control stop" data-action="STOP">Stop</button>
+    <button class="proj-btn control manual" id="manualEntryBtn" type="button">Nachtragen</button>
   </section>
 
   <section class="today">
@@ -77,6 +78,36 @@
       Die Projektnamen (P1/P2/P3) werden zentral von der Büroleitung
       verwaltet und automatisch übernommen — nicht mehr hier einstellbar.
     </p>
+  </div>
+</div>
+
+<!-- Manuell nachtragen -->
+<div id="manualOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Zeit nachtragen</h2>
+      <button id="closeManual" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Datum</label>
+      <input type="date" id="manualDate">
+      <label>Projekt</label>
+      <select id="manualProject"></select>
+      <label>Dauer</label>
+      <div class="duration-row">
+        <input type="number" id="manualHours" min="0" max="23" placeholder="0" inputmode="numeric"> <span class="duration-unit">h</span>
+        <input type="number" id="manualMinutes" min="0" max="59" placeholder="0" inputmode="numeric"> <span class="duration-unit">min</span>
+      </div>
+      <label>Kommentar (optional)</label>
+      <input type="text" id="manualComment" placeholder="Was wurde gemacht?">
+    </div>
+
+    <div class="form-actions">
+      <button id="cancelManualBtn" class="btn-secondary">Abbrechen</button>
+      <button id="saveManualBtn" class="btn-primary">Hinzufügen</button>
+    </div>
+    <div id="manualResult" class="test-result"></div>
   </div>
 </div>
 

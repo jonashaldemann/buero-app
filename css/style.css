@@ -122,7 +122,7 @@ main {
 
 .control-buttons {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
@@ -153,11 +153,12 @@ main {
 
 .control-buttons .proj-btn {
   aspect-ratio: auto;
-  padding: 16px 8px;
-  font-size: 16px;
+  padding: 16px 6px;
+  font-size: 14px;
 }
 .control-buttons .proj-btn[data-action="PAUSE"] { --accent: #8C8171; }
 .control-buttons .proj-btn[data-action="STOP"] { --accent: #B5654C; }
+.control-buttons .proj-btn.manual { --accent: #A79C8C; }
 
 .today h2 {
   font-family: var(--font-medium);
@@ -254,7 +255,8 @@ main {
 }
 .form-group label:first-child { margin-top: 0; }
 
-input[type="text"], input[type="url"], input[type="password"] {
+input[type="text"], input[type="url"], input[type="password"],
+input[type="date"], input[type="number"], select {
   background: var(--surface-2);
   border: none;
   color: var(--text);
@@ -262,8 +264,18 @@ input[type="text"], input[type="url"], input[type="password"] {
   padding: 12px 14px;
   font-size: 15px;
   font-family: var(--font-light);
+  width: 100%;
 }
-input:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+select { appearance: none; -webkit-appearance: none; }
+input:focus, select:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
+.duration-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.duration-row input[type="number"] { width: 70px; flex: none; text-align: center; }
+.duration-unit { font-size: 13px; color: var(--text-muted); }
 
 .form-actions {
   display: flex;
