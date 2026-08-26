@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F2EFEA">
+<title>Zeiterfassung — Auswertung</title>
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Auswertung</h1>
+  <button id="refreshBtn" class="icon-btn" aria-label="Aktualisieren" title="Aktualisieren">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08a6 6 0 11-1.49-6.14L13 11h7V4l-2.35 2.35z" fill="currentColor"/></svg>
+  </button>
+</header>
+
+<main>
+  <section class="filters">
+    <select id="filterYear"></select>
+    <select id="filterProject"></select>
+    <select id="filterPerson"></select>
+  </section>
+
+  <section class="status-line" id="statusLine">Lädt…</section>
+
+  <section class="summary-card">
+    <div class="summary-total" id="summaryTotal">–</div>
+    <div class="summary-sub" id="summarySub">&nbsp;</div>
+  </section>
+
+  <section class="chart-block">
+    <h2>Nach Projekt</h2>
+    <div class="bar-chart" id="chartByProject"></div>
+  </section>
+
+  <section class="chart-block">
+    <h2>Nach Person</h2>
+    <div class="bar-chart" id="chartByPerson"></div>
+  </section>
+
+  <section class="table-block">
+    <h2>Einträge</h2>
+    <div class="table-wrap">
+      <table id="entriesTable">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Projekt</th>
+            <th>Person</th>
+            <th>Dauer</th>
+            <th>Kommentar</th>
+          </tr>
+        </thead>
+        <tbody id="entriesBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>
