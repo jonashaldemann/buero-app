@@ -379,6 +379,69 @@ async function refreshProjectNames() {
   }
 }
 
+// ---------- Manuell nachtragen ----------
+
+function openManualEntry() {
+  const dateInput = document.getElementById("manualDate");
+  const today = formatDate(new Date());
+  dateInput.value = today;
+  dateInput.max = today; // kein Nachtragen in der Zukunft
+
+  const projectSelect = document.getElementById("manualProject");
+  projectSelect.innerHTML = projectList
+    .map((name, i) => `<option value="P${i + 1}">${escapeHtml(name)}</option>`)
+    .join("");
+
+  document.getElementById("manualHours").value = "";
+  document.getElementById("manualMinutes").value = "";
+  document.getElementById("manualComment").value = "";
+  document.getElementById("manualResult").textContent = "";
+  document.getElementById("manualOverlay").classList.remove("hidden");
+}
+
+function closeManualEntry() {
+  document.getElementById("manualOverlay").classList.add("hidden");
+}
+
+function saveManualEntry() {
+  const resultEl = document.getElementById("manualResult");
+  const date = document.getElementById("manualDate").value;
+  const projectId = document.getElementById("manualProject").value;
+  const hours = parseInt(document.getElementById("manualHours").value, 10) || 0;
+  const minutes = parseInt(document.getElementById("manualMinutes").value, 10) || 0;
+  const commentText = document.getElementById("manualComment").value.trim();
+
+  if (!date) {
+    resultEl.textContent = "Bitte ein Datum wählen.";
+    resultEl.className = "test-result err";
+    return;
+  }
+  if (!projectId) {
+    resultEl.textContent = "Bitte ein Projekt wählen.";
+    resultEl.className = "test-result err";
+    return;
+  }
+  const durationSec = hours * 3600 + minutes * 60;
+  if (durationSec <= 0) {
+    resultEl.textContent = "Bitte eine Dauer grösser als 0 eingeben.";
+    resultEl.className = "test-result err";
+    return;
+  }
+
+  const entry = { id: uid(), date, start: "", end: "", durationSec, projectId };
+  entries.push(entry);
+
+  const key = bucketKey(date, projectId);
+  if (commentText) {
+    comments[key] = comments[key] ? `${comments[key]}; ${commentText}` : commentText;
+  }
+  markDirty(key);
+  saveState();
+  closeManualEntry();
+  render();
+  trySync();
+}
+
 // ---------- WebDAV Sync ----------
 
 function isConfigured() {
@@ -538,13 +601,18 @@ function saveSettings() {
 function init() {
   renderProjectButtons(); // Projekt-Buttons dynamisch erzeugen (Klick-Listener inklusive)
 
-  document.querySelectorAll(".control-buttons .proj-btn").forEach((btn) => {
+  document.querySelectorAll(".control-buttons .proj-btn[data-action]").forEach((btn) => {
     btn.addEventListener("click", () => handleButton(btn.dataset.action));
   });
   document.getElementById("settingsBtn").addEventListener("click", openSettings);
   document.getElementById("closeSettings").addEventListener("click", closeSettingsFn);
   document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
   document.getElementById("testConnBtn").addEventListener("click", testConnection);
+
+  document.getElementById("manualEntryBtn").addEventListener("click", openManualEntry);
+  document.getElementById("closeManual").addEventListener("click", closeManualEntry);
+  document.getElementById("cancelManualBtn").addEventListener("click", closeManualEntry);
+  document.getElementById("saveManualBtn").addEventListener("click", saveManualEntry);
 
   window.addEventListener("online", trySync);
   window.addEventListener("visibilitychange", () => {
