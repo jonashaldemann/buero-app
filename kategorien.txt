@@ -1,0 +1,54 @@
+	BESTANDSÄNDERUNGEN
+	
+	ERLÖSE
+3000	Bruttoerlöse Verkäufe
+3000.007	007 Herrliberg Honorare
+3000.015	015 Studienauftrag Rothrist Honorare
+3000.016	016 Bürglenstrasse Honorare
+3090	Aktive Skonti 
+3400	Bruttoerlöse Dienstleistungen
+3490	Skonti auf Dienstleistungsertrag
+3680	Sonstige Erlöse
+	TOTAL ERLÖSE
+	
+	AUFWÄNDE
+4000	Einkäufe
+4090	Passive Skonti 
+4401.018	018 Bönigen Nebenkosten nicht verrechenbar
+5000	Löhne
+5700	Sozialversicherungen
+5790	Quellensteuer
+5820	Reisespesen
+5880	Sonstiger Personalaufwand
+5900	Leistungen Dritter
+6000	Mietzins
+6100	Unterhalt, Reparaturen, Ersatz (URE) Maschinen und Apparate
+6210	Benzin
+6300	Versicherungen
+6360	Abgaben und Gebühren
+6400	Elektrizität
+6420	Heizung
+6430	Wasser
+6460	Kehrichtabfuhr
+6500	Büromaterial
+6503	Fachzeitschriften & Fachliteratur
+6510	Telefon
+6512	Internet
+6513	Porti (Brief- und Paketsendungen)
+6601	Webesite & Online-Werbung
+6650.000	Akquisition: Präqualis und Werbeversand
+6650.015	Akquisition 015 Studienauftrag Rothrist
+6650.019	Akquisition 019 Wettbewerb Lausanne
+6650.020	Akquisition 020 Villars-sur-Glâne
+6651	Abgeschriebene Modelldepots
+6700	Buchführungs- und Beratungsaufwand
+6800	Abschreibungen und Wertberichtigungen auf Positionen des Anlagevermögens
+6900	Finanzaufwand
+8900	Steuern
+	TOTAL AUFWÄNDE
+	
+	BETRIEBSERGEBNIS
+	
+	
+	
+	

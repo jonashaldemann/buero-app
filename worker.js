@@ -23,13 +23,15 @@
 
 const ALLOWED_ORIGIN = "https://jonashaldemann.github.io";
 const NEXTCLOUD_ORIGIN = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
-const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "OPTIONS"];
+// PROPFIND wird für die Belegerfassung gebraucht, um den Ordnerinhalt zu
+// lesen (höchste bestehende Belegnummer ermitteln).
+const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "PROPFIND", "OPTIONS"];
 
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": ALLOWED_METHODS.join(", "),
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Depth",
     "Access-Control-Max-Age": "3600"
   };
 }
@@ -59,7 +61,14 @@ export default {
     const forwardHeaders = new Headers();
     const auth = request.headers.get("Authorization");
     if (auth) forwardHeaders.set("Authorization", auth);
-    if (request.method === "PUT") forwardHeaders.set("Content-Type", "text/csv");
+    // Content-Type 1:1 vom Browser übernehmen statt fest vorzugeben --
+    // sonst würden z.B. Foto-/PDF-Uploads bei der Belegerfassung mit
+    // falschem Content-Type (text/csv) ankommen.
+    const contentType = request.headers.get("Content-Type");
+    if (contentType) forwardHeaders.set("Content-Type", contentType);
+    // Depth-Header für PROPFIND (Ordnerinhalt lesen) durchreichen.
+    const depth = request.headers.get("Depth");
+    if (depth) forwardHeaders.set("Depth", depth);
     // Ohne einen "normalen" User-Agent stufen manche Hosting-Firewalls
     // (z.B. bei hosting.de) den Request als Bot/Skript ein und blockieren ihn
     // mit "Suspicious traffic detected" -- deshalb hier ein Browser-UA.
@@ -70,7 +79,7 @@ export default {
     forwardHeaders.set("Accept", "*/*");
 
     const init = { method: request.method, headers: forwardHeaders };
-    if (request.method === "PUT") {
+    if (request.method === "PUT" || request.method === "PROPFIND") {
       init.body = await request.arrayBuffer();
     }
 

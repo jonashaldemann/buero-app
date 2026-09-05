@@ -73,6 +73,12 @@ body {
 }
 .icon-btn:active { background: var(--surface-2); }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 main {
   flex: 1;
   padding: 0 16px 24px;
@@ -268,6 +274,23 @@ input[type="date"], input[type="number"], select {
 }
 select { appearance: none; -webkit-appearance: none; }
 input:focus, select:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
+input[type="file"] {
+  background: var(--surface-2);
+  border: none;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-family: var(--font-light);
+  width: 100%;
+}
+
+.file-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
 
 .duration-row {
   display: flex;
