@@ -707,8 +707,11 @@ function fileExtension(file) {
 // TXT-Format "Bewegungen Einnahmen-Ausgaben" (tab-getrennt, feste englische
 // Spaltennamen unabhängig von der Banana-UI-Sprache):
 // https://www.banana.ch/doc/en/node/9946
-// Date(yyyy-mm-dd) Description Income Expenses DocInvoice ContraAccount Account VatCode
-const BANANA_TXT_HEADER = "Date\tDescription\tIncome\tExpenses\tDocInvoice\tContraAccount\tAccount\tVatCode";
+// Date(yyyy-mm-dd) Description Income Expenses Doc Category Account VatCode
+// (die offizielle Doku nennt die Spalten "DocInvoice"/"ContraAccount", im
+// tatsächlichen Import-Dialog heissen sie aber "Doc"/"Category" --
+// getestet/bestätigt, buchungen.txt importiert damit korrekt.)
+const BANANA_TXT_HEADER = "Date\tDescription\tIncome\tExpenses\tDoc\tCategory\tAccount\tVatCode";
 
 // Tabs/Zeilenumbrüche killen, da das Format (anders als CSV) kein Quoting
 // für eingebettete Tabs kennt -- sonst würde die Spaltenstruktur brechen.

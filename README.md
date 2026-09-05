@@ -207,12 +207,14 @@ Quittungen (Foto) oder Rechnungen (PDF) erfassen lassen:
 ### Banana-Import-Format (buchungen.txt)
 
 Banana Buchhaltung importiert kein CSV, sondern nur sein eigenes generisches
-Tab-getrenntes TXT-Format "Bewegungen Einnahmen-Ausgaben"
-([offizielle Spezifikation](https://www.banana.ch/doc/en/node/9946)) mit
-fixen, sprachunabhängigen Spaltennamen:
+Tab-getrenntes TXT-Format "Bewegungen Einnahmen-Ausgaben". Die
+[offizielle Doku](https://www.banana.ch/doc/en/node/9946) nennt die Spalten
+"DocInvoice"/"ContraAccount" — im tatsächlichen Import-Dialog von Banana
+heissen sie aber **"Doc"/"Category"** (im Test bestätigt, die Doku ist an der
+Stelle ungenau):
 
 ```
-Date	Description	Income	Expenses	DocInvoice	ContraAccount	Account	VatCode
+Date	Description	Income	Expenses	Doc	Category	Account	VatCode
 2026-01-15	KUARIO Quittung		45.90	26-A003	4000	6500	M81
 ```
 
@@ -224,8 +226,8 @@ kein Tausendertrennzeichen.) Die Spalten werden so befüllt:
 | `Date` | Datum aus dem Formular |
 | `Description` | Verwendungszweck (voller Text, nicht gekürzt) |
 | `Income` / `Expenses` | Betrag, je nachdem ob Einnahme oder Ausgabe (nur eine der beiden Spalten gefüllt) |
-| `DocInvoice` | Belegnummer, z.B. `26-A003` |
-| `ContraAccount` | Kategorie/Gegenkonto |
+| `Doc` | Belegnummer, z.B. `26-A003` |
+| `Category` | Kategorie/Gegenkonto |
 | `Account` | Konto |
 | `VatCode` | MwSt/USt-Code |
 
