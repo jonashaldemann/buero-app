@@ -95,8 +95,8 @@ export default {
 
     const body = await upstream.arrayBuffer();
     const respHeaders = new Headers(corsHeaders());
-    const contentType = upstream.headers.get("Content-Type");
-    if (contentType) respHeaders.set("Content-Type", contentType);
+    const responseContentType = upstream.headers.get("Content-Type");
+    if (responseContentType) respHeaders.set("Content-Type", responseContentType);
 
     return new Response(body, { status: upstream.status, headers: respHeaders });
   }
