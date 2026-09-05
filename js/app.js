@@ -672,14 +672,25 @@ async function listReceiptFolderFilenames() {
   return hrefs.map((href) => decodeURIComponent(href.replace(/\/$/, "").split("/").pop() || "")).filter(Boolean);
 }
 
-async function nextBelegnummer() {
+// Belegnummer-Schema: [JJ]-[A|E][NNN], z.B. "26-A003" -- JJ = aktuelles Jahr
+// (2-stellig), A/E = Ausgabe/Einnahme, NNN = dreistellig fortlaufend, je
+// getrennt gezählt pro Jahr UND Typ (A und E haben je eigene Zählung).
+function belegPrefix(typ) {
+  const yy = String(new Date().getFullYear()).slice(-2);
+  const letter = typ === "Einnahme" ? "E" : "A";
+  return `${yy}-${letter}`;
+}
+
+async function nextBelegnummer(typ) {
   const filenames = await listReceiptFolderFilenames();
+  const prefix = belegPrefix(typ);
+  const re = new RegExp(`^${prefix}(\\d{3})`);
   let max = 0;
   filenames.forEach((name) => {
-    const m = /^(\d{4})-/.exec(name);
+    const m = re.exec(name);
     if (m) max = Math.max(max, parseInt(m[1], 10));
   });
-  return String(max + 1).padStart(4, "0");
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
 function sanitizeForFilename(s) {
@@ -692,27 +703,33 @@ function fileExtension(file) {
   return file.type === "application/pdf" ? "pdf" : "jpg";
 }
 
-// Spalten wie in Banana (einfache Buchhaltung: Konto/Kategorie statt
-// Soll/Haben) -- lässt sich so direkt in Banana importieren. Person und
-// Dateiname sind zusätzliche Spalten für die eigene Nachverfolgung; Banana
-// ignoriert überzählige Spalten beim Import.
-const BANANA_CSV_HEADER =
-  "Datum,Beleg,Beschreibung,Einnahmen CHF,Ausgaben CHF,Konto,Kategorie,MwSt/USt-Code,Person,Dateiname";
+// Banana kann kein CSV importieren, sondern nur das eigene generische
+// TXT-Format "Bewegungen Einnahmen-Ausgaben" (tab-getrennt, feste englische
+// Spaltennamen unabhängig von der Banana-UI-Sprache):
+// https://www.banana.ch/doc/en/node/9946
+// Date(yyyy-mm-dd) Description Income Expenses DocInvoice ContraAccount Account VatCode
+const BANANA_TXT_HEADER = "Date\tDescription\tIncome\tExpenses\tDocInvoice\tContraAccount\tAccount\tVatCode";
 
-function bananaCsvRelativePath() {
+// Tabs/Zeilenumbrüche killen, da das Format (anders als CSV) kein Quoting
+// für eingebettete Tabs kennt -- sonst würde die Spaltenstruktur brechen.
+function tsvField(v) {
+  return String(v ?? "").replace(/[\t\r\n]+/g, " ").trim();
+}
+
+function bananaTxtRelativePath() {
   // Der Ordner ist bereits pro Jahr getrennt (receiptDavSegments()) --
   // deshalb hier kein zusätzliches Jahr im Dateinamen nötig.
-  return davPath([...receiptDavSegments(), "buchungen.csv"].join("/"));
+  return davPath([...receiptDavSegments(), "buchungen.txt"].join("/"));
 }
 
 async function appendBananaBooking(entry) {
-  const relPath = bananaCsvRelativePath();
+  const relPath = bananaTxtRelativePath();
   let existingText = "";
   const getRes = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
   if (getRes.status === 200) {
     existingText = await getRes.text();
   } else if (getRes.status === 404) {
-    existingText = BANANA_CSV_HEADER + "\n";
+    existingText = BANANA_TXT_HEADER + "\n";
   } else {
     throw new Error(`Buchungsdatei lesen fehlgeschlagen (${getRes.status})`);
   }
@@ -720,22 +737,20 @@ async function appendBananaBooking(entry) {
   const amountStr = entry.amount.toFixed(2);
   const row = [
     entry.date,
-    entry.belegnummer,
     entry.purpose,
     entry.typ === "Einnahme" ? amountStr : "",
     entry.typ === "Ausgabe" ? amountStr : "",
-    entry.konto,
+    entry.belegnummer,
     entry.kategorie,
-    entry.mwst,
-    personName(),
-    entry.filename
-  ].map(csvField).join(",");
+    entry.konto,
+    entry.mwst
+  ].map(tsvField).join("\t");
 
   const updated = existingText.replace(/\n?$/, "\n") + row + "\n";
 
   const putRes = await proxyFetch(relPath, {
     method: "PUT",
-    headers: { ...authHeader(), "Content-Type": "text/csv" },
+    headers: { ...authHeader(), "Content-Type": "text/plain" },
     body: updated
   });
   if (!putRes.ok) throw new Error(`Buchung schreiben fehlgeschlagen (${putRes.status})`);
@@ -832,10 +847,10 @@ async function saveReceiptEntry() {
 
   try {
     await ensureReceiptFolder();
-    const belegnummer = await nextBelegnummer();
+    const belegnummer = await nextBelegnummer(typ);
     const shortPurpose = sanitizeForFilename(purpose) || "Beleg";
     const ext = fileExtension(file);
-    const filename = `${belegnummer}-${shortPurpose}.${ext}`;
+    const filename = `${belegnummer} ${shortPurpose}.${ext}`;
     const relPath = davPath([...receiptDavSegments(), filename].join("/"));
 
     const uploadRes = await proxyFetch(relPath, {

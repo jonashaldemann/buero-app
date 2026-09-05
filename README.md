@@ -190,27 +190,49 @@ Quittungen (Foto) oder Rechnungen (PDF) erfassen lassen:
      `Buero/Admin/Finanzen` in `js/app.js`) **plus automatisch das aktuelle
      Jahr** als letzte Ebene, z.B. `Buero/Admin/Finanzen/2026`
      (`receiptDavSegments()`). Der Jahresordner wird beim ersten Beleg eines
-     neuen Jahres automatisch neu angelegt — dadurch startet die
-     Belegnummerierung jedes Jahr wieder bei 0001, wie in der Buchhaltung
-     üblich.
-   - Die App liest diesen Ordner per WebDAV (`PROPFIND`) und ermittelt die
-     höchste bestehende vierstellige Belegnummer (erste vier Ziffern des
-     Dateinamens).
-   - Die Datei wird als `[nächste Nummer]-[Verwendungszweck, max. 15
-     Zeichen].{ext}` in diesen Ordner hochgeladen.
-   - Zusätzlich wird die Buchung als Zeile an eine CSV-Datei `buchungen.csv`
-     im selben (Jahres-)Ordner angehängt, mit den gleichen Spalten wie in
-     Banana (einfache Buchhaltung mit Konto/Kategorie statt Soll/Haben):
-     `Datum, Beleg, Beschreibung, Einnahmen CHF, Ausgaben CHF, Konto,
-     Kategorie, MwSt/USt-Code` — plus `Person` und `Dateiname` als
-     zusätzliche Spalten zur eigenen Nachverfolgung (Banana ignoriert
-     überzählige Spalten beim Import).
+     neuen Jahres automatisch neu angelegt.
+   - **Belegnummer-Schema:** `[JJ]-[A|E][NNN]`, z.B. `26-A003` — `JJ` =
+     aktuelles Jahr (2-stellig), `A`/`E` = Ausgabe/Einnahme, `NNN` =
+     dreistellig fortlaufend, **getrennt gezählt pro Jahr und Typ** (Ausgaben
+     und Einnahmen haben je eigene Nummernkreise). Die App liest den
+     Zielordner per WebDAV (`PROPFIND`), ermittelt die höchste bestehende
+     Nummer für den passenden Jahr/Typ-Präfix und zählt weiter
+     (`nextBelegnummer()`/`belegPrefix()`).
+   - Die Datei wird als `[Belegnummer] [Verwendungszweck, max. 15
+     Zeichen].{ext}` in diesen Ordner hochgeladen, z.B.
+     `26-A003 KUARIO Quittung.pdf`.
+   - Zusätzlich wird die Buchung als Zeile an `buchungen.txt` im selben
+     (Jahres-)Ordner angehängt — siehe nächster Abschnitt für das Format.
 
-Diese CSV ist bewusst **nicht** direkt die Banana-Buchhaltungsdatei (deren
-Format ist proprietär und lässt sich nicht sicher von aussen beschreiben),
-sondern eine Warteschlange zum Import: die Zeilen lassen sich in Banana über
-**Buchungen importieren** einlesen (Spalten passen zum nativen
-Einnahmen/Ausgaben-Format).
+### Banana-Import-Format (buchungen.txt)
+
+Banana Buchhaltung importiert kein CSV, sondern nur sein eigenes generisches
+Tab-getrenntes TXT-Format "Bewegungen Einnahmen-Ausgaben"
+([offizielle Spezifikation](https://www.banana.ch/doc/en/node/9946)) mit
+fixen, sprachunabhängigen Spaltennamen:
+
+```
+Date	Description	Income	Expenses	DocInvoice	ContraAccount	Account	VatCode
+2026-01-15	KUARIO Quittung		45.90	26-A003	4000	6500	M81
+```
+
+(`Date` im Format `yyyy-mm-dd`, Beträge mit Punkt als Dezimaltrennzeichen,
+kein Tausendertrennzeichen.) Die Spalten werden so befüllt:
+
+| Datei-Spalte | Quelle |
+|---|---|
+| `Date` | Datum aus dem Formular |
+| `Description` | Verwendungszweck (voller Text, nicht gekürzt) |
+| `Income` / `Expenses` | Betrag, je nachdem ob Einnahme oder Ausgabe (nur eine der beiden Spalten gefüllt) |
+| `DocInvoice` | Belegnummer, z.B. `26-A003` |
+| `ContraAccount` | Kategorie/Gegenkonto |
+| `Account` | Konto |
+| `VatCode` | MwSt/USt-Code |
+
+`buchungen.txt` ist bewusst **nicht** direkt die Banana-Buchhaltungsdatei
+(deren `.ac2`/natives Format ist proprietär und lässt sich nicht sicher von
+aussen beschreiben), sondern eine Warteschlange zum Import: in Banana über
+**Datei → Import → Bewegungen importieren** einlesen.
 
 ### Kontenplan, Kategorien und MwSt/USt-Codes pflegen
 
