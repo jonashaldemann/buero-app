@@ -174,6 +174,99 @@ Falls ihr die beiden CSVs später zu einer gemeinsamen Übersicht
 zusammenführen wollt, hilft dabei genau die `Person`-Spalte, die jetzt in
 jeder Zeile mitläuft.
 
+## Beleg erfassen (Quittungen/Rechnungen für Banana)
+
+Über das Kamera-Symbol oben links öffnet sich ein Formular, mit dem sich
+Quittungen (Foto) oder Rechnungen (PDF) erfassen lassen:
+
+1. Foto aufnehmen oder Datei (Bild/PDF) auswählen.
+2. Datum, Einnahme/Ausgabe, Betrag, MwSt/USt-Code, Konto und
+   Kategorie/Gegenkonto sowie einen Verwendungszweck eingeben. Der
+   MwSt/USt-Code-Auswahl passt sich automatisch an Einnahme/Ausgabe an
+   (Umsatzsteuer-Codes `V*` bei Einnahme, Vorsteuer-Codes `M*`/`I*` bei
+   Ausgabe — siehe unten).
+3. Beim Speichern:
+   - Der Zielordner ist `RECEIPT_TARGET_FOLDER_PATH` (Standard
+     `Buero/Admin/Finanzen` in `js/app.js`) **plus automatisch das aktuelle
+     Jahr** als letzte Ebene, z.B. `Buero/Admin/Finanzen/2026`
+     (`receiptDavSegments()`). Der Jahresordner wird beim ersten Beleg eines
+     neuen Jahres automatisch neu angelegt — dadurch startet die
+     Belegnummerierung jedes Jahr wieder bei 0001, wie in der Buchhaltung
+     üblich.
+   - Die App liest diesen Ordner per WebDAV (`PROPFIND`) und ermittelt die
+     höchste bestehende vierstellige Belegnummer (erste vier Ziffern des
+     Dateinamens).
+   - Die Datei wird als `[nächste Nummer]-[Verwendungszweck, max. 15
+     Zeichen].{ext}` in diesen Ordner hochgeladen.
+   - Zusätzlich wird die Buchung als Zeile an eine CSV-Datei `buchungen.csv`
+     im selben (Jahres-)Ordner angehängt, mit den gleichen Spalten wie in
+     Banana (einfache Buchhaltung mit Konto/Kategorie statt Soll/Haben):
+     `Datum, Beleg, Beschreibung, Einnahmen CHF, Ausgaben CHF, Konto,
+     Kategorie, MwSt/USt-Code` — plus `Person` und `Dateiname` als
+     zusätzliche Spalten zur eigenen Nachverfolgung (Banana ignoriert
+     überzählige Spalten beim Import).
+
+Diese CSV ist bewusst **nicht** direkt die Banana-Buchhaltungsdatei (deren
+Format ist proprietär und lässt sich nicht sicher von aussen beschreiben),
+sondern eine Warteschlange zum Import: die Zeilen lassen sich in Banana über
+**Buchungen importieren** einlesen (Spalten passen zum nativen
+Einnahmen/Ausgaben-Format).
+
+### Kontenplan, Kategorien und MwSt/USt-Codes pflegen
+
+Kontenplan, Kategorien und MwSt/USt-Codes werden **nicht** in `js/app.js`
+hart hinterlegt, sondern zur Laufzeit aus drei Textdateien im Repo-Root
+geladen: `konten.txt`, `kategorien.txt`, `mwst.txt`. Da diese Dateien vom
+gleichen Origin wie die App selbst ausgeliefert werden (GitHub Pages), reicht
+ein einfacher `fetch()` — kein Nextcloud-Proxy nötig, kein CORS-Thema.
+
+**Format:** Tab-getrennte Zeilen `Code<TAB>Bezeichnung`, ein Eintrag pro
+Zeile — exakt der Export aus Banana (**Datei → Export → Daten für Excel/Open
+Office/…**, Tabellen "Accounts"/"Categories"/"VatCodes", dort die
+Beträge-Spalten weglassen/löschen). Zeilen ohne Code (Leerzeilen,
+Abschnittsüberschriften wie "VERMÖGEN", Total-Zeilen wie "TOTAL ERLÖSE")
+werden beim Einlesen automatisch übersprungen; bei `kategorien.txt` werden
+die Überschriften "ERLÖSE" und "AUFWÄNDE" als Gruppen erkannt (siehe
+`KATEGORIEN_GROUP_LABELS` in `js/app.js`).
+
+**Ändert sich der Kontenplan in Banana** (z.B. neues Projekt/neue Kategorie):
+Datei in Banana neu exportieren, die Beträge-Spalten entfernen, die
+entsprechende `.txt`-Datei im Repo ersetzen, committen und pushen — die App
+übernimmt die Änderung automatisch (alle 60s sowie beim Öffnen des
+Beleg-Formulars), **ohne Code-Update**.
+
+`MWST_EINNAHME_CODES`/`MWST_AUSGABE_CODES` in `js/app.js` legen fest, welche
+Codes aus `mwst.txt` überhaupt zur Auswahl stehen (aktuell nur die gültigen
+Sätze 0/2.6/3.8/8.1%, keine alten Sätze oder Spezialfälle wie Bezugsteuer,
+Saldosteuersatz, Korrekturen) — das ändert sich praktisch nie und bleibt
+deshalb hart hinterlegt; nur die Beschreibungstexte kommen live aus
+`mwst.txt`. Bei Bedarf (z.B. neuer MwSt-Satz durch Gesetzesänderung) diese
+beiden Listen in `js/app.js` anpassen.
+
+Für den allerersten Start ohne Internet gibt es zusätzlich
+`FALLBACK_KONTEN`/`FALLBACK_KATEGORIEN`/`FALLBACK_MWST_CODES` in `js/app.js`
+als Offline-Fallback (danach übernimmt der localStorage-Cache der zuletzt
+erfolgreich geladenen Dateien diese Rolle).
+
+**Sicherheitshinweis:** Ein roher Banana-Export (mit Beträgen) enthält reale
+Umsatz-/Aufwandszahlen pro Konto — **so eine Datei niemals ins Repo
+committen**, da dieses Repo öffentlich auf GitHub liegt (GitHub Pages braucht
+ein öffentliches Repo). `*.jcsv`-Dateien (Bananas natives Exportformat, meist
+mit Beträgen) sind deshalb in `.gitignore` eingetragen — vor jedem Export
+sicherstellen, dass in `konten.txt`/`kategorien.txt`/`mwst.txt` wirklich nur
+Code und Bezeichnung stehen, keine Beträge-Spalten.
+
+**Wichtig:** Diese Funktion braucht zwingend eine Internetverbindung (die
+nächste Belegnummer wird live aus dem Ordnerinhalt ermittelt) — anders als
+bei der Zeiterfassung gibt es hier keinen Offline-Modus.
+
+**Worker-Update nötig:** Diese Funktion braucht `PROPFIND` (Ordner lesen) und
+darf den `Content-Type` von Uploads nicht mehr hart auf `text/csv` setzen
+(sonst wären Fotos/PDFs beschädigt). Falls der Cloudflare Worker schon
+deployed ist, muss der aktualisierte Inhalt von `worker.js` einmalig neu
+eingefügt und deployed werden (siehe Abschnitt "Worker deployen" oben,
+Schritt 4).
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person die

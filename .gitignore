@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# Banana-Exporte enthalten echte Umsatz-/Aufwandszahlen -- nie ins (öffentliche!)
+# Repo committen. Kontenplan/Kategorien/MwSt-Codes werden manuell (ohne Beträge)
+# in js/app.js gepflegt, siehe README.
+*.jcsv

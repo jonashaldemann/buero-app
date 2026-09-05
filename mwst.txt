@@ -1,0 +1,111 @@
+	Erläuterungen
+	V  = Umsatz Verkauf (200)
+	VS = Skonto Verkauf und Dienstleistungen (235)
+	B = Bezugsteuer  (38x)
+	M = Material- und Dienstleistungsaufwand (400)
+	I = Investitionen und übrigem Betriebsaufwand (405)
+	K = Korrekturen und Kürzungen  (410, 415, 420)
+	Z = Nicht-Entgelte (910)
+	
+	MwSt/USt-Codes-Informationen  (nicht bearbeiten)
+	id=vatcodes-chd-2025.20250312
+	Letzte Aktualisierung: 12.03.2025
+	
+	Umsatzsteuer (Schuld)
+V0	Von der Steuer befreite Leistungen, u.a. Exporte (220)
+V0-E	Leistungen im Ausland (221)
+V0-T	Übertragung im Meldeverfahren (225)
+V0-N	Nicht steuerbare Leistungen (230)
+	Entgeltminderungen siehe Skonti
+V0-D	Diverses (280)
+V77	Verkauf und Dienstleistungen 7.7%
+V81	Verkauf und Dienstleistungen 8.1%
+V77-B	Verkauf und Dienstleistungen 7.7% (optiert)
+V81-B	Verkauf und Dienstleistungen 8.1% (optiert)
+V25-N	Verkauf und Dienstleistungen 2.5%
+V26	Verkauf und Dienstleistungen 2.6%
+V37	Verkauf und Dienstleistungen 3.7%
+V38	Verkauf und Dienstleistungen 3.8%
+VS77	Skonto Verkauf und Dienstleistungen  7.7%
+VS81	Skonto Verkauf und Dienstleistungen  8.1%
+VS25-N	Skonto Verkauf und Dienstleistungen  2.5%
+VS26	Skonto Verkauf und Dienstleistungen  2.6%
+VS37	Skonto Verkauf und Dienstleistungen 3.7%
+VS38	Skonto Verkauf und Dienstleistungen 3.8%
+	
+	Steuerbarer Gesamtumsatz (299)
+	
+F1	1. Saldosteuersatz
+F2	2. Saldosteuersatz
+F3	3. Saldosteuersatz
+F4	4. Saldosteuersatz
+F5	5. Saldosteuersatz
+F6	6. Saldosteuersatz
+F7	7. Saldosteuersatz
+F8	8. Saldosteuersatz
+F9	9. Saldosteuersatz
+FS1	Skonto Verkauf und Dienstleistungen 1. Saldosteuersatz
+FS2	Skonto Verkauf und Dienstleistungen 2. Saldosteuersatz
+FS3	Skonto Verkauf und Dienstleistungen 3. Saldosteuersatz
+FS4	Skonto Verkauf und Dienstleistungen 4. Saldosteuersatz
+FS5	Skonto Verkauf und Dienstleistungen 5. Saldosteuersatz
+FS6	Skonto Verkauf und Dienstleistungen 6. Saldosteuersatz
+FS7	Skonto Verkauf und Dienstleistungen 7. Saldosteuersatz
+FS8	Skonto Verkauf und Dienstleistungen 8. Saldosteuersatz
+FS9	Skonto Verkauf und Dienstleistungen 9. Saldosteuersatz
+	Total Saldosteuersatz (322-335)
+	
+B77	Bezugsteuer 7.7%  (inklusive MwSt/USt)
+B77-1	Bezugsteuer 7.7%  (exklusive MwSt/USt)
+B77-2	Bezugsteuer 7.7%  (MwSt/USt-Betrag)
+B81	Bezugsteuer 8.1%  (inklusive MwSt/USt)
+B81-1	Bezugsteuer 8.1%  (exklusive MwSt/USt)
+B81-2	Bezugsteuer 8.1%  (MwSt/USt-Betrag)
+	Total Bezugsteuer (382-383)
+	Total geschuldete Steuer (399)
+	
+	Vorsteuer (Guthaben)
+M0	Befreite Material- und Dienstleistungsaufwand 
+I0	Befreite Investition und Betriebsaufwand 
+M77	Material- und Dienstleistungsaufwand 7.7%  (inklusive MwSt/USt)
+M77-1	Material- und Dienstleistungsaufwand 7.7%  (exklusive MwSt/USt)
+M77-2	Material- und Dienstleistungsaufwand 7.7%  (MwSt/USt-Betrag)
+M81	Material- und Dienstleistungsaufwand 8.1%  (inklusive MwSt/USt)
+M81-1	Material- und Dienstleistungsaufwand 8.1%  (exklusive MwSt/USt)
+M81-2	Material- und Dienstleistungsaufwand 8.1%  (MwSt/USt-Betrag)
+M25	Material- und Dienstleistungsaufwand 2.5%
+M26	Material- und Dienstleistungsaufwand 2.6%
+M37	Material- und Dienstleistungsaufwand 3.7%
+M38	Material- und Dienstleistungsaufwand 3.8%
+	
+	Investition und Betriebsaufwand
+I77	Investition und Betriebsaufwand 7.7%
+I77-1	Investition und Betriebsaufwand 7.7% (exklusive MwSt/USt)
+I77-2	Investition und Betriebsaufwand 7.7%  (MwSt/USt-Betrag)
+I81	Investition und Betriebsaufwand 8.1%
+I81-1	Investition und Betriebsaufwand 8.1% (exklusive MwSt/USt)
+I81-2	Investition und Betriebsaufwand 8.1%  (MwSt/USt-Betrag)
+I25	Investition und Betriebsaufwand 2.5%
+I26	Investition und Betriebsaufwand 2.6%
+I37	Investition und Betriebsaufwand 3.7%
+I38	Investition und Betriebsaufwand 3.8%
+	
+	Korrekturen und Kürzungen 
+K77-A	Einlageentsteuerung  7.7% (410)
+K81-A	Einlageentsteuerung  8.1% (410)
+K77-B	Vorsteuerkorrekturen 7.7% (415)
+K81-B	Vorsteuerkorrekturen 8.1% (415)
+K77-C	Vorsteuerkürzungen 7.7% (420)
+K81-C	Vorsteuerkürzungen 8.1% (420)
+F1050	Steueranrechnung gemäss Formular Nr. 1050
+F1055	Steueranrechnung gemäss Formular Nr. 1055
+	
+	Total Vorsteuer (479)
+	Total zu bezahlen (500) oder Guthaben (510)
+	
+	Andere Mittelflüsse
+Z0-A	Subventionen, durch Kurvereine eingenommene Tourismusabgaben, Entsorgungs-und Wasserwerkbeiträge (Bst. a-c)
+Z0	Spenden, Dividenden, Schadenersatz usw.
+	Nicht-Entgelte
+	Total der Kontrolle 
+	
