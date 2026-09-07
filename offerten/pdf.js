@@ -35,13 +35,25 @@ function pdfHexRgb(hex) {
   return PDFLib.rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-let PDF_COLOR_TEXT, PDF_COLOR_MUTED, PDF_COLOR_BORDER, PDF_COLOR_ACCENT;
+// Bewusst nur Graustufen (kein Farbakzent) -- typografisch schlicht und
+// druckt auch schwarz/weiss sauber. Hierarchie kommt über Schriftschnitt
+// (Light/Medium) und wenige, gezielt eingesetzte Grössen, nicht über Farbe.
+let PDF_COLOR_TEXT, PDF_COLOR_MUTED, PDF_COLOR_BORDER;
 function initPdfColors() {
-  PDF_COLOR_TEXT = pdfHexRgb("#46433C");
-  PDF_COLOR_MUTED = pdfHexRgb("#A79C8C");
-  PDF_COLOR_BORDER = pdfHexRgb("#E3DED2");
-  PDF_COLOR_ACCENT = pdfHexRgb("#4F7089");
+  PDF_COLOR_TEXT = pdfHexRgb("#333333");
+  PDF_COLOR_MUTED = pdfHexRgb("#888888");
+  PDF_COLOR_BORDER = pdfHexRgb("#DDDDDD");
 }
+
+// Eingeschränkter Grössen-Massstab (statt vieler verschiedener Grössen):
+// 16 nur für den Seitentitel OFFERTE/RECHNUNG, 11 für Zwischenüberschriften
+// (Phase, Projekt-Titel Seite 2), 10 als durchgehende Standardgrösse
+// (Light normal, Medium für Betonung), 9 fürs Kleingedruckte (Bullets,
+// Spaltenköpfe, Meta-Angaben, Zahlungshinweis).
+const SIZE_TITLE = 16;
+const SIZE_HEAD = 11;
+const SIZE_BODY = 10;
+const SIZE_SMALL = 9;
 
 // ---------- Formatierung (eigene, kleine Kopien -- siehe Kommentar oben) ----------
 
@@ -103,7 +115,7 @@ function ensureSpace(ctx, height, onBreak) {
   return false;
 }
 
-function drawText(ctx, str, x, y, { size = 10.5, font, color, align = "left" } = {}) {
+function drawText(ctx, str, x, y, { size = SIZE_BODY, font, color, align = "left" } = {}) {
   if (!str) return 0;
   const f = font || ctx.light;
   const c = color || PDF_COLOR_TEXT;
@@ -122,74 +134,55 @@ function drawRule(ctx, y, { x0 = PDF_MARGIN, x1 = PDF_PAGE_WIDTH - PDF_MARGIN, t
 function drawLetterPage(ctx, offer, absender) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
+  // Absenderblock oben rechts -- durchgehend Light/10, keine eigene
+  // Auszeichnung mehr (weniger Farben/Grössen als möglich).
   if (absender) {
     let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
-    [
-      { t: absender.name, font: ctx.medium, size: 10.5 },
-      { t: absender.adresse, font: ctx.light, size: 9 },
-      { t: absender.plz_ort, font: ctx.light, size: 9 }
-    ]
-      .filter((l) => l.t)
-      .forEach((l) => {
-        drawText(ctx, l.t, rightX, ay, { size: l.size, font: l.font, align: "right" });
-        ay -= l.size + 4;
+    [absender.name, absender.adresse, absender.plz_ort, absender.telefon, absender.email, absender.website]
+      .filter(Boolean)
+      .forEach((line) => {
+        drawText(ctx, line, rightX, ay, { size: SIZE_BODY, font: ctx.light, align: "right" });
+        ay -= SIZE_BODY + 4;
       });
-    const contact = [absender.telefon, absender.email, absender.website].filter(Boolean);
-    if (contact.length) {
-      ay -= 4;
-      contact.forEach((p) => {
-        drawText(ctx, p, rightX, ay, { size: 8.5, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
-        ay -= 12;
-      });
-    }
   }
 
-  let y = PDF_PAGE_HEIGHT - PDF_MARGIN - 130;
-
-  if (absender) {
-    const returnLine = [absender.name, absender.adresse, absender.plz_ort].filter(Boolean).join(", ");
-    if (returnLine) {
-      drawText(ctx, returnLine, PDF_MARGIN, y, { size: 7.5, font: ctx.light, color: PDF_COLOR_MUTED });
-      y -= 8;
-      drawRule(ctx, y, { x1: PDF_MARGIN + 240 });
-      y -= 18;
-    }
-  }
+  // Kein wiederholter Absender über dem Adressaten (bewusst weggelassen).
+  let y = PDF_PAGE_HEIGHT - PDF_MARGIN - 140;
 
   if (offer.empfaenger) {
-    drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: 10.5, font: ctx.medium });
-    y -= 14;
+    drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
+    y -= SIZE_BODY + 4;
   }
   (offer.adresse || "")
     .split("\n")
     .filter((l) => l.trim())
     .forEach((line) => {
-      drawText(ctx, line, PDF_MARGIN, y, { size: 10.5, font: ctx.light });
-      y -= 14;
+      drawText(ctx, line, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
+      y -= SIZE_BODY + 4;
     });
 
   y -= 16;
   const ortDatum = [offer.ort, chDateLong(offer.datum)].filter(Boolean).join(", ");
-  if (ortDatum) drawText(ctx, ortDatum, rightX, y, { size: 10.5, font: ctx.light, align: "right" });
+  if (ortDatum) drawText(ctx, ortDatum, rightX, y, { size: SIZE_BODY, font: ctx.light, align: "right" });
 
-  y -= 30;
+  y -= 28;
   const titleWord = offer.typ === "rechnung" ? "Rechnung" : "Offerte";
   const betreff = offer.betreff || `${titleWord}${offer.projekt ? " " + offer.projekt : ""}`;
-  drawText(ctx, betreff, PDF_MARGIN, y, { size: 11, font: ctx.medium });
+  drawText(ctx, betreff, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.medium });
 
-  y -= 26;
+  y -= 24;
   (offer.brieftext || "").split("\n").forEach((raw) => {
     if (!raw.trim()) {
       y -= 12;
       return;
     }
-    wrapText(ctx.light, raw, 10.5, PDF_CONTENT_WIDTH).forEach((line) => {
+    wrapText(ctx.light, raw, SIZE_BODY, PDF_CONTENT_WIDTH).forEach((line) => {
       if (y < PDF_MARGIN) {
         newPage(ctx);
         y = ctx.y;
       }
-      drawText(ctx, line, PDF_MARGIN, y, { size: 10.5, font: ctx.light });
-      y -= 14;
+      drawText(ctx, line, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
+      y -= SIZE_BODY + 4;
     });
   });
 
@@ -199,9 +192,9 @@ function drawLetterPage(ctx, offer, absender) {
 // ---------- Seite 2+: Offerte/Rechnung ----------
 
 function drawColumnHeader(ctx) {
-  drawText(ctx, "Modul", COL_TITLE_X, ctx.y, { size: 9, font: ctx.light, color: PDF_COLOR_MUTED });
-  drawText(ctx, "Stunden", COL_STUNDEN_RIGHT, ctx.y, { size: 9, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
-  drawText(ctx, "Kosten", COL_KOSTEN_RIGHT, ctx.y, { size: 9, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  drawText(ctx, "Modul", COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+  drawText(ctx, "Stunden", COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  drawText(ctx, "Kosten", COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
   ctx.y -= 6;
   drawRule(ctx, ctx.y);
   ctx.y -= 14;
@@ -210,29 +203,29 @@ function drawColumnHeader(ctx) {
 function drawPhaseRow(ctx, p) {
   ensureSpace(ctx, 40, () => drawColumnHeader(ctx));
   ctx.y -= 6;
-  drawText(ctx, p.titel || "", PDF_MARGIN, ctx.y, { size: 12, font: ctx.medium });
+  drawText(ctx, p.titel || "", PDF_MARGIN, ctx.y, { size: SIZE_HEAD, font: ctx.medium });
   ctx.y -= 6;
-  drawRule(ctx, ctx.y, { thickness: 1.2 });
+  drawRule(ctx, ctx.y, { thickness: 1 });
   ctx.y -= 16;
 }
 
 function drawModulRow(ctx, p, nr, rate) {
   const bulletLines = (Array.isArray(p.beschrieb) ? p.beschrieb : [])
     .filter((l) => l && l.trim())
-    .flatMap((line) => wrapText(ctx.light, line, 9.5, COL_TITLE_WRAP_WIDTH - 12));
+    .flatMap((line) => wrapText(ctx.light, line, SIZE_SMALL, COL_TITLE_WRAP_WIDTH - 12));
 
   const blockHeight = 15 + bulletLines.length * 13 + 20;
   ensureSpace(ctx, blockHeight, () => drawColumnHeader(ctx));
 
   const kosten = (Number(p.stunden) || 0) * rate;
-  drawText(ctx, `${nr})  ${p.titel || ""}`, COL_TITLE_X, ctx.y, { size: 10.5, font: ctx.medium });
-  drawText(ctx, chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, { size: 10.5, font: ctx.light, align: "right" });
-  drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: 10.5, font: ctx.light, align: "right" });
+  drawText(ctx, `${nr})  ${p.titel || ""}`, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
+  drawText(ctx, chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
+  drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   ctx.y -= 15;
 
   bulletLines.forEach((line) => {
     ensureSpace(ctx, 13, () => drawColumnHeader(ctx));
-    drawText(ctx, `•  ${line}`, COL_TITLE_X + 10, ctx.y, { size: 9.5, font: ctx.light, color: PDF_COLOR_MUTED });
+    drawText(ctx, `•  ${line}`, COL_TITLE_X + 10, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
     ctx.y -= 13;
   });
 
@@ -258,22 +251,22 @@ function drawTotals(ctx, offer) {
     ["Zwischentotal exkl. MWST", chFrPdf(subtotal)],
     [`MWST ${chNumberPdf(mwstProzent)}%`, chFrPdf(mwst)]
   ].forEach(([label, val]) => {
-    drawText(ctx, label, labelX, ctx.y, { size: 10, font: ctx.light });
-    drawText(ctx, val, COL_KOSTEN_RIGHT, ctx.y, { size: 10, font: ctx.light, align: "right" });
+    drawText(ctx, label, labelX, ctx.y, { size: SIZE_BODY, font: ctx.light });
+    drawText(ctx, val, COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
     ctx.y -= 15;
   });
 
   ctx.y -= 4;
   drawRule(ctx, ctx.y + 10, { x0: labelX });
   const totalLabel = offer.typ === "rechnung" ? "Rechnungsbetrag inkl. MWST" : "Total inkl. MWST";
-  drawText(ctx, totalLabel, labelX, ctx.y, { size: 11.5, font: ctx.medium });
-  drawText(ctx, chFrPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: 11.5, font: ctx.medium, align: "right" });
+  drawText(ctx, totalLabel, labelX, ctx.y, { size: SIZE_BODY, font: ctx.medium });
+  drawText(ctx, chFrPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.medium, align: "right" });
   ctx.y -= 26;
 
   if (offer.typ === "rechnung" && offer.zahlungshinweis && offer.zahlungshinweis.trim()) {
     ensureSpace(ctx, 60);
-    wrapText(ctx.light, offer.zahlungshinweis, 9.5, PDF_CONTENT_WIDTH).forEach((line) => {
-      drawText(ctx, line, PDF_MARGIN, ctx.y, { size: 9.5, font: ctx.light, color: PDF_COLOR_MUTED });
+    wrapText(ctx.light, offer.zahlungshinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
+      drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
       ctx.y -= 13;
     });
   }
@@ -283,18 +276,18 @@ function drawPositionenPage(ctx, offer) {
   const titleWord = offer.typ === "rechnung" ? "RECHNUNG" : "OFFERTE";
   let y = ctx.y;
 
-  drawText(ctx, titleWord, PDF_MARGIN, y, { size: 18, font: ctx.medium, color: PDF_COLOR_ACCENT });
+  drawText(ctx, titleWord, PDF_MARGIN, y, { size: SIZE_TITLE, font: ctx.medium });
   y -= 8;
-  drawRule(ctx, y, { thickness: 1.2, color: PDF_COLOR_ACCENT });
+  drawRule(ctx, y, { thickness: 1 });
   y -= 24;
 
   if (offer.projekt) {
-    drawText(ctx, offer.projekt, PDF_MARGIN, y, { size: 13, font: ctx.medium });
-    y -= 20;
+    drawText(ctx, offer.projekt, PDF_MARGIN, y, { size: SIZE_HEAD, font: ctx.medium });
+    y -= 18;
   }
 
   if (offer.empfaenger) {
-    drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: 10, font: ctx.light, color: PDF_COLOR_MUTED });
+    drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
   }
 
   const nrLabel = offer.typ === "rechnung" ? "Rechnungs-Nr." : "Offert-Nr.";
@@ -304,7 +297,7 @@ function drawPositionenPage(ctx, offer) {
   if (offer.typ === "rechnung" && offer.zahlbar_bis) metaLines.push(`Zahlbar bis ${chDateShort(offer.zahlbar_bis)}`);
   let metaY = y;
   metaLines.forEach((line) => {
-    drawText(ctx, line, PDF_PAGE_WIDTH - PDF_MARGIN, metaY, { size: 10, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+    drawText(ctx, line, PDF_PAGE_WIDTH - PDF_MARGIN, metaY, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
     metaY -= 13;
   });
 
