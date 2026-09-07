@@ -307,23 +307,45 @@ Cloudflare Worker — siehe Abschnitt "Worker deployen" oben.
 
 ## Offerten
 
-Offerten aus einzelnen Modulen zusammenstellen (Titel, Kurzbeschrieb, Stunden,
-daraus berechnete Kosten), Module beliebig hoch-/runterschieben, Zwischentotal
-/ MWST / Total automatisch berechnen, auf Nextcloud sichern.
+Offerten aus einzelnen Positionen (Phasen-Überschriften und Module)
+zusammenstellen, beliebig hoch-/runterschieben, Zwischentotal / MWST / Total
+automatisch berechnen, auf Nextcloud sichern. Offerten lassen sich duplizieren,
+um für ähnliche Aufträge nicht alles neu erfassen zu müssen.
 
 - **Liste**: alle gespeicherten Offerten (Datum, Projekt, Empfänger, Total),
-  neueste zuerst. "+ Neue Offerte" öffnet den Editor leer, Klick auf eine
-  Zeile öffnet ihn zum Bearbeiten.
-- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Datum, Offert-Nr.
+  neueste zuerst, mit Duplizieren-Button (⧉) pro Zeile. "+ Neue Offerte"
+  öffnet den Editor leer, Klick auf eine Zeile öffnet ihn zum Bearbeiten.
+- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Ort, Datum, Offert-Nr.
   (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für **diese**
-  Offerte.
+  Offerte. Dazu Betreff und ein freier Brieftext — beides fürs spätere
+  PDF-Anschreiben auf der ersten Seite.
+- **Phasen**: freie Zwischenüberschrift innerhalb der Positionsliste (z.B.
+  "Vorprojekt", "Bauprojekt"), über "+ Phase hinzufügen". Zählt nicht in die
+  Modul-Nummerierung und hat keine Stunden/Kosten.
 - **Module**: pro Modul ein Titel (automatische Nummerierung `1)`, `2)`, …
-  nach Position, nicht Teil der Daten) mit Kurzbeschrieb darunter, Stunden
-  (zweite Spalte) und daraus berechnete Kosten = Stunden × Stundensatz
-  (dritte Spalte). Mit ▲/▼ neu anordnen, mit "+ Modul hinzufügen"
-  ergänzen, mit ✕ entfernen.
-- **Summen** unten: Zwischentotal exkl. MWST (Summe aller Modul-Kosten),
-  MWST-Betrag (Zwischentotal × Satz), Total inkl. MWST.
+  nach Position unter den Modulen, nicht Teil der Daten) mit Kurzbeschrieb
+  darunter — **ein Punkt pro Zeile** im Textfeld, gespeichert als Liste für
+  eine spätere Bulletpoint-Darstellung im PDF —, Stunden (zweite Spalte) und
+  daraus berechnete Kosten = Stunden × Stundensatz (dritte Spalte). Über
+  "+ Modul hinzufügen" ergänzen.
+- **Modul-Suche**: Suchfeld unter der Positionsliste durchsucht live Titel
+  und Kurzbeschrieb aller bereits geladenen Offerten (Titel, Herkunfts-
+  projekt/-datum als Treffer angezeigt) und übernimmt einen Treffer per
+  Klick als neues Modul (Stunden danach anpassbar). Bewusst **keine**
+  separate Modul-Library — die Offerten sind für die Liste ohnehin schon
+  geladen, das spart eine zweite, separat zu pflegende Datenquelle. Siehe
+  `allKnownModules()`/`searchModules()` in `offerten/app.js`.
+- Phasen und Module liegen in einer gemeinsamen, beliebig sortierbaren Liste
+  (mit ▲/▼ neu anordnen, mit ✕ entfernen) — eine Phase lässt sich also
+  zwischen beliebige Module schieben.
+- **Summen** unten: Zwischentotal exkl. MWST (Summe aller Modul-Kosten,
+  Phasen zählen nicht mit), MWST-Betrag (Zwischentotal × Satz), Total
+  inkl. MWST.
+- **Duplizieren**: im Editor (nur bei einer bereits gespeicherten Offerte)
+  oder direkt per ⧉-Button in der Liste. Übernimmt alle Kopf- und
+  Positionsdaten in eine neue, noch nicht gespeicherte Offerte; Datum wird
+  auf heute gesetzt, Offert-Nr. geleert (bewusst nicht automatisch neu
+  vergeben, da frei/optional).
 - **Stundensatz-Vorgabe**: Feld auf der Listen-Seite (lokal in
   `localStorage`, `offerten_stundensatz`), wird nur als Vorschlag für
   **neue** Offerten verwendet. Der tatsächlich verwendete Satz wird pro
@@ -331,17 +353,29 @@ daraus berechnete Kosten), Module beliebig hoch-/runterschieben, Zwischentotal
   gespeicherte Offerten unverändert (keine rückwirkende Neuberechnung).
 - **Speicherort**: Zielordner `OFFERTEN_TARGET_FOLDER_PATH` (Standard
   `Buero/Admin/Offerten und Rechnungen` in `offerten/app.js`), kein
-  Jahresordner. Neue Offerten werden als `[Datum] [Projekt].json` abgelegt; beim Bearbeiten
-  einer bestehenden Offerte bleibt der Dateiname unverändert (Überschreiben
-  statt Duplikat), auch wenn sich Datum/Projekt ändern.
+  Jahresordner. Neue Offerten werden als `[Datum] [Projekt].json` abgelegt;
+  beim Bearbeiten einer bestehenden Offerte bleibt der Dateiname unverändert
+  (Überschreiben statt Duplikat), auch wenn sich Datum/Projekt ändern.
+
+### Absenderadresse (fürs spätere PDF-Anschreiben)
+
+Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Telefon, E-Mail,
+Website) — bewusst **nicht** pro Offerte erfasst, da praktisch immer gleich.
+Datei mit den echten Angaben füllen, committen, pushen; die App lädt sie zur
+Laufzeit (`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da sie mit
+der App selbst ausgeliefert wird — analog zu `konten.txt` etc. bei Quittung).
+Aktuell nur geladen und vorgehalten (`absender` in `offerten/app.js`), ohne
+sichtbare Verwendung, solange es keinen PDF-Export gibt.
 
 Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
 erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
 "Worker deployen" oben.
 
 **Noch nicht umgesetzt:**
-- PDF-Export (mit Nudica-Schrift) — die Offerte lässt sich aktuell nur als
-  JSON speichern/bearbeiten, nicht als fertiges Dokument exportieren.
+- PDF-Export (mit Nudica-Schrift, erste Seite als Anschreiben mit
+  Absender/Empfänger/Ort-Datum/Betreff/Brieftext, danach die
+  Positionsliste) — die Offerte lässt sich aktuell nur als JSON
+  speichern/bearbeiten, nicht als fertiges Dokument exportieren.
 - Umwandlung einer Offerte in eine Rechnung.
 
 ---

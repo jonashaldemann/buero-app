@@ -26,6 +26,9 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// App-Shell: aus Cache, Fallback Netz. absender.json bewusst NICHT in
+// ASSETS gelistet -- die soll immer frisch vom Netz kommen, damit
+// Änderungen (Adresse etc.) ohne Code-Update ankommen.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
