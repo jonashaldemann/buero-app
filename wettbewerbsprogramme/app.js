@@ -197,6 +197,14 @@ function get(obj, path, fallback) {
   return path.split(".").reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), obj) ?? fallback;
 }
 
+// "zwingend_beizuziehende_planer" kommt aus dem JSON bereits als fertig
+// abgekürzte Zeichenkette (z.B. "LA, ING, NH"). Ältere/abweichende Programme
+// können das Feld noch als Array liefern -- dann einfach zusammenfügen.
+function planerDisplay(value) {
+  if (Array.isArray(value)) value = value.join(", ");
+  return value && String(value).trim() ? String(value).trim() : "–";
+}
+
 // ---------- Rendering ----------
 
 function renderTable() {
@@ -204,7 +212,7 @@ function renderTable() {
   const body = document.getElementById("wettbewerbBody");
 
   if (competitions.length === 0) {
-    body.innerHTML = '<tr><td colspan="7">Noch keine Wettbewerbsprogramme geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9">Noch keine Wettbewerbsprogramme geladen.</td></tr>';
     return;
   }
 
@@ -230,6 +238,8 @@ function renderTable() {
         <td>${escapeHtml(chCurrency(get(d, "bausumme.betrag_chf")))}</td>
         <td>${escapeHtml(groesse)}</td>
         <td>${escapeHtml(chCurrency(get(d, "preisgeld.gesamtsumme_chf")))}</td>
+        <td>${escapeHtml(chCurrency(get(d, "modelldepot.betrag_chf")))}</td>
+        <td>${escapeHtml(planerDisplay(d.zwingend_beizuziehende_planer))}</td>
         <td>${escapeHtml(String(get(d, "preisgeld.anzahl_preise", "–")))}</td>
       </tr>`;
     })
@@ -288,8 +298,8 @@ function openDetail(index) {
 
     ${d.aufgabe_kurzbeschrieb ? `<div class="detail-block"><h3>Aufgabe</h3><p class="hint">${escapeHtml(d.aufgabe_kurzbeschrieb)}</p></div>` : ""}
 
-    ${Array.isArray(d.zwingend_beizuziehende_planer) && d.zwingend_beizuziehende_planer.length
-      ? `<div class="detail-block"><h3>Zwingend beizuziehende Planer</h3>${renderPersonList(d.zwingend_beizuziehende_planer)}</div>`
+    ${d.zwingend_beizuziehende_planer
+      ? `<div class="detail-block"><h3>Zwingend beizuziehende Planer</h3><p class="hint">${escapeHtml(planerDisplay(d.zwingend_beizuziehende_planer))}</p></div>`
       : ""}
 
     <div class="detail-block"><h3>Sachjury</h3>${renderPersonList(d.sachjury)}</div>

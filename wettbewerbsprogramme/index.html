@@ -14,7 +14,7 @@
 <style>
   /* Diese App muss nicht auf dem Smartphone laufen -- mehr Breite für die
      Vergleichstabelle als die sonst mobile-first begrenzten 480px. */
-  main { max-width: 1100px; }
+  main { max-width: min(1600px, 96vw); }
 </style>
 </head>
 <body>
@@ -58,11 +58,13 @@
             <th>Bausumme</th>
             <th>HNF/GF m²</th>
             <th>Preisgeld</th>
+            <th>Modelldepot</th>
+            <th>Planer</th>
             <th>Preise</th>
           </tr>
         </thead>
         <tbody id="wettbewerbBody">
-          <tr><td colspan="7">Noch keine Wettbewerbsprogramme geladen.</td></tr>
+          <tr><td colspan="9">Noch keine Wettbewerbsprogramme geladen.</td></tr>
         </tbody>
       </table>
     </div>
