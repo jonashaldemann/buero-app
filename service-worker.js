@@ -1,12 +1,11 @@
-const CACHE_NAME = "zeiterfassung-v5";
+const CACHE_NAME = "buero-startseite-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/style.css",
-  "./js/app.js",
   "./manifest.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/home-192.png",
+  "./icons/home-512.png",
+  "./css/style.css"
 ];
 
 self.addEventListener("install", (event) => {
@@ -25,8 +24,9 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. WebDAV-Requests (an fremde Domain) laufen
-// hier nicht durch, weil sie nicht unter diesem Origin liegen.
+// Nur die Startseite selbst wird hier gecacht -- die drei Unterseiten
+// (zeiterfassung/, quittung/, wettbewerbsprogramme/) haben je ihren eigenen,
+// enger begrenzten Service Worker mit eigenem Scope.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(

@@ -344,6 +344,53 @@ input[type="file"] {
   line-height: 1.5;
 }
 
+/* Tabellen (z.B. Wettbewerbsprogramme-Vergleich) */
+.table-block {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 4px 0;
+  overflow: hidden;
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  font-family: var(--font-medium);
+  font-weight: normal;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr[data-clickable] { cursor: pointer; }
+tbody tr[data-clickable]:active { background: var(--surface-2); }
+
+.detail-list { list-style: none; margin: 0 0 18px; padding: 0; }
+.detail-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.detail-list li:last-child { border-bottom: none; }
+.detail-list .detail-label { color: var(--text-muted); flex: none; }
+.detail-list .detail-value { text-align: right; }
+.detail-block h3 {
+  font-family: var(--font-medium);
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: normal;
+  margin: 18px 0 6px;
+}
+.detail-block ul.plain { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.detail-block ul.plain li { padding: 4px 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .proj-btn { transition: none; }
 }
