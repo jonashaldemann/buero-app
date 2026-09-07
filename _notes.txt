@@ -1,5 +1,4 @@
-Rechnungen und Offerten
-PDF generieren
+
 
 -- minor fixes --
 Zahlenfeld ohne Zählerpfeile

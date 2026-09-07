@@ -307,17 +307,29 @@ Cloudflare Worker — siehe Abschnitt "Worker deployen" oben.
 
 ## Offerten
 
-Offerten aus einzelnen Positionen (Phasen-Überschriften und Module)
-zusammenstellen, beliebig hoch-/runterschieben, Zwischentotal / MWST / Total
-automatisch berechnen, auf Nextcloud sichern. Offerten lassen sich duplizieren,
-um für ähnliche Aufträge nicht alles neu erfassen zu müssen.
+Offerten **und Rechnungen** (gleiches Formular/Datenmodell, unterschieden
+durch das Feld "Typ") aus einzelnen Positionen (Phasen-Überschriften und
+Module) zusammenstellen, beliebig hoch-/runterschieben, Zwischentotal / MWST
+/ Total automatisch berechnen, auf Nextcloud sichern und als PDF exportieren.
+Offerten/Rechnungen lassen sich duplizieren, um für ähnliche Aufträge nicht
+alles neu erfassen zu müssen.
 
-- **Liste**: alle gespeicherten Offerten (Datum, Projekt, Empfänger, Total),
-  neueste zuerst, mit Duplizieren-Button (⧉) pro Zeile. "+ Neue Offerte"
-  öffnet den Editor leer, Klick auf eine Zeile öffnet ihn zum Bearbeiten.
-- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Ort, Datum, Offert-Nr.
-  (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für **diese**
-  Offerte. Dazu Betreff und ein freier Brieftext — beides fürs spätere
+- **Liste**: alle gespeicherten Offerten/Rechnungen (Datum, Typ, Projekt,
+  Empfänger, Total), neueste zuerst, mit PDF- (📄) und Duplizieren-Button (⧉)
+  pro Zeile. "+ Neue Offerte" / "+ Neue Rechnung" öffnet den Editor leer mit
+  dem entsprechenden Typ vorausgewählt, Klick auf eine Zeile öffnet ihn zum
+  Bearbeiten.
+- **Typ**: Offerte oder Rechnung, jederzeit im Editor umschaltbar (gleiches
+  Formular für beide). Bei Rechnung zusätzlich: "Zahlbar bis" (Datum) und
+  "Zahlungshinweis" (Freitext, z.B. IBAN/Referenz — siehe PDF-Export unten),
+  und "Offert-Nr." heisst dann "Rechnungs-Nr.". Eine bestehende Offerte per
+  Typ-Wechsel + Speichern direkt in eine Rechnung umzuwandeln, überschreibt
+  dieselbe Datei (kein automatisches "Original behalten + neue Rechnung
+  erzeugen") — dafür zuerst **Duplizieren**, dann am Duplikat den Typ auf
+  Rechnung stellen.
+- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Ort, Datum, Offert-/
+  Rechnungs-Nr. (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für
+  **diese** Offerte/Rechnung. Dazu Betreff und ein freier Brieftext fürs
   PDF-Anschreiben auf der ersten Seite.
 - **Phasen**: freie Zwischenüberschrift innerhalb der Positionsliste (z.B.
   "Vorprojekt", "Bauprojekt"), über "+ Phase hinzufügen". Zählt nicht in die
@@ -357,26 +369,59 @@ um für ähnliche Aufträge nicht alles neu erfassen zu müssen.
   beim Bearbeiten einer bestehenden Offerte bleibt der Dateiname unverändert
   (Überschreiben statt Duplikat), auch wenn sich Datum/Projekt ändern.
 
-### Absenderadresse (fürs spätere PDF-Anschreiben)
+### Absenderadresse
 
 Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Telefon, E-Mail,
-Website) — bewusst **nicht** pro Offerte erfasst, da praktisch immer gleich.
-Datei mit den echten Angaben füllen, committen, pushen; die App lädt sie zur
-Laufzeit (`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da sie mit
-der App selbst ausgeliefert wird — analog zu `konten.txt` etc. bei Quittung).
-Aktuell nur geladen und vorgehalten (`absender` in `offerten/app.js`), ohne
-sichtbare Verwendung, solange es keinen PDF-Export gibt.
+Website) — bewusst **nicht** pro Offerte/Rechnung erfasst, da praktisch immer
+gleich. Datei mit den echten Angaben füllen, committen, pushen; die App lädt
+sie zur Laufzeit (`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da
+sie mit der App selbst ausgeliefert wird — analog zu `konten.txt` etc. bei
+Quittung). Wird für den PDF-Briefkopf verwendet (`absender` in
+`offerten/app.js`, siehe `loadAbsender()`).
 
 Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
 erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
 "Worker deployen" oben.
 
-**Noch nicht umgesetzt:**
-- PDF-Export (mit Nudica-Schrift, erste Seite als Anschreiben mit
-  Absender/Empfänger/Ort-Datum/Betreff/Brieftext, danach die
-  Positionsliste) — die Offerte lässt sich aktuell nur als JSON
-  speichern/bearbeiten, nicht als fertiges Dokument exportieren.
-- Umwandlung einer Offerte in eine Rechnung.
+### PDF-Export
+
+"PDF erstellen" (im Editor, oder 📄 pro Zeile in der Liste) erzeugt ein
+zweiseitiges (bzw. mehrseitiges, je nach Länge) PDF und lädt es direkt im
+Browser herunter:
+
+- **Seite 1 — Anschreiben**: Absenderblock oben rechts, kleine
+  Rücksendeadresse + Empfänger-Adressblock links, Ort/Datum rechtsbündig
+  (z.B. "Zürich, 7. September 2026"), Betreff, Brieftext (mit Zeilenumbruch
+  = Absatz, automatischem Zeilenumbruch bei langen Zeilen).
+- **Seite 2 (garantiert eigene Seite, auch bei kurzem Brief) — Offerte/
+  Rechnung**: Titel ("OFFERTE"/"RECHNUNG"), Projekt, Empfänger, Offert-/
+  Rechnungs-Nr., Datum (bei Rechnung zusätzlich "Zahlbar bis"), dann die
+  Positionsliste (Phasen als Zwischenüberschrift, Module nummeriert mit
+  Kurzbeschrieb als Bulletpoints, Stunden/Kosten-Spalten) und die Summen.
+  Bei Rechnung zusätzlich der Zahlungshinweis unter den Summen. Läuft die
+  Positionsliste über eine Seite hinaus, folgen weitere Seiten automatisch
+  (mit wiederholtem Spaltenkopf).
+- Schrift: die echten Nudica-Schnitte (`fonts/Nudica-Light.otf` /
+  `Nudica-Medium.otf`, **nicht** die woff/woff2 fürs Web-UI), eingebettet
+  ohne Subsetting — mit Subsetting erzeugt die verwendete Bibliothek
+  (pdf-lib + fontkit) mit diesen Schriften eine von manchen PDF-Readern
+  abgelehnte Einbettung.
+- Technik: `offerten/pdf.js` (eigenständig, nutzt nichts aus `app.js`),
+  gebaut mit [pdf-lib](https://pdf-lib.js.org/) + `@pdf-lib/fontkit` (siehe
+  `<script>`-Tags in `index.html`, Version dort gepinnt). Läuft komplett im
+  Browser, kein Server/Backend nötig.
+- **Bewusst nicht umgesetzt**: die offizielle Schweizer QR-Rechnung
+  (Zahlteil mit Swiss-QR-Code, IBAN/Referenznummer-Validierung nach den
+  Financial-Standards). Der "Zahlungshinweis" ist reiner Freitext ohne
+  Validierung — falls eine bank-/Postfinance-konforme QR-Rechnung gebraucht
+  wird, ist das ein eigenes, deutlich grösseres Vorhaben.
+- **Offline**: Liste/Bearbeiten/Speichern funktionieren wie gewohnt offline;
+  "PDF erstellen" braucht (zumindest beim ersten Mal pro Browser-Cache)
+  Internet, da pdf-lib/fontkit von einem CDN geladen werden und bewusst
+  nicht im Service-Worker vorgecacht sind (siehe Kommentar in
+  `offerten/service-worker.js`) — ein einzelner fehlgeschlagener
+  Cross-Origin-Fetch soll nicht die ganze App-Shell offline unbrauchbar
+  machen.
 
 ---
 
