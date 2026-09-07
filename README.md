@@ -283,10 +283,9 @@ Architekturwettbewerbs-Ausschreibungen hochladen, auf Nextcloud sichern
 
 - **JSON hochladen**: eine oder mehrere `.json`-Dateien auswählen. Jede muss
   mindestens ein Feld `projektname` haben, sonst wird sie mit Fehlermeldung
-  übersprungen. Beispiel-Schema siehe
-  `wettbewerbsprogramme/01_Wettbewerbsprogramm_Neubau_Schule_Untersiggenthal.json`
-  (Felder wie `auftraggeber`, `bausumme`, `groesse`, `termine`, `preisgeld`,
-  `sachjury`, `fachjury`, `verfahrenssekretariat`, …).
+  übersprungen. Erwartetes Schema: Felder wie `auftraggeber`, `bausumme`,
+  `groesse`, `termine`, `preisgeld`, `sachjury`, `fachjury`,
+  `verfahrenssekretariat`, …
 - **Tabelle**: eine Zeile pro Wettbewerb (Projekt, Auftraggeber, Bausumme,
   HNF/GF, Preisgeld, Abgabetermin, Anzahl Preise). Klick auf eine Zeile öffnet
   die Detailansicht mit allen weiteren Feldern (Jury, Verfahrenssekretariat,

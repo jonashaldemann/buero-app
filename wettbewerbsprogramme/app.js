@@ -208,17 +208,28 @@ function renderTable() {
     return;
   }
 
-  body.innerHTML = competitions
-    .map((c, i) => {
+  const sorted = competitions
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => {
+      const da = get(a.c.data, "termine.abgabe_plaene", null);
+      const db = get(b.c.data, "termine.abgabe_plaene", null);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return new Date(da) - new Date(db);
+    });
+
+  body.innerHTML = sorted
+    .map(({ c, i }) => {
       const d = c.data;
       const groesse = [d.groesse?.hnf_m2, d.groesse?.gf_m2].map((v) => (v === undefined ? "–" : chNumber(v))).join(" / ");
       return `<tr data-clickable data-index="${i}">
+        <td>${escapeHtml(chDateTime(get(d, "termine.abgabe_plaene")))}</td>
         <td>${escapeHtml(d.projektname || c.filename)}</td>
         <td>${escapeHtml(get(d, "auftraggeber.name", "–"))}</td>
         <td>${escapeHtml(chCurrency(get(d, "bausumme.betrag_chf")))}</td>
         <td>${escapeHtml(groesse)}</td>
         <td>${escapeHtml(chCurrency(get(d, "preisgeld.gesamtsumme_chf")))}</td>
-        <td>${escapeHtml(chDateTime(get(d, "termine.abgabe_plaene")))}</td>
         <td>${escapeHtml(String(get(d, "preisgeld.anzahl_preise", "–")))}</td>
       </tr>`;
     })
