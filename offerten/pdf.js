@@ -162,7 +162,7 @@ function drawLetterPage(ctx, offer, absender) {
     });
 
   y -= 16;
-  const ortDatum = [offer.ort, chDateLong(offer.datum)].filter(Boolean).join(", ");
+  const ortDatum = [absender && absender.ort, chDateLong(offer.datum)].filter(Boolean).join(", ");
   if (ortDatum) drawText(ctx, ortDatum, rightX, y, { size: SIZE_BODY, font: ctx.light, align: "right" });
 
   y -= 28;
@@ -236,21 +236,26 @@ function drawModulRow(ctx, p, nr, rate) {
 
 function drawTotals(ctx, offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
-  const subtotal = (offer.positionen || [])
+  const modulSumme = (offer.positionen || [])
     .filter((p) => p.typ === "modul")
     .reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
+  const nebenkosten = Number(offer.nebenkosten_chf) || 0;
+  const subtotal = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
   const mwst = subtotal * (mwstProzent / 100);
   const total = subtotal + mwst;
   const labelX = COL_STUNDEN_RIGHT - 140;
 
-  ensureSpace(ctx, 100);
+  ensureSpace(ctx, 115);
   ctx.y -= 10;
 
-  [
+  const rows = [];
+  if (nebenkosten) rows.push(["Nebenkostenpauschale", chFrPdf(nebenkosten)]);
+  rows.push(
     ["Zwischentotal exkl. MWST", chFrPdf(subtotal)],
     [`MWST ${chNumberPdf(mwstProzent)}%`, chFrPdf(mwst)]
-  ].forEach(([label, val]) => {
+  );
+  rows.forEach(([label, val]) => {
     drawText(ctx, label, labelX, ctx.y, { size: SIZE_BODY, font: ctx.light });
     drawText(ctx, val, COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
     ctx.y -= 15;

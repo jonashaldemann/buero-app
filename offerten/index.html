@@ -200,8 +200,17 @@
   .totals-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 14px;
     font-variant-numeric: tabular-nums;
+  }
+  .totals-row label { font-size: 14px; color: var(--text); }
+  input[type="number"].totals-input {
+    width: 110px;
+    flex: none;
+    text-align: right;
+    padding: 6px 10px;
+    font-size: 14px;
   }
   .totals-row.total-final {
     font-family: var(--font-medium);
@@ -320,16 +329,8 @@
       <label>Projekt</label>
       <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
 
-      <div class="two-col">
-        <div>
-          <label>Ort (Absender)</label>
-          <input type="text" id="inputOrt" placeholder="z.B. Zürich">
-        </div>
-        <div>
-          <label>Datum</label>
-          <input type="date" id="inputDatum">
-        </div>
-      </div>
+      <label>Datum</label>
+      <input type="date" id="inputDatum" style="max-width:220px;">
 
       <div class="two-col">
         <div>
@@ -359,8 +360,8 @@
     </div>
 
     <div class="form-group" id="zahlungshinweisGroup" style="display:none;">
-      <label>Zahlungshinweis (erscheint unterhalb der Summen auf der Rechnung, z.B. Konto/IBAN, Referenz)</label>
-      <textarea id="inputZahlungshinweis" rows="3" placeholder="z.B. Zahlbar innert 30 Tagen auf IBAN CH00 0000 0000 0000 0000 0, Referenz ..."></textarea>
+      <label>Zahlungshinweis (erscheint auf der Rechnung unterhalb der Summen)</label>
+      <input type="text" id="inputZahlungshinweis" placeholder="z.B. Zahlbar innert 30 Tagen">
     </div>
 
     <div class="mod-head">
@@ -383,6 +384,10 @@
     </div>
 
     <div class="totals-block">
+      <div class="totals-row">
+        <label for="inputNebenkosten">Nebenkostenpauschale (Fr.)</label>
+        <input type="number" id="inputNebenkosten" min="0" step="10" class="totals-input">
+      </div>
       <div class="totals-row"><span>Zwischentotal exkl. MWST</span><span id="totalSubtotal">–</span></div>
       <div class="totals-row"><span>MWST</span><span id="totalMwst">–</span></div>
       <div class="totals-row total-final"><span>Total inkl. MWST</span><span id="totalFinal">–</span></div>

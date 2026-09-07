@@ -347,31 +347,34 @@ function importModule(m) {
 
 function calcTotals(offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
-  const subtotal = (offer.positionen || [])
+  const modulSumme = (offer.positionen || [])
     .filter((p) => p.typ === "modul")
     .reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
+  const nebenkosten = Number(offer.nebenkosten_chf) || 0;
+  const subtotal = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
   const mwst = subtotal * (mwstProzent / 100);
-  return { subtotal, mwst, total: subtotal + mwst };
+  return { modulSumme, nebenkosten, subtotal, mwst, total: subtotal + mwst };
 }
 
 // ---------- Rendering: Editor ----------
 
 function blankOffer(typ) {
+  const isRechnung = typ === "rechnung";
   return {
-    typ: typ === "rechnung" ? "rechnung" : "offerte",
+    typ: isRechnung ? "rechnung" : "offerte",
     empfaenger: "",
     adresse: "",
     projekt: "",
-    ort: "",
     datum: formatDate(new Date()),
     offert_nr: "",
     zahlbar_bis: "",
     betreff: "",
     brieftext: "",
-    zahlungshinweis: "",
+    zahlungshinweis: isRechnung ? "Zahlbar innert 30 Tagen" : "",
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
+    nebenkosten_chf: 0,
     positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0 }]
   };
 }
@@ -399,11 +402,11 @@ function openEditor(offer, filename, newTyp) {
   document.getElementById("inputEmpfaenger").value = editingOffer.empfaenger || "";
   document.getElementById("inputAdresse").value = editingOffer.adresse || "";
   document.getElementById("inputProjekt").value = editingOffer.projekt || "";
-  document.getElementById("inputOrt").value = editingOffer.ort || "";
   document.getElementById("inputDatum").value = editingOffer.datum || formatDate(new Date());
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
+  document.getElementById("inputNebenkosten").value = editingOffer.nebenkosten_chf || 0;
   document.getElementById("inputZahlbarBis").value = editingOffer.zahlbar_bis || "";
   document.getElementById("inputBetreff").value = editingOffer.betreff || "";
   document.getElementById("inputBrieftext").value = editingOffer.brieftext || "";
@@ -543,11 +546,11 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.empfaenger = document.getElementById("inputEmpfaenger").value.trim();
   editingOffer.adresse = document.getElementById("inputAdresse").value.trim();
   editingOffer.projekt = document.getElementById("inputProjekt").value.trim();
-  editingOffer.ort = document.getElementById("inputOrt").value.trim();
   editingOffer.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
+  editingOffer.nebenkosten_chf = Number(document.getElementById("inputNebenkosten").value) || 0;
   editingOffer.zahlbar_bis = document.getElementById("inputZahlbarBis").value || "";
   editingOffer.betreff = document.getElementById("inputBetreff").value.trim();
   editingOffer.brieftext = document.getElementById("inputBrieftext").value;
@@ -682,6 +685,10 @@ function init() {
   });
   document.getElementById("inputMwstProzent").addEventListener("input", (e) => {
     editingOffer.mwst_prozent = Number(e.target.value) || 0;
+    recalcTotalsDisplay();
+  });
+  document.getElementById("inputNebenkosten").addEventListener("input", (e) => {
+    editingOffer.nebenkosten_chf = Number(e.target.value) || 0;
     recalcTotalsDisplay();
   });
 

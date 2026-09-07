@@ -321,16 +321,19 @@ alles neu erfassen zu müssen.
   Bearbeiten.
 - **Typ**: Offerte oder Rechnung, jederzeit im Editor umschaltbar (gleiches
   Formular für beide). Bei Rechnung zusätzlich: "Zahlbar bis" (Datum) und
-  "Zahlungshinweis" (Freitext, z.B. IBAN/Referenz — siehe PDF-Export unten),
-  und "Offert-Nr." heisst dann "Rechnungs-Nr.". Eine bestehende Offerte per
-  Typ-Wechsel + Speichern direkt in eine Rechnung umzuwandeln, überschreibt
-  dieselbe Datei (kein automatisches "Original behalten + neue Rechnung
-  erzeugen") — dafür zuerst **Duplizieren**, dann am Duplikat den Typ auf
-  Rechnung stellen.
-- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Ort, Datum, Offert-/
+  "Zahlungshinweis" (kurzer Text, standardmässig "Zahlbar innert 30 Tagen"
+  — bewusst kein IBAN/QR-Zahlteil, der wird separat übers E-Banking
+  erstellt), und "Offert-Nr." heisst dann "Rechnungs-Nr.". Eine bestehende
+  Offerte per Typ-Wechsel + Speichern direkt in eine Rechnung umzuwandeln,
+  überschreibt dieselbe Datei (kein automatisches "Original behalten + neue
+  Rechnung erzeugen") — dafür zuerst **Duplizieren**, dann am Duplikat den
+  Typ auf Rechnung stellen.
+- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Datum, Offert-/
   Rechnungs-Nr. (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für
   **diese** Offerte/Rechnung. Dazu Betreff und ein freier Brieftext fürs
-  PDF-Anschreiben auf der ersten Seite.
+  PDF-Anschreiben auf der ersten Seite. Der Absender-Ort fürs "Ort, Datum" in
+  der Brief-Datumszeile kommt zentral aus `absender.json` (siehe unten),
+  kein eigenes Feld pro Offerte/Rechnung.
 - **Phasen**: freie Zwischenüberschrift innerhalb der Positionsliste (z.B.
   "Vorprojekt", "Bauprojekt"), über "+ Phase hinzufügen". Zählt nicht in die
   Modul-Nummerierung und hat keine Stunden/Kosten.
@@ -350,9 +353,11 @@ alles neu erfassen zu müssen.
 - Phasen und Module liegen in einer gemeinsamen, beliebig sortierbaren Liste
   (mit ▲/▼ neu anordnen, mit ✕ entfernen) — eine Phase lässt sich also
   zwischen beliebige Module schieben.
-- **Summen** unten: Zwischentotal exkl. MWST (Summe aller Modul-Kosten,
-  Phasen zählen nicht mit), MWST-Betrag (Zwischentotal × Satz), Total
-  inkl. MWST.
+- **Summen** unten: Nebenkostenpauschale (fixer, frei eingegebener Betrag —
+  nur wenn ungleich null, zählt in Zwischentotal und damit auch in die
+  MWST-Berechnung mit hinein), Zwischentotal exkl. MWST (Summe aller
+  Modul-Kosten + Nebenkostenpauschale, Phasen zählen nicht mit), MWST-Betrag
+  (Zwischentotal × Satz), Total inkl. MWST.
 - **Duplizieren**: im Editor (nur bei einer bereits gespeicherten Offerte)
   oder direkt per ⧉-Button in der Liste. Übernimmt alle Kopf- und
   Positionsdaten in eine neue, noch nicht gespeicherte Offerte; Datum wird
@@ -371,13 +376,14 @@ alles neu erfassen zu müssen.
 
 ### Absenderadresse
 
-Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Telefon, E-Mail,
-Website) — bewusst **nicht** pro Offerte/Rechnung erfasst, da praktisch immer
-gleich. Datei mit den echten Angaben füllen, committen, pushen; die App lädt
-sie zur Laufzeit (`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da
-sie mit der App selbst ausgeliefert wird — analog zu `konten.txt` etc. bei
-Quittung). Wird für den PDF-Briefkopf verwendet (`absender` in
-`offerten/app.js`, siehe `loadAbsender()`).
+Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Ort fürs
+"Ort, Datum" in der Brief-Datumszeile, Telefon, E-Mail, Website) — bewusst
+**nicht** pro Offerte/Rechnung erfasst, da praktisch immer gleich. Datei mit
+den echten Angaben füllen, committen, pushen; die App lädt sie zur Laufzeit
+(`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da sie mit der App
+selbst ausgeliefert wird — analog zu `konten.txt` etc. bei Quittung). Wird
+für den PDF-Briefkopf verwendet (`absender` in `offerten/app.js`, siehe
+`loadAbsender()`).
 
 Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
 erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
