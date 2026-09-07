@@ -25,7 +25,7 @@ const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
-const TARGET_FOLDER_PATH = "Buero/Admin/test_zeit";
+const TARGET_FOLDER_PATH = "Buero/Admin/Zeiterfassung";
 
 // Farbpalette für dynamisch erzeugte Projekt-Buttons (zyklisch, falls mehr
 // Projekte als Farben vorhanden sind) -- abgeleitet vom Referenzbild

@@ -99,7 +99,7 @@ synchronisiert, sobald wieder Netz da ist.
   verfügbar ist (Retry alle 30s + sofort bei "online"-Event).
 
 Zielordner: `TARGET_FOLDER_PATH` in `zeiterfassung/app.js` (Standard
-`Buero/Admin/test_zeit`), wird bei Bedarf automatisch angelegt.
+`Buero/Admin/Zeiterfassung`), wird bei Bedarf automatisch angelegt.
 
 ### Projektnamen zentral verwalten
 
@@ -109,7 +109,7 @@ automatisch (beim Start, danach alle 60 Sekunden sowie beim Zurückkehren in
 den Tab).
 
 1. In Nextcloud eine Textdatei anlegen, z.B.
-   `Buero/Admin/test_zeit/projekte.txt`, mit **genau 3 Zeilen** (Zeile 1 =
+   `Buero/Admin/Zeiterfassung/projekte.txt`, mit **genau 3 Zeilen** (Zeile 1 =
    Name für P1, Zeile 2 = P2, Zeile 3 = P3):
    ```
    Projekt Nord
@@ -133,7 +133,7 @@ den Tab).
 
 Pro Person und Jahr eine Datei (im jeweils eigenen Nextcloud-Account):
 ```
-/Buero/Admin/test_zeit/zeiterfassung_2026.csv
+/Buero/Admin/Zeiterfassung/zeiterfassung_2026.csv
 ```
 
 Spalten:
@@ -292,7 +292,7 @@ Architekturwettbewerbs-Ausschreibungen hochladen, auf Nextcloud sichern
   die Detailansicht mit allen weiteren Feldern (Jury, Verfahrenssekretariat,
   Aufgabe, Experten) sowie einem Löschen-Button.
 - **Speicherort**: Zielordner `WETTBEWERB_TARGET_FOLDER_PATH` (Standard
-  `Buero/Admin/Wettbewerbsprogramme` in `wettbewerbsprogramme/app.js`), kein
+  `Buero/Akquise/Neue Wettbewerbe` in `wettbewerbsprogramme/app.js`), kein
   Jahresordner (Wettbewerbe sind nicht zwingend jahresgebunden). Jede Datei
   wird unter ihrem (bereinigten) Originaldateinamen abgelegt; erneutes
   Hochladen derselben Datei überschreibt die bestehende Version.
