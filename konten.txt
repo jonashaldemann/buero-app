@@ -1,22 +1,11 @@
 	VERMÖGEN
 	
-1000	Kasse
 1010	Postkonto
-1020	Bankkonto 
-1100	Forderungen gegenüber Dritten
-1110	Forderungen gegenüber Beteiligung (Debitoren)
 1170	Modelldepot Wettbewerbe
-1176	Guthaben Verrechnungssteuer
-1500	Maschinen und Apparate
 1510	Mobiliar und Einrichtungen
 1520	Bürogeräte
-2000	Verbindlichkeiten für Material- und Warenaufwand
 2001	Verrechnungskonto Manuel
-2002	Verrechnungskonto Jonas
-2200	Geschuldete MWST (Umsatzsteuer)
-2201	Abrechnungskonto MWST
-2400	Bankverbindlichkeiten langfristig
-	
+2002	Verrechnungskonto Jonas	
 	GESAMTVERMÖGEN
 	
 	

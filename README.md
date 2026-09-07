@@ -198,9 +198,19 @@ Quittungen (Foto) oder Rechnungen (PDF) erfassen lassen:
      Zielordner per WebDAV (`PROPFIND`), ermittelt die höchste bestehende
      Nummer für den passenden Jahr/Typ-Präfix und zählt weiter
      (`nextBelegnummer()`/`belegPrefix()`).
+   - **Fotos werden automatisch in ein PDF umgewandelt** (echte PDF-Uploads
+     bleiben unverändert) — damit landen im Ordner einheitlich nur PDFs, egal
+     ob per Kamera fotografiert oder als PDF hochgeladen. Die Umwandlung
+     passiert komplett im Browser, ohne externe Bibliothek: das Foto wird auf
+     ein `<canvas>` gezeichnet, als JPEG re-encodiert und roh (`DCTDecode`)
+     in ein von Hand zusammengesetztes Ein-Seiten-PDF eingebettet
+     (A4, Bild zentriert/eingepasst, Hoch- oder Querformat je nach
+     Seitenverhältnis) — siehe `imageFileToPdfBlob()`/`buildSingleImagePdf()`
+     in `js/app.js`.
    - Die Datei wird als `[Belegnummer] [Verwendungszweck, max. 15
      Zeichen].{ext}` in diesen Ordner hochgeladen, z.B.
-     `26-A003 KUARIO Quittung.pdf`.
+     `26-A003 KUARIO Quittung.pdf` (`.ext` ist bei Fotos immer `pdf`, bei
+     PDF-Uploads bleibt `pdf` ebenfalls erhalten).
    - Zusätzlich wird die Buchung als Zeile an `buchungen.txt` im selben
      (Jahres-)Ordner angehängt — siehe nächster Abschnitt für das Format.
 

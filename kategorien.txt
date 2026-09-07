@@ -1,29 +1,17 @@
 	BESTANDSÄNDERUNGEN
 	
 	ERLÖSE
-3000	Bruttoerlöse Verkäufe
 3000.007	007 Herrliberg Honorare
 3000.015	015 Studienauftrag Rothrist Honorare
 3000.016	016 Bürglenstrasse Honorare
-3090	Aktive Skonti 
-3400	Bruttoerlöse Dienstleistungen
-3490	Skonti auf Dienstleistungsertrag
-3680	Sonstige Erlöse
 	TOTAL ERLÖSE
 	
 	AUFWÄNDE
-4000	Einkäufe
-4090	Passive Skonti 
 4401.018	018 Bönigen Nebenkosten nicht verrechenbar
-5000	Löhne
-5700	Sozialversicherungen
-5790	Quellensteuer
 5820	Reisespesen
 5880	Sonstiger Personalaufwand
-5900	Leistungen Dritter
 6000	Mietzins
 6100	Unterhalt, Reparaturen, Ersatz (URE) Maschinen und Apparate
-6210	Benzin
 6300	Versicherungen
 6360	Abgaben und Gebühren
 6400	Elektrizität
