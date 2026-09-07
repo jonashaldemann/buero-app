@@ -1,35 +1,36 @@
 # Büro-Apps
 
-Drei kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Vier kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
 - **[Quittung](quittung/)** — Belege fotografieren/hochladen, für Nextcloud + Banana aufbereiten.
 - **[Wettbewerbsprogramme](wettbewerbsprogramme/)** — Architekturwettbewerbe (JSON) hochladen und vergleichen.
+- **[Offerten](offerten/)** — Offerten aus Modulen zusammenstellen, Kosten berechnen, auf Nextcloud sichern.
 
-Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit drei
-Kacheln, die auf die drei Unterordner verlinken. Jede der drei Apps hat ihr
+Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit vier
+Kacheln, die auf die vier Unterordner verlinken. Jede der vier Apps hat ihr
 eigenes `manifest.json` und ihren eigenen `service-worker.js` — man kann also
 entweder die Startseite installieren (Kachel-Menü) **oder** direkt auf einer
 Unterseite "Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine
 App als eigenes Icon auf dem Homescreen.
 
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog) liegt
-in `shared/common.js` und wird von allen drei Apps eingebunden.
+in `shared/common.js` und wird von allen vier Apps eingebunden.
 `localStorage` ist pro Domain (nicht pro Unterordner) gültig — einmal in
-**irgendeiner** der drei Apps unter dem Zahnrad-Symbol eingerichtet, gelten
-Benutzername/App-Passwort automatisch auch in den anderen beiden.
+**irgendeiner** der vier Apps unter dem Zahnrad-Symbol eingerichtet, gelten
+Benutzername/App-Passwort automatisch auch in den anderen dreien.
 
-## Ersteinrichtung (einmalig, für alle drei Apps zusammen)
+## Ersteinrichtung (einmalig, für alle vier Apps zusammen)
 
 1. In Nextcloud: **Einstellungen → Sicherheit → App-Passwörter** → neues
    App-Passwort erstellen (z.B. Name "Büro-App").
-2. In einer der drei Apps (egal welche) auf das Zahnrad-Symbol tippen:
+2. In einer der vier Apps (egal welche) auf das Zahnrad-Symbol tippen:
    - **Benutzername**: euer Nextcloud-Login
    - **App-Passwort**: das eben erstellte
    - **Anzeigename**: erscheint z.B. in der Zeiterfassungs-CSV als "Person"
 3. "Verbindung testen" klicken, bei Erfolg "Speichern". Ab jetzt sind die
-   Zugangsdaten in allen drei Apps auf diesem Gerät nutzbar.
+   Zugangsdaten in allen vier Apps auf diesem Gerät nutzbar.
 
 **Sicherheitshinweis:** Das App-Passwort wird ausschliesslich lokal im
 Browser gespeichert (localStorage) und niemals ins Repo committet.
@@ -42,9 +43,9 @@ Account hat seinen eigenen, komplett getrennten Nextcloud-Dateibereich.
 Die Managed Nextcloud bei hosting.de schickt bei Cross-Origin-Requests
 (Browser → Nextcloud von einer anderen Domain aus) keine
 `Access-Control-Allow-Origin`-Header — der Browser blockiert deshalb den
-direkten Zugriff. Deshalb sprechen alle drei Apps nicht direkt mit Nextcloud,
+direkten Zugriff. Deshalb sprechen alle vier Apps nicht direkt mit Nextcloud,
 sondern über einen kleinen **Cloudflare Worker** als Proxy (`worker.js`,
-gemeinsam für alle drei Apps). Der Worker läuft server-seitig, hat also kein
+gemeinsam für alle vier Apps). Der Worker läuft server-seitig, hat also kein
 CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die fehlenden
 Header. Er speichert nichts — die Daten liegen weiterhin ausschliesslich auf
 eurer eigenen Nextcloud.
@@ -61,7 +62,7 @@ eurer eigenen Nextcloud.
 5. Cloudflare zeigt euch jetzt eure Worker-URL, z.B.
    `https://zeit-proxy.euer-name.workers.dev`.
 6. Diese URL bei `PROXY_URL` in `shared/common.js` eintragen (eine einzige
-   Stelle, gilt für alle drei Apps), committen, pushen.
+   Stelle, gilt für alle vier Apps), committen, pushen.
 
 **Falls der Worker schon läuft:** Bei jeder Erweiterung der App (neue
 HTTP-Methode, neuer Header) muss der Code in `worker.js` erneut im
@@ -304,6 +305,47 @@ Cloudflare Worker — siehe Abschnitt "Worker deployen" oben.
 
 ---
 
+## Offerten
+
+Offerten aus einzelnen Modulen zusammenstellen (Titel, Kurzbeschrieb, Stunden,
+daraus berechnete Kosten), Module beliebig hoch-/runterschieben, Zwischentotal
+/ MWST / Total automatisch berechnen, auf Nextcloud sichern.
+
+- **Liste**: alle gespeicherten Offerten (Datum, Projekt, Empfänger, Total),
+  neueste zuerst. "+ Neue Offerte" öffnet den Editor leer, Klick auf eine
+  Zeile öffnet ihn zum Bearbeiten.
+- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Datum, Offert-Nr.
+  (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für **diese**
+  Offerte.
+- **Module**: pro Modul ein Titel (automatische Nummerierung `1)`, `2)`, …
+  nach Position, nicht Teil der Daten) mit Kurzbeschrieb darunter, Stunden
+  (zweite Spalte) und daraus berechnete Kosten = Stunden × Stundensatz
+  (dritte Spalte). Mit ▲/▼ neu anordnen, mit "+ Modul hinzufügen"
+  ergänzen, mit ✕ entfernen.
+- **Summen** unten: Zwischentotal exkl. MWST (Summe aller Modul-Kosten),
+  MWST-Betrag (Zwischentotal × Satz), Total inkl. MWST.
+- **Stundensatz-Vorgabe**: Feld auf der Listen-Seite (lokal in
+  `localStorage`, `offerten_stundensatz`), wird nur als Vorschlag für
+  **neue** Offerten verwendet. Der tatsächlich verwendete Satz wird pro
+  Offerte mitgespeichert — ändert sich später die Vorgabe, bleiben bereits
+  gespeicherte Offerten unverändert (keine rückwirkende Neuberechnung).
+- **Speicherort**: Zielordner `OFFERTEN_TARGET_FOLDER_PATH` (Standard
+  `Buero/Admin/Offerten und Rechnungen` in `offerten/app.js`), kein
+  Jahresordner. Neue Offerten werden als `[Datum] [Projekt].json` abgelegt; beim Bearbeiten
+  einer bestehenden Offerte bleibt der Dateiname unverändert (Überschreiben
+  statt Duplikat), auch wenn sich Datum/Projekt ändern.
+
+Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
+erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
+"Worker deployen" oben.
+
+**Noch nicht umgesetzt:**
+- PDF-Export (mit Nudica-Schrift) — die Offerte lässt sich aktuell nur als
+  JSON speichern/bearbeiten, nicht als fertiges Dokument exportieren.
+- Umwandlung einer Offerte in eine Rechnung.
+
+---
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
@@ -314,11 +356,10 @@ Cloudflare Worker — siehe Abschnitt "Worker deployen" oben.
   der Zähler beim nächsten Öffnen korrekt weitergerechnet (kein
   Datenverlust), aber es gibt keine Push-Erinnerung, falls vergessen wird,
   auf Stop zu klicken.
-- **App-Icons**: alle vier Manifeste (Startseite + drei Apps) nutzen aktuell
-  Platzhalter-Icons (Kopien von `icons/icon-*.png` unter den Namen
-  `icons/home-*.png`, `icons/zeiterfassung-*.png`, `icons/quittung-*.png`,
-  `icons/wettbewerb-*.png`). Eigene Icons einfach unter denselben Dateinamen
-  ersetzen (192px + 512px PNG) — keine Code-/Manifest-Änderung nötig.
+- **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
+  `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`
+  (je 192px + 512px PNG). Zum Ändern einfach unter denselben Dateinamen
+  ersetzen — keine Code-/Manifest-Änderung nötig.
 
 ## Lokal testen
 
