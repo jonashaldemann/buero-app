@@ -108,13 +108,72 @@
     border: 1px dashed var(--border);
     border-radius: 12px;
     padding: 12px;
-    width: 100%;
+    flex: 1;
     color: var(--text-muted);
     font-family: var(--font-medium);
     font-size: 14px;
     cursor: pointer;
   }
   .add-mod-btn:active { background: var(--surface); }
+
+  .mod-search { margin-bottom: 10px; }
+  .mod-search-results {
+    margin-top: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .mod-search-results.hidden { display: none; }
+  .mod-search-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .mod-search-result:last-child { border-bottom: none; }
+  .mod-search-result:active { background: var(--surface-2); }
+  .mod-search-result .msr-title { font-family: var(--font-medium); }
+  .mod-search-result .msr-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    flex: none;
+  }
+  .mod-search-empty { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+
+  /* Phasen-Überschrift innerhalb der Modul-Liste */
+  .phase-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 28px;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  .phase-titel {
+    background: none;
+    border: none;
+    padding: 6px 0;
+    font-family: var(--font-medium);
+    font-size: 16px;
+    color: var(--text);
+  }
+  .phase-titel::placeholder { color: var(--text-muted); }
+
+  .row-action {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .row-action:active { color: var(--accent-primary); }
 
   .totals-block {
     margin-top: 18px;
@@ -179,10 +238,11 @@
             <th>Projekt</th>
             <th>Empfänger</th>
             <th>Total</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="offerBody">
-          <tr><td colspan="4">Noch keine Offerten geladen.</td></tr>
+          <tr><td colspan="5">Noch keine Offerten geladen.</td></tr>
         </tbody>
       </table>
     </div>
@@ -236,10 +296,13 @@
       <label>Adresse</label>
       <textarea id="inputAdresse" rows="2" placeholder="Strasse, PLZ Ort"></textarea>
 
+      <label>Projekt</label>
+      <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
+
       <div class="two-col">
         <div>
-          <label>Projekt</label>
-          <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
+          <label>Ort (Absender)</label>
+          <input type="text" id="inputOrt" placeholder="z.B. Zürich">
         </div>
         <div>
           <label>Datum</label>
@@ -262,6 +325,13 @@
       <input type="number" id="inputMwstProzent" min="0" step="0.1" style="max-width:140px;">
     </div>
 
+    <div class="form-group">
+      <label>Betreff (für Anschreiben)</label>
+      <input type="text" id="inputBetreff" placeholder="z.B. Offerte für Neubau Werkhof Musterwil">
+      <label>Brieftext (Anschreiben, 1. PDF-Seite)</label>
+      <textarea id="inputBrieftext" rows="5" placeholder="Sehr geehrte Damen und Herren&#10;&#10;Gerne unterbreiten wir Ihnen..."></textarea>
+    </div>
+
     <div class="mod-head">
       <span></span>
       <span>Modul</span>
@@ -270,7 +340,16 @@
       <span></span>
     </div>
     <div class="mod-list" id="modList"></div>
-    <button type="button" class="add-mod-btn" id="addModBtn">+ Modul hinzufügen</button>
+
+    <div class="mod-search">
+      <input type="text" id="modSearchInput" placeholder="Modul aus früheren Offerten suchen und übernehmen…">
+      <div class="mod-search-results hidden" id="modSearchResults"></div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="add-mod-btn" id="addPhaseBtn">+ Phase hinzufügen</button>
+      <button type="button" class="add-mod-btn" id="addModBtn">+ Modul hinzufügen (leer)</button>
+    </div>
 
     <div class="totals-block">
       <div class="totals-row"><span>Zwischentotal exkl. MWST</span><span id="totalSubtotal">–</span></div>
@@ -281,6 +360,7 @@
     <div id="editorResult" class="test-result"></div>
 
     <div class="form-actions" style="margin-top:14px;">
+      <button id="duplicateOfferBtn" class="btn-secondary">Duplizieren</button>
       <button id="deleteOfferBtn" class="btn-secondary">Löschen</button>
       <button id="saveOfferBtn" class="btn-primary">Speichern</button>
     </div>
