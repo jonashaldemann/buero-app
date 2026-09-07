@@ -288,6 +288,19 @@ input[type="date"], input[type="number"], select {
 select { appearance: none; -webkit-appearance: none; }
 input:focus, select:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 
+textarea {
+  background: var(--surface-2);
+  border: none;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: var(--font-light);
+  width: 100%;
+  resize: vertical;
+}
+textarea:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+
 input[type="file"] {
   background: var(--surface-2);
   border: none;

@@ -1,11 +1,11 @@
 /* ============================================================
    Gemeinsame Hilfsfunktionen für alle Büro-Apps (Zeiterfassung,
-   Quittung, Wettbewerbsprogramme).
+   Quittung, Wettbewerbsprogramme, Offerten).
 
    Wird per <script src="../shared/common.js"> VOR dem jeweiligen
    app.js eingebunden. localStorage ist pro Origin (nicht pro
    Pfad) gültig -- die Nextcloud-Zugangsdaten (SETTINGS_KEY), einmal
-   in irgendeiner der drei Apps gespeichert, sind automatisch in
+   in irgendeiner der vier Apps gespeichert, sind automatisch in
    allen anderen ebenfalls verfügbar.
 
    Jede index.html, die dieses Skript einbindet, muss folgende
