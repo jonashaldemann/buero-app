@@ -4,169 +4,97 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#F2EFEA">
-<title>Zeiterfassung</title>
+<title>Büro</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/home-192.png">
+<link rel="apple-touch-icon" href="icons/home-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/style.css">
+<style>
+  .tile-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 20px;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .tile:active { background: var(--surface-2); }
+  .tile-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    color: #fff;
+  }
+  .tile-text h2 {
+    font-family: var(--font-medium);
+    font-size: 17px;
+    font-weight: normal;
+    margin: 0 0 2px;
+  }
+  .tile-text p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+</style>
 </head>
 <body>
 
 <header class="topbar">
-  <h1>Zeiterfassung</h1>
-  <div class="topbar-actions">
-    <button id="receiptEntryBtn" class="icon-btn" aria-label="Beleg erfassen" title="Beleg erfassen">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
-    </button>
-    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
-    </button>
-  </div>
+  <h1>Büro</h1>
 </header>
 
 <main>
-  <section class="status-card" id="statusCard">
-    <div class="status-label" id="statusLabel">Nichts läuft</div>
-    <div class="status-timer" id="statusTimer">00:00:00</div>
-    <div class="sync-line" id="syncLine">&nbsp;</div>
-  </section>
+  <div class="tile-grid">
+    <a class="tile" href="zeiterfassung/">
+      <span class="tile-icon" style="background:#4F7089">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm.5 5v5.25l4.25 2.52-.75 1.23L11 13V7h1.5z" fill="currentColor"/></svg>
+      </span>
+      <span class="tile-text">
+        <h2>Zeiterfassung</h2>
+        <p>Zeit pro Projekt erfassen, Nachtragen, Sync mit Nextcloud</p>
+      </span>
+    </a>
 
-  <section class="button-grid" id="projectButtons">
-    <!-- Wird dynamisch aus den zentral verwalteten Projektnamen befüllt -->
-  </section>
+    <a class="tile" href="quittung/">
+      <span class="tile-icon" style="background:#C97960">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+      </span>
+      <span class="tile-text">
+        <h2>Quittung</h2>
+        <p>Belege fotografieren/hochladen, für Banana aufbereiten</p>
+      </span>
+    </a>
 
-  <section class="control-buttons">
-    <button class="proj-btn control" data-action="PAUSE">Pause</button>
-    <button class="proj-btn control stop" data-action="STOP">Stop</button>
-    <button class="proj-btn control manual" id="manualEntryBtn" type="button">Nachtragen</button>
-  </section>
-
-  <section class="today">
-    <h2>Heute</h2>
-    <ul id="todayList" class="today-list">
-      <li class="empty">Noch keine Einträge</li>
-    </ul>
-  </section>
+    <a class="tile" href="wettbewerbsprogramme/">
+      <span class="tile-icon" style="background:#8F9A85">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h7v2H4z" fill="currentColor"/></svg>
+      </span>
+      <span class="tile-text">
+        <h2>Wettbewerbsprogramme</h2>
+        <p>Architekturwettbewerbe hochladen und vergleichen</p>
+      </span>
+    </a>
+  </div>
 </main>
 
-<!-- Einstellungen -->
-<div id="settingsOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h2>Einstellungen</h2>
-      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
-    </div>
-
-    <div class="form-group">
-      <label>Anzeigename (für die CSV-Spalte "Person")</label>
-      <input type="text" id="inputDisplayName" placeholder="z.B. Jonas">
-      <label>Benutzername</label>
-      <input type="text" id="inputUser" placeholder="jonas">
-      <label>App-Passwort</label>
-      <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
-    </div>
-
-    <div class="form-actions">
-      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
-      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
-    </div>
-    <div id="testResult" class="test-result"></div>
-
-    <p class="hint">
-      Das App-Passwort erstellst du in Nextcloud unter
-      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
-      nur auf diesem Gerät gespeichert.
-    </p>
-    <p class="hint">
-      Die Projektnamen (P1/P2/P3) werden zentral von der Büroleitung
-      verwaltet und automatisch übernommen — nicht mehr hier einstellbar.
-    </p>
-  </div>
-</div>
-
-<!-- Manuell nachtragen -->
-<div id="manualOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h2>Zeit nachtragen</h2>
-      <button id="closeManual" class="icon-btn" aria-label="Schliessen">&times;</button>
-    </div>
-
-    <div class="form-group">
-      <label>Datum</label>
-      <input type="date" id="manualDate">
-      <label>Projekt</label>
-      <select id="manualProject"></select>
-      <label>Dauer</label>
-      <div class="duration-row">
-        <input type="number" id="manualHours" min="0" max="23" placeholder="0" inputmode="numeric"> <span class="duration-unit">h</span>
-        <input type="number" id="manualMinutes" min="0" max="59" placeholder="0" inputmode="numeric"> <span class="duration-unit">min</span>
-      </div>
-      <label>Kommentar (optional)</label>
-      <input type="text" id="manualComment" placeholder="Was wurde gemacht?">
-    </div>
-
-    <div class="form-actions">
-      <button id="cancelManualBtn" class="btn-secondary">Abbrechen</button>
-      <button id="saveManualBtn" class="btn-primary">Hinzufügen</button>
-    </div>
-    <div id="manualResult" class="test-result"></div>
-  </div>
-</div>
-
-<!-- Beleg erfassen -->
-<div id="receiptOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h2>Beleg erfassen</h2>
-      <button id="closeReceipt" class="icon-btn" aria-label="Schliessen">&times;</button>
-    </div>
-
-    <div class="form-group">
-      <label>Foto oder PDF</label>
-      <input type="file" id="receiptFile" accept="image/*,application/pdf">
-      <span id="receiptFileName" class="file-name"></span>
-
-      <label>Datum</label>
-      <input type="date" id="receiptDate">
-
-      <label>Einnahme / Ausgabe</label>
-      <select id="receiptTyp">
-        <option value="Ausgabe">Ausgabe</option>
-        <option value="Einnahme">Einnahme</option>
-      </select>
-
-      <label>Gesamtbetrag (CHF)</label>
-      <input type="number" id="receiptAmount" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
-
-      <label>MwSt/USt-Code</label>
-      <select id="receiptMwst"></select>
-
-      <div class="two-col">
-        <div>
-          <label>Konto</label>
-          <select id="receiptKonto"></select>
-        </div>
-        <div>
-          <label>Kategorie</label>
-          <select id="receiptKategorie"></select>
-        </div>
-      </div>
-
-      <label>Verwendungszweck</label>
-      <input type="text" id="receiptPurpose" placeholder="z.B. Büromaterial Migros">
-    </div>
-
-    <div class="form-actions">
-      <button id="cancelReceiptBtn" class="btn-secondary">Abbrechen</button>
-      <button id="saveReceiptBtn" class="btn-primary">Beleg speichern</button>
-    </div>
-    <div id="receiptResult" class="test-result"></div>
-  </div>
-</div>
-
-<script src="js/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  }
+</script>
 </body>
 </html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Wettbewerbsprogramme</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/wettbewerb-192.png">
+<link rel="apple-touch-icon" href="../icons/wettbewerb-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Wettbewerbsprogramme</h1>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="status-card" id="statusCard">
+    <div class="status-label">Wettbewerbe</div>
+    <div class="status-timer" id="countLabel">0</div>
+    <div class="sync-line" id="syncLine">&nbsp;</div>
+  </section>
+
+  <section class="form-actions">
+    <label class="btn-secondary" for="uploadInput" style="display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      JSON hochladen
+    </label>
+    <input type="file" id="uploadInput" accept="application/json" multiple hidden>
+    <button id="refreshBtn" class="btn-primary">Aktualisieren</button>
+  </section>
+  <div id="uploadResult" class="test-result"></div>
+
+  <section class="table-block">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Projekt</th>
+            <th>Auftraggeber</th>
+            <th>Bausumme</th>
+            <th>HNF/GF m²</th>
+            <th>Preisgeld</th>
+            <th>Abgabe Pläne</th>
+            <th>Preise</th>
+          </tr>
+        </thead>
+        <tbody id="wettbewerbBody">
+          <tr><td colspan="7">Noch keine Wettbewerbsprogramme geladen.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Anzeigename</label>
+      <input type="text" id="inputDisplayName" placeholder="z.B. Jonas">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="jonas">
+      <label>App-Passwort</label>
+      <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für "Zeiterfassung" und "Quittung" (einmal einrichten, überall
+      nutzbar).
+    </p>
+  </div>
+</div>
+
+<!-- Detail -->
+<div id="detailOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="detailTitle">Wettbewerb</h2>
+      <button id="closeDetail" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div id="detailBody"></div>
+    <div class="form-actions">
+      <button id="deleteWettbewerbBtn" class="btn-secondary">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
