@@ -15,7 +15,7 @@ const LS_KEYS = {
 
 // Zielordner auf Nextcloud -- kein Jahresordner, da Wettbewerbe nicht
 // zwingend jahresgebunden sind (Programm-Datum kann vom Upload-Jahr abweichen).
-const WETTBEWERB_TARGET_FOLDER_PATH = "Buero/Admin/Wettbewerbsprogramme";
+const WETTBEWERB_TARGET_FOLDER_PATH = "Buero/Akquise/Neue Wettbewerbe";
 
 // { filename, data } -- data ist das geparste JSON.
 let competitions = loadJSON(LS_KEYS.cache, []);

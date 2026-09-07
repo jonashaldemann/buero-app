@@ -14,7 +14,7 @@
  * auf eurer eigenen Nextcloud.
  *
  * ?path= ist der komplette Pfad relativ zur Nextcloud-Domain, z.B.:
- *   - "remote.php/dav/files/jonas%40firma.ch/Buero/Admin/test_zeit/datei.csv"
+ *   - "remote.php/dav/files/jonas%40firma.ch/Buero/Admin/Zeiterfassung/datei.csv"
  *     (persönliche Zeiterfassungsdatei, braucht Authorization-Header)
  *   - "s/AbCdEfGh123/download"
  *     (öffentlicher Freigabelink, z.B. für die zentrale Projektnamen-Datei,
@@ -56,7 +56,7 @@ export default {
 
     // path kommt bereits als Klartext-Pfad an (URLSearchParams hat die
     // Prozent-Codierung schon aufgelöst), z.B.
-    // "remote.php/dav/files/jonas@firma.ch/Buero/Admin/test_zeit/datei.csv"
+    // "remote.php/dav/files/jonas@firma.ch/Buero/Admin/Zeiterfassung/datei.csv"
     const targetUrl = `${NEXTCLOUD_ORIGIN}/${path.replace(/^\/+/, "")}`;
 
     const forwardHeaders = new Headers();

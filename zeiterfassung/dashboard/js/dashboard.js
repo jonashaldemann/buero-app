@@ -9,7 +9,7 @@
 const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
 
 // Für jede Person: Token aus dem öffentlichen Freigabelink des GANZEN
-// "test_zeit"-Ordners (nicht nur einer einzelnen Datei) -- damit können auch
+// "Zeiterfassung"-Ordners (nicht nur einer einzelnen Datei) -- damit können auch
 // künftige Jahres-CSVs ohne neuen Link gelesen werden.
 // Bei https://.../s/AbCdEfGh123 ist der Token "AbCdEfGh123".
 // Eintrag mit leerem Token wird übersprungen.
