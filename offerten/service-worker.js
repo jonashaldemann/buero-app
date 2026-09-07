@@ -3,6 +3,7 @@ const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
+  "./pdf.js",
   "./manifest.json",
   "../shared/common.js",
   "../css/style.css",
@@ -28,7 +29,14 @@ self.addEventListener("activate", (event) => {
 
 // App-Shell: aus Cache, Fallback Netz. absender.json bewusst NICHT in
 // ASSETS gelistet -- die soll immer frisch vom Netz kommen, damit
-// Änderungen (Adresse etc.) ohne Code-Update ankommen.
+// Änderungen (Adresse etc.) ohne Code-Update ankommen. Die PDF-Bibliothek
+// (CDN) und die Nudica-.otf-Schriftdateien für den PDF-Export sind
+// ebenfalls bewusst nicht vorab gecacht -- ein einzelner fehlgeschlagener
+// Cross-Origin-Fetch würde sonst das ganze cache.addAll() beim Install
+// scheitern lassen und die App-Shell selbst offline unbrauchbar machen.
+// "PDF erstellen" braucht deshalb (zumindest beim ersten Mal pro
+// Browser-Cache) eine Internetverbindung; Liste/Bearbeiten/Speichern
+// funktionieren offline unverändert.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
