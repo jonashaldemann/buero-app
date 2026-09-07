@@ -261,6 +261,19 @@ main {
 }
 .form-group label:first-child { margin-top: 0; }
 
+.two-col {
+  display: flex;
+  gap: 10px;
+}
+.two-col > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.two-col label { margin-top: 0; }
+
 input[type="text"], input[type="url"], input[type="password"],
 input[type="date"], input[type="number"], select {
   background: var(--surface-2);
