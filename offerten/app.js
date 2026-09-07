@@ -11,7 +11,12 @@
    Modulen gesucht und übernommen werden (keine separate Library --
    siehe allKnownModules()).
 
-   Die Absenderadresse fürs spätere PDF-Anschreiben kommt aus
+   Jede Offerte hat einen "typ" (offerte/rechnung) -- ändert Beschriftung
+   und ein paar rechnungsspezifische Felder (Zahlbar bis,
+   Zahlungshinweis), sonst identisches Modell/Formular für beide.
+
+   PDF-Export (Brief + Offerte/Rechnung) kommt aus pdf.js
+   (exportOfferPdf()). Die Absenderadresse dafür kommt aus
    offerten/absender.json (bleibt praktisch immer gleich, deshalb
    nicht pro Offerte erfasst) -- siehe loadAbsender().
 
@@ -40,10 +45,8 @@ let offers = loadJSON(LS_KEYS.cache, []);
 let editingOffer = null;
 let editingFilename = null;
 
-// Absenderadresse fürs spätere PDF-Anschreiben -- ändert sich praktisch nie,
-// deshalb zentral in einer Datei statt pro Offerte erfasst. Aktuell nur
-// geladen und vorgehalten; noch keine Verwendung, solange es keinen
-// PDF-Export gibt.
+// Absenderadresse fürs PDF-Anschreiben -- ändert sich praktisch nie,
+// deshalb zentral in einer Datei statt pro Offerte erfasst.
 let absender = null;
 async function loadAbsender() {
   try {
@@ -210,7 +213,7 @@ function renderList() {
   const body = document.getElementById("offerBody");
 
   if (offers.length === 0) {
-    body.innerHTML = '<tr><td colspan="5">Noch keine Offerten geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6">Noch keine Offerten geladen.</td></tr>';
     return;
   }
 
@@ -222,12 +225,17 @@ function renderList() {
     .map(({ o, i }) => {
       const d = o.data;
       const total = calcTotals(d).total;
+      const isRechnung = d.typ === "rechnung";
       return `<tr data-clickable data-index="${i}">
         <td>${escapeHtml(chDate(d.datum))}</td>
+        <td><span class="typ-badge${isRechnung ? " rechnung" : ""}">${typLabel(d.typ)}</span></td>
         <td>${escapeHtml(d.projekt || o.filename)}</td>
         <td>${escapeHtml(d.empfaenger || "–")}</td>
         <td>${escapeHtml(chFr(total))}</td>
-        <td><button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button></td>
+        <td class="row-actions">
+          <button type="button" class="row-action" data-action="pdf" data-index="${i}" title="PDF erstellen">📄</button>
+          <button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button>
+        </td>
       </tr>`;
     })
     .join("");
@@ -244,6 +252,21 @@ function renderList() {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.index, 10);
       duplicateOffer(offers[idx].data);
+    });
+  });
+
+  body.querySelectorAll('[data-action="pdf"]').forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      btn.disabled = true;
+      try {
+        await exportOfferPdf(offers[idx].data, absender);
+      } catch (err) {
+        alert("Fehler beim PDF-Erstellen: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
 }
@@ -334,27 +357,45 @@ function calcTotals(offer) {
 
 // ---------- Rendering: Editor ----------
 
-function blankOffer() {
+function blankOffer(typ) {
   return {
+    typ: typ === "rechnung" ? "rechnung" : "offerte",
     empfaenger: "",
     adresse: "",
     projekt: "",
     ort: "",
     datum: formatDate(new Date()),
     offert_nr: "",
+    zahlbar_bis: "",
     betreff: "",
     brieftext: "",
+    zahlungshinweis: "",
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
     positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0 }]
   };
 }
 
-function openEditor(offer, filename) {
-  editingOffer = offer ? JSON.parse(JSON.stringify(offer)) : blankOffer();
+function typLabel(typ) {
+  return typ === "rechnung" ? "Rechnung" : "Offerte";
+}
+
+// Blendet die rechnungsspezifischen Felder ein/aus und passt Titel/Labels an
+// -- Offerte und Rechnung teilen sich sonst dasselbe Formular/Datenmodell.
+function applyTypVisibility(typ) {
+  const isRechnung = typ === "rechnung";
+  document.getElementById("offertNrLabel").textContent = isRechnung ? "Rechnungs-Nr. (optional)" : "Offert-Nr. (optional)";
+  document.getElementById("zahlbarBisRow").style.display = isRechnung ? "flex" : "none";
+  document.getElementById("zahlungshinweisGroup").style.display = isRechnung ? "" : "none";
+  document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
+}
+
+function openEditor(offer, filename, newTyp) {
+  editingOffer = offer ? JSON.parse(JSON.stringify(offer)) : blankOffer(newTyp);
   editingFilename = filename || null;
 
-  document.getElementById("editorTitle").textContent = filename ? "Offerte bearbeiten" : "Neue Offerte";
+  document.getElementById("inputTyp").value = editingOffer.typ || "offerte";
+  applyTypVisibility(editingOffer.typ);
   document.getElementById("inputEmpfaenger").value = editingOffer.empfaenger || "";
   document.getElementById("inputAdresse").value = editingOffer.adresse || "";
   document.getElementById("inputProjekt").value = editingOffer.projekt || "";
@@ -363,8 +404,10 @@ function openEditor(offer, filename) {
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
+  document.getElementById("inputZahlbarBis").value = editingOffer.zahlbar_bis || "";
   document.getElementById("inputBetreff").value = editingOffer.betreff || "";
   document.getElementById("inputBrieftext").value = editingOffer.brieftext || "";
+  document.getElementById("inputZahlungshinweis").value = editingOffer.zahlungshinweis || "";
   document.getElementById("editorResult").textContent = "";
   document.getElementById("editorResult").className = "test-result";
   document.getElementById("deleteOfferBtn").style.display = filename ? "" : "none";
@@ -496,6 +539,7 @@ function recalcTotalsDisplay() {
 }
 
 function readHeaderFieldsIntoOffer() {
+  editingOffer.typ = document.getElementById("inputTyp").value === "rechnung" ? "rechnung" : "offerte";
   editingOffer.empfaenger = document.getElementById("inputEmpfaenger").value.trim();
   editingOffer.adresse = document.getElementById("inputAdresse").value.trim();
   editingOffer.projekt = document.getElementById("inputProjekt").value.trim();
@@ -504,8 +548,10 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
+  editingOffer.zahlbar_bis = document.getElementById("inputZahlbarBis").value || "";
   editingOffer.betreff = document.getElementById("inputBetreff").value.trim();
   editingOffer.brieftext = document.getElementById("inputBrieftext").value;
+  editingOffer.zahlungshinweis = document.getElementById("inputZahlungshinweis").value;
 }
 
 // Übernimmt den aktuellen Stand (inkl. noch nicht gespeicherter Änderungen)
@@ -587,7 +633,8 @@ function init() {
     saveDefaultRate(value);
   });
 
-  document.getElementById("newOfferBtn").addEventListener("click", () => openEditor(null, null));
+  document.getElementById("newOfferBtn").addEventListener("click", () => openEditor(null, null, "offerte"));
+  document.getElementById("newInvoiceBtn").addEventListener("click", () => openEditor(null, null, "rechnung"));
   document.getElementById("refreshBtn").addEventListener("click", refreshOffers);
   document.getElementById("closeEditor").addEventListener("click", closeEditor);
   document.getElementById("saveOfferBtn").addEventListener("click", saveCurrentOffer);
@@ -595,6 +642,27 @@ function init() {
   document.getElementById("duplicateOfferBtn").addEventListener("click", () => {
     readHeaderFieldsIntoOffer();
     duplicateOffer(editingOffer);
+  });
+  document.getElementById("pdfOfferBtn").addEventListener("click", async () => {
+    readHeaderFieldsIntoOffer();
+    const resultEl = document.getElementById("editorResult");
+    const btn = document.getElementById("pdfOfferBtn");
+    btn.disabled = true;
+    resultEl.textContent = "Erstellt PDF…";
+    resultEl.className = "test-result";
+    try {
+      await exportOfferPdf(editingOffer, absender);
+      resultEl.textContent = "PDF erstellt.";
+      resultEl.className = "test-result ok";
+    } catch (err) {
+      resultEl.textContent = "Fehler: " + err.message;
+      resultEl.className = "test-result err";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  document.getElementById("inputTyp").addEventListener("change", (e) => {
+    applyTypVisibility(e.target.value);
   });
   document.getElementById("addModBtn").addEventListener("click", () => {
     editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0 });

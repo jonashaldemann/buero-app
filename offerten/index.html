@@ -174,6 +174,19 @@
     padding: 4px 6px;
   }
   .row-action:active { color: var(--accent-primary); }
+  .row-actions { display: flex; gap: 2px; white-space: nowrap; }
+
+  .typ-badge {
+    display: inline-block;
+    font-family: var(--font-medium);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .typ-badge.rechnung { background: #EFE0D6; color: #A2603F; }
 
   .totals-block {
     margin-top: 18px;
@@ -226,6 +239,7 @@
 
   <section class="form-actions">
     <button id="newOfferBtn" class="btn-primary">+ Neue Offerte</button>
+    <button id="newInvoiceBtn" class="btn-secondary">+ Neue Rechnung</button>
     <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
   </section>
 
@@ -235,6 +249,7 @@
         <thead>
           <tr>
             <th>Datum</th>
+            <th>Typ</th>
             <th>Projekt</th>
             <th>Empfänger</th>
             <th>Total</th>
@@ -242,7 +257,7 @@
           </tr>
         </thead>
         <tbody id="offerBody">
-          <tr><td colspan="5">Noch keine Offerten geladen.</td></tr>
+          <tr><td colspan="6">Noch keine Offerten geladen.</td></tr>
         </tbody>
       </table>
     </div>
@@ -291,6 +306,12 @@
     </div>
 
     <div class="form-group">
+      <label>Typ</label>
+      <select id="inputTyp" style="max-width:220px;">
+        <option value="offerte">Offerte</option>
+        <option value="rechnung">Rechnung</option>
+      </select>
+
       <label>Empfänger (Name/Firma)</label>
       <input type="text" id="inputEmpfaenger" placeholder="z.B. Gemeinde Musterwil">
       <label>Adresse</label>
@@ -312,7 +333,7 @@
 
       <div class="two-col">
         <div>
-          <label>Offert-Nr. (optional)</label>
+          <label id="offertNrLabel">Offert-Nr. (optional)</label>
           <input type="text" id="inputOffertNr" placeholder="z.B. 26-OFF01">
         </div>
         <div>
@@ -323,6 +344,11 @@
 
       <label>MWST-Satz (%)</label>
       <input type="number" id="inputMwstProzent" min="0" step="0.1" style="max-width:140px;">
+
+      <div id="zahlbarBisRow" style="display:none; flex-direction:column; gap:8px; margin-top:10px;">
+        <label>Zahlbar bis</label>
+        <input type="date" id="inputZahlbarBis" style="max-width:220px;">
+      </div>
     </div>
 
     <div class="form-group">
@@ -330,6 +356,11 @@
       <input type="text" id="inputBetreff" placeholder="z.B. Offerte für Neubau Werkhof Musterwil">
       <label>Brieftext (Anschreiben, 1. PDF-Seite)</label>
       <textarea id="inputBrieftext" rows="5" placeholder="Sehr geehrte Damen und Herren&#10;&#10;Gerne unterbreiten wir Ihnen..."></textarea>
+    </div>
+
+    <div class="form-group" id="zahlungshinweisGroup" style="display:none;">
+      <label>Zahlungshinweis (erscheint unterhalb der Summen auf der Rechnung, z.B. Konto/IBAN, Referenz)</label>
+      <textarea id="inputZahlungshinweis" rows="3" placeholder="z.B. Zahlbar innert 30 Tagen auf IBAN CH00 0000 0000 0000 0000 0, Referenz ..."></textarea>
     </div>
 
     <div class="mod-head">
@@ -361,13 +392,17 @@
 
     <div class="form-actions" style="margin-top:14px;">
       <button id="duplicateOfferBtn" class="btn-secondary">Duplizieren</button>
+      <button id="pdfOfferBtn" class="btn-secondary">PDF erstellen</button>
       <button id="deleteOfferBtn" class="btn-secondary">Löschen</button>
       <button id="saveOfferBtn" class="btn-primary">Speichern</button>
     </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 <script src="../shared/common.js"></script>
+<script src="pdf.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
