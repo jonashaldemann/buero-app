@@ -1,8 +1,19 @@
 /* ============================================================
-   Offerten — Offerten aus Modulen zusammenstellen (Titel,
-   Kurzbeschrieb, Stunden, Kosten = Stunden x Stundensatz),
-   Module hoch-/runterschieben, Zwischentotal/MWST/Total berechnen,
-   auf Nextcloud sichern (geräteübergreifend verfügbar).
+   Offerten — Offerten aus Positionen zusammenstellen: Phasen
+   (freie Zwischenüberschrift, z.B. "Vorprojekt") und Module (Titel
+   mit automatischer Nummerierung, Kurzbeschrieb als Bulletpoints --
+   eine Zeile im Textfeld = ein Punkt --, Stunden, Kosten = Stunden x
+   Stundensatz). Positionen beliebig hoch-/runterschieben,
+   Zwischentotal/MWST/Total berechnen, auf Nextcloud sichern
+   (geräteübergreifend verfügbar). Offerten lassen sich duplizieren,
+   um nicht jedes Mal alles neu erfassen zu müssen. Beim Erfassen eines
+   Moduls kann auch live in allen bisherigen Offerten nach ähnlichen
+   Modulen gesucht und übernommen werden (keine separate Library --
+   siehe allKnownModules()).
+
+   Die Absenderadresse fürs spätere PDF-Anschreiben kommt aus
+   offerten/absender.json (bleibt praktisch immer gleich, deshalb
+   nicht pro Offerte erfasst) -- siehe loadAbsender().
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, Einstellungen-UI
    usw. kommen aus ../shared/common.js (gemeinsam mit Zeiterfassung,
@@ -28,6 +39,20 @@ let offers = loadJSON(LS_KEYS.cache, []);
 // Nextcloud (null = noch nicht gespeichert, also eine neue Offerte).
 let editingOffer = null;
 let editingFilename = null;
+
+// Absenderadresse fürs spätere PDF-Anschreiben -- ändert sich praktisch nie,
+// deshalb zentral in einer Datei statt pro Offerte erfasst. Aktuell nur
+// geladen und vorgehalten; noch keine Verwendung, solange es keinen
+// PDF-Export gibt.
+let absender = null;
+async function loadAbsender() {
+  try {
+    const res = await fetch("absender.json");
+    absender = res.ok ? await res.json() : null;
+  } catch (e) {
+    absender = null;
+  }
+}
 
 function offerSegments() {
   return ncSegments(OFFERTEN_TARGET_FOLDER_PATH);
@@ -166,7 +191,7 @@ function renderList() {
   const body = document.getElementById("offerBody");
 
   if (offers.length === 0) {
-    body.innerHTML = '<tr><td colspan="4">Noch keine Offerten geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5">Noch keine Offerten geladen.</td></tr>';
     return;
   }
 
@@ -183,6 +208,7 @@ function renderList() {
         <td>${escapeHtml(d.projekt || o.filename)}</td>
         <td>${escapeHtml(d.empfaenger || "–")}</td>
         <td>${escapeHtml(chFr(total))}</td>
+        <td><button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button></td>
       </tr>`;
     })
     .join("");
@@ -193,13 +219,95 @@ function renderList() {
       openEditor(offers[idx].data, offers[idx].filename);
     });
   });
+
+  body.querySelectorAll('[data-action="duplicate"]').forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      duplicateOffer(offers[idx].data);
+    });
+  });
+}
+
+// ---------- Modul-Suche (in bisherigen Offerten) ----------
+//
+// Bewusst keine separate Modul-Library: die Offerten sind ohnehin schon
+// geladen (für die Liste), also durchsucht das hier einfach deren
+// Positionen live. Weniger zu pflegen, immer aktuell.
+
+function allKnownModules() {
+  const result = [];
+  offers.forEach((o) => {
+    (o.data.positionen || []).forEach((p) => {
+      if (p.typ === "modul" && p.titel) {
+        result.push({
+          titel: p.titel,
+          beschrieb: Array.isArray(p.beschrieb) ? p.beschrieb : [],
+          stunden: Number(p.stunden) || 0,
+          projekt: o.data.projekt || o.filename,
+          datum: o.data.datum || ""
+        });
+      }
+    });
+  });
+  return result;
+}
+
+function searchModules(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return allKnownModules()
+    .filter((m) => `${m.titel} ${m.beschrieb.join(" ")}`.toLowerCase().includes(q))
+    .sort((a, b) => String(b.datum).localeCompare(String(a.datum)))
+    .slice(0, 8);
+}
+
+function renderModSearchResults(results, query) {
+  const box = document.getElementById("modSearchResults");
+  if (!query.trim()) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  box.classList.remove("hidden");
+  if (results.length === 0) {
+    box.innerHTML = '<div class="mod-search-empty">Keine passenden Module gefunden.</div>';
+    return;
+  }
+  box.innerHTML = results
+    .map(
+      (m, i) => `<div class="mod-search-result" data-index="${i}">
+        <span class="msr-title">${escapeHtml(m.titel)}</span>
+        <span class="msr-meta">${escapeHtml(chNumber(m.stunden))} Std. · ${escapeHtml(m.projekt)}, ${escapeHtml(chDate(m.datum))}</span>
+      </div>`
+    )
+    .join("");
+  box.querySelectorAll(".mod-search-result").forEach((el) => {
+    el.addEventListener("click", () => importModule(results[parseInt(el.dataset.index, 10)]));
+  });
+}
+
+// Übernimmt Titel/Beschrieb/Stunden als Ausgangspunkt -- Stunden lassen sich
+// danach wie gewohnt fürs neue Projekt anpassen.
+function importModule(m) {
+  editingOffer.positionen.push({
+    typ: "modul",
+    titel: m.titel,
+    beschrieb: [...m.beschrieb],
+    stunden: m.stunden
+  });
+  document.getElementById("modSearchInput").value = "";
+  renderModSearchResults([], "");
+  renderPositionen();
 }
 
 // ---------- Berechnung ----------
 
 function calcTotals(offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
-  const subtotal = (offer.module || []).reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
+  const subtotal = (offer.positionen || [])
+    .filter((p) => p.typ === "modul")
+    .reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
   const mwstProzent = Number(offer.mwst_prozent) || 0;
   const mwst = subtotal * (mwstProzent / 100);
   return { subtotal, mwst, total: subtotal + mwst };
@@ -212,11 +320,14 @@ function blankOffer() {
     empfaenger: "",
     adresse: "",
     projekt: "",
+    ort: "",
     datum: formatDate(new Date()),
     offert_nr: "",
+    betreff: "",
+    brieftext: "",
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
-    module: [{ titel: "", beschrieb: "", stunden: 0 }]
+    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0 }]
   };
 }
 
@@ -228,15 +339,21 @@ function openEditor(offer, filename) {
   document.getElementById("inputEmpfaenger").value = editingOffer.empfaenger || "";
   document.getElementById("inputAdresse").value = editingOffer.adresse || "";
   document.getElementById("inputProjekt").value = editingOffer.projekt || "";
+  document.getElementById("inputOrt").value = editingOffer.ort || "";
   document.getElementById("inputDatum").value = editingOffer.datum || formatDate(new Date());
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
+  document.getElementById("inputBetreff").value = editingOffer.betreff || "";
+  document.getElementById("inputBrieftext").value = editingOffer.brieftext || "";
   document.getElementById("editorResult").textContent = "";
   document.getElementById("editorResult").className = "test-result";
   document.getElementById("deleteOfferBtn").style.display = filename ? "" : "none";
+  document.getElementById("duplicateOfferBtn").style.display = filename ? "" : "none";
+  document.getElementById("modSearchInput").value = "";
+  renderModSearchResults([], "");
 
-  renderModules();
+  renderPositionen();
   document.getElementById("editorOverlay").classList.remove("hidden");
 }
 
@@ -246,27 +363,50 @@ function closeEditor() {
   editingFilename = null;
 }
 
-function renderModules() {
+// Kurzbeschrieb wird als ein Punkt pro Zeile erfasst (Bulletpoints) --
+// gespeichert als Array von Zeilen, im Textfeld als mehrzeiliger Text.
+function beschriebToText(beschrieb) {
+  return Array.isArray(beschrieb) ? beschrieb.join("\n") : beschrieb || "";
+}
+function textToBeschrieb(text) {
+  return text.split("\n");
+}
+
+function renderPositionen() {
   const list = document.getElementById("modList");
   const rate = Number(editingOffer.stundensatz_chf) || 0;
+  const positionen = editingOffer.positionen;
 
-  list.innerHTML = editingOffer.module
-    .map((m, i) => {
-      const kosten = (Number(m.stunden) || 0) * rate;
+  let modulNr = 0;
+  list.innerHTML = positionen
+    .map((p, i) => {
+      const isLast = i === positionen.length - 1;
+      const arrows = `<div class="mod-arrows">
+        <button type="button" class="mod-arrow" data-action="up" ${i === 0 ? "disabled" : ""} aria-label="Nach oben">▲</button>
+        <button type="button" class="mod-arrow" data-action="down" ${isLast ? "disabled" : ""} aria-label="Nach unten">▼</button>
+      </div>`;
+
+      if (p.typ === "phase") {
+        return `<div class="phase-row" data-index="${i}">
+          ${arrows}
+          <input type="text" class="phase-titel" data-field="titel" placeholder="Phase, z.B. Vorprojekt" value="${escapeHtml(p.titel || "")}">
+          <button type="button" class="mod-delete" data-action="delete" aria-label="Phase löschen">✕</button>
+        </div>`;
+      }
+
+      modulNr++;
+      const kosten = (Number(p.stunden) || 0) * rate;
       return `<div class="mod-row" data-index="${i}">
-        <div class="mod-arrows">
-          <button type="button" class="mod-arrow" data-action="up" ${i === 0 ? "disabled" : ""} aria-label="Nach oben">▲</button>
-          <button type="button" class="mod-arrow" data-action="down" ${i === editingOffer.module.length - 1 ? "disabled" : ""} aria-label="Nach unten">▼</button>
-        </div>
+        ${arrows}
         <div class="mod-main">
           <div class="mod-title-row">
-            <span class="mod-num">${i + 1})</span>
-            <input type="text" class="mod-titel" data-field="titel" placeholder="Titel" value="${escapeHtml(m.titel || "")}">
+            <span class="mod-num">${modulNr})</span>
+            <input type="text" class="mod-titel" data-field="titel" placeholder="Titel" value="${escapeHtml(p.titel || "")}">
           </div>
-          <textarea class="mod-beschrieb" data-field="beschrieb" rows="2" placeholder="Kurzbeschrieb">${escapeHtml(m.beschrieb || "")}</textarea>
+          <textarea class="mod-beschrieb" data-field="beschrieb" rows="2" placeholder="Ein Punkt pro Zeile">${escapeHtml(beschriebToText(p.beschrieb))}</textarea>
         </div>
         <div class="mod-stunden">
-          <input type="number" data-field="stunden" min="0" step="0.25" value="${m.stunden ?? 0}">
+          <input type="number" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}">
           <span class="unit">Std.</span>
         </div>
         <div class="mod-kosten">${escapeHtml(chFr(kosten))}</div>
@@ -275,37 +415,45 @@ function renderModules() {
     })
     .join("");
 
-  list.querySelectorAll(".mod-row").forEach((row) => {
+  list.querySelectorAll(".mod-row, .phase-row").forEach((row) => {
     const index = parseInt(row.dataset.index, 10);
 
     row.querySelectorAll("[data-field]").forEach((el) => {
       const field = el.dataset.field;
       el.addEventListener("input", () => {
-        editingOffer.module[index][field] = field === "stunden" ? Number(el.value) || 0 : el.value;
-        if (field === "stunden") recalcAll();
+        if (field === "stunden") {
+          positionen[index][field] = Number(el.value) || 0;
+          recalcAll();
+        } else if (field === "beschrieb") {
+          positionen[index][field] = textToBeschrieb(el.value);
+        } else {
+          positionen[index][field] = el.value;
+        }
       });
     });
 
-    row.querySelector('[data-action="up"]')?.addEventListener("click", () => moveModule(index, -1));
-    row.querySelector('[data-action="down"]')?.addEventListener("click", () => moveModule(index, 1));
-    row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removeModule(index));
+    row.querySelector('[data-action="up"]')?.addEventListener("click", () => movePosition(index, -1));
+    row.querySelector('[data-action="down"]')?.addEventListener("click", () => movePosition(index, 1));
+    row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removePosition(index));
   });
 
   recalcTotalsDisplay();
 }
 
-function moveModule(index, dir) {
+function movePosition(index, dir) {
+  const positionen = editingOffer.positionen;
   const target = index + dir;
-  if (target < 0 || target >= editingOffer.module.length) return;
-  const [item] = editingOffer.module.splice(index, 1);
-  editingOffer.module.splice(target, 0, item);
-  renderModules();
+  if (target < 0 || target >= positionen.length) return;
+  const [item] = positionen.splice(index, 1);
+  positionen.splice(target, 0, item);
+  renderPositionen();
 }
 
-function removeModule(index) {
-  editingOffer.module.splice(index, 1);
-  if (editingOffer.module.length === 0) editingOffer.module.push({ titel: "", beschrieb: "", stunden: 0 });
-  renderModules();
+function removePosition(index) {
+  const positionen = editingOffer.positionen;
+  positionen.splice(index, 1);
+  if (positionen.length === 0) positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0 });
+  renderPositionen();
 }
 
 function recalcAll() {
@@ -314,8 +462,8 @@ function recalcAll() {
   const rate = Number(editingOffer.stundensatz_chf) || 0;
   document.querySelectorAll("#modList .mod-row").forEach((row) => {
     const index = parseInt(row.dataset.index, 10);
-    const m = editingOffer.module[index];
-    const kosten = (Number(m.stunden) || 0) * rate;
+    const p = editingOffer.positionen[index];
+    const kosten = (Number(p.stunden) || 0) * rate;
     row.querySelector(".mod-kosten").textContent = chFr(kosten);
   });
   recalcTotalsDisplay();
@@ -332,10 +480,23 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.empfaenger = document.getElementById("inputEmpfaenger").value.trim();
   editingOffer.adresse = document.getElementById("inputAdresse").value.trim();
   editingOffer.projekt = document.getElementById("inputProjekt").value.trim();
+  editingOffer.ort = document.getElementById("inputOrt").value.trim();
   editingOffer.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
+  editingOffer.betreff = document.getElementById("inputBetreff").value.trim();
+  editingOffer.brieftext = document.getElementById("inputBrieftext").value;
+}
+
+// Übernimmt den aktuellen Stand (inkl. noch nicht gespeicherter Änderungen)
+// in eine neue, noch nicht gespeicherte Offerte -- damit nicht jedes Mal
+// Empfänger, Module etc. neu erfasst werden müssen.
+function duplicateOffer(offer) {
+  const copy = JSON.parse(JSON.stringify(offer));
+  copy.datum = formatDate(new Date());
+  copy.offert_nr = "";
+  openEditor(copy, null);
 }
 
 async function saveCurrentOffer() {
@@ -412,9 +573,20 @@ function init() {
   document.getElementById("closeEditor").addEventListener("click", closeEditor);
   document.getElementById("saveOfferBtn").addEventListener("click", saveCurrentOffer);
   document.getElementById("deleteOfferBtn").addEventListener("click", deleteCurrentOffer);
+  document.getElementById("duplicateOfferBtn").addEventListener("click", () => {
+    readHeaderFieldsIntoOffer();
+    duplicateOffer(editingOffer);
+  });
   document.getElementById("addModBtn").addEventListener("click", () => {
-    editingOffer.module.push({ titel: "", beschrieb: "", stunden: 0 });
-    renderModules();
+    editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0 });
+    renderPositionen();
+  });
+  document.getElementById("addPhaseBtn").addEventListener("click", () => {
+    editingOffer.positionen.push({ typ: "phase", titel: "" });
+    renderPositionen();
+  });
+  document.getElementById("modSearchInput").addEventListener("input", (e) => {
+    renderModSearchResults(searchModules(e.target.value), e.target.value);
   });
 
   document.getElementById("inputStundensatz").addEventListener("input", (e) => {
@@ -431,6 +603,7 @@ function init() {
     if (document.visibilityState === "visible") refreshOffers();
   });
 
+  loadAbsender();
   renderList();
   if (isConfigured()) refreshOffers();
 
