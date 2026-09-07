@@ -703,6 +703,115 @@ function fileExtension(file) {
   return file.type === "application/pdf" ? "pdf" : "jpg";
 }
 
+// ---------- Foto -> PDF (Fotos werden vor der Ablage vereinheitlicht) ----------
+// Kein PDF-Build nötig: Canvas re-encodiert das Bild als JPEG, das dann roh
+// (DCTDecode) in ein von Hand zusammengesetztes Ein-Bild-PDF eingebettet wird.
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Bild konnte nicht geladen werden."));
+    img.src = dataUrl;
+  });
+}
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// Baut ein minimales, gültiges Ein-Seiten-PDF (A4, Bild zentriert und
+// eingepasst) direkt aus JPEG-Bytes -- ohne externe Bibliothek.
+function buildSingleImagePdf(jpegBytes, imgWidthPx, imgHeightPx) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  let offset = 0;
+  const objOffset = {};
+
+  function push(bytes) {
+    chunks.push(bytes);
+    offset += bytes.length;
+  }
+  function pushText(s) {
+    push(enc.encode(s));
+  }
+
+  const A4_W = 595.28;
+  const A4_H = 841.89;
+  const landscape = imgWidthPx > imgHeightPx;
+  const pageW = landscape ? A4_H : A4_W;
+  const pageH = landscape ? A4_W : A4_H;
+  const margin = 20;
+  const scale = Math.min((pageW - margin * 2) / imgWidthPx, (pageH - margin * 2) / imgHeightPx);
+  const drawW = imgWidthPx * scale;
+  const drawH = imgHeightPx * scale;
+  const x = (pageW - drawW) / 2;
+  const y = (pageH - drawH) / 2;
+
+  pushText("%PDF-1.4\n");
+
+  objOffset[1] = offset;
+  pushText("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+  objOffset[2] = offset;
+  pushText("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+  objOffset[3] = offset;
+  pushText(
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW.toFixed(2)} ${pageH.toFixed(2)}] ` +
+      "/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n"
+  );
+
+  objOffset[4] = offset;
+  pushText(
+    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgWidthPx} /Height ${imgHeightPx} ` +
+      `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+  );
+  push(jpegBytes);
+  pushText("\nendstream\nendobj\n");
+
+  const content = `q\n${drawW.toFixed(2)} 0 0 ${drawH.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im0 Do\nQ`;
+  objOffset[5] = offset;
+  pushText(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`);
+
+  const xrefOffset = offset;
+  let xref = "xref\n0 6\n0000000000 65535 f \n";
+  for (let i = 1; i <= 5; i++) {
+    xref += String(objOffset[i]).padStart(10, "0") + " 00000 n \n";
+  }
+  pushText(xref);
+  pushText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+  return new Blob(chunks, { type: "application/pdf" });
+}
+
+async function imageFileToPdfBlob(file) {
+  const dataUrl = await readFileAsDataURL(file);
+  const img = await loadImageElement(dataUrl);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext("2d").drawImage(img, 0, 0);
+
+  const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+  const jpegBytes = base64ToUint8Array(jpegDataUrl.split(",")[1]);
+
+  return buildSingleImagePdf(jpegBytes, canvas.width, canvas.height);
+}
+
 // Banana kann kein CSV importieren, sondern nur das eigene generische
 // TXT-Format "Bewegungen Einnahmen-Ausgaben" (tab-getrennt, feste englische
 // Spaltennamen unabhängig von der Banana-UI-Sprache):
@@ -768,31 +877,32 @@ function renderReceiptMwstOptions(typ) {
   mwstSelect.value = typ === "Einnahme" ? "V81" : "M81";
 }
 
+// Kategorie zeigt nur die zum gewählten Typ passende Gruppe -- Ausgabe nur
+// Aufwände, Einnahme nur Erlöse, statt beider Gruppen gemischt.
+const KATEGORIE_GROUP_FOR_TYP = { Einnahme: "Erlöse", Ausgabe: "Aufwände" };
+
+function renderReceiptKategorieOptions(typ) {
+  const kategorieSelect = document.getElementById("receiptKategorie");
+  const items = KATEGORIEN[KATEGORIE_GROUP_FOR_TYP[typ]] || [];
+  kategorieSelect.innerHTML =
+    '<option value="">– wählen –</option>' +
+    items.map(([code, label]) => `<option value="${escapeHtml(code)}">${escapeHtml(code)} – ${escapeHtml(label)}</option>`).join("");
+}
+
 function renderReceiptSelects() {
   const kontoSelect = document.getElementById("receiptKonto");
   kontoSelect.innerHTML =
     '<option value="">– wählen –</option>' +
     KONTEN.map(([code, label]) => `<option value="${escapeHtml(code)}">${escapeHtml(code)} – ${escapeHtml(label)}</option>`).join("");
-
-  const kategorieSelect = document.getElementById("receiptKategorie");
-  kategorieSelect.innerHTML =
-    '<option value="">– wählen –</option>' +
-    Object.entries(KATEGORIEN)
-      .map(
-        ([group, items]) =>
-          `<optgroup label="${escapeHtml(group)}">${items
-            .map(([code, label]) => `<option value="${escapeHtml(code)}">${escapeHtml(code)} – ${escapeHtml(label)}</option>`)
-            .join("")}</optgroup>`
-      )
-      .join("");
 }
 
 function onReceiptTypChange(e) {
   renderReceiptMwstOptions(e.target.value);
+  renderReceiptKategorieOptions(e.target.value);
 }
 
 function openReceiptEntry() {
-  renderReceiptSelects(); // Konto/Kategorie-Dropdowns mit dem aktuell bekannten Stand neu aufbauen
+  renderReceiptSelects(); // Konto-Dropdown mit dem aktuell bekannten Stand neu aufbauen
   document.getElementById("receiptFile").value = "";
   document.getElementById("receiptFileName").textContent = "";
   document.getElementById("receiptDate").value = formatDate(new Date());
@@ -800,7 +910,7 @@ function openReceiptEntry() {
   document.getElementById("receiptAmount").value = "";
   renderReceiptMwstOptions("Ausgabe");
   document.getElementById("receiptKonto").value = "";
-  document.getElementById("receiptKategorie").value = "";
+  renderReceiptKategorieOptions("Ausgabe");
   document.getElementById("receiptPurpose").value = "";
   document.getElementById("receiptResult").textContent = "";
   document.getElementById("receiptResult").className = "test-result";
@@ -852,14 +962,27 @@ async function saveReceiptEntry() {
     await ensureReceiptFolder();
     const belegnummer = await nextBelegnummer(typ);
     const shortPurpose = sanitizeForFilename(purpose) || "Beleg";
-    const ext = fileExtension(file);
+
+    // Fotos vor der Ablage vereinheitlicht als PDF speichern; ist die Datei
+    // bereits ein PDF, unverändert lassen.
+    const isImage = file.type.startsWith("image/");
+    let uploadBlob = file;
+    let ext = fileExtension(file);
+    let uploadContentType = file.type || "application/octet-stream";
+    if (isImage) {
+      resultEl.textContent = "Wandle Foto in PDF um…";
+      uploadBlob = await imageFileToPdfBlob(file);
+      ext = "pdf";
+      uploadContentType = "application/pdf";
+    }
+
     const filename = `${belegnummer} ${shortPurpose}.${ext}`;
     const relPath = davPath([...receiptDavSegments(), filename].join("/"));
 
     const uploadRes = await proxyFetch(relPath, {
       method: "PUT",
-      headers: { ...authHeader(), "Content-Type": file.type || "application/octet-stream" },
-      body: file
+      headers: { ...authHeader(), "Content-Type": uploadContentType },
+      body: uploadBlob
     });
     if (!uploadRes.ok) throw new Error(`Hochladen fehlgeschlagen (${uploadRes.status})`);
 
