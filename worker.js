@@ -24,8 +24,9 @@
 const ALLOWED_ORIGIN = "https://jonashaldemann.github.io";
 const NEXTCLOUD_ORIGIN = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
 // PROPFIND wird für die Belegerfassung gebraucht, um den Ordnerinhalt zu
-// lesen (höchste bestehende Belegnummer ermitteln).
-const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "PROPFIND", "OPTIONS"];
+// lesen (höchste bestehende Belegnummer ermitteln). DELETE wird für die
+// Wettbewerbsprogramme gebraucht (einzelnen Wettbewerb entfernen).
+const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "PROPFIND", "DELETE", "OPTIONS"];
 
 function corsHeaders() {
   return {
