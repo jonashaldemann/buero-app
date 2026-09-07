@@ -154,6 +154,25 @@ function sanitizeJsonFilename(name) {
   return clean;
 }
 
+// Der Dateiname für NEUE Offerten kommt nur aus Datum+Projekt (nicht aus der
+// frei bleibenden Offert-Nr.) -- zwei Offerten zum selben Projekt am selben
+// Tag (z.B. eine Duplizierung mit neuer Offert-Nr., aber unverändertem
+// Projektnamen) hätten sonst denselben Dateinamen und die ältere würde beim
+// Speichern der neuen stillschweigend überschrieben. Deshalb bei einer
+// Kollision mit einer bereits bekannten Datei " (2)", " (3)", … anhängen.
+function uniqueFilename(base) {
+  const known = new Set(offers.map((o) => o.filename));
+  if (!known.has(base)) return base;
+  const stem = base.replace(/\.json$/i, "");
+  let n = 2;
+  let candidate;
+  do {
+    candidate = `${stem} (${n}).json`;
+    n++;
+  } while (known.has(candidate));
+  return candidate;
+}
+
 // ---------- Formatierung ----------
 
 function chDate(dateStr) {
@@ -517,7 +536,7 @@ async function saveCurrentOffer() {
   resultEl.textContent = "Speichert…";
   resultEl.className = "test-result";
 
-  const filename = editingFilename || sanitizeJsonFilename(`${editingOffer.datum} ${editingOffer.projekt}`);
+  const filename = editingFilename || uniqueFilename(sanitizeJsonFilename(`${editingOffer.datum} ${editingOffer.projekt}`));
 
   try {
     await ensureOfferFolder();
