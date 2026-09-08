@@ -183,12 +183,6 @@ function chDateTime(dateStr) {
   if (!m) return chDate(dateStr);
   return `${m[3]}.${m[2]}.${m[1]}, ${m[4]}:${m[5]}`;
 }
-function chNumber(n) {
-  if (n === undefined || n === null || n === "") return "–";
-  const num = Number(n);
-  if (isNaN(num)) return String(n);
-  return num.toLocaleString("de-CH");
-}
 function chCurrency(n) {
   if (n === undefined || n === null || n === "") return "–";
   return `CHF ${chNumber(n)}`;
