@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#F2EFEA">
-<title>Offerten</title>
+<title>Offerten & Rechnungen</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="../icons/offerten-192.png">
 <link rel="apple-touch-icon" href="../icons/offerten-192.png">
@@ -30,45 +30,31 @@
   .rate-row input { width: 100px; flex: none; text-align: right; }
 
   /* Modul-Editor */
-  .mod-head {
-    display: grid;
-    grid-template-columns: 28px 1fr 100px 120px 28px;
-    gap: 10px;
-    padding: 0 4px;
-    margin-bottom: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .mod-head span:nth-child(3) { text-align: right; }
-  .mod-head span:nth-child(4) { text-align: right; }
-
-  .mod-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .mod-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; margin-top: 14px; }
 
   .mod-row {
     display: grid;
-    grid-template-columns: 28px 1fr 100px 120px 28px;
+    grid-template-columns: 28px 1fr 130px 120px 28px;
     gap: 10px;
     align-items: start;
     background: var(--surface-2);
     border-radius: 12px;
     padding: 12px;
   }
-  .mod-arrows {
+  .drag-handle {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .mod-arrow {
-    background: none;
-    border: none;
+    align-items: center;
+    justify-content: center;
     color: var(--text-muted);
-    font-size: 11px;
-    padding: 2px;
-    line-height: 1;
-    cursor: pointer;
+    cursor: grab;
+    padding: 4px;
+    align-self: stretch;
   }
-  .mod-arrow:disabled { opacity: 0.25; cursor: default; }
-  .mod-arrow:not(:disabled):active { color: var(--text); }
+  .drag-handle:active { cursor: grabbing; color: var(--text); }
+
+  .mod-row, .phase-row { transition: opacity 0.12s ease; }
+  .mod-row.dragging, .phase-row.dragging { opacity: 0.35; }
+  .mod-row.drag-over, .phase-row.drag-over { box-shadow: inset 0 2px 0 var(--accent-primary); }
 
   .mod-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .mod-title-row { display: flex; align-items: center; gap: 8px; }
@@ -81,9 +67,19 @@
   .mod-titel { background: var(--surface); }
   .mod-beschrieb { background: var(--surface); font-size: 13px; min-height: 44px; }
 
-  .mod-stunden { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-  .mod-stunden input { background: var(--surface); text-align: right; }
-  .mod-stunden .unit { font-size: 11px; color: var(--text-muted); }
+  .mod-stunden { display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 6px; }
+  .mod-stunden input[type="number"] { background: var(--surface); text-align: right; width: 64px; flex: none; }
+  .mod-stunden .unit { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  /* Zahlenfeld ohne Auf-/Ab-Zählerpfeile (Browser-Standard sonst) */
+  .no-spinner::-webkit-outer-spin-button,
+  .no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spinner[type="number"] {
+    -moz-appearance: textfield;
+  }
 
   .mod-kosten {
     text-align: right;
@@ -97,9 +93,11 @@
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 16px;
     cursor: pointer;
     padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .mod-delete:active { color: #B5654C; }
 
@@ -247,8 +245,7 @@
   </div>
 
   <section class="form-actions">
-    <button id="newOfferBtn" class="btn-primary">+ Neue Offerte</button>
-    <button id="newInvoiceBtn" class="btn-secondary">+ Neue Rechnung</button>
+    <button id="newOfferBtn" class="btn-primary">+ Neu</button>
     <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
   </section>
 
@@ -257,6 +254,7 @@
       <table>
         <thead>
           <tr>
+            <th>Nr.</th>
             <th>Datum</th>
             <th>Typ</th>
             <th>Projekt</th>
@@ -266,7 +264,7 @@
           </tr>
         </thead>
         <tbody id="offerBody">
-          <tr><td colspan="6">Noch keine Offerten geladen.</td></tr>
+          <tr><td colspan="7">Noch keine Offerten geladen.</td></tr>
         </tbody>
       </table>
     </div>
@@ -315,41 +313,43 @@
     </div>
 
     <div class="form-group">
-      <label>Typ</label>
-      <select id="inputTyp" style="max-width:220px;">
-        <option value="offerte">Offerte</option>
-        <option value="rechnung">Rechnung</option>
-      </select>
+      <div class="two-col">
+        <div>
+          <label>Typ</label>
+          <select id="inputTyp">
+            <option value="offerte">Offerte</option>
+            <option value="rechnung">Rechnung</option>
+          </select>
+        </div>
+        <div>
+          <label id="offertNrLabel">Nr. (optional)</label>
+          <input type="text" id="inputOffertNr" placeholder="z.B. 26-OFF01">
+        </div>
+        <div>
+          <label>Datum</label>
+          <input type="date" id="inputDatum">
+        </div>
+      </div>
+
+      <label>Projekt</label>
+      <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
 
       <label>Empfänger (Name/Firma)</label>
       <input type="text" id="inputEmpfaenger" placeholder="z.B. Gemeinde Musterwil">
       <label>Adresse</label>
       <textarea id="inputAdresse" rows="2" placeholder="Strasse, PLZ Ort"></textarea>
 
-      <label>Projekt</label>
-      <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
-
-      <label>Datum</label>
-      <input type="date" id="inputDatum" style="max-width:220px;">
-
       <div class="two-col">
-        <div>
-          <label id="offertNrLabel">Offert-Nr. (optional)</label>
-          <input type="text" id="inputOffertNr" placeholder="z.B. 26-OFF01">
-        </div>
         <div>
           <label>Stundensatz (Fr./h)</label>
           <input type="number" id="inputStundensatz" min="0" step="5">
         </div>
+        <div>
+          <label>MWST-Satz (%)</label>
+          <input type="number" id="inputMwstProzent" min="0" step="0.1">
+        </div>
       </div>
 
-      <label>MWST-Satz (%)</label>
-      <input type="number" id="inputMwstProzent" min="0" step="0.1" style="max-width:140px;">
-
-      <div id="zahlbarBisRow" style="display:none; flex-direction:column; gap:8px; margin-top:10px;">
-        <label>Zahlbar bis</label>
-        <input type="date" id="inputZahlbarBis" style="max-width:220px;">
-      </div>
     </div>
 
     <div class="form-group">
@@ -359,18 +359,6 @@
       <textarea id="inputBrieftext" rows="5" placeholder="Sehr geehrte Damen und Herren&#10;&#10;Gerne unterbreiten wir Ihnen..."></textarea>
     </div>
 
-    <div class="form-group" id="zahlungshinweisGroup" style="display:none;">
-      <label>Zahlungshinweis (erscheint auf der Rechnung unterhalb der Summen)</label>
-      <input type="text" id="inputZahlungshinweis" placeholder="z.B. Zahlbar innert 30 Tagen">
-    </div>
-
-    <div class="mod-head">
-      <span></span>
-      <span>Modul</span>
-      <span>Stunden</span>
-      <span>Kosten</span>
-      <span></span>
-    </div>
     <div class="mod-list" id="modList"></div>
 
     <div class="mod-search">
@@ -386,7 +374,7 @@
     <div class="totals-block">
       <div class="totals-row">
         <label for="inputNebenkosten">Nebenkostenpauschale (Fr.)</label>
-        <input type="number" id="inputNebenkosten" min="0" step="10" class="totals-input">
+        <input type="number" id="inputNebenkosten" min="0" step="10" class="totals-input no-spinner">
       </div>
       <div class="totals-row"><span>Zwischentotal exkl. MWST</span><span id="totalSubtotal">–</span></div>
       <div class="totals-row"><span>MWST</span><span id="totalMwst">–</span></div>

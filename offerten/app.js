@@ -12,8 +12,8 @@
    siehe allKnownModules()).
 
    Jede Offerte hat einen "typ" (offerte/rechnung) -- ändert Beschriftung
-   und ein paar rechnungsspezifische Felder (Zahlbar bis,
-   Zahlungshinweis), sonst identisches Modell/Formular für beide.
+   ("Offert-Nr." -> "Rechnungs-Nr.") und ergänzt im PDF den fixen Satz
+   "Zahlbar innert 30 Tagen", sonst identisches Modell/Formular für beide.
 
    PDF-Export (Brief + Offerte/Rechnung) kommt aus pdf.js
    (exportOfferPdf()). Die Absenderadresse dafür kommt aus
@@ -44,6 +44,10 @@ let offers = loadJSON(LS_KEYS.cache, []);
 // Nextcloud (null = noch nicht gespeichert, also eine neue Offerte).
 let editingOffer = null;
 let editingFilename = null;
+
+// Index der gerade per Drag & Drop gezogenen Position (Modul oder Phase) in
+// editingOffer.positionen -- null ausserhalb eines Drag-Vorgangs.
+let dragFromIndex = null;
 
 // Absenderadresse fürs PDF-Anschreiben -- ändert sich praktisch nie,
 // deshalb zentral in einer Datei statt pro Offerte erfasst.
@@ -213,7 +217,7 @@ function renderList() {
   const body = document.getElementById("offerBody");
 
   if (offers.length === 0) {
-    body.innerHTML = '<tr><td colspan="6">Noch keine Offerten geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7">Noch keine Offerten geladen.</td></tr>';
     return;
   }
 
@@ -227,6 +231,7 @@ function renderList() {
       const total = calcTotals(d).total;
       const isRechnung = d.typ === "rechnung";
       return `<tr data-clickable data-index="${i}">
+        <td>${escapeHtml(d.offert_nr || "–")}</td>
         <td>${escapeHtml(chDate(d.datum))}</td>
         <td><span class="typ-badge${isRechnung ? " rechnung" : ""}">${typLabel(d.typ)}</span></td>
         <td>${escapeHtml(d.projekt || o.filename)}</td>
@@ -360,18 +365,15 @@ function calcTotals(offer) {
 // ---------- Rendering: Editor ----------
 
 function blankOffer(typ) {
-  const isRechnung = typ === "rechnung";
   return {
-    typ: isRechnung ? "rechnung" : "offerte",
+    typ: typ === "rechnung" ? "rechnung" : "offerte",
     empfaenger: "",
     adresse: "",
     projekt: "",
     datum: formatDate(new Date()),
     offert_nr: "",
-    zahlbar_bis: "",
     betreff: "",
     brieftext: "",
-    zahlungshinweis: isRechnung ? "Zahlbar innert 30 Tagen" : "",
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
     nebenkosten_chf: 0,
@@ -388,8 +390,6 @@ function typLabel(typ) {
 function applyTypVisibility(typ) {
   const isRechnung = typ === "rechnung";
   document.getElementById("offertNrLabel").textContent = isRechnung ? "Rechnungs-Nr. (optional)" : "Offert-Nr. (optional)";
-  document.getElementById("zahlbarBisRow").style.display = isRechnung ? "flex" : "none";
-  document.getElementById("zahlungshinweisGroup").style.display = isRechnung ? "" : "none";
   document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
 }
 
@@ -407,10 +407,8 @@ function openEditor(offer, filename, newTyp) {
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
   document.getElementById("inputNebenkosten").value = editingOffer.nebenkosten_chf || 0;
-  document.getElementById("inputZahlbarBis").value = editingOffer.zahlbar_bis || "";
   document.getElementById("inputBetreff").value = editingOffer.betreff || "";
   document.getElementById("inputBrieftext").value = editingOffer.brieftext || "";
-  document.getElementById("inputZahlungshinweis").value = editingOffer.zahlungshinweis || "";
   document.getElementById("editorResult").textContent = "";
   document.getElementById("editorResult").className = "test-result";
   document.getElementById("deleteOfferBtn").style.display = filename ? "" : "none";
@@ -437,6 +435,13 @@ function textToBeschrieb(text) {
   return text.split("\n");
 }
 
+// Drei kräftige Balken statt feiner Punkte -- ein 6-Punkte-Icon (Material
+// "drag_indicator") verschwimmt bei dieser Grösse zu unleserlichen Strichen.
+const DRAG_HANDLE_SVG =
+  '<svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="10.8" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="15.6" width="12" height="2.4" rx="1.2" fill="currentColor"/></svg>';
+const TRASH_SVG =
+  '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>';
+
 function renderPositionen() {
   const list = document.getElementById("modList");
   const rate = Number(editingOffer.stundensatz_chf) || 0;
@@ -445,24 +450,20 @@ function renderPositionen() {
   let modulNr = 0;
   list.innerHTML = positionen
     .map((p, i) => {
-      const isLast = i === positionen.length - 1;
-      const arrows = `<div class="mod-arrows">
-        <button type="button" class="mod-arrow" data-action="up" ${i === 0 ? "disabled" : ""} aria-label="Nach oben">▲</button>
-        <button type="button" class="mod-arrow" data-action="down" ${isLast ? "disabled" : ""} aria-label="Nach unten">▼</button>
-      </div>`;
+      const handle = `<span class="drag-handle" draggable="true" title="Ziehen zum Verschieben">${DRAG_HANDLE_SVG}</span>`;
 
       if (p.typ === "phase") {
         return `<div class="phase-row" data-index="${i}">
-          ${arrows}
+          ${handle}
           <input type="text" class="phase-titel" data-field="titel" placeholder="Phase, z.B. Vorprojekt" value="${escapeHtml(p.titel || "")}">
-          <button type="button" class="mod-delete" data-action="delete" aria-label="Phase löschen">✕</button>
+          <button type="button" class="mod-delete" data-action="delete" aria-label="Phase löschen">${TRASH_SVG}</button>
         </div>`;
       }
 
       modulNr++;
       const kosten = (Number(p.stunden) || 0) * rate;
       return `<div class="mod-row" data-index="${i}">
-        ${arrows}
+        ${handle}
         <div class="mod-main">
           <div class="mod-title-row">
             <span class="mod-num">${modulNr})</span>
@@ -471,11 +472,11 @@ function renderPositionen() {
           <textarea class="mod-beschrieb" data-field="beschrieb" rows="2" placeholder="Ein Punkt pro Zeile">${escapeHtml(beschriebToText(p.beschrieb))}</textarea>
         </div>
         <div class="mod-stunden">
-          <input type="number" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}">
+          <input type="number" class="no-spinner" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}">
           <span class="unit">Std.</span>
         </div>
         <div class="mod-kosten">${escapeHtml(chFr(kosten))}</div>
-        <button type="button" class="mod-delete" data-action="delete" aria-label="Modul löschen">✕</button>
+        <button type="button" class="mod-delete" data-action="delete" aria-label="Modul löschen">${TRASH_SVG}</button>
       </div>`;
     })
     .join("");
@@ -497,20 +498,52 @@ function renderPositionen() {
       });
     });
 
-    row.querySelector('[data-action="up"]')?.addEventListener("click", () => movePosition(index, -1));
-    row.querySelector('[data-action="down"]')?.addEventListener("click", () => movePosition(index, 1));
     row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removePosition(index));
+
+    // Drag & Drop neu anordnen: der Griff startet den Drag, die ganze Zeile
+    // ist Drop-Ziel (so lässt sich in Textfeldern trotzdem normal markieren).
+    const handleEl = row.querySelector(".drag-handle");
+    handleEl.addEventListener("dragstart", (e) => {
+      dragFromIndex = index;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(index));
+      row.classList.add("dragging");
+    });
+    handleEl.addEventListener("dragend", () => {
+      dragFromIndex = null;
+      row.classList.remove("dragging");
+      list.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+    });
+
+    row.addEventListener("dragover", (e) => {
+      if (dragFromIndex === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    row.addEventListener("dragenter", (e) => {
+      if (dragFromIndex === null || dragFromIndex === index) return;
+      e.preventDefault();
+      row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      row.classList.remove("drag-over");
+      if (dragFromIndex === null || dragFromIndex === index) return;
+      reorderPositionen(dragFromIndex, index);
+    });
   });
 
   recalcTotalsDisplay();
 }
 
-function movePosition(index, dir) {
+// Verschiebt die Position an fromIndex so, dass sie direkt vor der Position
+// landet, die aktuell bei toIndex steht (unabhängig von der Zugrichtung).
+function reorderPositionen(fromIndex, toIndex) {
   const positionen = editingOffer.positionen;
-  const target = index + dir;
-  if (target < 0 || target >= positionen.length) return;
-  const [item] = positionen.splice(index, 1);
-  positionen.splice(target, 0, item);
+  const [item] = positionen.splice(fromIndex, 1);
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  positionen.splice(insertAt, 0, item);
   renderPositionen();
 }
 
@@ -551,10 +584,8 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
   editingOffer.nebenkosten_chf = Number(document.getElementById("inputNebenkosten").value) || 0;
-  editingOffer.zahlbar_bis = document.getElementById("inputZahlbarBis").value || "";
   editingOffer.betreff = document.getElementById("inputBetreff").value.trim();
   editingOffer.brieftext = document.getElementById("inputBrieftext").value;
-  editingOffer.zahlungshinweis = document.getElementById("inputZahlungshinweis").value;
 }
 
 // Übernimmt den aktuellen Stand (inkl. noch nicht gespeicherter Änderungen)
@@ -637,7 +668,6 @@ function init() {
   });
 
   document.getElementById("newOfferBtn").addEventListener("click", () => openEditor(null, null, "offerte"));
-  document.getElementById("newInvoiceBtn").addEventListener("click", () => openEditor(null, null, "rechnung"));
   document.getElementById("refreshBtn").addEventListener("click", refreshOffers);
   document.getElementById("closeEditor").addEventListener("click", closeEditor);
   document.getElementById("saveOfferBtn").addEventListener("click", saveCurrentOffer);

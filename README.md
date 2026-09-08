@@ -314,23 +314,24 @@ Module) zusammenstellen, beliebig hoch-/runterschieben, Zwischentotal / MWST
 Offerten/Rechnungen lassen sich duplizieren, um für ähnliche Aufträge nicht
 alles neu erfassen zu müssen.
 
-- **Liste**: alle gespeicherten Offerten/Rechnungen (Datum, Typ, Projekt,
-  Empfänger, Total), neueste zuerst, mit PDF- (📄) und Duplizieren-Button (⧉)
-  pro Zeile. "+ Neue Offerte" / "+ Neue Rechnung" öffnet den Editor leer mit
-  dem entsprechenden Typ vorausgewählt, Klick auf eine Zeile öffnet ihn zum
-  Bearbeiten.
+- **Liste**: alle gespeicherten Offerten/Rechnungen (Nr., Datum, Typ,
+  Projekt, Empfänger, Total), neueste zuerst, mit PDF- (📄) und
+  Duplizieren-Button (⧉) pro Zeile. "+ Neu" öffnet den Editor leer (Typ
+  "Offerte" vorausgewählt, im Editor umschaltbar), Klick auf eine Zeile
+  öffnet ihn zum Bearbeiten.
 - **Typ**: Offerte oder Rechnung, jederzeit im Editor umschaltbar (gleiches
-  Formular für beide). Bei Rechnung zusätzlich: "Zahlbar bis" (Datum) und
-  "Zahlungshinweis" (kurzer Text, standardmässig "Zahlbar innert 30 Tagen"
-  — bewusst kein IBAN/QR-Zahlteil, der wird separat übers E-Banking
-  erstellt), und "Offert-Nr." heisst dann "Rechnungs-Nr.". Eine bestehende
-  Offerte per Typ-Wechsel + Speichern direkt in eine Rechnung umzuwandeln,
-  überschreibt dieselbe Datei (kein automatisches "Original behalten + neue
-  Rechnung erzeugen") — dafür zuerst **Duplizieren**, dann am Duplikat den
-  Typ auf Rechnung stellen.
-- **Editor** — Kopfdaten: Empfänger, Adresse, Projekt, Datum, Offert-/
-  Rechnungs-Nr. (optional, frei), Stundensatz (Fr./h) und MWST-Satz (%) für
-  **diese** Offerte/Rechnung. Dazu Betreff und ein freier Brieftext fürs
+  Formular für beide) — "Offert-Nr." heisst dann "Rechnungs-Nr.", und im PDF
+  erscheint unterhalb der Summen zusätzlich fix der Satz
+  "Zahlbar innert 30 Tagen" (bewusst kein eigenes Feld dafür, kein Datum und
+  kein IBAN/QR-Zahlteil — der wird separat übers E-Banking erstellt). Eine
+  bestehende Offerte per Typ-Wechsel + Speichern direkt in eine Rechnung
+  umzuwandeln, überschreibt dieselbe Datei (kein automatisches "Original
+  behalten + neue Rechnung erzeugen") — dafür zuerst **Duplizieren**, dann
+  am Duplikat den Typ auf Rechnung stellen.
+- **Editor** — Kopfdaten: Typ, Offert-/Rechnungs-Nr. (optional, frei) und
+  Datum nebeneinander in der ersten Zeile, darunter Projekt, Empfänger,
+  Adresse, dann Stundensatz (Fr./h) und MWST-Satz (%) nebeneinander — alles
+  für **diese** Offerte/Rechnung. Dazu Betreff und ein freier Brieftext fürs
   PDF-Anschreiben auf der ersten Seite. Der Absender-Ort fürs "Ort, Datum" in
   der Brief-Datumszeile kommt zentral aus `absender.json` (siehe unten),
   kein eigenes Feld pro Offerte/Rechnung.
@@ -340,9 +341,11 @@ alles neu erfassen zu müssen.
 - **Module**: pro Modul ein Titel (automatische Nummerierung `1)`, `2)`, …
   nach Position unter den Modulen, nicht Teil der Daten) mit Kurzbeschrieb
   darunter — **ein Punkt pro Zeile** im Textfeld, gespeichert als Liste für
-  eine spätere Bulletpoint-Darstellung im PDF —, Stunden (zweite Spalte) und
-  daraus berechnete Kosten = Stunden × Stundensatz (dritte Spalte). Über
-  "+ Modul hinzufügen" ergänzen.
+  eine spätere Bulletpoint-Darstellung im PDF —, Stunden (Zahlenfeld ohne
+  Zähler-Pfeile, Einheit "Std." direkt daneben) und daraus berechnete Kosten
+  = Stunden × Stundensatz. Über "+ Modul hinzufügen" ergänzen. Die
+  Spaltenbeschriftung ("Modul"/"Stunden"/"Kosten") ist im Web-Formular
+  bewusst weggelassen (selbsterklärend); im PDF steht sie weiterhin da.
 - **Modul-Suche**: Suchfeld unter der Positionsliste durchsucht live Titel
   und Kurzbeschrieb aller bereits geladenen Offerten (Titel, Herkunfts-
   projekt/-datum als Treffer angezeigt) und übernimmt einen Treffer per
@@ -351,8 +354,10 @@ alles neu erfassen zu müssen.
   geladen, das spart eine zweite, separat zu pflegende Datenquelle. Siehe
   `allKnownModules()`/`searchModules()` in `offerten/app.js`.
 - Phasen und Module liegen in einer gemeinsamen, beliebig sortierbaren Liste
-  (mit ▲/▼ neu anordnen, mit ✕ entfernen) — eine Phase lässt sich also
-  zwischen beliebige Module schieben.
+  — am Griff-Symbol (☰) per Drag & Drop frei an eine beliebige Position
+  ziehen (nicht nur einen Schritt wie zuvor mit Pfeilen), mit dem
+  Papierkorb-Symbol entfernen. Eine Phase lässt sich also zwischen beliebige
+  Module schieben.
 - **Summen** unten: Nebenkostenpauschale (fixer, frei eingegebener Betrag —
   nur wenn ungleich null, zählt in Zwischentotal und damit auch in die
   MWST-Berechnung mit hinein), Zwischentotal exkl. MWST (Summe aller
@@ -395,18 +400,22 @@ erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
 zweiseitiges (bzw. mehrseitiges, je nach Länge) PDF und lädt es direkt im
 Browser herunter:
 
-- **Seite 1 — Anschreiben**: Absenderblock oben rechts, kleine
-  Rücksendeadresse + Empfänger-Adressblock links, Ort/Datum rechtsbündig
-  (z.B. "Zürich, 7. September 2026"), Betreff, Brieftext (mit Zeilenumbruch
-  = Absatz, automatischem Zeilenumbruch bei langen Zeilen).
+- **Seite 1 — Anschreiben**: Absenderblock oben rechts, Empfänger-Adressblock
+  links (kein wiederholter Absender darüber), Ort/Datum rechtsbündig (z.B.
+  "Zürich, 7. September 2026", Ort kommt aus `absender.json`), Betreff,
+  Brieftext (mit Zeilenumbruch = Absatz, automatischem Zeilenumbruch bei
+  langen Zeilen).
 - **Seite 2 (garantiert eigene Seite, auch bei kurzem Brief) — Offerte/
   Rechnung**: Titel ("OFFERTE"/"RECHNUNG"), Projekt, Empfänger, Offert-/
-  Rechnungs-Nr., Datum (bei Rechnung zusätzlich "Zahlbar bis"), dann die
-  Positionsliste (Phasen als Zwischenüberschrift, Module nummeriert mit
-  Kurzbeschrieb als Bulletpoints, Stunden/Kosten-Spalten) und die Summen.
-  Bei Rechnung zusätzlich der Zahlungshinweis unter den Summen. Läuft die
-  Positionsliste über eine Seite hinaus, folgen weitere Seiten automatisch
-  (mit wiederholtem Spaltenkopf).
+  Rechnungs-Nr., Datum, dann die Positionsliste (Phasen als
+  Zwischenüberschrift, Module nummeriert mit Kurzbeschrieb als
+  Bulletpoints, Stunden/Kosten-Spalten). Vor den Summen ein fixer Hinweis
+  "Der mittlere Stundensatz beträgt [Stundensatz] Fr. …" mit dem
+  tatsächlich verwendeten Stundensatz dieser Offerte/Rechnung, dann die
+  Summen; bei Rechnung zusätzlich fix der Satz "Zahlbar innert 30 Tagen"
+  darunter (kein eigenes Feld, kein IBAN/QR-Zahlteil — siehe unten). Läuft
+  die Positionsliste über eine Seite hinaus, folgen weitere Seiten
+  automatisch (mit wiederholtem Spaltenkopf).
 - Schrift: die echten Nudica-Schnitte (`fonts/Nudica-Light.otf` /
   `Nudica-Medium.otf`, **nicht** die woff/woff2 fürs Web-UI), eingebettet
   ohne Subsetting — mit Subsetting erzeugt die verwendete Bibliothek
@@ -418,8 +427,8 @@ Browser herunter:
   Browser, kein Server/Backend nötig.
 - **Bewusst nicht umgesetzt**: die offizielle Schweizer QR-Rechnung
   (Zahlteil mit Swiss-QR-Code, IBAN/Referenznummer-Validierung nach den
-  Financial-Standards). Der "Zahlungshinweis" ist reiner Freitext ohne
-  Validierung — falls eine bank-/Postfinance-konforme QR-Rechnung gebraucht
+  Financial-Standards) — die wird separat übers E-Banking erstellt. Falls
+  eine bank-/Postfinance-konforme QR-Rechnung direkt aus der App gebraucht
   wird, ist das ein eigenes, deutlich grösseres Vorhaben.
 - **Offline**: Liste/Bearbeiten/Speichern funktionieren wie gewohnt offline;
   "PDF erstellen" braucht (zumindest beim ersten Mal pro Browser-Cache)
