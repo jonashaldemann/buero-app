@@ -315,10 +315,16 @@ Offerten/Rechnungen lassen sich duplizieren, um für ähnliche Aufträge nicht
 alles neu erfassen zu müssen.
 
 - **Liste**: alle gespeicherten Offerten/Rechnungen (Nr., Datum, Typ,
-  Projekt, Empfänger, Total), neueste zuerst, mit PDF- (📄) und
+  Projekt, Empfänger, Total, Status), neueste zuerst, mit PDF- (📄) und
   Duplizieren-Button (⧉) pro Zeile. "+ Neu" öffnet den Editor leer (Typ
   "Offerte" vorausgewählt, im Editor umschaltbar), Klick auf eine Zeile
-  öffnet ihn zum Bearbeiten.
+  öffnet ihn zum Bearbeiten. Die **Status**-Spalte ganz rechts ist als
+  einziges Feld direkt in der Liste editierbar (Dropdown, ohne den Editor zu
+  öffnen) und speichert die Änderung sofort auf Nextcloud.
+- **Status**: rein interner Vermerk (In Bearbeitung / Versendet / Bezahlt,
+  siehe `STATUS_LABELS` in `offerten/app.js`), taucht **nicht** im PDF auf —
+  nur zur eigenen Übersicht, editierbar im Editor (vierte Spalte neben Typ/
+  Nr./Datum) oder direkt in der Liste.
 - **Typ**: Offerte oder Rechnung, jederzeit im Editor umschaltbar (gleiches
   Formular für beide) — "Offert-Nr." heisst dann "Rechnungs-Nr.", und im PDF
   erscheint unterhalb der Summen zusätzlich fix der Satz
@@ -328,24 +334,37 @@ alles neu erfassen zu müssen.
   umzuwandeln, überschreibt dieselbe Datei (kein automatisches "Original
   behalten + neue Rechnung erzeugen") — dafür zuerst **Duplizieren**, dann
   am Duplikat den Typ auf Rechnung stellen.
-- **Editor** — Kopfdaten: Typ, Offert-/Rechnungs-Nr. (optional, frei) und
-  Datum nebeneinander in der ersten Zeile, darunter Projekt, Empfänger,
-  Adresse, dann Stundensatz (Fr./h) und MWST-Satz (%) nebeneinander — alles
-  für **diese** Offerte/Rechnung. Dazu Betreff und ein freier Brieftext fürs
-  PDF-Anschreiben auf der ersten Seite. Der Absender-Ort fürs "Ort, Datum" in
-  der Brief-Datumszeile kommt zentral aus `absender.json` (siehe unten),
-  kein eigenes Feld pro Offerte/Rechnung.
+- **Editor** — Kopfdaten: Typ, Offert-/Rechnungs-Nr. (optional, frei), Datum
+  und Status nebeneinander in der ersten Zeile, darunter Projekt, Empfänger,
+  Adresse, dann Stundensatz (Fr./h) und MWST-Satz (%) nebeneinander (beide
+  ohne Zähler-Pfeile, reine Eingabefelder) — alles für **diese** Offerte/
+  Rechnung. Dazu Betreff und ein freier Brieftext fürs PDF-Anschreiben auf
+  der ersten Seite. Der Absender-Ort fürs "Ort, Datum" in der
+  Brief-Datumszeile kommt zentral aus `absender.json` (siehe unten), kein
+  eigenes Feld pro Offerte/Rechnung. Darunter die **Unterschrift(en)**
+  (siehe eigener Abschnitt unten).
+- **Automatische Nummerierung**: Checkbox oberhalb der Positionsliste, pro
+  Offerte/Rechnung. Aus wirkt sofort (auch ohne zu speichern) und blendet
+  die `1)`/`2)`/… vor den Modultiteln aus — im Web-Formular wie im PDF.
 - **Phasen**: freie Zwischenüberschrift innerhalb der Positionsliste (z.B.
   "Vorprojekt", "Bauprojekt"), über "+ Phase hinzufügen". Zählt nicht in die
   Modul-Nummerierung und hat keine Stunden/Kosten.
 - **Module**: pro Modul ein Titel (automatische Nummerierung `1)`, `2)`, …
-  nach Position unter den Modulen, nicht Teil der Daten) mit Kurzbeschrieb
-  darunter — **ein Punkt pro Zeile** im Textfeld, gespeichert als Liste für
-  eine spätere Bulletpoint-Darstellung im PDF —, Stunden (Zahlenfeld ohne
-  Zähler-Pfeile, Einheit "Std." direkt daneben) und daraus berechnete Kosten
-  = Stunden × Stundensatz. Über "+ Modul hinzufügen" ergänzen. Die
-  Spaltenbeschriftung ("Modul"/"Stunden"/"Kosten") ist im Web-Formular
-  bewusst weggelassen (selbsterklärend); im PDF steht sie weiterhin da.
+  nach Position unter den Modulen, nicht Teil der Daten, abschaltbar siehe
+  oben) mit Kurzbeschrieb darunter — **ein Punkt pro Zeile** im Textfeld,
+  gespeichert als Liste für eine Bulletpoint-Darstellung im PDF —, Stunden
+  (Zahlenfeld ohne Zähler-Pfeile, Einheit "Std." direkt daneben) und daraus
+  berechnete Kosten = Stunden × Stundensatz. Über "+ Modul hinzufügen"
+  ergänzen. Die Spaltenbeschriftung ("Modul"/"Stunden"/"Kosten") ist im
+  Web-Formular bewusst weggelassen (selbsterklärend); im PDF steht sie
+  weiterhin da.
+- **Bemerkung** (pro Modul, Checkbox "Bemerkung" unter dem Kurzbeschrieb):
+  blendet ein zusätzliches Textfeld ein. Erscheint im PDF kursiv, **ohne**
+  Bulletpoint, direkt nach den Stichpunkten — z.B. "Besprechungen vor Ort,
+  4 Std." als Modul mit Bemerkung "Wegstrecken werden nicht verrechnet".
+  Das Häkchen steuert nur, ob das Feld gedruckt wird (`bemerkungAktiv`);
+  der Text selbst (`bemerkung`) bleibt beim Abwählen erhalten, falls man
+  ihn später wieder einblenden will.
 - **Modul-Suche**: Suchfeld unter der Positionsliste durchsucht live Titel
   und Kurzbeschrieb aller bereits geladenen Offerten (Titel, Herkunfts-
   projekt/-datum als Treffer angezeigt) und übernimmt einen Treffer per
@@ -386,6 +405,10 @@ alles neu erfassen zu müssen.
   beim Bearbeiten einer bestehenden Offerte bleibt der Dateiname unverändert
   (Überschreiben statt Duplikat), auch wenn sich Datum/Projekt ändern.
 
+Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
+erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
+"Worker deployen" oben.
+
 ### Absenderadresse
 
 Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Ort fürs
@@ -397,9 +420,40 @@ selbst ausgeliefert wird — analog zu `konten.txt` etc. bei Quittung). Wird
 für den PDF-Briefkopf verwendet (`absender` in `offerten/app.js`, siehe
 `loadAbsender()`).
 
-Diese Funktion braucht (wie Quittung und Wettbewerbsprogramme) `DELETE` als
-erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
-"Worker deployen" oben.
+### Unterschriften
+
+Wählbare Unterzeichner (Checkboxen im Editor, nach dem Brieftext, Mehrfach-
+auswahl möglich) sind in `offerten/unterzeichner.json` definiert:
+
+```json
+[
+  { "key": "jonas", "name": "Jonas Haldemann", "datei": "Unterschrift_Jonas_Haldemann.png" },
+  { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
+]
+```
+
+Beim PDF-Export werden die PNGs der ausgewählten Personen live von Nextcloud
+geladen (Ordner `SIGNATURE_FOLDER_PATH` in `offerten/pdf.js`, Standard
+`Buero/Admin/KLG und Rechtliches/Unterschriften`, **im Nextcloud-Konto der
+gerade angemeldeten Person**) und auf Seite 1 unter dem Brieftext eingefügt
+— Bild und Name nebeneinander, an der Unterkante ausgerichtet. Damit eine
+Person auch die Unterschrift der anderen einfügen kann, muss die
+entsprechende Datei unter demselben Pfad in **beide** Nextcloud-Konten
+gelegt werden (jedes Konto ist ja komplett getrennt, siehe oben) — das ist
+manuell zu pflegen, es gibt keinen automatischen Abgleich. Schlägt der
+Abruf einer einzelnen Datei fehl (falscher Dateiname, Datei fehlt), wird
+das nur als Warnung nach dem Erstellen angezeigt; das PDF entsteht trotzdem,
+einfach ohne diese Unterschrift.
+
+**Sicherheitsüberlegung:** Der Abruf läuft über denselben authentifizierten
+Kanal (App-Passwort) wie alle anderen Dokumente dieser App, ist also nicht
+unsicherer als der Rest. Das eigentliche Risiko liegt woanders: Ein Bild
+einer Unterschrift lässt sich, sobald es in einem verschickten PDF steckt,
+von praktisch jedem Empfänger wieder herauskopieren und auf andere
+Dokumente einfügen — das gilt für jede Stempel-/Bild-Unterschrift,
+unabhängig von Nextcloud oder dieser App. Für Offerten/Rechnungen ist das
+gängige Praxis, ersetzt aber keine rechtsverbindliche Unterschrift für
+Dokumente mit höheren Formanforderungen (z.B. Verträge).
 
 ### PDF-Export
 
@@ -411,29 +465,34 @@ Browser herunter:
   links (kein wiederholter Absender darüber), Ort/Datum rechtsbündig (z.B.
   "Zürich, 7. September 2026", Ort kommt aus `absender.json`), Betreff,
   Brieftext (mit Zeilenumbruch = Absatz, automatischem Zeilenumbruch bei
-  langen Zeilen).
+  langen Zeilen), danach optional die gewählten Unterschriften (Bild + Name
+  nebeneinander, siehe Abschnitt "Unterschriften" oben).
 - **Seite 2 (garantiert eigene Seite, auch bei kurzem Brief) — Offerte/
   Rechnung**: Titel ("OFFERTE"/"RECHNUNG"), Projekt, Empfänger, Offert-/
   Rechnungs-Nr., Datum, dann die Positionsliste (Phasen als
-  Zwischenüberschrift, Module nummeriert mit Kurzbeschrieb als
-  Bulletpoints, Stunden/Kosten-Spalten). Vor den Summen ein fixer Hinweis
-  mit dem tatsächlich verwendeten Stundensatz dieser Offerte/Rechnung — bei
-  Offerte "Der mittlere Stundensatz beträgt [Stundensatz] Fr. Das Honorar
-  wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total
-  geschätzte Stundenaufwand als Kostendach.", bei Rechnung nur der erste
-  Satz ("Der mittlere Stundensatz beträgt [Stundensatz] Fr.", ohne
-  Kostendach-Klausel, da bei der Rechnung bereits abgerechnet wird) — dann
-  die Summen; bei Rechnung zusätzlich fix der Satz "Zahlbar innert 30 Tagen"
-  darunter (kein eigenes Feld, kein IBAN/QR-Zahlteil — siehe unten). Läuft
-  die Positionsliste über eine Seite hinaus, folgen weitere Seiten
-  automatisch (mit wiederholtem Spaltenkopf).
+  Zwischenüberschrift, Module mit Kurzbeschrieb als Bulletpoints und
+  optionaler kursiver Bemerkung danach, Stunden/Kosten-Spalten, Nummerierung
+  je nach Einstellung). Vor den Summen ein fixer Hinweis mit dem tatsächlich
+  verwendeten Stundensatz dieser Offerte/Rechnung — bei Offerte "Der
+  mittlere Stundensatz beträgt [Stundensatz] Fr. Das Honorar wird nach
+  effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte
+  Stundenaufwand als Kostendach.", bei Rechnung nur der erste Satz ("Der
+  mittlere Stundensatz beträgt [Stundensatz] Fr.", ohne Kostendach-Klausel,
+  da bei der Rechnung bereits abgerechnet wird) — dann die Summen; bei
+  Rechnung zusätzlich fix der Satz "Zahlbar innert 30 Tagen" darunter (kein
+  eigenes Feld, kein IBAN/QR-Zahlteil — siehe oben). Läuft die
+  Positionsliste über eine Seite hinaus, folgen weitere Seiten automatisch
+  (mit wiederholtem Spaltenkopf).
 - Schrift: die echten Nudica-Schnitte (`fonts/Nudica-Light.otf` /
-  `Nudica-Medium.otf`, **nicht** die woff/woff2 fürs Web-UI), eingebettet
-  ohne Subsetting — mit Subsetting erzeugt die verwendete Bibliothek
-  (pdf-lib + fontkit) mit diesen Schriften eine von manchen PDF-Readern
-  abgelehnte Einbettung.
-- Technik: `offerten/pdf.js` (eigenständig, nutzt nichts aus `app.js`),
-  gebaut mit [pdf-lib](https://pdf-lib.js.org/) + `@pdf-lib/fontkit` (siehe
+  `Nudica-Medium.otf` / `Nudica-LightItalic.otf` für Bemerkungen, **nicht**
+  die woff/woff2 fürs Web-UI), eingebettet ohne Subsetting — mit Subsetting
+  erzeugt die verwendete Bibliothek (pdf-lib + fontkit) mit diesen
+  Schriften eine von manchen PDF-Readern abgelehnte Einbettung.
+- Technik: `offerten/pdf.js` (nutzt nichts aus `app.js` selbst — die
+  Unterzeichner-Konfiguration wird als Parameter übergeben statt dort
+  geladen — aber wie `app.js` proxyFetch/davPath/ncSegments/authHeader aus
+  `../shared/common.js` fürs Laden der Unterschriften-PNGs), gebaut mit
+  [pdf-lib](https://pdf-lib.js.org/) + `@pdf-lib/fontkit` (siehe
   `<script>`-Tags in `index.html`, Version dort gepinnt). Läuft komplett im
   Browser, kein Server/Backend nötig.
 - **Bewusst nicht umgesetzt**: die offizielle Schweizer QR-Rechnung

@@ -4,15 +4,26 @@
    Nutzt pdf-lib + @pdf-lib/fontkit (CDN, siehe <script>-Tags in
    index.html) sowie die echten Nudica-Schriftdateien in ../fonts/*.otf
    (NICHT die woff/woff2 -- die sind fürs Web-UI; fürs PDF reichen
-   Light + Medium). Bewusst OHNE Subsetting eingebettet: mit Subsetting
-   (`{ subset: true }`) erzeugt pdf-lib mit diesen Schriften eine
+   Light, Medium und LightItalic). Bewusst OHNE Subsetting eingebettet: mit
+   Subsetting (`{ subset: true }`) erzeugt pdf-lib mit diesen Schriften eine
    Einbettung, die manche PDF-Reader (z.B. poppler) als ungültig
    ablehnen -- ohne Subsetting rendert es überall sauber, auf Kosten
    von ein paar zusätzlichen KB pro PDF (vernachlässigbar).
 
-   Eigenständig gehalten (keine Funktionen aus app.js verwendet), damit
-   die Skript-Ladereihenfolge keine Rolle spielt und der Export auch
-   losgelöst wiederverwendbar bleibt.
+   Modul-Nummerierung ist pro Offerte/Rechnung ab-/anschaltbar
+   (automatische_nummerierung), Module können zusätzlich eine kursive
+   "Bemerkung" ohne Bulletpoint nach den Stichpunkten haben (bemerkung/
+   bemerkungAktiv). Optional werden nach dem Brieftext ausgewählte
+   Unterschriften (Bild + Name) eingefügt -- die PNGs kommen live von
+   Nextcloud (siehe fetchSignatureImages()), nicht aus dem PDF-Code selbst.
+
+   Eigenständig gehalten (keine Funktionen aus app.js verwendet -- die
+   Unterzeichner-Konfiguration wird als Parameter übergeben statt hier
+   geladen), damit die Skript-Ladereihenfolge keine Rolle spielt und der
+   Export auch losgelöst wiederverwendbar bleibt. Nutzt aber proxyFetch/
+   davPath/ncSegments/authHeader aus ../shared/common.js für den
+   Unterschriften-Abruf (dieselbe Schicht, die auch app.js fürs Lesen/
+   Schreiben der Offerten verwendet).
    ============================================================ */
 
 const PDF_PAGE_WIDTH = 595.28; // A4 in pt
@@ -24,6 +35,12 @@ const COL_TITLE_X = PDF_MARGIN;
 const COL_TITLE_WRAP_WIDTH = 300;
 const COL_STUNDEN_RIGHT = PDF_MARGIN + 380;
 const COL_KOSTEN_RIGHT = PDF_PAGE_WIDTH - PDF_MARGIN;
+
+// Unterschriften-Bilder liegen im jeweils eigenen Nextcloud-Bereich (wie
+// alles andere in dieser App) unter diesem Ordner. davPath/ncSegments/
+// authHeader/proxyFetch kommen aus ../shared/common.js (bereits vor pdf.js
+// geladen, siehe <script>-Tags in index.html).
+const SIGNATURE_FOLDER_PATH = "Buero/Admin/KLG und Rechtliches/Unterschriften";
 
 const GERMAN_MONTHS = [
   "Januar", "Februar", "März", "April", "Mai", "Juni",
@@ -218,16 +235,22 @@ function drawPhaseRow(ctx, p) {
   ctx.y -= 16;
 }
 
-function drawModulRow(ctx, p, nr, rate) {
+function drawModulRow(ctx, p, nr, rate, numbered) {
   const bulletLines = (Array.isArray(p.beschrieb) ? p.beschrieb : [])
     .filter((l) => l && l.trim())
     .flatMap((line) => wrapText(ctx.light, line, SIZE_SMALL, COL_TITLE_WRAP_WIDTH - 12));
 
-  const blockHeight = 15 + bulletLines.length * 13 + 20;
+  const hasBemerkung = !!(p.bemerkungAktiv && p.bemerkung && p.bemerkung.trim());
+  const bemerkungLines = hasBemerkung
+    ? wrapText(ctx.italic, p.bemerkung, SIZE_SMALL, COL_TITLE_WRAP_WIDTH)
+    : [];
+
+  const blockHeight = 15 + bulletLines.length * 13 + bemerkungLines.length * 13 + 20;
   ensureSpace(ctx, blockHeight, () => drawColumnHeader(ctx));
 
   const kosten = (Number(p.stunden) || 0) * rate;
-  drawText(ctx, `${nr})  ${p.titel || ""}`, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
+  const titleText = numbered ? `${nr})  ${p.titel || ""}` : p.titel || "";
+  drawText(ctx, titleText, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
   drawText(ctx, chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   ctx.y -= 15;
@@ -235,6 +258,14 @@ function drawModulRow(ctx, p, nr, rate) {
   bulletLines.forEach((line) => {
     ensureSpace(ctx, 13, () => drawColumnHeader(ctx));
     drawText(ctx, `•  ${line}`, COL_TITLE_X + 10, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+    ctx.y -= 13;
+  });
+
+  // Bemerkung: kursiv, ohne Bulletpoint, nach den Stichpunkten (z.B. "Wege-
+  // strecken werden nicht verrechnet") -- gleiche Einrückung wie die Bullets.
+  bemerkungLines.forEach((line) => {
+    ensureSpace(ctx, 13, () => drawColumnHeader(ctx));
+    drawText(ctx, line, COL_TITLE_X + 10, ctx.y, { size: SIZE_SMALL, font: ctx.italic, color: PDF_COLOR_MUTED });
     ctx.y -= 13;
   });
 
@@ -328,16 +359,68 @@ function drawPositionenPage(ctx, offer) {
 
   let modulNr = 0;
   const rate = Number(offer.stundensatz_chf) || 0;
+  const numbered = offer.automatische_nummerierung !== false;
   (offer.positionen || []).forEach((p) => {
     if (p.typ === "phase") {
       drawPhaseRow(ctx, p);
     } else {
       modulNr++;
-      drawModulRow(ctx, p, modulNr, rate);
+      drawModulRow(ctx, p, modulNr, rate, numbered);
     }
   });
 
   drawTotals(ctx, offer);
+}
+
+// ---------- Unterschriften (Seite 1, nach dem Brieftext) ----------
+
+// Lädt die ausgewählten Unterschrift-PNGs vom Nextcloud der aktuell
+// angemeldeten Person (gleicher Ordner für alle -- damit eine Person auch
+// die Unterschrift der anderen einfügen kann, muss die entsprechende Datei
+// in beiden Nextcloud-Konten unter demselben Pfad liegen). Schlägt eine
+// einzelne Datei fehl (z.B. Datei fehlt, falscher Name), wird das nur als
+// Warnung gemeldet -- der Rest des PDFs entsteht trotzdem.
+async function fetchSignatureImages(ctx, offer, unterzeichnerConfig) {
+  const keys = Array.isArray(offer.unterzeichner) ? offer.unterzeichner : [];
+  const images = [];
+  const warnings = [];
+  if (!keys.length || !Array.isArray(unterzeichnerConfig)) return { images, warnings };
+
+  for (const key of keys) {
+    const cfg = unterzeichnerConfig.find((u) => u.key === key);
+    if (!cfg) continue;
+    try {
+      const relPath = davPath([...ncSegments(SIGNATURE_FOLDER_PATH), cfg.datei].join("/"));
+      const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const bytes = await res.arrayBuffer();
+      const img = await ctx.pdfDoc.embedPng(bytes);
+      images.push({ name: cfg.name, img });
+    } catch (err) {
+      warnings.push(`Unterschrift "${cfg.name}" konnte nicht geladen werden (${err.message}).`);
+    }
+  }
+  return { images, warnings };
+}
+
+// Unterschriften nebeneinander, an der Unterkante ausgerichtet, Name
+// darunter. Gibt die neue Y-Position zurück.
+function drawSignatureImages(ctx, images, y) {
+  if (!images.length) return y;
+  y -= 10;
+  const imgWidth = 130;
+  const gap = 40;
+  const maxImgHeight = Math.max(...images.map(({ img }) => imgWidth * (img.height / img.width)));
+
+  let x = PDF_MARGIN;
+  images.forEach(({ name, img }) => {
+    const h = imgWidth * (img.height / img.width);
+    ctx.page.drawImage(img, { x, y: y - maxImgHeight, width: imgWidth, height: h });
+    drawText(ctx, name, x, y - maxImgHeight - 14, { size: SIZE_BODY, font: ctx.light });
+    x += imgWidth + gap;
+  });
+
+  return y - maxImgHeight - 14 - 10;
 }
 
 // ---------- Datei-Handling ----------
@@ -362,7 +445,10 @@ function downloadPdfBytes(bytes, filename) {
 
 // ---------- Einstiegspunkt ----------
 
-async function exportOfferPdf(offer, absender) {
+// unterzeichnerConfig ([{key,name,datei}], aus offerten/unterzeichner.json)
+// wird von app.js übergeben statt hier selbst geladen, damit pdf.js von
+// nichts aus app.js abhängt (siehe Kommentar oben).
+async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
   if (typeof PDFLib === "undefined" || typeof fontkit === "undefined") {
     throw new Error("PDF-Bibliothek nicht verfügbar (fürs erste Mal wird eine Internetverbindung gebraucht).");
   }
@@ -372,13 +458,17 @@ async function exportOfferPdf(offer, absender) {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  const [lightBytes, mediumBytes] = await Promise.all([
+  const [lightBytes, mediumBytes, italicBytes] = await Promise.all([
     fetch("../fonts/Nudica-Light.otf").then((r) => {
       if (!r.ok) throw new Error("Schriftdatei Nudica-Light.otf konnte nicht geladen werden");
       return r.arrayBuffer();
     }),
     fetch("../fonts/Nudica-Medium.otf").then((r) => {
       if (!r.ok) throw new Error("Schriftdatei Nudica-Medium.otf konnte nicht geladen werden");
+      return r.arrayBuffer();
+    }),
+    fetch("../fonts/Nudica-LightItalic.otf").then((r) => {
+      if (!r.ok) throw new Error("Schriftdatei Nudica-LightItalic.otf konnte nicht geladen werden");
       return r.arrayBuffer();
     })
   ]);
@@ -387,6 +477,7 @@ async function exportOfferPdf(offer, absender) {
     pdfDoc,
     light: await pdfDoc.embedFont(lightBytes, { subset: false }),
     medium: await pdfDoc.embedFont(mediumBytes, { subset: false }),
+    italic: await pdfDoc.embedFont(italicBytes, { subset: false }),
     page: null,
     y: 0
   };
@@ -394,9 +485,13 @@ async function exportOfferPdf(offer, absender) {
   newPage(ctx);
   drawLetterPage(ctx, offer, absender);
 
+  const { images: signatureImages, warnings } = await fetchSignatureImages(ctx, offer, unterzeichnerConfig);
+  ctx.y = drawSignatureImages(ctx, signatureImages, ctx.y);
+
   newPage(ctx); // Offerte/Rechnung beginnt bewusst auf einer eigenen Seite
   drawPositionenPage(ctx, offer);
 
   const bytes = await pdfDoc.save();
   downloadPdfBytes(bytes, pdfFilename(offer));
+  return { warnings };
 }

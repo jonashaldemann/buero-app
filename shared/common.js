@@ -56,6 +56,16 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+// Schweizer Zahlenformat (Tausender-Apostroph, Komma-Dezimaltrennzeichen),
+// gerundet auf 2 Nachkommastellen -- verhindert u.a. Fliesskomma-Artefakte
+// wie "3.3000000000000003" in der Anzeige.
+function chNumber(n) {
+  if (n === undefined || n === null || n === "") return "–";
+  const num = Number(n);
+  if (isNaN(num)) return String(n);
+  return (Math.round(num * 100) / 100).toLocaleString("de-CH");
+}
+
 // ---------- Nextcloud / WebDAV ----------
 
 let settings = loadJSON(SETTINGS_KEY, DEFAULT_SETTINGS);
