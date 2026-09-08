@@ -355,14 +355,21 @@ alles neu erfassen zu müssen.
   `allKnownModules()`/`searchModules()` in `offerten/app.js`.
 - Phasen und Module liegen in einer gemeinsamen, beliebig sortierbaren Liste
   — am Griff-Symbol (☰) per Drag & Drop frei an eine beliebige Position
-  ziehen (nicht nur einen Schritt wie zuvor mit Pfeilen), mit dem
-  Papierkorb-Symbol entfernen. Eine Phase lässt sich also zwischen beliebige
-  Module schieben.
-- **Summen** unten: Nebenkostenpauschale (fixer, frei eingegebener Betrag —
-  nur wenn ungleich null, zählt in Zwischentotal und damit auch in die
-  MWST-Berechnung mit hinein), Zwischentotal exkl. MWST (Summe aller
-  Modul-Kosten + Nebenkostenpauschale, Phasen zählen nicht mit), MWST-Betrag
-  (Zwischentotal × Satz), Total inkl. MWST.
+  ziehen, mit dem Papierkorb-Symbol entfernen. Eine Phase lässt sich also
+  zwischen beliebige Module schieben. Beim Ziehen wird die Zeile live an die
+  neue Stelle verschoben (nicht nur ein Rahmen/Schatten als Vorschau) —
+  direktes visuelles Feedback wie in üblichen Reorder-Listen; die
+  eigentlichen Daten werden erst beim Loslassen aus der finalen Reihenfolge
+  übernommen. Siehe `renderPositionen()` in `offerten/app.js`.
+- **Summen** unten: Nebenkostenpauschale (fixer, frei eingegebener Betrag,
+  "Fr." direkt daneben — nur wenn ungleich null, zählt in Zwischentotal und
+  damit auch in die MWST-Berechnung mit hinein), Zwischentotal exkl. MWST
+  (Summe aller Modul-Kosten + Nebenkostenpauschale, Phasen zählen nicht
+  mit), MWST-Betrag (Zwischentotal × Satz), Total inkl. MWST. Ab
+  Zwischentotal werden alle Beträge auf 5 Rappen gerundet (übliche
+  Schweizer Rundung) und immer mit 2 Nachkommastellen angezeigt (z.B.
+  "10.75 Fr.") — einzelne Modul-Kosten bleiben unverändert/ungerundet.
+  Siehe `chFrRounded()`/`chFrRoundedPdf()`.
 - **Duplizieren**: im Editor (nur bei einer bereits gespeicherten Offerte)
   oder direkt per ⧉-Button in der Liste. Übernimmt alle Kopf- und
   Positionsdaten in eine neue, noch nicht gespeicherte Offerte; Datum wird
@@ -410,9 +417,13 @@ Browser herunter:
   Rechnungs-Nr., Datum, dann die Positionsliste (Phasen als
   Zwischenüberschrift, Module nummeriert mit Kurzbeschrieb als
   Bulletpoints, Stunden/Kosten-Spalten). Vor den Summen ein fixer Hinweis
-  "Der mittlere Stundensatz beträgt [Stundensatz] Fr. …" mit dem
-  tatsächlich verwendeten Stundensatz dieser Offerte/Rechnung, dann die
-  Summen; bei Rechnung zusätzlich fix der Satz "Zahlbar innert 30 Tagen"
+  mit dem tatsächlich verwendeten Stundensatz dieser Offerte/Rechnung — bei
+  Offerte "Der mittlere Stundensatz beträgt [Stundensatz] Fr. Das Honorar
+  wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total
+  geschätzte Stundenaufwand als Kostendach.", bei Rechnung nur der erste
+  Satz ("Der mittlere Stundensatz beträgt [Stundensatz] Fr.", ohne
+  Kostendach-Klausel, da bei der Rechnung bereits abgerechnet wird) — dann
+  die Summen; bei Rechnung zusätzlich fix der Satz "Zahlbar innert 30 Tagen"
   darunter (kein eigenes Feld, kein IBAN/QR-Zahlteil — siehe unten). Läuft
   die Positionsliste über eine Seite hinaus, folgen weitere Seiten
   automatisch (mit wiederholtem Spaltenkopf).
