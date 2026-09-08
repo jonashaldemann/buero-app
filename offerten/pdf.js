@@ -66,6 +66,15 @@ function chNumberPdf(n) {
 function chFrPdf(n) {
   return `${chNumberPdf(n)} Fr.`;
 }
+// Für die Summenzeilen (Zwischentotal/MWST/Total): auf 5 Rappen gerundet
+// (übliche Schweizer Rundung) und immer mit 2 Nachkommastellen.
+function chFrRoundedPdf(n) {
+  if (n === undefined || n === null || n === "") return "–";
+  const num = Number(n);
+  if (isNaN(num)) return String(n);
+  const rounded = Math.round(num / 0.05) * 0.05;
+  return `${rounded.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Fr.`;
+}
 function chDateShort(dateStr) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || "");
   if (!m) return dateStr || "–";
@@ -249,7 +258,10 @@ function drawTotals(ctx, offer) {
   ensureSpace(ctx, 130);
   ctx.y -= 10;
 
-  const stundensatzHinweis = `Der mittlere Stundensatz beträgt ${chFrPdf(rate)} Das Honorar wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte Stundenaufwand als Kostendach.`;
+  const stundensatzHinweis =
+    offer.typ === "rechnung"
+      ? `Der mittlere Stundensatz beträgt ${chFrPdf(rate)}`
+      : `Der mittlere Stundensatz beträgt ${chFrPdf(rate)} Das Honorar wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte Stundenaufwand als Kostendach.`;
   wrapText(ctx.light, stundensatzHinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
     ensureSpace(ctx, 13);
     drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
@@ -260,8 +272,8 @@ function drawTotals(ctx, offer) {
   const rows = [];
   if (nebenkosten) rows.push(["Nebenkostenpauschale", chFrPdf(nebenkosten)]);
   rows.push(
-    ["Zwischentotal exkl. MWST", chFrPdf(subtotal)],
-    [`MWST ${chNumberPdf(mwstProzent)}%`, chFrPdf(mwst)]
+    ["Zwischentotal exkl. MWST", chFrRoundedPdf(subtotal)],
+    [`MWST ${chNumberPdf(mwstProzent)}%`, chFrRoundedPdf(mwst)]
   );
   rows.forEach(([label, val]) => {
     drawText(ctx, label, labelX, ctx.y, { size: SIZE_BODY, font: ctx.light });
@@ -273,7 +285,7 @@ function drawTotals(ctx, offer) {
   drawRule(ctx, ctx.y + 10, { x0: labelX });
   const totalLabel = offer.typ === "rechnung" ? "Rechnungsbetrag inkl. MWST" : "Total inkl. MWST";
   drawText(ctx, totalLabel, labelX, ctx.y, { size: SIZE_BODY, font: ctx.medium });
-  drawText(ctx, chFrPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.medium, align: "right" });
+  drawText(ctx, chFrRoundedPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.medium, align: "right" });
   ctx.y -= 26;
 
   if (offer.typ === "rechnung") {
