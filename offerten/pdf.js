@@ -246,7 +246,15 @@ function drawTotals(ctx, offer) {
   const total = subtotal + mwst;
   const labelX = COL_STUNDEN_RIGHT - 140;
 
-  ensureSpace(ctx, 115);
+  ensureSpace(ctx, 130);
+  ctx.y -= 10;
+
+  const stundensatzHinweis = `Der mittlere Stundensatz beträgt ${chFrPdf(rate)} Das Honorar wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte Stundenaufwand als Kostendach.`;
+  wrapText(ctx.light, stundensatzHinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
+    ensureSpace(ctx, 13);
+    drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+    ctx.y -= 13;
+  });
   ctx.y -= 10;
 
   const rows = [];
@@ -268,12 +276,10 @@ function drawTotals(ctx, offer) {
   drawText(ctx, chFrPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.medium, align: "right" });
   ctx.y -= 26;
 
-  if (offer.typ === "rechnung" && offer.zahlungshinweis && offer.zahlungshinweis.trim()) {
-    ensureSpace(ctx, 60);
-    wrapText(ctx.light, offer.zahlungshinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
-      drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
-      ctx.y -= 13;
-    });
+  if (offer.typ === "rechnung") {
+    ensureSpace(ctx, 20);
+    drawText(ctx, "Zahlbar innert 30 Tagen", PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+    ctx.y -= 13;
   }
 }
 
@@ -299,7 +305,6 @@ function drawPositionenPage(ctx, offer) {
   const metaLines = [];
   if (offer.offert_nr) metaLines.push(`${nrLabel} ${offer.offert_nr}`);
   metaLines.push(`Datum ${chDateShort(offer.datum)}`);
-  if (offer.typ === "rechnung" && offer.zahlbar_bis) metaLines.push(`Zahlbar bis ${chDateShort(offer.zahlbar_bis)}`);
   let metaY = y;
   metaLines.forEach((line) => {
     drawText(ctx, line, PDF_PAGE_WIDTH - PDF_MARGIN, metaY, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
