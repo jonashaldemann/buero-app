@@ -45,9 +45,9 @@ let offers = loadJSON(LS_KEYS.cache, []);
 let editingOffer = null;
 let editingFilename = null;
 
-// Index der gerade per Drag & Drop gezogenen Position (Modul oder Phase) in
-// editingOffer.positionen -- null ausserhalb eines Drag-Vorgangs.
-let dragFromIndex = null;
+// DOM-Element der gerade per Drag & Drop gezogenen Zeile (Modul oder Phase),
+// null ausserhalb eines Drag-Vorgangs. Siehe renderPositionen().
+let draggedRow = null;
 
 // Absenderadresse fürs PDF-Anschreiben -- ändert sich praktisch nie,
 // deshalb zentral in einer Datei statt pro Offerte erfasst.
@@ -146,7 +146,7 @@ async function refreshOffers() {
     );
     offers = loaded.filter(Boolean);
     saveJSON(LS_KEYS.cache, offers);
-    line.textContent = `Synchronisiert · ${offers.length} Offerte(n)`;
+    line.textContent = "Synchronisiert";
   } catch (err) {
     console.warn("Offerten konnten nicht geladen werden:", err);
     line.textContent = "Fehler beim Laden · zeige zuletzt geladenen Stand";
@@ -198,6 +198,15 @@ function chFr(n) {
   if (n === undefined || n === null || n === "") return "–";
   return `${chNumber(n)} Fr.`;
 }
+// Für Summen ab Zwischentotal: auf 5 Rappen gerundet (übliche Schweizer
+// Rundung), immer mit 2 Nachkommastellen.
+function chFrRounded(n) {
+  if (n === undefined || n === null || n === "") return "–";
+  const num = Number(n);
+  if (isNaN(num)) return String(n);
+  const rounded = Math.round(num / 0.05) * 0.05;
+  return `${rounded.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Fr.`;
+}
 
 // ---------- Stundensatz-Vorgabe (Liste) ----------
 
@@ -236,7 +245,7 @@ function renderList() {
         <td><span class="typ-badge${isRechnung ? " rechnung" : ""}">${typLabel(d.typ)}</span></td>
         <td>${escapeHtml(d.projekt || o.filename)}</td>
         <td>${escapeHtml(d.empfaenger || "–")}</td>
-        <td>${escapeHtml(chFr(total))}</td>
+        <td>${escapeHtml(chFrRounded(total))}</td>
         <td class="row-actions">
           <button type="button" class="row-action" data-action="pdf" data-index="${i}" title="PDF erstellen">📄</button>
           <button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button>
@@ -483,68 +492,73 @@ function renderPositionen() {
 
   list.querySelectorAll(".mod-row, .phase-row").forEach((row) => {
     const index = parseInt(row.dataset.index, 10);
+    // Referenz auf die zugehörigen Positionsdaten direkt am DOM-Element --
+    // beim Live-Verschieben (siehe unten) ändert sich nur die Reihenfolge
+    // der DOM-Knoten, nie ihr Inhalt, darum bleibt diese Referenz gültig.
+    row.__posRef = positionen[index];
 
     row.querySelectorAll("[data-field]").forEach((el) => {
       const field = el.dataset.field;
       el.addEventListener("input", () => {
         if (field === "stunden") {
-          positionen[index][field] = Number(el.value) || 0;
+          row.__posRef[field] = Number(el.value) || 0;
           recalcAll();
         } else if (field === "beschrieb") {
-          positionen[index][field] = textToBeschrieb(el.value);
+          row.__posRef[field] = textToBeschrieb(el.value);
         } else {
-          positionen[index][field] = el.value;
+          row.__posRef[field] = el.value;
         }
       });
     });
 
-    row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removePosition(index));
+    row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removePosition(positionen.indexOf(row.__posRef)));
 
-    // Drag & Drop neu anordnen: der Griff startet den Drag, die ganze Zeile
-    // ist Drop-Ziel (so lässt sich in Textfeldern trotzdem normal markieren).
+    // Drag & Drop: der Griff startet den Drag, die Zeile wird dabei live an
+    // die neue Stelle verschoben (statt nur eine dünne Linie anzuzeigen) --
+    // das gibt sofortiges, eindeutiges Feedback wie in üblichen
+    // Reorder-Listen. Die Positionen-Liste selbst wird erst bei
+    // "dragend" aus der finalen DOM-Reihenfolge neu aufgebaut.
     const handleEl = row.querySelector(".drag-handle");
     handleEl.addEventListener("dragstart", (e) => {
-      dragFromIndex = index;
+      draggedRow = row;
       e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", String(index));
+      e.dataTransfer.setData("text/plain", "");
       row.classList.add("dragging");
     });
     handleEl.addEventListener("dragend", () => {
-      dragFromIndex = null;
       row.classList.remove("dragging");
-      list.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+      draggedRow = null;
+      editingOffer.positionen = Array.from(list.children).map((el) => el.__posRef);
+      renderPositionen();
     });
 
     row.addEventListener("dragover", (e) => {
-      if (dragFromIndex === null) return;
+      if (!draggedRow || draggedRow === row) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-    });
-    row.addEventListener("dragenter", (e) => {
-      if (dragFromIndex === null || dragFromIndex === index) return;
-      e.preventDefault();
-      row.classList.add("drag-over");
-    });
-    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
-    row.addEventListener("drop", (e) => {
-      e.preventDefault();
-      row.classList.remove("drag-over");
-      if (dragFromIndex === null || dragFromIndex === index) return;
-      reorderPositionen(dragFromIndex, index);
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      row.parentNode.insertBefore(draggedRow, before ? row : row.nextSibling);
     });
   });
 
   recalcTotalsDisplay();
 }
 
-// Verschiebt die Position an fromIndex so, dass sie direkt vor der Position
-// landet, die aktuell bei toIndex steht (unabhängig von der Zugrichtung).
-function reorderPositionen(fromIndex, toIndex) {
-  const positionen = editingOffer.positionen;
-  const [item] = positionen.splice(fromIndex, 1);
-  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
-  positionen.splice(insertAt, 0, item);
-  renderPositionen();
+// Erlaubt das Ablegen unterhalb der letzten Zeile (ans Ende verschieben).
+// Einmalig verdrahtet (in init()), da #modList als Element bestehen bleibt
+// und nur sein Inhalt bei jedem renderPositionen() neu aufgebaut wird.
+function wireModListEndDrop() {
+  const list = document.getElementById("modList");
+  list.addEventListener("dragover", (e) => {
+    if (!draggedRow) return;
+    e.preventDefault();
+    const rows = Array.from(list.children).filter((el) => el !== draggedRow);
+    const last = rows[rows.length - 1];
+    if (last && e.clientY > last.getBoundingClientRect().bottom) {
+      list.appendChild(draggedRow);
+    }
+  });
 }
 
 function removePosition(index) {
@@ -569,9 +583,9 @@ function recalcAll() {
 
 function recalcTotalsDisplay() {
   const { subtotal, mwst, total } = calcTotals(editingOffer);
-  document.getElementById("totalSubtotal").textContent = chFr(subtotal);
-  document.getElementById("totalMwst").textContent = chFr(mwst);
-  document.getElementById("totalFinal").textContent = chFr(total);
+  document.getElementById("totalSubtotal").textContent = chFrRounded(subtotal);
+  document.getElementById("totalMwst").textContent = chFrRounded(mwst);
+  document.getElementById("totalFinal").textContent = chFrRounded(total);
 }
 
 function readHeaderFieldsIntoOffer() {
@@ -659,6 +673,8 @@ function init() {
     ensureFolderFn: ensureOfferFolder,
     onSaved: refreshOffers
   });
+
+  wireModListEndDrop();
 
   const rateInput = document.getElementById("stundensatzInput");
   rateInput.value = loadDefaultRate();
