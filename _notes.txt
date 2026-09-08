@@ -1,4 +1,0 @@
-
-Status-Feld im Formular als viertes Feld rechts neben Datum, nur für interne Zwecke: Statusse In Bearbeitung/Versendet/Bezahlt
-
-Stundensatz und Mwst-Felder ohne Zählerpfeile nur als Eingabefelder.

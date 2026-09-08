@@ -112,6 +112,43 @@
   }
   .add-mod-btn:active { background: var(--surface); }
 
+  .checkbox-list { display: flex; flex-direction: column; gap: 8px; }
+  .checkbox-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text);
+    margin-top: 0;
+    cursor: pointer;
+  }
+
+  .numbering-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 14px 0 8px;
+    cursor: pointer;
+  }
+
+  .bemerkung-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    cursor: pointer;
+  }
+  .mod-bemerkung {
+    background: var(--surface);
+    font-size: 13px;
+    font-style: italic;
+    margin-top: 6px;
+  }
+
   .mod-search { margin-bottom: 10px; }
   .mod-search-results {
     margin-top: 6px;
@@ -183,6 +220,17 @@
     white-space: nowrap;
   }
   .typ-badge.rechnung { background: #EFE0D6; color: #A2603F; }
+
+  .status-select {
+    width: auto;
+    padding: 5px 24px 5px 10px;
+    font-size: 12px;
+    font-family: var(--font-medium);
+    border-radius: 999px;
+    background-color: var(--surface-2);
+  }
+  .status-select[data-status="versendet"] { background-color: #DCE6EA; color: #3E6478; }
+  .status-select[data-status="bezahlt"] { background-color: #E1E8DC; color: #5C7350; }
 
   .totals-block {
     margin-top: 18px;
@@ -260,10 +308,11 @@
             <th>Empfänger</th>
             <th>Total</th>
             <th></th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody id="offerBody">
-          <tr><td colspan="7">Noch keine Offerten geladen.</td></tr>
+          <tr><td colspan="8">Noch keine Offerten geladen.</td></tr>
         </tbody>
       </table>
     </div>
@@ -328,6 +377,14 @@
           <label>Datum</label>
           <input type="date" id="inputDatum">
         </div>
+        <div>
+          <label>Status</label>
+          <select id="inputStatus">
+            <option value="in_bearbeitung">In Bearbeitung</option>
+            <option value="versendet">Versendet</option>
+            <option value="bezahlt">Bezahlt</option>
+          </select>
+        </div>
       </div>
 
       <label>Projekt</label>
@@ -341,11 +398,11 @@
       <div class="two-col">
         <div>
           <label>Stundensatz (Fr./h)</label>
-          <input type="number" id="inputStundensatz" min="0" step="5">
+          <input type="number" id="inputStundensatz" min="0" step="5" class="no-spinner">
         </div>
         <div>
           <label>MWST-Satz (%)</label>
-          <input type="number" id="inputMwstProzent" min="0" step="0.1">
+          <input type="number" id="inputMwstProzent" min="0" step="0.1" class="no-spinner">
         </div>
       </div>
 
@@ -356,8 +413,15 @@
       <input type="text" id="inputBetreff" placeholder="z.B. Offerte für Neubau Werkhof Musterwil">
       <label>Brieftext (Anschreiben, 1. PDF-Seite)</label>
       <textarea id="inputBrieftext" rows="5" placeholder="Sehr geehrte Damen und Herren&#10;&#10;Gerne unterbreiten wir Ihnen..."></textarea>
+
+      <label>Unterschrift(en) (Bild + Name werden auf Seite 1 unter dem Brieftext eingefügt)</label>
+      <div id="unterzeichnerList" class="checkbox-list"></div>
     </div>
 
+    <label class="numbering-toggle">
+      <input type="checkbox" id="inputNummerierung" checked>
+      Module automatisch nummerieren
+    </label>
     <div class="mod-list" id="modList"></div>
 
     <div class="mod-search">

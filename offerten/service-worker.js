@@ -27,9 +27,10 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. absender.json bewusst NICHT in
-// ASSETS gelistet -- die soll immer frisch vom Netz kommen, damit
-// Änderungen (Adresse etc.) ohne Code-Update ankommen. Die PDF-Bibliothek
+// App-Shell: aus Cache, Fallback Netz. absender.json/unterzeichner.json
+// bewusst NICHT in ASSETS gelistet -- die sollen immer frisch vom Netz
+// kommen, damit Änderungen (Adresse, neue/andere Unterzeichner etc.) ohne
+// Code-Update ankommen. Die PDF-Bibliothek
 // (CDN) und die Nudica-.otf-Schriftdateien für den PDF-Export sind
 // ebenfalls bewusst nicht vorab gecacht -- ein einzelner fehlgeschlagener
 // Cross-Origin-Fetch würde sonst das ganze cache.addAll() beim Install

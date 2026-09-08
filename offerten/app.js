@@ -61,6 +61,21 @@ async function loadAbsender() {
   }
 }
 
+// Liste möglicher Unterzeichner (Name + Dateiname der Unterschrift auf
+// Nextcloud) -- ändert sich praktisch nie, deshalb zentral in einer Datei
+// statt pro Offerte erfasst. Die PNGs selbst liegen auf Nextcloud (siehe
+// SIGNATURE_FOLDER_PATH in pdf.js) und werden erst beim PDF-Export
+// nachgeladen, nicht hier.
+let unterzeichnerConfig = [];
+async function loadUnterzeichnerConfig() {
+  try {
+    const res = await fetch("unterzeichner.json");
+    unterzeichnerConfig = res.ok ? await res.json() : [];
+  } catch (e) {
+    unterzeichnerConfig = [];
+  }
+}
+
 function offerSegments() {
   return ncSegments(OFFERTEN_TARGET_FOLDER_PATH);
 }
@@ -188,12 +203,6 @@ function chDate(dateStr) {
   if (!m) return dateStr;
   return `${m[3]}.${m[2]}.${m[1]}`;
 }
-function chNumber(n) {
-  if (n === undefined || n === null || n === "") return "–";
-  const num = Number(n);
-  if (isNaN(num)) return String(n);
-  return (Math.round(num * 100) / 100).toLocaleString("de-CH");
-}
 function chFr(n) {
   if (n === undefined || n === null || n === "") return "–";
   return `${chNumber(n)} Fr.`;
@@ -226,7 +235,7 @@ function renderList() {
   const body = document.getElementById("offerBody");
 
   if (offers.length === 0) {
-    body.innerHTML = '<tr><td colspan="7">Noch keine Offerten geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8">Noch keine Offerten geladen.</td></tr>';
     return;
   }
 
@@ -239,6 +248,10 @@ function renderList() {
       const d = o.data;
       const total = calcTotals(d).total;
       const isRechnung = d.typ === "rechnung";
+      const status = d.status || "in_bearbeitung";
+      const statusOptions = Object.keys(STATUS_LABELS)
+        .map((key) => `<option value="${key}" ${key === status ? "selected" : ""}>${STATUS_LABELS[key]}</option>`)
+        .join("");
       return `<tr data-clickable data-index="${i}">
         <td>${escapeHtml(d.offert_nr || "–")}</td>
         <td>${escapeHtml(chDate(d.datum))}</td>
@@ -249,6 +262,9 @@ function renderList() {
         <td class="row-actions">
           <button type="button" class="row-action" data-action="pdf" data-index="${i}" title="PDF erstellen">📄</button>
           <button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button>
+        </td>
+        <td>
+          <select class="status-select" data-action="status" data-index="${i}" data-status="${status}">${statusOptions}</select>
         </td>
       </tr>`;
     })
@@ -269,13 +285,23 @@ function renderList() {
     });
   });
 
+  body.querySelectorAll('[data-action="status"]').forEach((select) => {
+    select.addEventListener("click", (e) => e.stopPropagation());
+    select.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(select.dataset.index, 10);
+      updateOfferStatus(idx, select.value);
+    });
+  });
+
   body.querySelectorAll('[data-action="pdf"]').forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.index, 10);
       btn.disabled = true;
       try {
-        await exportOfferPdf(offers[idx].data, absender);
+        const { warnings } = await exportOfferPdf(offers[idx].data, absender, unterzeichnerConfig);
+        if (warnings.length) alert(warnings.join("\n"));
       } catch (err) {
         alert("Fehler beim PDF-Erstellen: " + err.message);
       } finally {
@@ -299,6 +325,8 @@ function allKnownModules() {
         result.push({
           titel: p.titel,
           beschrieb: Array.isArray(p.beschrieb) ? p.beschrieb : [],
+          bemerkung: p.bemerkung || "",
+          bemerkungAktiv: !!p.bemerkungAktiv,
           stunden: Number(p.stunden) || 0,
           projekt: o.data.projekt || o.filename,
           datum: o.data.datum || ""
@@ -350,6 +378,8 @@ function importModule(m) {
     typ: "modul",
     titel: m.titel,
     beschrieb: [...m.beschrieb],
+    bemerkung: m.bemerkung || "",
+    bemerkungAktiv: !!m.bemerkungAktiv,
     stunden: m.stunden
   });
   document.getElementById("modSearchInput").value = "";
@@ -381,17 +411,31 @@ function blankOffer(typ) {
     projekt: "",
     datum: formatDate(new Date()),
     offert_nr: "",
+    status: "in_bearbeitung",
     betreff: "",
     brieftext: "",
+    unterzeichner: [],
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
     nebenkosten_chf: 0,
-    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0 }]
+    automatische_nummerierung: true,
+    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false }]
   };
 }
 
 function typLabel(typ) {
   return typ === "rechnung" ? "Rechnung" : "Offerte";
+}
+
+// Rein interner Status (nicht Teil des PDFs) -- Reihenfolge hier bestimmt
+// auch die Reihenfolge im Status-Dropdown.
+const STATUS_LABELS = {
+  in_bearbeitung: "In Bearbeitung",
+  versendet: "Versendet",
+  bezahlt: "Bezahlt"
+};
+function statusLabel(status) {
+  return STATUS_LABELS[status] || STATUS_LABELS.in_bearbeitung;
 }
 
 // Blendet die rechnungsspezifischen Felder ein/aus und passt Titel/Labels an
@@ -413,11 +457,14 @@ function openEditor(offer, filename, newTyp) {
   document.getElementById("inputProjekt").value = editingOffer.projekt || "";
   document.getElementById("inputDatum").value = editingOffer.datum || formatDate(new Date());
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
+  document.getElementById("inputStatus").value = editingOffer.status || "in_bearbeitung";
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
   document.getElementById("inputNebenkosten").value = editingOffer.nebenkosten_chf || 0;
   document.getElementById("inputBetreff").value = editingOffer.betreff || "";
   document.getElementById("inputBrieftext").value = editingOffer.brieftext || "";
+  document.getElementById("inputNummerierung").checked = editingOffer.automatische_nummerierung !== false;
+  renderUnterzeichnerCheckboxes();
   document.getElementById("editorResult").textContent = "";
   document.getElementById("editorResult").className = "test-result";
   document.getElementById("deleteOfferBtn").style.display = filename ? "" : "none";
@@ -427,6 +474,23 @@ function openEditor(offer, filename, newTyp) {
 
   renderPositionen();
   document.getElementById("editorOverlay").classList.remove("hidden");
+}
+
+function renderUnterzeichnerCheckboxes() {
+  const list = document.getElementById("unterzeichnerList");
+  if (!unterzeichnerConfig.length) {
+    list.innerHTML = '<p class="hint" style="margin:0;">Keine Unterzeichner konfiguriert (unterzeichner.json).</p>';
+    return;
+  }
+  const selected = new Set(editingOffer.unterzeichner || []);
+  list.innerHTML = unterzeichnerConfig
+    .map(
+      (u) => `<label>
+        <input type="checkbox" value="${escapeHtml(u.key)}" ${selected.has(u.key) ? "checked" : ""}>
+        ${escapeHtml(u.name)}
+      </label>`
+    )
+    .join("");
 }
 
 function closeEditor() {
@@ -455,6 +519,7 @@ function renderPositionen() {
   const list = document.getElementById("modList");
   const rate = Number(editingOffer.stundensatz_chf) || 0;
   const positionen = editingOffer.positionen;
+  const numbered = editingOffer.automatische_nummerierung !== false;
 
   let modulNr = 0;
   list.innerHTML = positionen
@@ -471,14 +536,20 @@ function renderPositionen() {
 
       modulNr++;
       const kosten = (Number(p.stunden) || 0) * rate;
+      const bemerkungAktiv = !!p.bemerkungAktiv;
       return `<div class="mod-row" data-index="${i}">
         ${handle}
         <div class="mod-main">
           <div class="mod-title-row">
-            <span class="mod-num">${modulNr})</span>
+            ${numbered ? `<span class="mod-num">${modulNr})</span>` : ""}
             <input type="text" class="mod-titel" data-field="titel" placeholder="Titel" value="${escapeHtml(p.titel || "")}">
           </div>
           <textarea class="mod-beschrieb" data-field="beschrieb" rows="2" placeholder="Ein Punkt pro Zeile">${escapeHtml(beschriebToText(p.beschrieb))}</textarea>
+          <label class="bemerkung-toggle">
+            <input type="checkbox" data-field="bemerkungAktiv" ${bemerkungAktiv ? "checked" : ""}>
+            Bemerkung (kursiv, ohne Punkt, nach den Stichpunkten)
+          </label>
+          <textarea class="mod-bemerkung" data-field="bemerkung" rows="1" placeholder="z.B. Wegstrecken werden nicht verrechnet" style="${bemerkungAktiv ? "" : "display:none;"}">${escapeHtml(p.bemerkung || "")}</textarea>
         </div>
         <div class="mod-stunden">
           <input type="number" class="no-spinner" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}">
@@ -499,12 +570,19 @@ function renderPositionen() {
 
     row.querySelectorAll("[data-field]").forEach((el) => {
       const field = el.dataset.field;
-      el.addEventListener("input", () => {
+      const eventName = el.type === "checkbox" ? "change" : "input";
+      el.addEventListener(eventName, () => {
         if (field === "stunden") {
           row.__posRef[field] = Number(el.value) || 0;
           recalcAll();
         } else if (field === "beschrieb") {
           row.__posRef[field] = textToBeschrieb(el.value);
+        } else if (el.type === "checkbox") {
+          row.__posRef[field] = el.checked;
+          if (field === "bemerkungAktiv") {
+            const ta = row.querySelector(".mod-bemerkung");
+            if (ta) ta.style.display = el.checked ? "" : "none";
+          }
         } else {
           row.__posRef[field] = el.value;
         }
@@ -564,7 +642,7 @@ function wireModListEndDrop() {
 function removePosition(index) {
   const positionen = editingOffer.positionen;
   positionen.splice(index, 1);
-  if (positionen.length === 0) positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0 });
+  if (positionen.length === 0) positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false });
   renderPositionen();
 }
 
@@ -595,11 +673,16 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.projekt = document.getElementById("inputProjekt").value.trim();
   editingOffer.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
+  editingOffer.status = document.getElementById("inputStatus").value || "in_bearbeitung";
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
   editingOffer.nebenkosten_chf = Number(document.getElementById("inputNebenkosten").value) || 0;
   editingOffer.betreff = document.getElementById("inputBetreff").value.trim();
   editingOffer.brieftext = document.getElementById("inputBrieftext").value;
+  editingOffer.unterzeichner = Array.from(
+    document.querySelectorAll('#unterzeichnerList input[type="checkbox"]:checked')
+  ).map((el) => el.value);
+  editingOffer.automatische_nummerierung = document.getElementById("inputNummerierung").checked;
 }
 
 // Übernimmt den aktuellen Stand (inkl. noch nicht gespeicherter Änderungen)
@@ -610,6 +693,25 @@ function duplicateOffer(offer) {
   copy.datum = formatDate(new Date());
   copy.offert_nr = "";
   openEditor(copy, null);
+}
+
+// Status-Änderung direkt aus der Liste (einziges dort editierbares Feld) --
+// übernimmt sofort optisch (Badge-Farbe) und schreibt im Hintergrund auf
+// Nextcloud zurück, ohne den vollen Editor zu öffnen.
+async function updateOfferStatus(index, status) {
+  const entry = offers[index];
+  if (!entry) return;
+  entry.data.status = status;
+  saveJSON(LS_KEYS.cache, offers);
+  renderList();
+
+  if (!isConfigured()) return;
+  try {
+    await ensureOfferFolder();
+    await putOfferFile(entry.filename, entry.data);
+  } catch (err) {
+    alert("Status konnte nicht gespeichert werden: " + err.message);
+  }
 }
 
 async function saveCurrentOffer() {
@@ -700,9 +802,9 @@ function init() {
     resultEl.textContent = "Erstellt PDF…";
     resultEl.className = "test-result";
     try {
-      await exportOfferPdf(editingOffer, absender);
-      resultEl.textContent = "PDF erstellt.";
-      resultEl.className = "test-result ok";
+      const { warnings } = await exportOfferPdf(editingOffer, absender, unterzeichnerConfig);
+      resultEl.textContent = warnings.length ? `PDF erstellt · ${warnings.join(" ")}` : "PDF erstellt.";
+      resultEl.className = warnings.length ? "test-result err" : "test-result ok";
     } catch (err) {
       resultEl.textContent = "Fehler: " + err.message;
       resultEl.className = "test-result err";
@@ -714,7 +816,7 @@ function init() {
     applyTypVisibility(e.target.value);
   });
   document.getElementById("addModBtn").addEventListener("click", () => {
-    editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0 });
+    editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false });
     renderPositionen();
   });
   document.getElementById("addPhaseBtn").addEventListener("click", () => {
@@ -737,6 +839,10 @@ function init() {
     editingOffer.nebenkosten_chf = Number(e.target.value) || 0;
     recalcTotalsDisplay();
   });
+  document.getElementById("inputNummerierung").addEventListener("change", (e) => {
+    editingOffer.automatische_nummerierung = e.target.checked;
+    renderPositionen();
+  });
 
   window.addEventListener("online", refreshOffers);
   window.addEventListener("visibilitychange", () => {
@@ -744,6 +850,7 @@ function init() {
   });
 
   loadAbsender();
+  loadUnterzeichnerConfig();
   renderList();
   if (isConfigured()) refreshOffers();
 
