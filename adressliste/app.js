@@ -28,12 +28,20 @@
    sich per Drag&Drop am Spaltenkopf umsortieren, jede Spalte hat ihr
    eigenes Filterfeld direkt unter dem Titel.
 
-   Status und Weihnachtskarte lassen sich direkt in der Tabelle ändern
-   (siehe bodyCellHtml()/quickUpdateContact()), ohne den Editor zu öffnen --
-   das lädt den Kontakt vorher nochmals frisch und schreibt nur das eine
-   geänderte Feld, damit dabei keine zwischenzeitliche Änderung an einem
-   anderen Feld verloren geht. Website wird, falls ohne http(s)://
+   Kategorie, Status und Weihnachtskarte lassen sich direkt in der Tabelle
+   ändern (siehe bodyCellHtml()/quickUpdateContact()), ohne den Editor zu
+   öffnen -- das lädt den Kontakt vorher nochmals frisch und schreibt nur
+   das eine geänderte Feld, damit dabei keine zwischenzeitliche Änderung an
+   einem anderen Feld verloren geht. Website wird, falls ohne http(s)://
    eingetragen (z.B. "abc.ch"), trotzdem als anklickbarer Link dargestellt.
+
+   Kategorie und Status kommen aus einem gemeinsam verwalteten, auf
+   Nextcloud gespeicherten Optionen-Set (_optionen.json, siehe
+   OPTIONS_FILENAME/refreshOptionSets()) statt aus freiem Text -- neue Werte
+   lassen sich sowohl über "+ neu…" in jedem Dropdown als auch über den
+   Button "Optionen" (renderOptionChips()) hinzufügen/entfernen. Entfernen
+   löscht nur den Eintrag aus der Auswahlliste, nicht aus bereits
+   gespeicherten Kontakten mit diesem Wert.
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, chNumber usw. kommen
    aus ../shared/common.js (gemeinsam mit Zeiterfassung, Quittung,
@@ -42,12 +50,14 @@
 
 const LS_KEYS = {
   contactsCache: "adressliste_cache",
-  viewsCache: "adressliste_views_cache"
+  viewsCache: "adressliste_views_cache",
+  optionsCache: "adressliste_options_cache"
 };
 
 const ADRESSEN_TARGET_FOLDER_PATH = "Buero/Admin/Adressen";
 const VIEWS_FOLDER_PATH = "Buero/Admin/Adressen/Ansichten";
 const LEGACY_VIEWS_FILENAME = "_ansichten.json"; // vor der Umstellung auf ein File pro Ansicht
+const OPTIONS_FILENAME = "_optionen.json"; // Kategorie-/Status-Auswahllisten, siehe refreshOptionSets()
 
 const COLUMNS = [
   { key: "kategorie", label: "Kategorie" },
@@ -85,6 +95,8 @@ function blankView() {
 let contacts = loadJSON(LS_KEYS.contactsCache, []);
 // Ansichten: { filename, id, name, columns, filters, sort }
 let views = loadJSON(LS_KEYS.viewsCache, []);
+// Auswahllisten für Kategorie/Status-Dropdowns (Editor + Tabelle).
+let optionSets = loadJSON(LS_KEYS.optionsCache, { kategorien: [], status: [] });
 
 let currentView = blankView();
 let activeViewId = null; // null = nicht gespeicherte/angepasste Ansicht
@@ -198,6 +210,7 @@ async function refreshContacts() {
     saveJSON(LS_KEYS.contactsCache, contacts);
     line.textContent = `Synchronisiert · ${contacts.length} Einträge`;
     await refreshViews();
+    await refreshOptionSets();
   } catch (err) {
     console.warn("Adressen konnten nicht geladen werden:", err);
     line.textContent = "Fehler beim Laden · zeige zuletzt geladenen Stand";
@@ -239,6 +252,90 @@ async function refreshViews() {
   saveJSON(LS_KEYS.viewsCache, views);
 }
 
+// ---------- Laden: Kategorie-/Status-Optionen ----------
+
+function distinctFieldValues(key) {
+  const set = new Set();
+  contacts.forEach((c) => {
+    const v = (c.data[key] || "").trim();
+    if (v) set.add(v);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
+}
+
+async function refreshOptionSets() {
+  let data = await fetchJsonFile(adressenSegments(), OPTIONS_FILENAME);
+  if (!data) {
+    // Erster Aufruf nach der Umstellung von freiem Text auf ein Optionen-Set:
+    // aus den schon vorhandenen Kontakten sinnvolle Startwerte ableiten,
+    // damit bisher erfasste Kategorien/Status nicht verschwinden.
+    data = { kategorien: distinctFieldValues("kategorie"), status: distinctFieldValues("status") };
+    await putJsonFile(adressenSegments(), OPTIONS_FILENAME, data);
+  }
+  optionSets = {
+    kategorien: Array.isArray(data.kategorien) ? data.kategorien : [],
+    status: Array.isArray(data.status) ? data.status : []
+  };
+  saveJSON(LS_KEYS.optionsCache, optionSets);
+}
+
+// Fügt einen Wert zum Optionen-Set hinzu (falls noch nicht vorhanden) --
+// lädt vorher nochmals frisch, damit eine zwischenzeitlich von der anderen
+// Person hinzugefügte Option nicht überschrieben wird.
+async function addOptionValue(type, rawValue) {
+  const value = (rawValue || "").trim();
+  if (!value) return null;
+  const fresh = (await fetchJsonFile(adressenSegments(), OPTIONS_FILENAME)) || { kategorien: [], status: [] };
+  const list = Array.isArray(fresh[type]) ? fresh[type] : [];
+  if (!list.includes(value)) {
+    list.push(value);
+    list.sort((a, b) => a.localeCompare(b, "de"));
+  }
+  fresh[type] = list;
+  await putJsonFile(adressenSegments(), OPTIONS_FILENAME, fresh);
+  optionSets = fresh;
+  saveJSON(LS_KEYS.optionsCache, optionSets);
+  return value;
+}
+
+async function removeOptionValue(type, value) {
+  const fresh = (await fetchJsonFile(adressenSegments(), OPTIONS_FILENAME)) || { kategorien: [], status: [] };
+  fresh[type] = (Array.isArray(fresh[type]) ? fresh[type] : []).filter((v) => v !== value);
+  await putJsonFile(adressenSegments(), OPTIONS_FILENAME, fresh);
+  optionSets = fresh;
+  saveJSON(LS_KEYS.optionsCache, optionSets);
+}
+
+// "Optionen verwalten"-Übersicht (entfernen per ×, hinzufügen über die
+// beiden Eingabefelder -- siehe init()).
+function chipHtml(value) {
+  return `<span class="chip">${escapeHtml(value)}<button type="button" data-remove="${escapeHtml(value)}" title="Entfernen">×</button></span>`;
+}
+
+function renderOptionChips() {
+  const kWrap = document.getElementById("kategorieChips");
+  const sWrap = document.getElementById("statusChips");
+  kWrap.innerHTML = optionSets.kategorien.map(chipHtml).join("") || '<span class="hint" style="margin:0;">Keine.</span>';
+  sWrap.innerHTML = optionSets.status.map(chipHtml).join("") || '<span class="hint" style="margin:0;">Keine.</span>';
+
+  kWrap.querySelectorAll("[data-remove]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Kategorie "${btn.dataset.remove}" aus der Auswahlliste entfernen?`)) return;
+      await removeOptionValue("kategorien", btn.dataset.remove);
+      renderOptionChips();
+      renderTableBody();
+    });
+  });
+  sWrap.querySelectorAll("[data-remove]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Status "${btn.dataset.remove}" aus der Auswahlliste entfernen?`)) return;
+      await removeOptionValue("status", btn.dataset.remove);
+      renderOptionChips();
+      renderTableBody();
+    });
+  });
+}
+
 // ---------- Formatierung ----------
 
 function chDateTime(iso) {
@@ -270,15 +367,6 @@ function cellValue(data, key) {
 function websiteHref(raw) {
   if (!raw) return "";
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
-}
-
-function distinctStatusValues() {
-  const set = new Set();
-  contacts.forEach((c) => {
-    const v = (c.data.status || "").trim();
-    if (v) set.add(v);
-  });
-  return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
 }
 
 // ---------- Filtern/Sortieren ----------
@@ -443,18 +531,32 @@ function renderTableHead() {
   });
 }
 
-// Status und Weihnachtskarte lassen sich direkt in der Liste ändern (ohne
-// den Editor zu öffnen) -- alle anderen Spalten nur über "Bearbeiten".
+// <option>-Liste für ein Optionen-Set-Feld (Kategorie/Status) -- der
+// aktuelle Wert wird immer als Option angeboten, auch falls er (z.B. nach
+// Entfernen aus dem Optionen-Set) nicht mehr offiziell in der Liste ist.
+function optionListHtml(current, options) {
+  const opts = [...options];
+  if (current && !opts.includes(current)) opts.push(current);
+  return (
+    `<option value="" ${current === "" ? "selected" : ""}>–</option>` +
+    opts.map((v) => `<option value="${escapeHtml(v)}" ${v === current ? "selected" : ""}>${escapeHtml(v)}</option>`).join("") +
+    `<option value="__neu__">+ neu…</option>`
+  );
+}
+
+function optionSelectHtml(field, current, options) {
+  return `<select class="cell-edit" data-quickfield="${field}">${optionListHtml(current, options)}</select>`;
+}
+
+// Kategorie, Status und Weihnachtskarte lassen sich direkt in der Liste
+// ändern (ohne den Editor zu öffnen) -- alle anderen Spalten nur über
+// "Bearbeiten".
 function bodyCellHtml(col, data) {
+  if (col.key === "kategorie") {
+    return optionSelectHtml("kategorie", data.kategorie || "", optionSets.kategorien);
+  }
   if (col.key === "status") {
-    const current = data.status || "";
-    const options = distinctStatusValues();
-    if (current && !options.includes(current)) options.push(current);
-    const optionsHtml =
-      `<option value="" ${current === "" ? "selected" : ""}>–</option>` +
-      options.map((v) => `<option value="${escapeHtml(v)}" ${v === current ? "selected" : ""}>${escapeHtml(v)}</option>`).join("") +
-      `<option value="__neu__">+ neuer Status…</option>`;
-    return `<select class="cell-edit" data-quickfield="status">${optionsHtml}</select>`;
+    return optionSelectHtml("status", data.status || "", optionSets.status);
   }
   if (col.key === "weihnachtskarte") {
     return `<input type="checkbox" class="cell-edit" data-quickfield="weihnachtskarte" ${data.weihnachtskarte ? "checked" : ""}>`;
@@ -493,9 +595,11 @@ function renderTableBody() {
         e.stopPropagation();
         const field = el.dataset.quickfield;
         let value;
-        if (field === "status" && el.value === "__neu__") {
-          value = (prompt("Neuer Status:") || "").trim();
-          if (!value) { renderTableBody(); return; }
+        if ((field === "status" || field === "kategorie") && el.value === "__neu__") {
+          const label = field === "status" ? "Neuer Status:" : "Neue Kategorie:";
+          const typed = (prompt(label) || "").trim();
+          if (!typed) { renderTableBody(); return; }
+          value = await addOptionValue(field === "status" ? "status" : "kategorien", typed);
         } else if (el.type === "checkbox") {
           value = el.checked;
         } else {
@@ -665,9 +769,13 @@ function closeEditor() {
   editingBaselineUpdatedAt = null;
 }
 
+function renderEditorOptionSelects(currentKategorie, currentStatus) {
+  document.getElementById("inputKategorie").innerHTML = optionListHtml(currentKategorie || "", optionSets.kategorien);
+  document.getElementById("inputStatus").innerHTML = optionListHtml(currentStatus || "", optionSets.status);
+}
+
 function fillEditorFields(data) {
-  document.getElementById("inputKategorie").value = data.kategorie || "";
-  document.getElementById("inputStatus").value = data.status || "";
+  renderEditorOptionSelects(data.kategorie, data.status);
   document.getElementById("inputVorname").value = data.vorname || "";
   document.getElementById("inputName").value = data.name || "";
   document.getElementById("inputFirma").value = data.firma || "";
@@ -841,6 +949,8 @@ async function importCsvText(text) {
       contact.updatedBy = personName() || "CSV-Import";
       const filename = `${uid()}.json`;
       await putJsonFile(adressenSegments(), filename, contact);
+      if (contact.kategorie) await addOptionValue("kategorien", contact.kategorie);
+      if (contact.status) await addOptionValue("status", contact.status);
       imported++;
     }
     statusEl.textContent = `${imported} Einträge importiert.`;
@@ -870,6 +980,45 @@ function init() {
   document.getElementById("viewSelect").addEventListener("change", (e) => applyView(e.target.value || null));
   document.getElementById("saveViewBtn").addEventListener("click", saveCurrentView);
   document.getElementById("deleteViewBtn").addEventListener("click", deleteCurrentView);
+
+  // Editor: Kategorie/Status sind Dropdowns aus dem Optionen-Set -- "+ neu…"
+  // fragt einen neuen Wert ab, trägt ihn ins Optionen-Set ein und wählt ihn an.
+  ["inputKategorie", "inputStatus"].forEach((selectId) => {
+    document.getElementById(selectId).addEventListener("change", async (e) => {
+      if (e.target.value !== "__neu__") return;
+      const isKategorie = selectId === "inputKategorie";
+      const typed = (prompt(isKategorie ? "Neue Kategorie:" : "Neuer Status:") || "").trim();
+      if (typed) await addOptionValue(isKategorie ? "kategorien" : "status", typed);
+      const otherVal = (id) => { const v = document.getElementById(id).value; return v === "__neu__" ? "" : v; };
+      renderEditorOptionSelects(
+        isKategorie ? typed : otherVal("inputKategorie"),
+        isKategorie ? otherVal("inputStatus") : typed
+      );
+    });
+  });
+
+  document.getElementById("manageOptionsBtn").addEventListener("click", () => {
+    renderOptionChips();
+    document.getElementById("optionsOverlay").classList.remove("hidden");
+  });
+  document.getElementById("closeOptions").addEventListener("click", () => {
+    document.getElementById("optionsOverlay").classList.add("hidden");
+    renderTableBody();
+  });
+  document.getElementById("addKategorieBtn").addEventListener("click", async () => {
+    const input = document.getElementById("newKategorieInput");
+    if (!input.value.trim()) return;
+    await addOptionValue("kategorien", input.value);
+    input.value = "";
+    renderOptionChips();
+  });
+  document.getElementById("addStatusBtn").addEventListener("click", async () => {
+    const input = document.getElementById("newStatusInput");
+    if (!input.value.trim()) return;
+    await addOptionValue("status", input.value);
+    input.value = "";
+    renderOptionChips();
+  });
 
   document.getElementById("csvImportInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
