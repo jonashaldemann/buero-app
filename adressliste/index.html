@@ -12,24 +12,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="../css/style.css">
 <style>
-  /* Adressliste wird v.a. am Rechner genutzt (Filtern/Vergleichen), mehr
-     Breite als die sonst mobile-first begrenzten 480px. */
-  main { max-width: min(1200px, 96vw); }
+  /* Adressliste ist nur für den Desktop-Browser gedacht (Filtern/Vergleichen
+     in einer breiten Tabelle) -- keine mobile Breitenbeschränkung wie bei
+     den anderen Apps, die Tabelle darf so breit wie das Fenster sein. */
+  main { max-width: none; }
   #editorOverlay .sheet { max-width: min(640px, 96vw); }
-
-  .filter-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    background: var(--surface);
-    border-radius: 14px;
-    padding: 14px 16px;
-  }
-  .filter-bar > div { display: flex; flex-direction: column; gap: 4px; }
-  .filter-bar label { font-size: 11px; color: var(--text-muted); }
-  .filter-bar select, .filter-bar input[type="text"] { padding: 8px 10px; font-size: 13px; }
-  .filter-suche { flex: 1; min-width: 160px; }
 
   .views-row {
     display: flex;
@@ -50,8 +37,24 @@
   }
   .column-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 
-  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable { cursor: grab; user-select: none; white-space: nowrap; }
   th.sortable:active { color: var(--text); }
+  th.sortable.dragging { opacity: 0.4; }
+
+  th.filter-cell {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th.filter-cell input[type="text"], th.filter-cell select {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: var(--font-light);
+    background: var(--surface-2);
+    border: none;
+    border-radius: 8px;
+    color: var(--text);
+  }
 
   .row-action {
     background: none;
@@ -104,29 +107,6 @@
     <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
   </section>
 
-  <section class="filter-bar">
-    <div class="filter-suche">
-      <label>Suche</label>
-      <input type="text" id="filterSuche" placeholder="Name, Firma, Ort, Bemerkung…">
-    </div>
-    <div>
-      <label>Kategorie</label>
-      <select id="filterKategorie"><option value="">Alle</option></select>
-    </div>
-    <div>
-      <label>Status</label>
-      <select id="filterStatus"><option value="">Alle</option></select>
-    </div>
-    <div>
-      <label>Weihnachtskarte</label>
-      <select id="filterWeihnachtskarte">
-        <option value="">Alle</option>
-        <option value="ja">Ja</option>
-        <option value="nein">Nein</option>
-      </select>
-    </div>
-  </section>
-
   <section class="views-row">
     <select id="viewSelect"><option value="">– eigene/ungespeicherte Ansicht –</option></select>
     <button id="saveViewBtn" class="btn-secondary">Ansicht speichern</button>
@@ -138,7 +118,10 @@
   <section class="table-block">
     <div class="table-wrap">
       <table>
-        <thead><tr id="listHead"></tr></thead>
+        <thead>
+          <tr id="listHeadRow"></tr>
+          <tr id="listFilterRow"></tr>
+        </thead>
         <tbody id="listBody">
           <tr><td>Noch keine Adressen geladen.</td></tr>
         </tbody>
@@ -165,7 +148,10 @@
     "Buero/Admin/Adressen" -- zwei Personen können darum gleichzeitig
     verschiedene Einträge bearbeiten, ohne sich etwas zu überschreiben.
     Wird derselbe Eintrag gleichzeitig geändert, warnt die App beim
-    Speichern und zeigt, wer ihn zuletzt geändert hat.
+    Speichern und zeigt, wer ihn zuletzt geändert hat. Gespeicherte
+    Ansichten liegen genauso als einzelne Dateien im Unterordner
+    "Ansichten". Spalten lassen sich per Drag &amp; Drop am Spaltentitel
+    umsortieren, jede Spalte hat ihr eigenes Filterfeld direkt darunter.
   </p>
 </main>
 

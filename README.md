@@ -514,26 +514,29 @@ Browser herunter:
 ## Adressliste
 
 Firmen- und Personenadressen filtern, in benannten Ansichten speichern und auf
-Nextcloud sichern.
+Nextcloud sichern. Nur für den Desktop-Browser gedacht (keine mobile
+Breitenbeschränkung wie bei den anderen Apps) — die Tabelle ist so breit wie
+das Browserfenster.
 
 - **Speicherort**: jeder Kontakt ist eine eigene JSON-Datei im
   Nextcloud-Ordner `Buero/Admin/Adressen` (wie bei den Offerten: ein File pro
   Datensatz statt einer grossen Liste). Diese Funktion braucht deshalb PUT,
   GET, PROPFIND, MKCOL und DELETE — siehe `ALLOWED_METHODS` in `worker.js`.
-- **Filtern**: Freitextsuche (Name, Vorname, Firma, Ort, Bemerkungen,
-  Projekte) sowie Dropdown-Filter für Kategorie, Status und Weihnachtskarte.
-  Kategorie/Status sind freie Textfelder (kein festes Vokabular) — die
-  Filter-Dropdowns füllen sich automatisch mit den aktuell vorkommenden
-  Werten.
-- **Spalten**: welche Spalten in der Tabelle sichtbar sind, lässt sich über
-  die Checkboxen oberhalb der Tabelle einstellen. Auf eine Spalte klicken
-  sortiert danach (nochmals klicken kehrt die Richtung um).
-- **Ansichten speichern**: die aktuelle Kombination aus Spalten, Filtern und
-  Sortierung lässt sich unter einem Namen speichern (z.B. "Weihnachtskarten"
-  = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert auf Weihnachtskarte =
-  Ja). Ansichten liegen zentral in einer Datei (`_ansichten.json`) im selben
-  Nextcloud-Ordner, sind also für alle Personen mit Zugriff auf diesen Ordner
-  gleich sichtbar.
+- **Filtern**: jede Spalte hat ihr eigenes Filterfeld direkt unter dem
+  Spaltentitel (Freitext, Gross-/Kleinschreibung egal; bei Weihnachtskarte
+  ein Alle/Ja/Nein-Dropdown). Es lässt sich also nach jeder beliebigen
+  Kombination von Spalten gleichzeitig filtern.
+- **Sortieren**: auf einen Spaltentitel klicken sortiert danach (nochmals
+  klicken kehrt die Richtung um) — funktioniert für jede Spalte.
+- **Spalten**: welche Spalten sichtbar sind, lässt sich über die Checkboxen
+  oberhalb der Tabelle einstellen. Die Reihenfolge der sichtbaren Spalten
+  lässt sich direkt in der Tabelle per Drag & Drop am Spaltentitel ändern.
+- **Ansichten speichern**: die aktuelle Kombination aus Spalten (inkl.
+  Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
+  (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
+  auf Weihnachtskarte = Ja). Jede Ansicht ist — wie die Kontakte selbst —
+  eine eigene JSON-Datei, im Unterordner `Buero/Admin/Adressen/Ansichten`,
+  also für alle Personen mit Zugriff auf diesen Ordner gleich sichtbar.
 - **Gleichzeitige Bearbeitung**: weil jeder Kontakt eine eigene Datei ist,
   können zwei Personen problemlos gleichzeitig verschiedene Einträge
   bearbeiten. Für den selteneren Fall, dass zwei Personen genau denselben
