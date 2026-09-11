@@ -24,9 +24,10 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Nur die Startseite selbst wird hier gecacht -- die drei Unterseiten
-// (zeiterfassung/, quittung/, wettbewerbsprogramme/) haben je ihren eigenen,
-// enger begrenzten Service Worker mit eigenem Scope.
+// Nur die Startseite selbst wird hier gecacht -- die Unterseiten
+// (zeiterfassung/, quittung/, wettbewerbsprogramme/, offerten/,
+// adressliste/) haben je ihren eigenen, enger begrenzten Service Worker
+// mit eigenem Scope.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
