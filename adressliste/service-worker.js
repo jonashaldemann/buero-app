@@ -1,11 +1,13 @@
-const CACHE_NAME = "buero-startseite-v1";
+const CACHE_NAME = "adressliste-v1";
 const ASSETS = [
   "./",
   "./index.html",
+  "./app.js",
   "./manifest.json",
-  "./icons/home-192.png",
-  "./icons/home-512.png",
-  "./css/style.css"
+  "../shared/common.js",
+  "../css/style.css",
+  "../icons/adressliste-192.png",
+  "../icons/adressliste-512.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -24,10 +26,9 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Nur die Startseite selbst wird hier gecacht -- die Unterseiten
-// (zeiterfassung/, quittung/, wettbewerbsprogramme/, offerten/,
-// adressliste/) haben je ihren eigenen, enger begrenzten Service Worker
-// mit eigenem Scope.
+// App-Shell: aus Cache, Fallback Netz. Adressen und Ansichten liegen auf
+// Nextcloud (siehe app.js), nicht hier -- die kommen sowieso nie aus dem
+// Service-Worker-Cache.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
