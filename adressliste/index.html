@@ -44,15 +44,26 @@
   }
   input[type="checkbox"].cell-edit { width: auto; cursor: pointer; }
 
-  .views-row {
+  /* Neu/Aktualisieren/Ansicht alles in einer Zeile, um Platz zu sparen. */
+  .toolbar-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
-  .views-row select { flex: 1; min-width: 160px; padding: 8px 10px; font-size: 13px; }
-  .views-row button { flex: none; padding: 8px 14px; font-size: 13px; }
+  .toolbar-row .btn-primary, .toolbar-row .btn-secondary {
+    flex: none;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  .toolbar-row select { flex: 1; min-width: 160px; padding: 8px 10px; font-size: 13px; }
 
+  .column-toggles-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
   .column-toggles {
     display: flex;
     flex-wrap: wrap;
@@ -62,6 +73,46 @@
     padding: 0 4px;
   }
   .column-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #manageOptionsBtn { flex: none; white-space: nowrap; }
+
+  /* Tabelle bekommt eine eigene, begrenzte Scroll-Höhe -- Kopf- und
+     Filter-Zeile bleiben dabei oben sichtbar (position: sticky), alles
+     darüber (Werkzeugleiste, Spalten-Auswahl) bleibt so ohnehin stehen. */
+  .table-scroll {
+    max-height: 62vh;
+    overflow: auto;
+  }
+  #listHeadRow th, #listFilterRow th {
+    position: sticky;
+    background: var(--surface);
+    z-index: 2;
+  }
+  #listHeadRow th { top: 0; }
+  #listFilterRow th { top: 27px; }
+
+  .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface-2);
+    border-radius: 999px;
+    padding: 4px 6px 4px 12px;
+    font-size: 13px;
+  }
+  .chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .chip button:active { color: #B5654C; }
+  .chip-add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .chip-add-row input { flex: 1; }
+  .chip-add-row button { flex: none; padding: 0 16px; }
 
   th.sortable { cursor: grab; user-select: none; white-space: nowrap; }
   th.sortable:active { color: var(--text); }
@@ -128,21 +179,21 @@
     <div class="sync-line" id="syncLine">&nbsp;</div>
   </section>
 
-  <section class="form-actions">
+  <section class="toolbar-row">
     <button id="newContactBtn" class="btn-primary">+ Neu</button>
     <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
-  </section>
-
-  <section class="views-row">
     <select id="viewSelect"><option value="">– eigene/ungespeicherte Ansicht –</option></select>
     <button id="saveViewBtn" class="btn-secondary">Ansicht speichern</button>
     <button id="deleteViewBtn" class="btn-secondary" disabled>Ansicht löschen</button>
   </section>
 
-  <div class="column-toggles" id="columnToggles"></div>
+  <div class="column-toggles-row">
+    <div class="column-toggles" id="columnToggles"></div>
+    <button id="manageOptionsBtn" class="btn-secondary">⚙ Optionen</button>
+  </div>
 
   <section class="table-block">
-    <div class="table-wrap">
+    <div class="table-wrap table-scroll">
       <table>
         <thead>
           <tr id="listHeadRow"></tr>
@@ -178,6 +229,9 @@
     Ansichten liegen genauso als einzelne Dateien im Unterordner
     "Ansichten". Spalten lassen sich per Drag &amp; Drop am Spaltentitel
     umsortieren, jede Spalte hat ihr eigenes Filterfeld direkt darunter.
+    Kategorie und Status kommen aus einer gemeinsamen Auswahlliste
+    (Button "⚙ Optionen"), die für alle mit Zugriff auf den Ordner gleich
+    ist.
   </p>
 </main>
 
@@ -214,6 +268,40 @@
   </div>
 </div>
 
+<!-- Kategorie-/Status-Optionen verwalten -->
+<div id="optionsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Kategorien &amp; Status</h2>
+      <button id="closeOptions" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Kategorien</label>
+      <div class="chip-list" id="kategorieChips"></div>
+      <div class="chip-add-row">
+        <input type="text" id="newKategorieInput" placeholder="Neue Kategorie…">
+        <button id="addKategorieBtn" class="btn-secondary">+</button>
+      </div>
+
+      <label>Status</label>
+      <div class="chip-list" id="statusChips"></div>
+      <div class="chip-add-row">
+        <input type="text" id="newStatusInput" placeholder="Neuer Status…">
+        <button id="addStatusBtn" class="btn-secondary">+</button>
+      </div>
+    </div>
+
+    <p class="hint">
+      Diese Listen füllen die Kategorie-/Status-Dropdowns im Editor und in
+      der Tabelle. Ein Wert entfernen ändert nichts an bereits gespeicherten
+      Kontakten mit diesem Wert -- er verschwindet nur aus der Auswahl.
+      Neue Werte lassen sich auch direkt in jedem Dropdown über "+ neu…"
+      erfassen.
+    </p>
+  </div>
+</div>
+
 <!-- Editor -->
 <div id="editorOverlay" class="overlay hidden">
   <div class="sheet">
@@ -227,11 +315,11 @@
       <div class="two-col">
         <div>
           <label>Kategorie</label>
-          <input type="text" id="inputKategorie" placeholder="z.B. Landschaftsarchitekt">
+          <select id="inputKategorie"></select>
         </div>
         <div>
           <label>Status</label>
-          <input type="text" id="inputStatus" placeholder="z.B. offen, anfragen, aktiv">
+          <select id="inputStatus"></select>
         </div>
       </div>
 
