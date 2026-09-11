@@ -525,12 +525,24 @@ das Browserfenster.
 - **Filtern**: jede Spalte hat ihr eigenes Filterfeld direkt unter dem
   Spaltentitel (Freitext, Gross-/Kleinschreibung egal; bei Weihnachtskarte
   ein Alle/Ja/Nein-Dropdown). Es lässt sich also nach jeder beliebigen
-  Kombination von Spalten gleichzeitig filtern.
+  Kombination von Spalten gleichzeitig filtern. Kopf- und Filter-Zeile
+  bleiben beim Scrollen sichtbar (die Tabelle hat eine eigene, auf ca. 62%
+  der Fensterhöhe begrenzte Scroll-Fläche).
 - **Sortieren**: auf einen Spaltentitel klicken sortiert danach (nochmals
   klicken kehrt die Richtung um) — funktioniert für jede Spalte.
 - **Spalten**: welche Spalten sichtbar sind, lässt sich über die Checkboxen
   oberhalb der Tabelle einstellen. Die Reihenfolge der sichtbaren Spalten
   lässt sich direkt in der Tabelle per Drag & Drop am Spaltentitel ändern.
+- **Kategorie, Status, Kontaktperson**: kommen aus einem gemeinsam
+  verwalteten Optionen-Set (`_optionen.json`, im selben Nextcloud-Ordner)
+  statt aus freiem Text — Dropdowns statt Textfelder, sowohl im Editor als
+  auch direkt in der Tabelle (zusammen mit Weihnachtskarte lassen sich diese
+  vier Felder ändern, ohne den Editor zu öffnen). Neue Werte lassen sich
+  über "+ neu…" in jedem Dropdown oder über den Button "⚙ Optionen"
+  hinzufügen; Entfernen über "⚙ Optionen" löscht nur aus der Auswahlliste,
+  nicht aus bereits gespeicherten Kontakten mit diesem Wert. Beim
+  allerersten Start werden die Listen automatisch aus den schon
+  vorhandenen Kontakten befüllt.
 - **Ansichten speichern**: die aktuelle Kombination aus Spalten (inkl.
   Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
   (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
@@ -549,11 +561,16 @@ das Browserfenster.
   neu laden. Das ist kein echtes Locking (dafür bräuchte es einen Server),
   verhindert aber, dass eine fremde Änderung stillschweigend verloren geht.
 - **CSV-Import**: am Ende der Seite lässt sich eine CSV-Datei importieren
-  (Spalten Kategorie, Status, Vorname, Name, Firma, Strasse, Ort, Tel, Mail,
-  Website, Bemerkungen, Projekte, Weihnachtskarte). Jede Zeile wird als
-  **neuer** Kontakt angelegt, ohne Abgleich mit bestehenden Einträgen — für
-  den einmaligen Start mit einer bestehenden Liste gedacht, nicht für
-  wiederholte Abgleiche.
+  (Spalten Kategorie, Status, Kontaktperson, Vorname, Name, Firma, Strasse,
+  Ort, Tel, Mail, Website, Bemerkungen, Projekte, Weihnachtskarte). Jede
+  Zeile wird als **neuer** Kontakt angelegt, ohne Abgleich mit bestehenden
+  Einträgen — für den einmaligen Start mit einer bestehenden Liste gedacht,
+  nicht für wiederholte Abgleiche.
+- **CSV-Export**: daneben exportiert "Aktuelle Ansicht als CSV exportieren"
+  — anders als der Import — genau das, was die Tabelle gerade zeigt:
+  sichtbare Spalten in ihrer aktuellen Reihenfolge, gefiltert und sortiert
+  wie die aktuelle Ansicht (z.B. nur die Weihnachtskarten-Liste, oder nur
+  Landschaftsarchitekten sortiert nach Status).
 
 ---
 
