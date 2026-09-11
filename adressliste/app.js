@@ -28,6 +28,13 @@
    sich per Drag&Drop am Spaltenkopf umsortieren, jede Spalte hat ihr
    eigenes Filterfeld direkt unter dem Titel.
 
+   Status und Weihnachtskarte lassen sich direkt in der Tabelle ändern
+   (siehe bodyCellHtml()/quickUpdateContact()), ohne den Editor zu öffnen --
+   das lädt den Kontakt vorher nochmals frisch und schreibt nur das eine
+   geänderte Feld, damit dabei keine zwischenzeitliche Änderung an einem
+   anderen Feld verloren geht. Website wird, falls ohne http(s)://
+   eingetragen (z.B. "abc.ch"), trotzdem als anklickbarer Link dargestellt.
+
    Nextcloud-Login, proxyFetch/authHeader/davPath, chNumber usw. kommen
    aus ../shared/common.js (gemeinsam mit Zeiterfassung, Quittung,
    Wettbewerbsprogrammen und Offerten).
@@ -258,6 +265,22 @@ function cellValue(data, key) {
   }
 }
 
+// Für Websites ohne http(s):// eingetragen (z.B. "abc.ch") einen brauchbaren
+// Link bauen, damit in der Liste trotzdem ein anklickbarer Link entsteht.
+function websiteHref(raw) {
+  if (!raw) return "";
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+function distinctStatusValues() {
+  const set = new Set();
+  contacts.forEach((c) => {
+    const v = (c.data.status || "").trim();
+    if (v) set.add(v);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
+}
+
 // ---------- Filtern/Sortieren ----------
 
 function matchesFilters(data) {
@@ -420,6 +443,29 @@ function renderTableHead() {
   });
 }
 
+// Status und Weihnachtskarte lassen sich direkt in der Liste ändern (ohne
+// den Editor zu öffnen) -- alle anderen Spalten nur über "Bearbeiten".
+function bodyCellHtml(col, data) {
+  if (col.key === "status") {
+    const current = data.status || "";
+    const options = distinctStatusValues();
+    if (current && !options.includes(current)) options.push(current);
+    const optionsHtml =
+      `<option value="" ${current === "" ? "selected" : ""}>–</option>` +
+      options.map((v) => `<option value="${escapeHtml(v)}" ${v === current ? "selected" : ""}>${escapeHtml(v)}</option>`).join("") +
+      `<option value="__neu__">+ neuer Status…</option>`;
+    return `<select class="cell-edit" data-quickfield="status">${optionsHtml}</select>`;
+  }
+  if (col.key === "weihnachtskarte") {
+    return `<input type="checkbox" class="cell-edit" data-quickfield="weihnachtskarte" ${data.weihnachtskarte ? "checked" : ""}>`;
+  }
+  if (col.key === "website" && data.website) {
+    const href = escapeHtml(websiteHref(data.website));
+    return `<a href="${href}" target="_blank" rel="noopener" class="cell-link">${escapeHtml(data.website)}</a>`;
+  }
+  return escapeHtml(cellValue(data, col.key));
+}
+
 function renderTableBody() {
   const cols = visibleColumnDefs();
   const rows = visibleContacts();
@@ -433,14 +479,58 @@ function renderTableBody() {
 
   body.innerHTML = rows
     .map(({ filename, data }) => {
-      const tds = cols.map((c) => `<td>${escapeHtml(cellValue(data, c.key))}</td>`).join("");
+      const tds = cols.map((c) => `<td>${bodyCellHtml(c, data)}</td>`).join("");
       return `<tr data-clickable data-filename="${escapeHtml(filename)}">${tds}<td class="row-actions"><button type="button" class="row-action edit-btn" title="Bearbeiten">✎</button></td></tr>`;
     })
     .join("");
 
   body.querySelectorAll("tr[data-filename]").forEach((tr) => {
     tr.addEventListener("click", () => openEditor(tr.dataset.filename));
+
+    tr.querySelectorAll("[data-quickfield]").forEach((el) => {
+      el.addEventListener("click", (e) => e.stopPropagation());
+      el.addEventListener("change", async (e) => {
+        e.stopPropagation();
+        const field = el.dataset.quickfield;
+        let value;
+        if (field === "status" && el.value === "__neu__") {
+          value = (prompt("Neuer Status:") || "").trim();
+          if (!value) { renderTableBody(); return; }
+        } else if (el.type === "checkbox") {
+          value = el.checked;
+        } else {
+          value = el.value;
+        }
+        await quickUpdateContact(tr.dataset.filename, { [field]: value });
+      });
+    });
+
+    const link = tr.querySelector(".cell-link");
+    if (link) link.addEventListener("click", (e) => e.stopPropagation());
   });
+}
+
+// Ändert genau ein Feld eines Kontakts direkt aus der Liste heraus (Status,
+// Weihnachtskarte). Lädt den Kontakt vorher nochmals frisch von Nextcloud,
+// damit nicht versehentlich andere, zwischenzeitlich geänderte Felder
+// überschrieben werden -- deshalb hier kein Konflikt-Dialog nötig wie im
+// Editor: es wird nur das eine angefasste Feld verändert, alles andere kommt
+// vom aktuellsten Stand.
+async function quickUpdateContact(filename, patch) {
+  try {
+    const fresh = (await fetchJsonFile(adressenSegments(), filename)) || contacts.find((c) => c.filename === filename)?.data;
+    if (!fresh) throw new Error("Kontakt nicht gefunden");
+    const updated = { ...blankContact(), ...fresh, ...patch, updatedAt: new Date().toISOString(), updatedBy: personName() };
+    await putJsonFile(adressenSegments(), filename, updated);
+    const idx = contacts.findIndex((c) => c.filename === filename);
+    if (idx >= 0) contacts[idx] = { filename, data: updated };
+    else contacts.push({ filename, data: updated });
+    saveJSON(LS_KEYS.contactsCache, contacts);
+    renderTableBody();
+  } catch (err) {
+    alert("Speichern fehlgeschlagen: " + err.message);
+    renderTableBody();
+  }
 }
 
 // ---------- Ansichten speichern/laden/löschen ----------
@@ -472,7 +562,6 @@ async function saveCurrentView() {
     await refreshViews();
     activeViewId = id;
     renderViewsSelect();
-    alert(`Ansicht "${trimmed}" gespeichert.`);
   } catch (err) {
     alert("Ansicht speichern fehlgeschlagen: " + err.message);
   }
@@ -654,12 +743,7 @@ async function saveContact() {
     if (idx >= 0) contacts[idx] = { filename, data: editingContact };
     else contacts.push({ filename, data: editingContact });
     saveJSON(LS_KEYS.contactsCache, contacts);
-
-    editingFilename = filename;
-    editingBaselineUpdatedAt = editingContact.updatedAt;
-    document.getElementById("lastEditedLine").textContent = `Zuletzt geändert: ${updatedInfoText(editingContact)}`;
-    resultEl.textContent = "Gespeichert.";
-    resultEl.className = "test-result ok";
+    closeEditor();
     renderAll();
   } catch (err) {
     resultEl.textContent = "Fehler: " + err.message;
