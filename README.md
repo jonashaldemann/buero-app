@@ -1,36 +1,37 @@
 # Büro-Apps
 
-Vier kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Fünf kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
 - **[Quittung](quittung/)** — Belege fotografieren/hochladen, für Nextcloud + Banana aufbereiten.
 - **[Wettbewerbsprogramme](wettbewerbsprogramme/)** — Architekturwettbewerbe (JSON) hochladen und vergleichen.
 - **[Offerten](offerten/)** — Offerten aus Modulen zusammenstellen, Kosten berechnen, auf Nextcloud sichern.
+- **[Adressliste](adressliste/)** — Adressen filtern, Ansichten speichern, auf Nextcloud sichern.
 
-Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit vier
-Kacheln, die auf die vier Unterordner verlinken. Jede der vier Apps hat ihr
+Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit fünf
+Kacheln, die auf die fünf Unterordner verlinken. Jede der fünf Apps hat ihr
 eigenes `manifest.json` und ihren eigenen `service-worker.js` — man kann also
 entweder die Startseite installieren (Kachel-Menü) **oder** direkt auf einer
 Unterseite "Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine
 App als eigenes Icon auf dem Homescreen.
 
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog) liegt
-in `shared/common.js` und wird von allen vier Apps eingebunden.
+in `shared/common.js` und wird von allen fünf Apps eingebunden.
 `localStorage` ist pro Domain (nicht pro Unterordner) gültig — einmal in
-**irgendeiner** der vier Apps unter dem Zahnrad-Symbol eingerichtet, gelten
-Benutzername/App-Passwort automatisch auch in den anderen dreien.
+**irgendeiner** der fünf Apps unter dem Zahnrad-Symbol eingerichtet, gelten
+Benutzername/App-Passwort automatisch auch in den anderen vieren.
 
-## Ersteinrichtung (einmalig, für alle vier Apps zusammen)
+## Ersteinrichtung (einmalig, für alle fünf Apps zusammen)
 
 1. In Nextcloud: **Einstellungen → Sicherheit → App-Passwörter** → neues
    App-Passwort erstellen (z.B. Name "Büro-App").
-2. In einer der vier Apps (egal welche) auf das Zahnrad-Symbol tippen:
+2. In einer der fünf Apps (egal welche) auf das Zahnrad-Symbol tippen:
    - **Benutzername**: euer Nextcloud-Login
    - **App-Passwort**: das eben erstellte
    - **Anzeigename**: erscheint z.B. in der Zeiterfassungs-CSV als "Person"
 3. "Verbindung testen" klicken, bei Erfolg "Speichern". Ab jetzt sind die
-   Zugangsdaten in allen vier Apps auf diesem Gerät nutzbar.
+   Zugangsdaten in allen fünf Apps auf diesem Gerät nutzbar.
 
 **Sicherheitshinweis:** Das App-Passwort wird ausschliesslich lokal im
 Browser gespeichert (localStorage) und niemals ins Repo committet.
@@ -43,9 +44,9 @@ Account hat seinen eigenen, komplett getrennten Nextcloud-Dateibereich.
 Die Managed Nextcloud bei hosting.de schickt bei Cross-Origin-Requests
 (Browser → Nextcloud von einer anderen Domain aus) keine
 `Access-Control-Allow-Origin`-Header — der Browser blockiert deshalb den
-direkten Zugriff. Deshalb sprechen alle vier Apps nicht direkt mit Nextcloud,
+direkten Zugriff. Deshalb sprechen alle fünf Apps nicht direkt mit Nextcloud,
 sondern über einen kleinen **Cloudflare Worker** als Proxy (`worker.js`,
-gemeinsam für alle vier Apps). Der Worker läuft server-seitig, hat also kein
+gemeinsam für alle fünf Apps). Der Worker läuft server-seitig, hat also kein
 CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die fehlenden
 Header. Er speichert nichts — die Daten liegen weiterhin ausschliesslich auf
 eurer eigenen Nextcloud.
@@ -62,7 +63,7 @@ eurer eigenen Nextcloud.
 5. Cloudflare zeigt euch jetzt eure Worker-URL, z.B.
    `https://zeit-proxy.euer-name.workers.dev`.
 6. Diese URL bei `PROXY_URL` in `shared/common.js` eintragen (eine einzige
-   Stelle, gilt für alle vier Apps), committen, pushen.
+   Stelle, gilt für alle fünf Apps), committen, pushen.
 
 **Falls der Worker schon läuft:** Bei jeder Erweiterung der App (neue
 HTTP-Methode, neuer Header) muss der Code in `worker.js` erneut im
@@ -510,27 +511,72 @@ Browser herunter:
 
 ---
 
+## Adressliste
+
+Firmen- und Personenadressen filtern, in benannten Ansichten speichern und auf
+Nextcloud sichern.
+
+- **Speicherort**: jeder Kontakt ist eine eigene JSON-Datei im
+  Nextcloud-Ordner `Buero/Admin/Adressen` (wie bei den Offerten: ein File pro
+  Datensatz statt einer grossen Liste). Diese Funktion braucht deshalb PUT,
+  GET, PROPFIND, MKCOL und DELETE — siehe `ALLOWED_METHODS` in `worker.js`.
+- **Filtern**: Freitextsuche (Name, Vorname, Firma, Ort, Bemerkungen,
+  Projekte) sowie Dropdown-Filter für Kategorie, Status und Weihnachtskarte.
+  Kategorie/Status sind freie Textfelder (kein festes Vokabular) — die
+  Filter-Dropdowns füllen sich automatisch mit den aktuell vorkommenden
+  Werten.
+- **Spalten**: welche Spalten in der Tabelle sichtbar sind, lässt sich über
+  die Checkboxen oberhalb der Tabelle einstellen. Auf eine Spalte klicken
+  sortiert danach (nochmals klicken kehrt die Richtung um).
+- **Ansichten speichern**: die aktuelle Kombination aus Spalten, Filtern und
+  Sortierung lässt sich unter einem Namen speichern (z.B. "Weihnachtskarten"
+  = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert auf Weihnachtskarte =
+  Ja). Ansichten liegen zentral in einer Datei (`_ansichten.json`) im selben
+  Nextcloud-Ordner, sind also für alle Personen mit Zugriff auf diesen Ordner
+  gleich sichtbar.
+- **Gleichzeitige Bearbeitung**: weil jeder Kontakt eine eigene Datei ist,
+  können zwei Personen problemlos gleichzeitig verschiedene Einträge
+  bearbeiten. Für den selteneren Fall, dass zwei Personen genau denselben
+  Eintrag gleichzeitig öffnen, trägt jeder Kontakt `updatedAt`/`updatedBy`
+  (Zeitstempel + Anzeigename der zuletzt speichernden Person, sichtbar im
+  Editor und optional als Spalte "Zuletzt geändert"). Vor dem Speichern eines
+  bestehenden Kontakts wird der Stand auf Nextcloud nochmals frisch geladen
+  und mit dem Stand beim Öffnen verglichen — weicht er ab, warnt die App
+  (wer hat wann geändert) und lässt die Wahl zwischen Überschreiben und
+  neu laden. Das ist kein echtes Locking (dafür bräuchte es einen Server),
+  verhindert aber, dass eine fremde Änderung stillschweigend verloren geht.
+- **CSV-Import**: am Ende der Seite lässt sich eine CSV-Datei importieren
+  (Spalten Kategorie, Status, Vorname, Name, Firma, Strasse, Ort, Tel, Mail,
+  Website, Bemerkungen, Projekte, Weihnachtskarte). Jede Zeile wird als
+  **neuer** Kontakt angelegt, ohne Abgleich mit bestehenden Einträgen — für
+  den einmaligen Start mit einer bestehenden Liste gedacht, nicht für
+  wiederholte Abgleiche.
+
+---
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
   App auf zwei Geräten gleichzeitig nutzt, kann beim Sync ein Eintrag
   verloren gehen (read-modify-write ohne Locking). Bei normalem Gebrauch (ein
-  Gerät) ist das kein Thema.
+  Gerät) ist das kein Thema. Ausnahme: die Adressliste hat eine einfache
+  Konflikt-Erkennung pro Kontakt eingebaut (siehe Abschnitt "Adressliste").
 - Läuft die Zeiterfassung über Stunden im Hintergrund/Tab geschlossen, wird
   der Zähler beim nächsten Öffnen korrekt weitergerechnet (kein
   Datenverlust), aber es gibt keine Push-Erinnerung, falls vergessen wird,
   auf Stop zu klicken.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
-  `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`
-  (je 192px + 512px PNG). Zum Ändern einfach unter denselben Dateinamen
-  ersetzen — keine Code-/Manifest-Änderung nötig.
+  `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
+  `icons/adressliste-*.png` (je 192px + 512px PNG). Zum Ändern einfach unter
+  denselben Dateinamen ersetzen — keine Code-/Manifest-Änderung nötig.
 
 ## Lokal testen
 
 ```bash
 python3 -m http.server 8080
 # im Browser: http://localhost:8080 (Startseite)
-# bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/
+# bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/,
+# /offerten/, /adressliste/
 ```
 
 ## Auf GitHub veröffentlichen (GitHub Pages)
