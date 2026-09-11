@@ -18,6 +18,32 @@
   main { max-width: none; }
   #editorOverlay .sheet { max-width: min(640px, 96vw); }
 
+  /* Der grosse Stoppuhr-Look von .status-card/.status-timer passt für eine
+     Liste nicht -- hier reicht eine kleine, kompakte Kopfzeile. */
+  #statusCard { padding: 10px 16px; }
+  #statusCard .status-label { font-size: 12px; margin: 0; }
+  #statusCard .status-timer { font-size: 22px; margin-top: 2px; }
+  #statusCard .sync-line { margin-top: 2px; font-size: 11px; }
+
+  /* Kompaktere Tabellenzeilen -- die globalen 10px/12px aus css/style.css
+     lassen bei vielen Einträgen zu wenig Zeilen ohne Scrollen sehen. */
+  .table-wrap table th, .table-wrap table td { padding: 5px 10px; }
+  .table-wrap table { font-size: 12.5px; }
+
+  .cell-link { color: var(--accent-primary); text-decoration: none; }
+  .cell-link:hover { text-decoration: underline; }
+
+  select.cell-edit {
+    width: auto;
+    padding: 2px 20px 2px 6px;
+    font-size: 12px;
+    font-family: var(--font-light);
+    background: var(--surface-2);
+    border-radius: 6px;
+    color: var(--text);
+  }
+  input[type="checkbox"].cell-edit { width: auto; cursor: pointer; }
+
   .views-row {
     display: flex;
     flex-wrap: wrap;
