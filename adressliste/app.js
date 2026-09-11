@@ -16,10 +16,17 @@
    ist kein echtes Locking (dafür bräuchte es einen Server), aber für
    zwei Personen im selben Adressbuch ausreichend.
 
-   Filter-Ansichten (Spaltenauswahl, Filter, Sortierung) lassen sich
-   unter einem Namen speichern -- diese liegen zentral in einer
-   einzigen Datei (_ansichten.json) im selben Nextcloud-Ordner, damit
-   beide Personen dieselben Ansichten sehen.
+   Ansichten (Spaltenauswahl inkl. Reihenfolge, Filter pro Spalte,
+   Sortierung) lassen sich unter einem Namen speichern -- genau wie die
+   Kontakte liegt jede Ansicht als eigene JSON-Datei im Unterordner
+   "Ansichten" (siehe VIEWS_FOLDER_PATH), damit beide Personen dieselben
+   Ansichten sehen und sich beim Speichern zweier Ansichten nicht
+   gegenseitig überschreiben können.
+
+   Die Tabelle ist bewusst nur für den Desktop-Browser gedacht (keine
+   mobile Breitenbeschränkung wie bei den anderen Apps) -- Spalten lassen
+   sich per Drag&Drop am Spaltenkopf umsortieren, jede Spalte hat ihr
+   eigenes Filterfeld direkt unter dem Titel.
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, chNumber usw. kommen
    aus ../shared/common.js (gemeinsam mit Zeiterfassung, Quittung,
@@ -32,7 +39,8 @@ const LS_KEYS = {
 };
 
 const ADRESSEN_TARGET_FOLDER_PATH = "Buero/Admin/Adressen";
-const VIEWS_FILENAME = "_ansichten.json";
+const VIEWS_FOLDER_PATH = "Buero/Admin/Adressen/Ansichten";
+const LEGACY_VIEWS_FILENAME = "_ansichten.json"; // vor der Umstellung auf ein File pro Ansicht
 
 const COLUMNS = [
   { key: "kategorie", label: "Kategorie" },
@@ -52,22 +60,31 @@ const COLUMNS = [
 ];
 const DEFAULT_COLUMNS = ["kategorie", "name", "vorname", "firma", "ort", "status", "weihnachtskarte"];
 
+function columnDef(key) {
+  return COLUMNS.find((c) => c.key === key);
+}
+
 function blankView() {
   return {
     id: null,
     name: "",
     columns: [...DEFAULT_COLUMNS],
-    filters: { suche: "", kategorie: "", status: "", weihnachtskarte: "" },
+    filters: {}, // { [columnKey]: string } -- fehlend/leer = kein Filter auf dieser Spalte
     sort: { field: "name", dir: "asc" }
   };
 }
 
 // { filename, data } -- data ist das geparste JSON eines Kontakts.
 let contacts = loadJSON(LS_KEYS.contactsCache, []);
+// Ansichten: { filename, id, name, columns, filters, sort }
 let views = loadJSON(LS_KEYS.viewsCache, []);
 
 let currentView = blankView();
 let activeViewId = null; // null = nicht gespeicherte/angepasste Ansicht
+
+// Beim Drag&Drop eines Spaltenkopfs (siehe renderTableHead()) der Key der
+// gerade gezogenen Spalte, sonst null.
+let draggedColumnKey = null;
 
 // Aktuell im Editor offene Kontakt-Arbeitskopie, ihr Dateiname (null = neu)
 // und der updatedAt-Stand beim Öffnen (für die Konflikt-Prüfung beim Speichern).
@@ -80,8 +97,14 @@ let editingBaselineUpdatedAt = null;
 function adressenSegments() {
   return ncSegments(ADRESSEN_TARGET_FOLDER_PATH);
 }
+function viewsSegments() {
+  return ncSegments(VIEWS_FOLDER_PATH);
+}
 function ensureAdressenFolder() {
   return ensureFolderPath(adressenSegments());
+}
+function ensureViewsFolder() {
+  return ensureFolderPath(viewsSegments());
 }
 function pingRelPath() {
   return davPath([...adressenSegments(), "_ping"].join("/"));
@@ -90,8 +113,12 @@ function pingRelPath() {
 const PROPFIND_LIST_BODY =
   '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>';
 
-async function listContactFilenames() {
-  const relPath = davPath(adressenSegments().join("/") + "/");
+// Listet die .json-Dateinamen direkt in einem Ordner (nicht rekursiv) --
+// Unterordner (z.B. "Ansichten" innerhalb von Adressen) tauchen zwar in der
+// PROPFIND-Antwort auf, werden aber durch den .json-Filter automatisch
+// ausgeschlossen.
+async function listJsonFilenames(segments) {
+  const relPath = davPath(segments.join("/") + "/");
   const res = await proxyFetch(relPath, {
     method: "PROPFIND",
     headers: { ...authHeader(), Depth: "1", "Content-Type": "application/xml" },
@@ -103,11 +130,11 @@ async function listContactFilenames() {
   const hrefs = Array.from(doc.getElementsByTagNameNS("DAV:", "href")).map((el) => el.textContent);
   return hrefs
     .map((href) => decodeURIComponent(href.replace(/\/$/, "").split("/").pop() || ""))
-    .filter((name) => name.toLowerCase().endsWith(".json") && name !== VIEWS_FILENAME);
+    .filter((name) => name.toLowerCase().endsWith(".json"));
 }
 
-async function fetchJsonFile(filename) {
-  const relPath = davPath([...adressenSegments(), filename].join("/"));
+async function fetchJsonFile(segments, filename) {
+  const relPath = davPath([...segments, filename].join("/"));
   const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`${filename}: Status ${res.status}`);
@@ -115,8 +142,8 @@ async function fetchJsonFile(filename) {
   return text ? JSON.parse(text) : null;
 }
 
-async function putJsonFile(filename, data) {
-  const relPath = davPath([...adressenSegments(), filename].join("/"));
+async function putJsonFile(segments, filename, data) {
+  const relPath = davPath([...segments, filename].join("/"));
   const res = await proxyFetch(relPath, {
     method: "PUT",
     headers: { ...authHeader(), "Content-Type": "application/json" },
@@ -125,13 +152,13 @@ async function putJsonFile(filename, data) {
   if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
 }
 
-async function deleteJsonFile(filename) {
-  const relPath = davPath([...adressenSegments(), filename].join("/"));
+async function deleteJsonFile(segments, filename) {
+  const relPath = davPath([...segments, filename].join("/"));
   const res = await proxyFetch(relPath, { method: "DELETE", headers: authHeader() });
   if (!res.ok && res.status !== 404) throw new Error(`Löschen fehlgeschlagen (${res.status})`);
 }
 
-// ---------- Laden ----------
+// ---------- Laden: Kontakte ----------
 
 async function refreshContacts() {
   const line = document.getElementById("syncLine");
@@ -148,11 +175,11 @@ async function refreshContacts() {
   line.textContent = "Lädt…";
   try {
     await ensureAdressenFolder();
-    const [filenames, viewsData] = await Promise.all([listContactFilenames(), fetchJsonFile(VIEWS_FILENAME)]);
+    const filenames = (await listJsonFilenames(adressenSegments())).filter((f) => f !== LEGACY_VIEWS_FILENAME);
     const loaded = await Promise.all(
       filenames.map(async (filename) => {
         try {
-          const data = await fetchJsonFile(filename);
+          const data = await fetchJsonFile(adressenSegments(), filename);
           return data ? { filename, data } : null;
         } catch (err) {
           console.warn("Konnte Kontakt nicht laden:", filename, err);
@@ -161,15 +188,48 @@ async function refreshContacts() {
       })
     );
     contacts = loaded.filter(Boolean);
-    views = Array.isArray(viewsData) ? viewsData : [];
     saveJSON(LS_KEYS.contactsCache, contacts);
-    saveJSON(LS_KEYS.viewsCache, views);
     line.textContent = `Synchronisiert · ${contacts.length} Einträge`;
+    await refreshViews();
   } catch (err) {
     console.warn("Adressen konnten nicht geladen werden:", err);
     line.textContent = "Fehler beim Laden · zeige zuletzt geladenen Stand";
   }
   renderAll();
+}
+
+// ---------- Laden: Ansichten ----------
+
+// Einmalige Migration: falls noch die alte, einzelne _ansichten.json aus
+// einer früheren Version existiert, deren Einträge als einzelne Dateien im
+// neuen Ansichten-Unterordner ablegen und die alte Datei löschen.
+async function migrateLegacyViewsFile() {
+  const legacy = await fetchJsonFile(adressenSegments(), LEGACY_VIEWS_FILENAME);
+  if (!Array.isArray(legacy) || !legacy.length) return;
+  for (const v of legacy) {
+    const id = v.id || uid();
+    await putJsonFile(viewsSegments(), `${id}.json`, { ...v, id });
+  }
+  await deleteJsonFile(adressenSegments(), LEGACY_VIEWS_FILENAME);
+}
+
+async function refreshViews() {
+  await ensureViewsFolder();
+  await migrateLegacyViewsFile();
+  const filenames = await listJsonFilenames(viewsSegments());
+  const loaded = await Promise.all(
+    filenames.map(async (filename) => {
+      try {
+        const data = await fetchJsonFile(viewsSegments(), filename);
+        return data ? { filename, ...data } : null;
+      } catch (err) {
+        console.warn("Konnte Ansicht nicht laden:", filename, err);
+        return null;
+      }
+    })
+  );
+  views = loaded.filter(Boolean);
+  saveJSON(LS_KEYS.viewsCache, views);
 }
 
 // ---------- Formatierung ----------
@@ -200,29 +260,18 @@ function cellValue(data, key) {
 
 // ---------- Filtern/Sortieren ----------
 
-function distinctValues(key) {
-  const set = new Set();
-  contacts.forEach((c) => {
-    const v = (c.data[key] || "").trim();
-    if (v) set.add(v);
-  });
-  return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
-}
-
 function matchesFilters(data) {
-  const f = currentView.filters;
-  if (f.kategorie && data.kategorie !== f.kategorie) return false;
-  if (f.status && data.status !== f.status) return false;
-  if (f.weihnachtskarte === "ja" && !data.weihnachtskarte) return false;
-  if (f.weihnachtskarte === "nein" && data.weihnachtskarte) return false;
-  if (f.suche) {
-    const needle = f.suche.trim().toLowerCase();
-    if (needle) {
-      const haystack = ["name", "vorname", "firma", "ort", "bemerkungen", "projekte"]
-        .map((k) => (data[k] || "").toLowerCase())
-        .join(" ");
-      if (!haystack.includes(needle)) return false;
+  const filters = currentView.filters || {};
+  for (const key of Object.keys(filters)) {
+    const raw = (filters[key] || "").trim();
+    if (!raw) continue;
+    if (key === "weihnachtskarte") {
+      if (raw === "ja" && !data.weihnachtskarte) return false;
+      if (raw === "nein" && data.weihnachtskarte) return false;
+      continue;
     }
+    const cellText = cellValue(data, key).toString().toLowerCase();
+    if (!cellText.includes(raw.toLowerCase())) return false;
   }
   return true;
 }
@@ -253,27 +302,14 @@ function visibleContacts() {
 // ---------- Rendering ----------
 
 function renderAll() {
-  renderFilterBar();
   renderColumnToggles();
   renderViewsSelect();
-  renderList();
+  renderTableHead();
+  renderTableBody();
 }
 
-function renderFilterBar() {
-  const kategorieSel = document.getElementById("filterKategorie");
-  const statusSel = document.getElementById("filterStatus");
-  const xmasSel = document.getElementById("filterWeihnachtskarte");
-  const searchInput = document.getElementById("filterSuche");
-
-  const fillOptions = (sel, values, current) => {
-    sel.innerHTML =
-      '<option value="">Alle</option>' +
-      values.map((v) => `<option value="${escapeHtml(v)}" ${v === current ? "selected" : ""}>${escapeHtml(v)}</option>`).join("");
-  };
-  fillOptions(kategorieSel, distinctValues("kategorie"), currentView.filters.kategorie);
-  fillOptions(statusSel, distinctValues("status"), currentView.filters.status);
-  xmasSel.value = currentView.filters.weihnachtskarte || "";
-  if (document.activeElement !== searchInput) searchInput.value = currentView.filters.suche || "";
+function visibleColumnDefs() {
+  return currentView.columns.map(columnDef).filter(Boolean);
 }
 
 function renderColumnToggles() {
@@ -291,8 +327,10 @@ function renderColumnToggles() {
         if (!currentView.columns.includes(key)) currentView.columns.push(key);
       } else {
         currentView.columns = currentView.columns.filter((k) => k !== key);
+        delete currentView.filters[key];
       }
-      renderList();
+      renderTableHead();
+      renderTableBody();
     });
   });
 }
@@ -306,16 +344,35 @@ function renderViewsSelect() {
   document.getElementById("deleteViewBtn").disabled = !activeViewId;
 }
 
-function renderList() {
-  const cols = COLUMNS.filter((c) => currentView.columns.includes(c.key));
-  const thead = document.getElementById("listHead");
-  thead.innerHTML =
+function filterCellHtml(col) {
+  if (col.key === "weihnachtskarte") {
+    const v = currentView.filters.weihnachtskarte || "";
+    return `<select data-filter="${col.key}">
+      <option value="" ${v === "" ? "selected" : ""}>Alle</option>
+      <option value="ja" ${v === "ja" ? "selected" : ""}>Ja</option>
+      <option value="nein" ${v === "nein" ? "selected" : ""}>Nein</option>
+    </select>`;
+  }
+  const v = currentView.filters[col.key] || "";
+  return `<input type="text" data-filter="${col.key}" value="${escapeHtml(v)}" placeholder="Filter…">`;
+}
+
+// Kopfzeile (Titel, sortierbar + per Drag&Drop umsortierbar) und die
+// Filter-Zeile direkt darunter -- getrennt von renderTableBody(), damit ein
+// Tastendruck in einem Filterfeld nicht dessen eigenes DOM-Element (und
+// damit Cursor/Fokus) neu aufbaut.
+function renderTableHead() {
+  const cols = visibleColumnDefs();
+
+  const headRow = document.getElementById("listHeadRow");
+  headRow.innerHTML =
     cols.map((c) => {
       const sorted = currentView.sort.field === c.key;
       const arrow = sorted ? (currentView.sort.dir === "desc" ? " ↓" : " ↑") : "";
-      return `<th data-sort="${c.key}" class="sortable">${escapeHtml(c.label)}${arrow}</th>`;
+      return `<th data-sort="${c.key}" draggable="true" class="sortable">${escapeHtml(c.label)}${arrow}</th>`;
     }).join("") + "<th></th>";
-  thead.querySelectorAll("th[data-sort]").forEach((th) => {
+
+  headRow.querySelectorAll("th[data-sort]").forEach((th) => {
     th.addEventListener("click", () => {
       const key = th.dataset.sort;
       if (currentView.sort.field === key) {
@@ -323,10 +380,48 @@ function renderList() {
       } else {
         currentView.sort = { field: key, dir: "asc" };
       }
-      renderList();
+      renderTableHead();
+      renderTableBody();
+    });
+    th.addEventListener("dragstart", () => {
+      draggedColumnKey = th.dataset.sort;
+      th.classList.add("dragging");
+    });
+    th.addEventListener("dragend", () => {
+      th.classList.remove("dragging");
+      draggedColumnKey = null;
+    });
+    th.addEventListener("dragover", (e) => e.preventDefault());
+    th.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const targetKey = th.dataset.sort;
+      if (!draggedColumnKey || draggedColumnKey === targetKey) return;
+      const cols2 = [...currentView.columns];
+      const from = cols2.indexOf(draggedColumnKey);
+      const to = cols2.indexOf(targetKey);
+      if (from === -1 || to === -1) return;
+      cols2.splice(from, 1);
+      cols2.splice(to, 0, draggedColumnKey);
+      currentView.columns = cols2;
+      renderTableHead();
+      renderTableBody();
     });
   });
 
+  const filterRow = document.getElementById("listFilterRow");
+  filterRow.innerHTML = cols.map((c) => `<th class="filter-cell">${filterCellHtml(c)}</th>`).join("") + "<th></th>";
+  filterRow.querySelectorAll("[data-filter]").forEach((el) => {
+    const key = el.dataset.filter;
+    const eventName = el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(eventName, () => {
+      currentView.filters[key] = el.value;
+      renderTableBody();
+    });
+  });
+}
+
+function renderTableBody() {
+  const cols = visibleColumnDefs();
   const rows = visibleContacts();
   document.getElementById("countLabel").textContent = String(rows.length);
   const body = document.getElementById("listBody");
@@ -350,40 +445,32 @@ function renderList() {
 
 // ---------- Ansichten speichern/laden/löschen ----------
 
-async function saveViewsFile() {
-  await putJsonFile(VIEWS_FILENAME, views);
-  saveJSON(LS_KEYS.viewsCache, views);
-}
-
 async function saveCurrentView() {
   const suggested = views.find((v) => v.id === activeViewId)?.name || "";
   const name = prompt("Name der Ansicht:", suggested);
   if (!name || !name.trim()) return;
   const trimmed = name.trim();
   try {
-    // Frisch laden, damit eine zwischenzeitlich von der anderen Person
-    // gespeicherte Ansicht nicht überschrieben wird.
-    const fresh = await fetchJsonFile(VIEWS_FILENAME);
-    views = Array.isArray(fresh) ? fresh : [];
+    await ensureViewsFolder();
+    // Frisch laden, damit eine zwischenzeitlich von der anderen Person neu
+    // angelegte Ansicht bei der Namens-Kollisionsprüfung berücksichtigt wird.
+    await refreshViews();
     const existing = views.find((v) => v.name.toLowerCase() === trimmed.toLowerCase());
     if (existing && existing.id !== activeViewId) {
       if (!confirm(`Es gibt schon eine Ansicht "${trimmed}". Überschreiben?`)) return;
     }
     const target = existing || views.find((v) => v.id === activeViewId);
+    const id = target?.id || uid();
     const entry = {
-      id: target?.id || uid(),
+      id,
       name: trimmed,
       columns: [...currentView.columns],
       filters: { ...currentView.filters },
       sort: { ...currentView.sort }
     };
-    if (target) {
-      views = views.map((v) => (v.id === target.id ? entry : v));
-    } else {
-      views.push(entry);
-    }
-    await saveViewsFile();
-    activeViewId = entry.id;
+    await putJsonFile(viewsSegments(), `${id}.json`, entry);
+    await refreshViews();
+    activeViewId = id;
     renderViewsSelect();
     alert(`Ansicht "${trimmed}" gespeichert.`);
   } catch (err) {
@@ -396,10 +483,9 @@ async function deleteCurrentView() {
   if (!view) return;
   if (!confirm(`Ansicht "${view.name}" wirklich löschen?`)) return;
   try {
-    const fresh = await fetchJsonFile(VIEWS_FILENAME);
-    views = (Array.isArray(fresh) ? fresh : []).filter((v) => v.id !== view.id);
-    await saveViewsFile();
+    await deleteJsonFile(viewsSegments(), view.filename);
     activeViewId = null;
+    await refreshViews();
     renderViewsSelect();
   } catch (err) {
     alert("Ansicht löschen fehlgeschlagen: " + err.message);
@@ -416,7 +502,7 @@ function applyView(viewId) {
     activeViewId = v.id;
     currentView = {
       columns: [...v.columns],
-      filters: { suche: "", kategorie: "", status: "", weihnachtskarte: "", ...v.filters },
+      filters: { ...v.filters },
       sort: { ...v.sort }
     };
   }
@@ -465,7 +551,7 @@ async function openEditor(filename) {
   document.getElementById("editorTitle").textContent = "Kontakt laden…";
   overlay.classList.remove("hidden");
   try {
-    const fresh = isConfigured() && navigator.onLine ? await fetchJsonFile(filename) : null;
+    const fresh = isConfigured() && navigator.onLine ? await fetchJsonFile(adressenSegments(), filename) : null;
     const local = contacts.find((c) => c.filename === filename)?.data;
     const data = fresh || local;
     if (!data) throw new Error("Nicht gefunden");
@@ -540,7 +626,7 @@ async function saveContact() {
     if (filename) {
       // Konflikt-Prüfung: hat jemand anders den Eintrag geändert, seit wir
       // ihn geöffnet haben?
-      const serverData = await fetchJsonFile(filename);
+      const serverData = await fetchJsonFile(adressenSegments(), filename);
       if (serverData && serverData.updatedAt && serverData.updatedAt !== editingBaselineUpdatedAt) {
         const proceed = confirm(
           `Dieser Eintrag wurde von ${serverData.updatedBy || "jemandem"} am ${chDateTime(serverData.updatedAt)} geändert, ` +
@@ -562,7 +648,7 @@ async function saveContact() {
 
     editingContact.updatedAt = new Date().toISOString();
     editingContact.updatedBy = personName();
-    await putJsonFile(filename, editingContact);
+    await putJsonFile(adressenSegments(), filename, editingContact);
 
     const idx = contacts.findIndex((c) => c.filename === filename);
     if (idx >= 0) contacts[idx] = { filename, data: editingContact };
@@ -589,7 +675,7 @@ async function deleteContact() {
   const label = `${editingContact.vorname || ""} ${editingContact.name || editingContact.firma || ""}`.trim();
   if (!confirm(`Kontakt "${label}" wirklich löschen?`)) return;
   try {
-    await deleteJsonFile(editingFilename);
+    await deleteJsonFile(adressenSegments(), editingFilename);
     contacts = contacts.filter((c) => c.filename !== editingFilename);
     saveJSON(LS_KEYS.contactsCache, contacts);
     closeEditor();
@@ -670,7 +756,7 @@ async function importCsvText(text) {
       contact.updatedAt = new Date().toISOString();
       contact.updatedBy = personName() || "CSV-Import";
       const filename = `${uid()}.json`;
-      await putJsonFile(filename, contact);
+      await putJsonFile(adressenSegments(), filename, contact);
       imported++;
     }
     statusEl.textContent = `${imported} Einträge importiert.`;
@@ -696,23 +782,6 @@ function init() {
   document.getElementById("closeEditor").addEventListener("click", closeEditor);
   document.getElementById("saveContactBtn").addEventListener("click", saveContact);
   document.getElementById("deleteContactBtn").addEventListener("click", deleteContact);
-
-  document.getElementById("filterSuche").addEventListener("input", (e) => {
-    currentView.filters.suche = e.target.value;
-    renderList();
-  });
-  document.getElementById("filterKategorie").addEventListener("change", (e) => {
-    currentView.filters.kategorie = e.target.value;
-    renderList();
-  });
-  document.getElementById("filterStatus").addEventListener("change", (e) => {
-    currentView.filters.status = e.target.value;
-    renderList();
-  });
-  document.getElementById("filterWeihnachtskarte").addEventListener("change", (e) => {
-    currentView.filters.weihnachtskarte = e.target.value;
-    renderList();
-  });
 
   document.getElementById("viewSelect").addEventListener("change", (e) => applyView(e.target.value || null));
   document.getElementById("saveViewBtn").addEventListener("click", saveCurrentView);
