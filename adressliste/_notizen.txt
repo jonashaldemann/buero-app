@@ -1,7 +1,0 @@
-Status und Kategorie als Optionen-Set (flexibel) einstellbar und auch auf Starttabelle bearbeitbar.
-
-Schwierige Frage: Status spezifisch und abhängig von Kategorie. Zum Beispiel bei Landschaftsarchitektur andere Optionen als bei Bau?
-
-Titelzeile bleibt beim Runterscrollen sichtbar, bis und mit Spaltenheader
-
-Alle Optionen NEu / Aktualisieren / eigene Ansicht / Ansicht speichern / Ansicht löschen nebeneinander, um Platz zu sparen.

@@ -210,13 +210,17 @@
     <div class="import-row">
       <label for="csvImportInput" style="font-size:13px;color:var(--text-muted);">Adressen aus CSV importieren</label>
       <input type="file" id="csvImportInput" accept=".csv,text/csv">
+      <button id="csvExportBtn" class="btn-secondary">Aktuelle Ansicht als CSV exportieren</button>
     </div>
     <div id="importResult" class="test-result"></div>
     <p class="hint">
-      Erwartet Spalten Kategorie, Status, Vorname, Name, Firma, Strasse, Ort,
-      Tel, Mail, Website, Bemerkungen, Projekte, Weihnachtskarte (Ja/leer).
-      Jede Zeile wird als neuer Kontakt angelegt (kein Abgleich mit
-      bestehenden Einträgen) -- am besten einmalig für den Start verwenden.
+      Import erwartet Spalten Kategorie, Status, Kontaktperson, Vorname,
+      Name, Firma, Strasse, Ort, Tel, Mail, Website, Bemerkungen, Projekte,
+      Weihnachtskarte (Ja/leer). Jede Zeile wird als neuer Kontakt angelegt
+      (kein Abgleich mit bestehenden Einträgen) -- am besten einmalig für den
+      Start verwenden. Export exportiert dagegen genau das, was die Tabelle
+      gerade zeigt: sichtbare Spalten in ihrer Reihenfolge, gefiltert und
+      sortiert wie die aktuelle Ansicht.
     </p>
   </section>
 
@@ -229,9 +233,9 @@
     Ansichten liegen genauso als einzelne Dateien im Unterordner
     "Ansichten". Spalten lassen sich per Drag &amp; Drop am Spaltentitel
     umsortieren, jede Spalte hat ihr eigenes Filterfeld direkt darunter.
-    Kategorie und Status kommen aus einer gemeinsamen Auswahlliste
-    (Button "⚙ Optionen"), die für alle mit Zugriff auf den Ordner gleich
-    ist.
+    Kategorie, Status und Kontaktperson kommen aus einer gemeinsamen
+    Auswahlliste (Button "⚙ Optionen"), die für alle mit Zugriff auf den
+    Ordner gleich ist.
   </p>
 </main>
 
@@ -272,7 +276,7 @@
 <div id="optionsOverlay" class="overlay hidden">
   <div class="sheet">
     <div class="sheet-head">
-      <h2>Kategorien &amp; Status</h2>
+      <h2>Kategorien, Status &amp; Kontaktpersonen</h2>
       <button id="closeOptions" class="icon-btn" aria-label="Schliessen">&times;</button>
     </div>
 
@@ -290,14 +294,21 @@
         <input type="text" id="newStatusInput" placeholder="Neuer Status…">
         <button id="addStatusBtn" class="btn-secondary">+</button>
       </div>
+
+      <label>Kontaktpersonen</label>
+      <div class="chip-list" id="kontaktpersonChips"></div>
+      <div class="chip-add-row">
+        <input type="text" id="newKontaktpersonInput" placeholder="Neue Kontaktperson…">
+        <button id="addKontaktpersonBtn" class="btn-secondary">+</button>
+      </div>
     </div>
 
     <p class="hint">
-      Diese Listen füllen die Kategorie-/Status-Dropdowns im Editor und in
-      der Tabelle. Ein Wert entfernen ändert nichts an bereits gespeicherten
-      Kontakten mit diesem Wert -- er verschwindet nur aus der Auswahl.
-      Neue Werte lassen sich auch direkt in jedem Dropdown über "+ neu…"
-      erfassen.
+      Diese Listen füllen die Kategorie-/Status-/Kontaktperson-Dropdowns im
+      Editor und in der Tabelle. Ein Wert entfernen ändert nichts an bereits
+      gespeicherten Kontakten mit diesem Wert -- er verschwindet nur aus der
+      Auswahl. Neue Werte lassen sich auch direkt in jedem Dropdown über
+      "+ neu…" erfassen.
     </p>
   </div>
 </div>
@@ -320,6 +331,10 @@
         <div>
           <label>Status</label>
           <select id="inputStatus"></select>
+        </div>
+        <div>
+          <label>Kontaktperson</label>
+          <select id="inputKontaktperson"></select>
         </div>
       </div>
 
