@@ -1,7 +1,7 @@
 {
   "name": "Büro",
   "short_name": "Büro",
-  "description": "Startseite: Zeiterfassung, Quittung, Wettbewerbsprogramme",
+  "description": "Startseite: Zeiterfassung, Quittung, Wettbewerbsprogramme, Offerten, Adressliste",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

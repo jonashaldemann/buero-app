@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Adressliste</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/adressliste-192.png">
+<link rel="apple-touch-icon" href="../icons/adressliste-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Adressliste wird v.a. am Rechner genutzt (Filtern/Vergleichen), mehr
+     Breite als die sonst mobile-first begrenzten 480px. */
+  main { max-width: min(1200px, 96vw); }
+  #editorOverlay .sheet { max-width: min(640px, 96vw); }
+
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .filter-bar > div { display: flex; flex-direction: column; gap: 4px; }
+  .filter-bar label { font-size: 11px; color: var(--text-muted); }
+  .filter-bar select, .filter-bar input[type="text"] { padding: 8px 10px; font-size: 13px; }
+  .filter-suche { flex: 1; min-width: 160px; }
+
+  .views-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .views-row select { flex: 1; min-width: 160px; padding: 8px 10px; font-size: 13px; }
+  .views-row button { flex: none; padding: 8px 14px; font-size: 13px; }
+
+  .column-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 0 4px;
+  }
+  .column-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:active { color: var(--text); }
+
+  .row-action {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .row-action:active { color: var(--accent-primary); }
+  .row-actions { white-space: nowrap; }
+
+  .last-edited-line {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: -8px 0 14px;
+  }
+
+  .import-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .import-row input[type="file"] { flex: 1; min-width: 200px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-actions" style="margin-left:auto;">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="status-card" id="statusCard">
+    <div class="status-label">Adressen</div>
+    <div class="status-timer" id="countLabel">0</div>
+    <div class="sync-line" id="syncLine">&nbsp;</div>
+  </section>
+
+  <section class="form-actions">
+    <button id="newContactBtn" class="btn-primary">+ Neu</button>
+    <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
+  </section>
+
+  <section class="filter-bar">
+    <div class="filter-suche">
+      <label>Suche</label>
+      <input type="text" id="filterSuche" placeholder="Name, Firma, Ort, Bemerkung…">
+    </div>
+    <div>
+      <label>Kategorie</label>
+      <select id="filterKategorie"><option value="">Alle</option></select>
+    </div>
+    <div>
+      <label>Status</label>
+      <select id="filterStatus"><option value="">Alle</option></select>
+    </div>
+    <div>
+      <label>Weihnachtskarte</label>
+      <select id="filterWeihnachtskarte">
+        <option value="">Alle</option>
+        <option value="ja">Ja</option>
+        <option value="nein">Nein</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="views-row">
+    <select id="viewSelect"><option value="">– eigene/ungespeicherte Ansicht –</option></select>
+    <button id="saveViewBtn" class="btn-secondary">Ansicht speichern</button>
+    <button id="deleteViewBtn" class="btn-secondary" disabled>Ansicht löschen</button>
+  </section>
+
+  <div class="column-toggles" id="columnToggles"></div>
+
+  <section class="table-block">
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="listHead"></tr></thead>
+        <tbody id="listBody">
+          <tr><td>Noch keine Adressen geladen.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="table-block" style="padding:16px;">
+    <div class="import-row">
+      <label for="csvImportInput" style="font-size:13px;color:var(--text-muted);">Adressen aus CSV importieren</label>
+      <input type="file" id="csvImportInput" accept=".csv,text/csv">
+    </div>
+    <div id="importResult" class="test-result"></div>
+    <p class="hint">
+      Erwartet Spalten Kategorie, Status, Vorname, Name, Firma, Strasse, Ort,
+      Tel, Mail, Website, Bemerkungen, Projekte, Weihnachtskarte (Ja/leer).
+      Jede Zeile wird als neuer Kontakt angelegt (kein Abgleich mit
+      bestehenden Einträgen) -- am besten einmalig für den Start verwenden.
+    </p>
+  </section>
+
+  <p class="hint">
+    Jeder Kontakt ist eine eigene Datei im Nextcloud-Ordner
+    "Buero/Admin/Adressen" -- zwei Personen können darum gleichzeitig
+    verschiedene Einträge bearbeiten, ohne sich etwas zu überschreiben.
+    Wird derselbe Eintrag gleichzeitig geändert, warnt die App beim
+    Speichern und zeigt, wer ihn zuletzt geändert hat.
+  </p>
+</main>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Anzeigename</label>
+      <input type="text" id="inputDisplayName" placeholder="z.B. Jonas">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="jonas">
+      <label>App-Passwort</label>
+      <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für "Zeiterfassung", "Quittung", "Wettbewerbsprogramme" und
+      "Offerten" (einmal einrichten, überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<!-- Editor -->
+<div id="editorOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="editorTitle">Neuer Kontakt</h2>
+      <button id="closeEditor" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div class="last-edited-line" id="lastEditedLine"></div>
+
+    <div class="form-group">
+      <div class="two-col">
+        <div>
+          <label>Kategorie</label>
+          <input type="text" id="inputKategorie" placeholder="z.B. Landschaftsarchitekt">
+        </div>
+        <div>
+          <label>Status</label>
+          <input type="text" id="inputStatus" placeholder="z.B. offen, anfragen, aktiv">
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <label>Vorname</label>
+          <input type="text" id="inputVorname">
+        </div>
+        <div>
+          <label>Name</label>
+          <input type="text" id="inputName">
+        </div>
+      </div>
+
+      <label>Firma</label>
+      <input type="text" id="inputFirma">
+
+      <div class="two-col">
+        <div>
+          <label>Strasse</label>
+          <input type="text" id="inputStrasse">
+        </div>
+        <div>
+          <label>Ort</label>
+          <input type="text" id="inputOrt" placeholder="PLZ Ort">
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <label>Tel.</label>
+          <input type="text" id="inputTel">
+        </div>
+        <div>
+          <label>Mail</label>
+          <input type="text" id="inputMail">
+        </div>
+      </div>
+
+      <label>Website</label>
+      <input type="text" id="inputWebsite">
+
+      <label>Bemerkungen</label>
+      <textarea id="inputBemerkungen" rows="2"></textarea>
+
+      <label>Projekte</label>
+      <textarea id="inputProjekte" rows="2"></textarea>
+
+      <label style="display:flex;align-items:center;gap:8px;flex-direction:row;">
+        <input type="checkbox" id="inputWeihnachtskarte" style="width:auto;">
+        Weihnachtskarte
+      </label>
+    </div>
+
+    <div id="editorResult" class="test-result"></div>
+
+    <div class="form-actions" style="margin-top:14px;">
+      <button id="deleteContactBtn" class="btn-secondary">Löschen</button>
+      <button id="saveContactBtn" class="btn-primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

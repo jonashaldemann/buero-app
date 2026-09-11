@@ -1,0 +1,15 @@
+{
+  "name": "Adressliste",
+  "short_name": "Adressliste",
+  "description": "Firmen- und Personenadressen filtern, in Ansichten speichern, auf Nextcloud sichern",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2EFEA",
+  "theme_color": "#F2EFEA",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "../icons/adressliste-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/adressliste-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
