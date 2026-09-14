@@ -36,6 +36,20 @@ const COL_TITLE_WRAP_WIDTH = 300;
 const COL_STUNDEN_RIGHT = PDF_MARGIN + 380;
 const COL_KOSTEN_RIGHT = PDF_PAGE_WIDTH - PDF_MARGIN;
 
+// Brief (Seite 1): Adresse/Datum/Betreff/Text starten normalerweise hier,
+// direkt unter dem Absenderblock oben rechts.
+const LETTER_BLOCK_TOP_Y = PDF_PAGE_HEIGHT - PDF_MARGIN - 140;
+// Bei kurzen Briefen wird stattdessen "unten bündig" ab hier gerechnet
+// (siehe letterBlockStartY()), damit die Unterschrift nicht mit viel
+// Weissraum darunter mitten auf der Seite hängt, sondern im untersten
+// Viertel/Drittel landet. Bei langen Briefen wirkt sich das nicht aus --
+// dann gewinnt LETTER_BLOCK_TOP_Y (siehe Math.min() dort).
+const LETTER_BLOCK_BOTTOM_TARGET_Y = PDF_MARGIN + 150;
+
+// Unterschriften-Bilder: Breite fix, Höhe ergibt sich aus dem Seitenverhältnis
+// (siehe drawSignatureImages() und letterBlockStartY()).
+const SIGNATURE_IMG_WIDTH = 130;
+
 // Unterschriften-Bilder liegen im jeweils eigenen Nextcloud-Bereich (wie
 // alles andere in dieser App) unter diesem Ordner. davPath/ncSegments/
 // authHeader/proxyFetch kommen aus ../shared/common.js (bereits vor pdf.js
@@ -157,11 +171,47 @@ function drawRule(ctx, y, { x0 = PDF_MARGIN, x1 = PDF_PAGE_WIDTH - PDF_MARGIN, t
 
 // ---------- Seite 1: Brief ----------
 
-function drawLetterPage(ctx, offer, absender) {
+// Berechnet, wie viel Platz der Brief von der Adresse bis zum Ende der
+// Unterschriften braucht (ohne irgendetwas zu zeichnen) -- exakt dieselbe
+// Zeilenlogik wie drawLetterPage()/drawSignatureImages() weiter unten, nur
+// als reine Höhenrechnung. maxSignatureImgHeight: höchstes Unterschriftbild
+// in Punkt, oder null, falls keine Unterschrift gewählt ist.
+function measureLetterBlockHeight(ctx, offer, maxSignatureImgHeight) {
+  let h = 0;
+  if (offer.empfaenger) h += SIZE_BODY + 4;
+  (offer.adresse || "")
+    .split("\n")
+    .filter((l) => l.trim())
+    .forEach(() => { h += SIZE_BODY + 4; });
+
+  h += 16 + 28 + 24; // Abstände Adresse -> Ort/Datum -> Betreff -> Brieftext
+
+  (offer.brieftext || "").split("\n").forEach((raw) => {
+    if (!raw.trim()) { h += 12; return; }
+    h += wrapText(ctx.light, raw, SIZE_BODY, PDF_CONTENT_WIDTH).length * (SIZE_BODY + 4);
+  });
+
+  if (maxSignatureImgHeight !== null) h += maxSignatureImgHeight + 34; // siehe drawSignatureImages()
+  return h;
+}
+
+// Bei kurzen Briefen (wenig Text, evtl. mit Unterschrift) rutscht der ganze
+// Block nach unten, so dass die Unterschrift im untersten Viertel/Drittel
+// der Seite landet statt mit viel Weissraum darunter mitten auf der Seite
+// zu hängen. Bei langen Briefen (Block wäre höher als der normale
+// Startpunkt) greift das nicht -- dann bleibt der gewohnte, feste Startpunkt
+// (Math.min()), inkl. automatischem Seitenumbruch in drawLetterPage().
+function letterBlockStartY(ctx, offer, maxSignatureImgHeight) {
+  const blockHeight = measureLetterBlockHeight(ctx, offer, maxSignatureImgHeight);
+  return Math.min(LETTER_BLOCK_TOP_Y, LETTER_BLOCK_BOTTOM_TARGET_Y + blockHeight);
+}
+
+function drawLetterPage(ctx, offer, absender, startY) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
   // Absenderblock oben rechts -- durchgehend Light/10, keine eigene
-  // Auszeichnung mehr (weniger Farben/Grössen als möglich).
+  // Auszeichnung mehr (weniger Farben/Grössen als möglich). Bleibt immer
+  // oben, unabhängig davon, wo der Rest des Briefs startet.
   if (absender) {
     let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
     [absender.name, absender.adresse, absender.plz_ort, absender.telefon, absender.email, absender.website]
@@ -173,7 +223,7 @@ function drawLetterPage(ctx, offer, absender) {
   }
 
   // Kein wiederholter Absender über dem Adressaten (bewusst weggelassen).
-  let y = PDF_PAGE_HEIGHT - PDF_MARGIN - 140;
+  let y = startY;
 
   if (offer.empfaenger) {
     drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
@@ -408,19 +458,23 @@ async function fetchSignatureImages(ctx, offer, unterzeichnerConfig) {
 function drawSignatureImages(ctx, images, y) {
   if (!images.length) return y;
   y -= 10;
-  const imgWidth = 130;
   const gap = 40;
-  const maxImgHeight = Math.max(...images.map(({ img }) => imgWidth * (img.height / img.width)));
+  const maxImgHeight = maxSignatureImgHeight(images);
 
   let x = PDF_MARGIN;
   images.forEach(({ name, img }) => {
-    const h = imgWidth * (img.height / img.width);
-    ctx.page.drawImage(img, { x, y: y - maxImgHeight, width: imgWidth, height: h });
+    const h = SIGNATURE_IMG_WIDTH * (img.height / img.width);
+    ctx.page.drawImage(img, { x, y: y - maxImgHeight, width: SIGNATURE_IMG_WIDTH, height: h });
     drawText(ctx, name, x, y - maxImgHeight - 14, { size: SIZE_BODY, font: ctx.light });
-    x += imgWidth + gap;
+    x += SIGNATURE_IMG_WIDTH + gap;
   });
 
   return y - maxImgHeight - 14 - 10;
+}
+
+function maxSignatureImgHeight(images) {
+  if (!images.length) return null;
+  return Math.max(...images.map(({ img }) => SIGNATURE_IMG_WIDTH * (img.height / img.width)));
 }
 
 // ---------- Datei-Handling ----------
@@ -482,10 +536,14 @@ async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
     y: 0
   };
 
-  newPage(ctx);
-  drawLetterPage(ctx, offer, absender);
-
+  // Unterschriften schon vor dem Brief laden (statt danach) -- ihre Höhe
+  // fliesst in letterBlockStartY() mit ein, damit der ganze Block inkl.
+  // Unterschrift bündig im untersten Viertel/Drittel der Seite landet.
   const { images: signatureImages, warnings } = await fetchSignatureImages(ctx, offer, unterzeichnerConfig);
+
+  newPage(ctx);
+  const startY = letterBlockStartY(ctx, offer, maxSignatureImgHeight(signatureImages));
+  drawLetterPage(ctx, offer, absender, startY);
   ctx.y = drawSignatureImages(ctx, signatureImages, ctx.y);
 
   newPage(ctx); // Offerte/Rechnung beginnt bewusst auf einer eigenen Seite
