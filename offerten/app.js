@@ -358,6 +358,8 @@ function allKnownModules() {
           bemerkung: p.bemerkung || "",
           bemerkungAktiv: !!p.bemerkungAktiv,
           stunden: Number(p.stunden) || 0,
+          pauschalAktiv: !!p.pauschalAktiv,
+          pauschalBetrag: Number(p.pauschalBetrag) || 0,
           projekt: o.data.projekt || o.filename,
           datum: o.data.datum || ""
         });
@@ -392,7 +394,7 @@ function renderModSearchResults(results, query) {
     .map(
       (m, i) => `<div class="mod-search-result" data-index="${i}">
         <span class="msr-title">${escapeHtml(m.titel)}</span>
-        <span class="msr-meta">${escapeHtml(chNumber(m.stunden))} Std. · ${escapeHtml(m.projekt)}, ${escapeHtml(chDate(m.datum))}</span>
+        <span class="msr-meta">${m.pauschalAktiv ? escapeHtml(chFr(m.pauschalBetrag)) : escapeHtml(chNumber(m.stunden)) + " Std."} · ${escapeHtml(m.projekt)}, ${escapeHtml(chDate(m.datum))}</span>
       </div>`
     )
     .join("");
@@ -410,7 +412,9 @@ function importModule(m) {
     beschrieb: [...m.beschrieb],
     bemerkung: m.bemerkung || "",
     bemerkungAktiv: !!m.bemerkungAktiv,
-    stunden: m.stunden
+    stunden: m.stunden,
+    pauschalAktiv: !!m.pauschalAktiv,
+    pauschalBetrag: m.pauschalBetrag || 0
   });
   document.getElementById("modSearchInput").value = "";
   renderModSearchResults([], "");
@@ -433,8 +437,13 @@ const ROUNDING_STEP_CHF = 5;
 function calcTotals(offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
   const modulPositionen = (offer.positionen || []).filter((p) => p.typ === "modul");
-  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
-  const modulSumme = stundenTotal * rate;
+  // Pauschal-Module zählen mit ihrem festen Betrag statt Stunden × Stundensatz
+  // und tragen keine Stunden zum Stundentotal bei (siehe Todo "Pauschalposition").
+  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (m.pauschalAktiv ? 0 : Number(m.stunden) || 0), 0);
+  const modulSumme = modulPositionen.reduce(
+    (sum, m) => sum + (m.pauschalAktiv ? Number(m.pauschalBetrag) || 0 : (Number(m.stunden) || 0) * rate),
+    0
+  );
   const nebenkosten = Number(offer.nebenkosten_chf) || 0;
   const subtotalRoh = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
@@ -471,7 +480,7 @@ function blankOffer(typ) {
     mwst_prozent: DEFAULT_MWST_PROZENT,
     nebenkosten_chf: 0,
     automatische_nummerierung: true,
-    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false }],
+    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false, pauschalAktiv: false, pauschalBetrag: 0 }],
     updatedAt: null,
     updatedBy: null
   };
@@ -641,7 +650,8 @@ function renderPositionen() {
       }
 
       modulNr++;
-      const kosten = (Number(p.stunden) || 0) * rate;
+      const pauschalAktiv = !!p.pauschalAktiv;
+      const kosten = pauschalAktiv ? Number(p.pauschalBetrag) || 0 : (Number(p.stunden) || 0) * rate;
       const bemerkungAktiv = !!p.bemerkungAktiv;
       return `<div class="mod-row" data-index="${i}">
         ${handle}
@@ -652,14 +662,21 @@ function renderPositionen() {
           </div>
           <textarea class="mod-beschrieb" data-field="beschrieb" rows="2" placeholder="Ein Punkt pro Zeile">${escapeHtml(beschriebToText(p.beschrieb))}</textarea>
           <label class="bemerkung-toggle">
+            <input type="checkbox" data-field="pauschalAktiv" ${pauschalAktiv ? "checked" : ""}>
+            Pauschalbetrag (statt Stunden × Stundensatz)
+          </label>
+          <label class="bemerkung-toggle">
             <input type="checkbox" data-field="bemerkungAktiv" ${bemerkungAktiv ? "checked" : ""}>
             Bemerkung (kursiv, ohne Punkt, nach den Stichpunkten)
           </label>
           <textarea class="mod-bemerkung" data-field="bemerkung" rows="1" placeholder="z.B. Wegstrecken werden nicht verrechnet" style="${bemerkungAktiv ? "" : "display:none;"}">${escapeHtml(p.bemerkung || "")}</textarea>
         </div>
         <div class="mod-stunden">
-          <input type="number" class="no-spinner" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}">
-          <span class="unit">Std.</span>
+          ${
+            pauschalAktiv
+              ? `<input type="number" class="no-spinner" data-field="pauschalBetrag" min="0" step="10" value="${p.pauschalBetrag ?? 0}"><span class="unit">Fr.</span>`
+              : `<input type="number" class="no-spinner" data-field="stunden" min="0" step="0.25" value="${p.stunden ?? 0}"><span class="unit">Std.</span>`
+          }
         </div>
         <div class="mod-kosten">${escapeHtml(chFr(kosten))}</div>
         <button type="button" class="mod-delete" data-action="delete" aria-label="Modul löschen">${TRASH_SVG}</button>
@@ -678,7 +695,7 @@ function renderPositionen() {
       const field = el.dataset.field;
       const eventName = el.type === "checkbox" ? "change" : "input";
       el.addEventListener(eventName, () => {
-        if (field === "stunden") {
+        if (field === "stunden" || field === "pauschalBetrag") {
           row.__posRef[field] = Number(el.value) || 0;
           recalcAll();
         } else if (field === "beschrieb") {
@@ -688,6 +705,11 @@ function renderPositionen() {
           if (field === "bemerkungAktiv") {
             const ta = row.querySelector(".mod-bemerkung");
             if (ta) ta.style.display = el.checked ? "" : "none";
+          } else if (field === "pauschalAktiv") {
+            // Tauscht das Stunden- gegen das Pauschalbetrag-Eingabefeld (und
+            // umgekehrt) -- anders als bei bemerkungAktiv reicht hier kein
+            // einfaches Ein-/Ausblenden, das ganze Feld muss neu aufgebaut werden.
+            renderPositionen();
           }
         } else {
           row.__posRef[field] = el.value;
@@ -748,7 +770,7 @@ function wireModListEndDrop() {
 function removePosition(index) {
   const positionen = editingOffer.positionen;
   positionen.splice(index, 1);
-  if (positionen.length === 0) positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false });
+  if (positionen.length === 0) positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false, pauschalAktiv: false, pauschalBetrag: 0 });
   renderPositionen();
 }
 
@@ -759,7 +781,7 @@ function recalcAll() {
   document.querySelectorAll("#modList .mod-row").forEach((row) => {
     const index = parseInt(row.dataset.index, 10);
     const p = editingOffer.positionen[index];
-    const kosten = (Number(p.stunden) || 0) * rate;
+    const kosten = p.pauschalAktiv ? Number(p.pauschalBetrag) || 0 : (Number(p.stunden) || 0) * rate;
     row.querySelector(".mod-kosten").textContent = chFr(kosten);
   });
   recalcTotalsDisplay();
@@ -968,7 +990,7 @@ function init() {
     applyTypVisibility(e.target.value);
   });
   document.getElementById("addModBtn").addEventListener("click", () => {
-    editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false });
+    editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false, pauschalAktiv: false, pauschalBetrag: 0 });
     renderPositionen();
   });
   document.getElementById("addPhaseBtn").addEventListener("click", () => {
