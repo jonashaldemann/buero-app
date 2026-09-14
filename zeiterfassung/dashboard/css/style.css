@@ -48,6 +48,11 @@ html, body {
   font-weight: normal;
   margin: 0;
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .icon-btn {
   background: none;
   border: none;
