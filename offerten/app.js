@@ -167,6 +167,13 @@ async function refreshOffers() {
       filenames.map(async (filename) => {
         try {
           const data = await fetchOfferFile(filename);
+          // Eine Datei mit ungültigem/leerem Inhalt (z.B. nur "null") würde
+          // sonst als {filename, data: null} durchrutschen -- .filter(Boolean)
+          // greift hier NICHT, weil das umgebende Objekt selbst truthy ist,
+          // und liesse jede spätere Verwendung von .data crashen (siehe
+          // renderList()). Deshalb hier wie ein fehlgeschlagener Ladevorgang
+          // behandeln: überspringen, nicht in die Liste aufnehmen.
+          if (!data || typeof data !== "object") throw new Error("ungültiger/leerer Inhalt");
           return { filename, data };
         } catch (err) {
           console.warn("Konnte Offerte nicht laden:", filename, err);
@@ -262,6 +269,7 @@ function renderList() {
 
   const sorted = offers
     .map((o, i) => ({ o, i }))
+    .filter(({ o }) => o && o.data) // s. refreshOffers(): schützt zusätzlich vor kaputten Einträgen
     .sort((a, b) => String(b.o.data.datum || "").localeCompare(String(a.o.data.datum || "")));
 
   body.innerHTML = sorted
