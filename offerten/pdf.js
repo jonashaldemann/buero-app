@@ -36,18 +36,20 @@ const COL_TITLE_WRAP_WIDTH = 300;
 const COL_STUNDEN_RIGHT = PDF_MARGIN + 380;
 const COL_KOSTEN_RIGHT = PDF_PAGE_WIDTH - PDF_MARGIN;
 
-// Brief (Seite 1): Adresse/Datum/Betreff/Text starten normalerweise hier,
-// direkt unter dem Absenderblock oben rechts.
+// Brief (Seite 1): Position des Adressblocks -- IMMER fix, unabhängig von
+// der Brieflänge. Anders als z.B. beim Rundungsrabatt gibt es hier keinen
+// Spielraum: Fensterkuverts haben ihr Sichtfenster an einer festen Stelle,
+// der Adressat muss also unabhängig vom Rest immer an derselben Höhe stehen.
 const LETTER_BLOCK_TOP_Y = PDF_PAGE_HEIGHT - PDF_MARGIN - 140;
-// Bei kurzen Briefen wird stattdessen "unten bündig" ab hier gerechnet
-// (siehe letterBlockStartY()), damit die Unterschrift nicht mit viel
-// Weissraum darunter mitten auf der Seite hängt, sondern im untersten
-// Viertel/Drittel landet. Bei langen Briefen wirkt sich das nicht aus --
-// dann gewinnt LETTER_BLOCK_TOP_Y (siehe Math.min() dort).
-const LETTER_BLOCK_BOTTOM_TARGET_Y = PDF_MARGIN + 150;
+// Ort/Datum + Betreff stehen bewusst NICHT direkt unter dem Adressblock,
+// sondern an einer eigenen fixen Position bei ca. 40% der Seitenhöhe (von
+// oben) -- ergibt bei kurzen Briefen spürbar mehr Abstand zwischen Adresse
+// und Text, ohne dass (wegen des Fensterkuverts) der Adressblock selbst
+// mitwandern dürfte.
+const LETTER_DATUM_BETREFF_Y = Math.round(PDF_PAGE_HEIGHT * 0.6);
 
 // Unterschriften-Bilder: Breite fix, Höhe ergibt sich aus dem Seitenverhältnis
-// (siehe drawSignatureImages() und letterBlockStartY()).
+// (siehe drawSignatureImages()).
 const SIGNATURE_IMG_WIDTH = 130;
 
 // Unterschriften-Bilder liegen im jeweils eigenen Nextcloud-Bereich (wie
@@ -171,47 +173,11 @@ function drawRule(ctx, y, { x0 = PDF_MARGIN, x1 = PDF_PAGE_WIDTH - PDF_MARGIN, t
 
 // ---------- Seite 1: Brief ----------
 
-// Berechnet, wie viel Platz der Brief von der Adresse bis zum Ende der
-// Unterschriften braucht (ohne irgendetwas zu zeichnen) -- exakt dieselbe
-// Zeilenlogik wie drawLetterPage()/drawSignatureImages() weiter unten, nur
-// als reine Höhenrechnung. maxSignatureImgHeight: höchstes Unterschriftbild
-// in Punkt, oder null, falls keine Unterschrift gewählt ist.
-function measureLetterBlockHeight(ctx, offer, maxSignatureImgHeight) {
-  let h = 0;
-  if (offer.empfaenger) h += SIZE_BODY + 4;
-  (offer.adresse || "")
-    .split("\n")
-    .filter((l) => l.trim())
-    .forEach(() => { h += SIZE_BODY + 4; });
-
-  h += 16 + 28 + 24; // Abstände Adresse -> Ort/Datum -> Betreff -> Brieftext
-
-  (offer.brieftext || "").split("\n").forEach((raw) => {
-    if (!raw.trim()) { h += 12; return; }
-    h += wrapText(ctx.light, raw, SIZE_BODY, PDF_CONTENT_WIDTH).length * (SIZE_BODY + 4);
-  });
-
-  if (maxSignatureImgHeight !== null) h += maxSignatureImgHeight + 34; // siehe drawSignatureImages()
-  return h;
-}
-
-// Bei kurzen Briefen (wenig Text, evtl. mit Unterschrift) rutscht der ganze
-// Block nach unten, so dass die Unterschrift im untersten Viertel/Drittel
-// der Seite landet statt mit viel Weissraum darunter mitten auf der Seite
-// zu hängen. Bei langen Briefen (Block wäre höher als der normale
-// Startpunkt) greift das nicht -- dann bleibt der gewohnte, feste Startpunkt
-// (Math.min()), inkl. automatischem Seitenumbruch in drawLetterPage().
-function letterBlockStartY(ctx, offer, maxSignatureImgHeight) {
-  const blockHeight = measureLetterBlockHeight(ctx, offer, maxSignatureImgHeight);
-  return Math.min(LETTER_BLOCK_TOP_Y, LETTER_BLOCK_BOTTOM_TARGET_Y + blockHeight);
-}
-
-function drawLetterPage(ctx, offer, absender, startY) {
+function drawLetterPage(ctx, offer, absender) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
   // Absenderblock oben rechts -- durchgehend Light/10, keine eigene
-  // Auszeichnung mehr (weniger Farben/Grössen als möglich). Bleibt immer
-  // oben, unabhängig davon, wo der Rest des Briefs startet.
+  // Auszeichnung mehr (weniger Farben/Grössen als möglich). Fixe Position.
   if (absender) {
     let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
     [absender.name, absender.adresse, absender.plz_ort, absender.telefon, absender.email, absender.website]
@@ -222,9 +188,9 @@ function drawLetterPage(ctx, offer, absender, startY) {
       });
   }
 
-  // Kein wiederholter Absender über dem Adressaten (bewusst weggelassen).
-  let y = startY;
-
+  // Adressat: ebenfalls fixe Position (siehe LETTER_BLOCK_TOP_Y) -- kein
+  // wiederholter Absender darüber (bewusst weggelassen).
+  let y = LETTER_BLOCK_TOP_Y;
   if (offer.empfaenger) {
     drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
     y -= SIZE_BODY + 4;
@@ -237,32 +203,34 @@ function drawLetterPage(ctx, offer, absender, startY) {
       y -= SIZE_BODY + 4;
     });
 
-  y -= 16;
+  // Ort/Datum + Betreff: eigene fixe Position (siehe LETTER_DATUM_BETREFF_Y),
+  // absichtlich unabhängig davon, wo der Adressblock oben endet.
+  let y2 = LETTER_DATUM_BETREFF_Y;
   const ortDatum = [absender && absender.ort, chDateLong(offer.datum)].filter(Boolean).join(", ");
-  if (ortDatum) drawText(ctx, ortDatum, rightX, y, { size: SIZE_BODY, font: ctx.light, align: "right" });
+  if (ortDatum) drawText(ctx, ortDatum, rightX, y2, { size: SIZE_BODY, font: ctx.light, align: "right" });
 
-  y -= 28;
+  y2 -= 28;
   const titleWord = offer.typ === "rechnung" ? "Rechnung" : "Offerte";
   const betreff = offer.betreff || `${titleWord}${offer.projekt ? " " + offer.projekt : ""}`;
-  drawText(ctx, betreff, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.medium });
+  drawText(ctx, betreff, PDF_MARGIN, y2, { size: SIZE_BODY, font: ctx.medium });
 
-  y -= 24;
+  y2 -= 24;
   (offer.brieftext || "").split("\n").forEach((raw) => {
     if (!raw.trim()) {
-      y -= 12;
+      y2 -= 12;
       return;
     }
     wrapText(ctx.light, raw, SIZE_BODY, PDF_CONTENT_WIDTH).forEach((line) => {
-      if (y < PDF_MARGIN) {
+      if (y2 < PDF_MARGIN) {
         newPage(ctx);
-        y = ctx.y;
+        y2 = ctx.y;
       }
-      drawText(ctx, line, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
-      y -= SIZE_BODY + 4;
+      drawText(ctx, line, PDF_MARGIN, y2, { size: SIZE_BODY, font: ctx.light });
+      y2 -= SIZE_BODY + 4;
     });
   });
 
-  ctx.y = y;
+  ctx.y = y2;
 }
 
 // ---------- Seite 2+: Offerte/Rechnung ----------
@@ -285,17 +253,33 @@ function drawPhaseRow(ctx, p) {
   ctx.y -= 16;
 }
 
+// Abstand vom Bullet-Zeichen zum Textanfang -- Folgezeilen eines umgebrochenen
+// Punktes rücken um genau diese Breite weiter ein, damit sie unter dem TEXT
+// (nicht unter dem Punkt) hängen, statt fälschlich selbst wieder ein "•" zu
+// bekommen (siehe drawModulRow()/bulletGroups unten).
+const BULLET_INDENT = 10;
+function bulletTextIndentWidth(ctx) {
+  return ctx.light.widthOfTextAtSize("•  ", SIZE_SMALL);
+}
+
 function drawModulRow(ctx, p, nr, rate, numbered) {
-  const bulletLines = (Array.isArray(p.beschrieb) ? p.beschrieb : [])
+  // Pro Bulletpoint eine eigene Gruppe von (ggf. mehreren, umgebrochenen)
+  // Zeilen -- wichtig, damit beim Zeichnen nur die jeweils ERSTE Zeile einen
+  // Punkt bekommt und nicht jede umgebrochene Folgezeile fälschlich als
+  // eigener neuer Punkt erscheint.
+  const bulletTextIndent = bulletTextIndentWidth(ctx);
+  const bulletWrapWidth = COL_TITLE_WRAP_WIDTH - BULLET_INDENT - bulletTextIndent;
+  const bulletGroups = (Array.isArray(p.beschrieb) ? p.beschrieb : [])
     .filter((l) => l && l.trim())
-    .flatMap((line) => wrapText(ctx.light, line, SIZE_SMALL, COL_TITLE_WRAP_WIDTH - 12));
+    .map((line) => wrapText(ctx.light, line, SIZE_SMALL, bulletWrapWidth));
+  const bulletLineCount = bulletGroups.reduce((sum, lines) => sum + lines.length, 0);
 
   const hasBemerkung = !!(p.bemerkungAktiv && p.bemerkung && p.bemerkung.trim());
   const bemerkungLines = hasBemerkung
     ? wrapText(ctx.italic, p.bemerkung, SIZE_SMALL, COL_TITLE_WRAP_WIDTH)
     : [];
 
-  const blockHeight = 15 + bulletLines.length * 13 + bemerkungLines.length * 13 + 20;
+  const blockHeight = 15 + bulletLineCount * 13 + bemerkungLines.length * 13 + 20;
   ensureSpace(ctx, blockHeight, () => drawColumnHeader(ctx));
 
   const pauschalAktiv = !!p.pauschalAktiv;
@@ -311,10 +295,18 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
   drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   ctx.y -= 15;
 
-  bulletLines.forEach((line) => {
-    ensureSpace(ctx, 13, () => drawColumnHeader(ctx));
-    drawText(ctx, `•  ${line}`, COL_TITLE_X + 10, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
-    ctx.y -= 13;
+  bulletGroups.forEach((lines) => {
+    lines.forEach((line, lineIndex) => {
+      ensureSpace(ctx, 13, () => drawColumnHeader(ctx));
+      if (lineIndex === 0) {
+        drawText(ctx, `•  ${line}`, COL_TITLE_X + BULLET_INDENT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+      } else {
+        // Umgebrochene Folgezeile desselben Punktes -- kein eigener Punkt,
+        // stattdessen unter dem Text der ersten Zeile eingerückt.
+        drawText(ctx, line, COL_TITLE_X + BULLET_INDENT + bulletTextIndent, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+      }
+      ctx.y -= 13;
+    });
   });
 
   // Bemerkung: kursiv, ohne Bulletpoint, nach den Stichpunkten (z.B. "Wege-
@@ -586,14 +578,10 @@ async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
     y: 0
   };
 
-  // Unterschriften schon vor dem Brief laden (statt danach) -- ihre Höhe
-  // fliesst in letterBlockStartY() mit ein, damit der ganze Block inkl.
-  // Unterschrift bündig im untersten Viertel/Drittel der Seite landet.
-  const { images: signatureImages, warnings } = await fetchSignatureImages(ctx, offer, unterzeichnerConfig);
-
   newPage(ctx);
-  const startY = letterBlockStartY(ctx, offer, maxSignatureImgHeight(signatureImages));
-  drawLetterPage(ctx, offer, absender, startY);
+  drawLetterPage(ctx, offer, absender);
+
+  const { images: signatureImages, warnings } = await fetchSignatureImages(ctx, offer, unterzeichnerConfig);
   ctx.y = drawSignatureImages(ctx, signatureImages, ctx.y);
 
   newPage(ctx); // Offerte/Rechnung beginnt bewusst auf einer eigenen Seite
