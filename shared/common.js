@@ -116,10 +116,40 @@ async function ensureFolderPath(segments) {
 
 // ---------- Einstellungen UI (Nextcloud-Login) ----------
 
+const EYE_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>';
+const EYE_OFF_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor" opacity="0.5"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2"/></svg>';
+
+// Blendet das App-Passwort im Klartext ein/aus -- wird beim Öffnen des
+// Dialogs (openSettings()) und nach dem Speichern jedes Mal auf "verborgen"
+// zurückgesetzt, damit es nicht z.B. auf einem gemeinsam genutzten Gerät
+// unbeabsichtigt sichtbar bleibt.
+function resetPasswordVisibility() {
+  const input = document.getElementById("inputPass");
+  const btn = document.getElementById("togglePassBtn");
+  if (!input || !btn) return;
+  input.type = "password";
+  btn.innerHTML = EYE_SVG;
+  btn.setAttribute("aria-label", "Passwort anzeigen");
+  btn.setAttribute("title", "Passwort anzeigen");
+}
+function togglePasswordVisibility() {
+  const input = document.getElementById("inputPass");
+  const btn = document.getElementById("togglePassBtn");
+  const currentlyHidden = input.type === "password";
+  input.type = currentlyHidden ? "text" : "password";
+  btn.innerHTML = currentlyHidden ? EYE_OFF_SVG : EYE_SVG;
+  const label = currentlyHidden ? "Passwort verbergen" : "Passwort anzeigen";
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("title", label);
+}
+
 function openSettings() {
   document.getElementById("inputDisplayName").value = settings.displayName || "";
   document.getElementById("inputUser").value = settings.username;
   document.getElementById("inputPass").value = settings.appPassword;
+  resetPasswordVisibility();
   document.getElementById("testResult").textContent = "";
   document.getElementById("settingsOverlay").classList.remove("hidden");
 }
@@ -129,7 +159,7 @@ function closeSettingsFn() {
 function saveSettings(onSaved) {
   settings.displayName = document.getElementById("inputDisplayName").value.trim();
   settings.username = document.getElementById("inputUser").value.trim();
-  settings.appPassword = document.getElementById("inputPass").value;
+  settings.appPassword = document.getElementById("inputPass").value.trim();
   saveJSON(SETTINGS_KEY, settings);
   closeSettingsFn();
   if (typeof onSaved === "function") onSaved();
@@ -168,6 +198,8 @@ function initSettingsUI({ checkRelPath, ensureFolderFn, onSaved } = {}) {
   document.getElementById("settingsBtn").addEventListener("click", openSettings);
   document.getElementById("closeSettings").addEventListener("click", closeSettingsFn);
   document.getElementById("saveSettingsBtn").addEventListener("click", () => saveSettings(onSaved));
+  const toggleBtn = document.getElementById("togglePassBtn");
+  if (toggleBtn) toggleBtn.addEventListener("click", togglePasswordVisibility);
   if (checkRelPath && ensureFolderFn) {
     document.getElementById("testConnBtn").addEventListener("click", () => testConnection(checkRelPath, ensureFolderFn));
   }
