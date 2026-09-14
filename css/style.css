@@ -288,6 +288,22 @@ input[type="date"], input[type="number"], select {
 select { appearance: none; -webkit-appearance: none; }
 input:focus, select:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 
+.password-field { position: relative; }
+.password-field input { padding-right: 44px; }
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+}
+.password-toggle:active { background: var(--border); }
+
 textarea {
   background: var(--surface-2);
   border: none;
