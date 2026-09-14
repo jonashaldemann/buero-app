@@ -28,6 +28,36 @@
     color: var(--text);
   }
   .tile:active { background: var(--surface-2); }
+  .tile.tile-stack {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    gap: 0;
+  }
+  .tile.tile-stack:active { background: var(--surface); }
+  .tile-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    text-decoration: none;
+    color: var(--text);
+    border-radius: 20px 20px 0 0;
+  }
+  .tile-main:active { background: var(--surface-2); }
+  .tile-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 20px 16px 84px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .tile-sub:active { color: var(--text); }
   .tile-icon {
     width: 48px;
     height: 48px;
@@ -59,15 +89,21 @@
 
 <main>
   <div class="tile-grid">
-    <a class="tile" href="zeiterfassung/">
-      <span class="tile-icon" style="background:#4F7089">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm.5 5v5.25l4.25 2.52-.75 1.23L11 13V7h1.5z" fill="currentColor"/></svg>
-      </span>
-      <span class="tile-text">
-        <h2>Zeiterfassung</h2>
-        <p>Zeit pro Projekt erfassen, Nachtragen, Sync mit Nextcloud</p>
-      </span>
-    </a>
+    <div class="tile tile-stack">
+      <a class="tile-main" href="zeiterfassung/">
+        <span class="tile-icon" style="background:#4F7089">
+          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm.5 5v5.25l4.25 2.52-.75 1.23L11 13V7h1.5z" fill="currentColor"/></svg>
+        </span>
+        <span class="tile-text">
+          <h2>Zeiterfassung</h2>
+          <p>Zeit pro Projekt erfassen, Nachtragen, Sync mit Nextcloud</p>
+        </span>
+      </a>
+      <a class="tile-sub" href="zeiterfassung/dashboard/">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 13h4v8H3v-8zm7-6h4v14h-4V7zm7 3h4v11h-4V10z" fill="currentColor"/></svg>
+        Dashboard
+      </a>
+    </div>
 
     <a class="tile" href="quittung/">
       <span class="tile-icon" style="background:#C97960">
