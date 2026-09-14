@@ -324,19 +324,38 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
   ctx.y -= 14;
 }
 
+// Rundungsrabatt: der Endbetrag inkl. MWST wird auf die nächst-tieferen
+// CHF 5.- abgerundet (übliche Kundenfreundlichkeit) und die Differenz als
+// eigene Rabatt-Zeile vor dem Zwischentotal ausgewiesen -- nicht die MWST
+// selbst wird gekürzt, sondern die (steuerbare) Honorarsumme. Die MWST wird
+// danach als Differenz zum bereits gerundeten Endbetrag berechnet statt
+// separat gerundet, damit Zwischentotal + MWST den Endbetrag exakt ergeben.
+// War der Endbetrag schon rund (Rabatt < 1 Rappen), bleibt alles beim
+// gewohnten, ungerundeten Verhalten -- keine "Honorar"/0.00-Zeilen.
+const PDF_ROUNDING_STEP_CHF = 5;
+
 function drawTotals(ctx, offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
-  const modulSumme = (offer.positionen || [])
-    .filter((p) => p.typ === "modul")
-    .reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
+  const modulPositionen = (offer.positionen || []).filter((p) => p.typ === "modul");
+  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
+  const modulSumme = stundenTotal * rate;
   const nebenkosten = Number(offer.nebenkosten_chf) || 0;
-  const subtotal = modulSumme + nebenkosten;
+  const subtotalRoh = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
-  const mwst = subtotal * (mwstProzent / 100);
-  const total = subtotal + mwst;
+  const mwstFaktor = 1 + mwstProzent / 100;
+
+  const totalRoh = subtotalRoh * mwstFaktor;
+  const totalGerundet = Math.floor((totalRoh + 1e-9) / PDF_ROUNDING_STEP_CHF) * PDF_ROUNDING_STEP_CHF;
+  const subtotalErforderlich = mwstFaktor ? totalGerundet / mwstFaktor : totalGerundet;
+  let rundungsrabatt = Math.round((subtotalRoh - subtotalErforderlich) / 0.05) * 0.05;
+  if (Math.abs(rundungsrabatt) < 0.01) rundungsrabatt = 0;
+
+  const subtotal = subtotalRoh - rundungsrabatt;
+  const mwst = rundungsrabatt ? totalGerundet - subtotal : subtotalRoh * (mwstProzent / 100);
+  const total = rundungsrabatt ? totalGerundet : subtotal + mwst;
   const labelX = COL_STUNDEN_RIGHT - 140;
 
-  ensureSpace(ctx, 130);
+  ensureSpace(ctx, 190);
   ctx.y -= 10;
 
   const stundensatzHinweis =
@@ -350,8 +369,12 @@ function drawTotals(ctx, offer) {
   });
   ctx.y -= 10;
 
-  const rows = [];
+  const rows = [["Stundentotal", `${chNumberPdf(stundenTotal)} Std.`]];
   if (nebenkosten) rows.push(["Nebenkostenpauschale", chFrPdf(nebenkosten)]);
+  if (rundungsrabatt) {
+    rows.push(["Honorar", chFrRoundedPdf(subtotalRoh)]);
+    rows.push(["Rundungsrabatt", `−${chFrRoundedPdf(rundungsrabatt)}`]);
+  }
   rows.push(
     ["Zwischentotal exkl. MWST", chFrRoundedPdf(subtotal)],
     [`MWST ${chNumberPdf(mwstProzent)}%`, chFrRoundedPdf(mwst)]

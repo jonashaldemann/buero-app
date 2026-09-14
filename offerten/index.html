@@ -306,13 +306,14 @@
             <th>Typ</th>
             <th>Projekt</th>
             <th>Empfänger</th>
+            <th>Std.</th>
             <th>Total</th>
             <th></th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody id="offerBody">
-          <tr><td colspan="8">Noch keine Offerten geladen.</td></tr>
+          <tr><td colspan="9">Noch keine Offerten geladen.</td></tr>
         </tbody>
       </table>
     </div>
@@ -440,6 +441,7 @@
     </div>
 
     <div class="totals-block">
+      <div class="totals-row"><span>Stundentotal</span><span id="totalStunden">–</span></div>
       <div class="totals-row">
         <label for="inputNebenkosten">Nebenkostenpauschale</label>
         <span class="totals-input-group">
@@ -447,6 +449,7 @@
           <span>Fr.</span>
         </span>
       </div>
+      <div class="totals-row" id="rundungsrabattRow" style="display:none;"><span>Rundungsrabatt</span><span id="totalRundungsrabatt">–</span></div>
       <div class="totals-row"><span>Zwischentotal exkl. MWST</span><span id="totalSubtotal">–</span></div>
       <div class="totals-row"><span>MWST</span><span id="totalMwst">–</span></div>
       <div class="totals-row total-final"><span>Total inkl. MWST</span><span id="totalFinal">–</span></div>

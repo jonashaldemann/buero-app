@@ -263,7 +263,7 @@ function renderList() {
   const body = document.getElementById("offerBody");
 
   if (offers.length === 0) {
-    body.innerHTML = '<tr><td colspan="8">Noch keine Offerten geladen.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9">Noch keine Offerten geladen.</td></tr>';
     return;
   }
 
@@ -275,7 +275,7 @@ function renderList() {
   body.innerHTML = sorted
     .map(({ o, i }) => {
       const d = o.data;
-      const total = calcTotals(d).total;
+      const { stundenTotal, total } = calcTotals(d);
       const isRechnung = d.typ === "rechnung";
       const status = d.status || "in_bearbeitung";
       const statusOptions = Object.keys(STATUS_LABELS)
@@ -287,6 +287,7 @@ function renderList() {
         <td><span class="typ-badge${isRechnung ? " rechnung" : ""}">${typLabel(d.typ)}</span></td>
         <td>${escapeHtml(d.projekt || o.filename)}</td>
         <td>${escapeHtml(d.empfaenger || "–")}</td>
+        <td>${escapeHtml(chNumber(stundenTotal))}</td>
         <td>${escapeHtml(chFrRounded(total))}</td>
         <td class="row-actions">
           <button type="button" class="row-action" data-action="pdf" data-index="${i}" title="PDF erstellen">📄</button>
@@ -418,16 +419,38 @@ function importModule(m) {
 
 // ---------- Berechnung ----------
 
+// Rundungsrabatt: der Endbetrag inkl. MWST wird auf die nächst-tieferen
+// CHF 5.- abgerundet (übliche Kundenfreundlichkeit) und die Differenz als
+// eigene Rabatt-Zeile vor dem Zwischentotal ausgewiesen -- nicht die MWST
+// selbst wird gekürzt, sondern die (steuerbare) Honorarsumme. Die MWST wird
+// danach als Differenz zum bereits gerundeten Endbetrag berechnet statt
+// separat gerundet, damit Zwischentotal + MWST den Endbetrag exakt ergeben
+// (sonst könnten zwei unabhängige 5-Rappen-Rundungen minimal auseinanderdriften).
+// Ist der nötige Rabatt kleiner als ein Rappen (Endbetrag war schon rund),
+// bleibt alles beim gewohnten, ungerundeten Verhalten -- keine 0.00-Zeile.
+const ROUNDING_STEP_CHF = 5;
+
 function calcTotals(offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
-  const modulSumme = (offer.positionen || [])
-    .filter((p) => p.typ === "modul")
-    .reduce((sum, m) => sum + (Number(m.stunden) || 0) * rate, 0);
+  const modulPositionen = (offer.positionen || []).filter((p) => p.typ === "modul");
+  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
+  const modulSumme = stundenTotal * rate;
   const nebenkosten = Number(offer.nebenkosten_chf) || 0;
-  const subtotal = modulSumme + nebenkosten;
+  const subtotalRoh = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
-  const mwst = subtotal * (mwstProzent / 100);
-  return { modulSumme, nebenkosten, subtotal, mwst, total: subtotal + mwst };
+  const mwstFaktor = 1 + mwstProzent / 100;
+
+  const totalRoh = subtotalRoh * mwstFaktor;
+  const totalGerundet = Math.floor((totalRoh + 1e-9) / ROUNDING_STEP_CHF) * ROUNDING_STEP_CHF;
+  const subtotalErforderlich = mwstFaktor ? totalGerundet / mwstFaktor : totalGerundet;
+  let rundungsrabatt = Math.round((subtotalRoh - subtotalErforderlich) / 0.05) * 0.05;
+  if (Math.abs(rundungsrabatt) < 0.01) rundungsrabatt = 0;
+
+  const subtotal = subtotalRoh - rundungsrabatt;
+  const mwst = rundungsrabatt ? totalGerundet - subtotal : subtotalRoh * (mwstProzent / 100);
+  const total = rundungsrabatt ? totalGerundet : subtotal + mwst;
+
+  return { stundenTotal, modulSumme, nebenkosten, subtotalRoh, rundungsrabatt, subtotal, mwst, total };
 }
 
 // ---------- Rendering: Editor ----------
@@ -743,7 +766,15 @@ function recalcAll() {
 }
 
 function recalcTotalsDisplay() {
-  const { subtotal, mwst, total } = calcTotals(editingOffer);
+  const { stundenTotal, rundungsrabatt, subtotal, mwst, total } = calcTotals(editingOffer);
+  document.getElementById("totalStunden").textContent = `${chNumber(stundenTotal)} Std.`;
+  const rabattRow = document.getElementById("rundungsrabattRow");
+  if (rundungsrabatt) {
+    rabattRow.style.display = "";
+    document.getElementById("totalRundungsrabatt").textContent = `−${chFrRounded(rundungsrabatt)}`;
+  } else {
+    rabattRow.style.display = "none";
+  }
   document.getElementById("totalSubtotal").textContent = chFrRounded(subtotal);
   document.getElementById("totalMwst").textContent = chFrRounded(mwst);
   document.getElementById("totalFinal").textContent = chFrRounded(total);
