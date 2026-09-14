@@ -23,6 +23,15 @@
    Nextcloud-Login, proxyFetch/authHeader/davPath, Einstellungen-UI
    usw. kommen aus ../shared/common.js (gemeinsam mit Zeiterfassung,
    Quittung und Wettbewerbsprogramme).
+
+   Für den Fall, dass zwei Personen dieselbe Offerte gleichzeitig geöffnet
+   haben: anders als bei der Adressliste (ganze Datei überschreiben oder
+   verwerfen) wird hier pro Feld gemergt, siehe mergeOfferFields() und deren
+   Verwendung in saveCurrentOffer() -- ändert die eine Person den Brieftext
+   und die andere die Kostenmodule, werden beide Änderungen automatisch
+   übernommen. Nur wenn beide Seiten dasselbe Feld unterschiedlich geändert
+   haben, wird nachgefragt, welche Version gelten soll. Auch kein echtes
+   Locking, nur ein Best-Effort-Merge.
    ============================================================ */
 
 const LS_KEYS = {
@@ -44,6 +53,12 @@ let offers = loadJSON(LS_KEYS.cache, []);
 // Nextcloud (null = noch nicht gespeichert, also eine neue Offerte).
 let editingOffer = null;
 let editingFilename = null;
+
+// Stand der Offerte beim Öffnen des Editors (tiefe Kopie) -- für den
+// Feld-Merge beim Speichern: nur damit lässt sich pro Feld unterscheiden,
+// ob es seither lokal, auf dem Server, in beiden oder in keinem der beiden
+// verändert wurde (siehe mergeOfferFields()). null bei einer neuen Offerte.
+let editingBaselineOffer = null;
 
 // DOM-Element der gerade per Drag & Drop gezogenen Zeile (Modul oder Phase),
 // null ausserhalb eines Drag-Vorgangs. Siehe renderPositionen().
@@ -197,6 +212,12 @@ function uniqueFilename(base) {
 
 // ---------- Formatierung ----------
 
+function chDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 function chDate(dateStr) {
   if (!dateStr) return "–";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
@@ -419,8 +440,58 @@ function blankOffer(typ) {
     mwst_prozent: DEFAULT_MWST_PROZENT,
     nebenkosten_chf: 0,
     automatische_nummerierung: true,
-    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false }]
+    positionen: [{ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false }],
+    updatedAt: null,
+    updatedBy: null
   };
+}
+
+// ---------- Feld-Merge beim Speichern ----------
+//
+// Anders als bei der Adressliste (ganze Datei überschreiben oder verwerfen)
+// lohnt sich bei Offerten ein Merge pro Feld: Brieftext und Kostenmodule
+// werden oft von verschiedenen Personen bearbeitet, ohne dass das ein
+// echter Konflikt ist. Vergleichsbasis ist der Stand beim Öffnen des
+// Editors (editingBaselineOffer): ein Feld gilt als "verändert", wenn es
+// vom aktuellen Stand (lokal bzw. auf dem Server) abweicht. Nur wenn
+// dasselbe Feld auf beiden Seiten anders als die Baseline UND
+// unterschiedlich voneinander ist, ist das ein echter Konflikt.
+const MERGE_FIELDS = [
+  "typ", "empfaenger", "adresse", "projekt", "datum", "offert_nr", "status",
+  "betreff", "brieftext", "unterzeichner", "stundensatz_chf", "mwst_prozent",
+  "nebenkosten_chf", "automatische_nummerierung", "positionen"
+];
+const MERGE_FIELD_LABELS = {
+  typ: "Typ", empfaenger: "Empfänger", adresse: "Adresse", projekt: "Projekt",
+  datum: "Datum", offert_nr: "Offert-/Rechnungsnummer", status: "Status",
+  betreff: "Betreff", brieftext: "Brieftext", unterzeichner: "Unterzeichner",
+  stundensatz_chf: "Stundensatz", mwst_prozent: "MWST-Prozent",
+  nebenkosten_chf: "Nebenkosten", automatische_nummerierung: "Automatische Nummerierung",
+  positionen: "Kostenmodule/Positionen"
+};
+
+function fieldsEqual(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+// Baut aus Baseline/Server/lokalem Stand eine gemergte Offerte. Felder, die
+// nur auf einer Seite verändert wurden, übernimmt der Merge automatisch;
+// bei echten Konflikten (beide Seiten haben dasselbe Feld unterschiedlich
+// geändert) bleibt vorerst der lokale Wert stehen, das Feld wird aber in
+// `conflicts` gemeldet, damit die aufrufende Stelle nachfragen kann.
+function mergeOfferFields(baseline, server, local) {
+  const merged = { ...local };
+  const conflicts = [];
+  MERGE_FIELDS.forEach((key) => {
+    const serverChanged = !fieldsEqual(server[key], baseline[key]);
+    const localChanged = !fieldsEqual(local[key], baseline[key]);
+    if (serverChanged && !localChanged) {
+      merged[key] = server[key];
+    } else if (serverChanged && localChanged && !fieldsEqual(server[key], local[key])) {
+      conflicts.push(key);
+    }
+  });
+  return { merged, conflicts };
 }
 
 function typLabel(typ) {
@@ -449,6 +520,9 @@ function applyTypVisibility(typ) {
 function openEditor(offer, filename, newTyp) {
   editingOffer = offer ? JSON.parse(JSON.stringify(offer)) : blankOffer(newTyp);
   editingFilename = filename || null;
+  // Nur bei bestehenden Offerten relevant -- für neue gibt's serverseitig
+  // noch nichts, mit dem gemergt werden könnte (siehe saveCurrentOffer()).
+  editingBaselineOffer = filename ? JSON.parse(JSON.stringify(editingOffer)) : null;
 
   document.getElementById("inputTyp").value = editingOffer.typ || "offerte";
   applyTypVisibility(editingOffer.typ);
@@ -497,6 +571,7 @@ function closeEditor() {
   document.getElementById("editorOverlay").classList.add("hidden");
   editingOffer = null;
   editingFilename = null;
+  editingBaselineOffer = null;
 }
 
 // Kurzbeschrieb wird als ein Punkt pro Zeile erfasst (Bulletpoints) --
@@ -708,7 +783,15 @@ async function updateOfferStatus(index, status) {
   if (!isConfigured()) return;
   try {
     await ensureOfferFolder();
-    await putOfferFile(entry.filename, entry.data);
+    // Frischen Serverstand als Basis nehmen statt des evtl. veralteten
+    // lokalen Caches (entry.data) -- sonst könnte ein zwischenzeitliches
+    // Speichern aus dem vollen Editor (andere Felder) hier stillschweigend
+    // wieder rückgängig gemacht werden. Nur der Status wird bewusst geändert.
+    const serverData = await fetchOfferFile(entry.filename).catch(() => null);
+    const toSave = { ...(serverData || entry.data), status, updatedAt: new Date().toISOString(), updatedBy: personName() };
+    await putOfferFile(entry.filename, toSave);
+    entry.data = toSave;
+    saveJSON(LS_KEYS.cache, offers);
   } catch (err) {
     alert("Status konnte nicht gespeichert werden: " + err.message);
   }
@@ -736,6 +819,36 @@ async function saveCurrentOffer() {
 
   try {
     await ensureOfferFolder();
+
+    // Nur bei bestehenden Offerten relevant: hat jemand anders diese Offerte
+    // zwischenzeitlich ebenfalls bearbeitet? Verschiedene Felder (z.B.
+    // Brieftext hier, Kostenmodule dort) werden automatisch zusammengeführt;
+    // nur bei einem echten Konflikt (dasselbe Feld auf beiden Seiten anders
+    // verändert) wird nachgefragt, welche Version gelten soll.
+    if (editingFilename) {
+      const serverData = await fetchOfferFile(editingFilename).catch(() => null);
+      if (serverData) {
+        const baseline = editingBaselineOffer || serverData;
+        const { merged, conflicts } = mergeOfferFields(baseline, serverData, editingOffer);
+        if (conflicts.length > 0) {
+          const labels = conflicts.map((key) => MERGE_FIELD_LABELS[key] || key).join(", ");
+          const keepMine = confirm(
+            `Diese Felder wurden von ${serverData.updatedBy || "jemandem"} zwischenzeitlich ebenfalls geändert: ${labels} ` +
+              `(zuletzt ${chDateTime(serverData.updatedAt)}).\n\n` +
+              `OK = deine Änderungen an diesen Feldern behalten\n` +
+              `Abbrechen = die andere Version für diese Felder übernehmen (deine Änderungen daran gehen verloren)`
+          );
+          conflicts.forEach((key) => {
+            merged[key] = keepMine ? editingOffer[key] : serverData[key];
+          });
+        }
+        editingOffer = merged;
+      }
+    }
+
+    editingOffer.updatedAt = new Date().toISOString();
+    editingOffer.updatedBy = personName();
+
     await putOfferFile(filename, editingOffer);
     editingFilename = filename;
     resultEl.textContent = "Gespeichert.";
