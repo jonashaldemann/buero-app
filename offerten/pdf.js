@@ -355,7 +355,7 @@ function drawTotals(ctx, offer) {
   const total = rundungsrabatt ? totalGerundet : subtotal + mwst;
   const labelX = COL_STUNDEN_RIGHT - 140;
 
-  ensureSpace(ctx, 190);
+  ensureSpace(ctx, 175);
   ctx.y -= 10;
 
   const stundensatzHinweis =
@@ -369,7 +369,7 @@ function drawTotals(ctx, offer) {
   });
   ctx.y -= 10;
 
-  const rows = [["Stundentotal", `${chNumberPdf(stundenTotal)} Std.`]];
+  const rows = [];
   if (nebenkosten) rows.push(["Nebenkostenpauschale", chFrPdf(nebenkosten)]);
   if (rundungsrabatt) {
     rows.push(["Honorar", chFrRoundedPdf(subtotalRoh)]);
@@ -397,6 +397,17 @@ function drawTotals(ctx, offer) {
     drawText(ctx, "Zahlbar innert 30 Tagen", PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
     ctx.y -= 13;
   }
+}
+
+// Direkt unter den Modulen statt im Abrechnungsblock -- Stunden sind keine
+// Frankenbeträge und würden dort mit Nebenkosten/Zwischentotal/MWST/Total
+// vermischt, ausserdem macht das den Abrechnungsblock unnötig lang.
+function drawStundenTotalRow(ctx, stundenTotal) {
+  ensureSpace(ctx, 26);
+  ctx.y -= 2;
+  drawText(ctx, "Stundentotal", COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED });
+  drawText(ctx, `${chNumberPdf(stundenTotal)} Std.`, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED, align: "right" });
+  ctx.y -= 22;
 }
 
 function drawPositionenPage(ctx, offer) {
@@ -433,6 +444,10 @@ function drawPositionenPage(ctx, offer) {
   let modulNr = 0;
   const rate = Number(offer.stundensatz_chf) || 0;
   const numbered = offer.automatische_nummerierung !== false;
+  const stundenTotal = (offer.positionen || [])
+    .filter((p) => p.typ === "modul")
+    .reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
+
   (offer.positionen || []).forEach((p) => {
     if (p.typ === "phase") {
       drawPhaseRow(ctx, p);
@@ -442,6 +457,7 @@ function drawPositionenPage(ctx, offer) {
     }
   });
 
+  drawStundenTotalRow(ctx, stundenTotal);
   drawTotals(ctx, offer);
 }
 
