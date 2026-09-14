@@ -298,10 +298,16 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
   const blockHeight = 15 + bulletLines.length * 13 + bemerkungLines.length * 13 + 20;
   ensureSpace(ctx, blockHeight, () => drawColumnHeader(ctx));
 
-  const kosten = (Number(p.stunden) || 0) * rate;
+  const pauschalAktiv = !!p.pauschalAktiv;
+  const kosten = pauschalAktiv ? Number(p.pauschalBetrag) || 0 : (Number(p.stunden) || 0) * rate;
   const titleText = numbered ? `${nr})  ${p.titel || ""}` : p.titel || "";
   drawText(ctx, titleText, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
-  drawText(ctx, chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
+  drawText(ctx, pauschalAktiv ? "Pauschal" : chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, {
+    size: SIZE_BODY,
+    font: ctx.light,
+    color: pauschalAktiv ? PDF_COLOR_MUTED : undefined,
+    align: "right"
+  });
   drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   ctx.y -= 15;
 
@@ -337,8 +343,13 @@ const PDF_ROUNDING_STEP_CHF = 5;
 function drawTotals(ctx, offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
   const modulPositionen = (offer.positionen || []).filter((p) => p.typ === "modul");
-  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
-  const modulSumme = stundenTotal * rate;
+  // Pauschal-Module zählen mit ihrem festen Betrag statt Stunden × Stundensatz
+  // und tragen keine Stunden zum Stundentotal bei.
+  const stundenTotal = modulPositionen.reduce((sum, m) => sum + (m.pauschalAktiv ? 0 : Number(m.stunden) || 0), 0);
+  const modulSumme = modulPositionen.reduce(
+    (sum, m) => sum + (m.pauschalAktiv ? Number(m.pauschalBetrag) || 0 : (Number(m.stunden) || 0) * rate),
+    0
+  );
   const nebenkosten = Number(offer.nebenkosten_chf) || 0;
   const subtotalRoh = modulSumme + nebenkosten;
   const mwstProzent = Number(offer.mwst_prozent) || 0;
@@ -446,7 +457,7 @@ function drawPositionenPage(ctx, offer) {
   const numbered = offer.automatische_nummerierung !== false;
   const stundenTotal = (offer.positionen || [])
     .filter((p) => p.typ === "modul")
-    .reduce((sum, m) => sum + (Number(m.stunden) || 0), 0);
+    .reduce((sum, m) => sum + (m.pauschalAktiv ? 0 : Number(m.stunden) || 0), 0);
 
   (offer.positionen || []).forEach((p) => {
     if (p.typ === "phase") {
