@@ -81,16 +81,17 @@
     flex: 1;
     min-width: 0;
   }
-  .pendenz-check {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .pendenz-main input[type="checkbox"] { width: 22px; height: 22px; flex: none; }
+  /* Text anklicken = bearbeiten (siehe app.js) -- deshalb grosszügig
+     Innenabstand fürs Smartphone, nicht nur die Schriftzeile selbst. */
+  .pendenz-text {
+    font-size: 15px;
+    word-break: break-word;
+    cursor: pointer;
     flex: 1;
     min-width: 0;
-    cursor: pointer;
+    padding: 6px 0;
   }
-  .pendenz-check input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
-  .pendenz-text { font-size: 15px; word-break: break-word; }
   .pendenz-row.erledigt .pendenz-text { text-decoration: line-through; color: var(--text-muted); }
   .pendenz-text-edit {
     font-size: 15px;
@@ -102,12 +103,20 @@
     color: var(--text);
     width: 100%;
   }
+  /* Grössere Anwählfläche fürs Verschieben auf dem Smartphone: die
+     sichtbare Ikone bleibt 16px, per Padding + kompensierendem
+     Negativ-Rand wird die tatsächliche Trefferfläche aber grosszügiger,
+     ohne die restliche Zeile zu verschieben. */
   .drag-handle {
     flex: none;
     color: var(--text-muted);
     cursor: grab;
     display: flex;
+    align-items: center;
+    justify-content: center;
     touch-action: none;
+    padding: 12px 8px;
+    margin: -12px -8px -12px -4px;
   }
   .pendenz-row.dragging { opacity: 0.4; }
   .pendenz-meta {
@@ -188,11 +197,11 @@
   <section class="filter-row" id="personFilterRow"></section>
   <section class="filter-row" id="projectFilterRow"></section>
 
-  <section class="add-row">
-    <input type="text" id="inputNeuText" placeholder="Neue Pendenz…">
+  <form id="addForm" class="add-row">
+    <input type="text" id="inputNeuText" placeholder="Neue Pendenz…" autocomplete="off">
     <select id="inputNeuPerson"><option value="">Person (optional)</option></select>
-    <button id="addPendenzBtn" class="btn-primary">+</button>
-  </section>
+    <button type="submit" class="btn-primary">+</button>
+  </form>
 
   <div class="sync-line" id="syncLine" style="text-align:center;">&nbsp;</div>
 
