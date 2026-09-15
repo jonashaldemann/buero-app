@@ -594,28 +594,46 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   die Zeiterfassung (`PROJECTS_SHARE_TOKEN`), damit ein Projekt überall
   gleich heisst und gleich aussieht. Ein Klick auf einen Projekt-Button
   filtert die Liste; eine neue Pendenz wird automatisch dem gerade
-  ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt).
+  ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt). In der
+  Zeile selbst steht der Projektname bewusst nicht als Text (nur der linke
+  Farbrand zeigt ihn) — Platzgründe, die Farbe reicht zum Erkennen.
 - **Personen**: die (aktuell 2) Personen für das optionale "Person"-Feld und
   die Personen-Filterknöpfe kommen aus `pendenzen/personen.json`
   (`{key, name}`, analog zu `offerten/unterzeichner.json`) — das ist keine
   Nextcloud-Login-Liste, nur eine feste Auswahlliste zum Zuordnen/Filtern.
-  Neue Person: einfach in dieser Datei ergänzen.
+  Neue Person: einfach in dieser Datei ergänzen. Ist ein Personen-Filter
+  aktiv, wird das Erfassen-Dropdown automatisch darauf vorausgewählt (lässt
+  sich vor dem Erfassen noch umstellen); in der Zeile selbst erscheint nur
+  das Kürzel (Initialen), der volle Name als Tooltip bzw. im
+  Bearbeiten-Modus.
+- **Erfassen**: Enter im Textfeld erfasst direkt (echtes `<form>` mit
+  submit-Event, kein Klick auf "+" nötig — funktioniert auch mit der
+  "Los/Fertig"-Taste virtueller Smartphone-Tastaturen).
 - **Erledigen & Löschen**: Abhaken verschiebt eine Pendenz optisch in den
   Abschnitt "Erledigt" weiter unten (durchgestrichen), lässt sich dort
   jederzeit wieder zurückholen (Häkchen entfernen). "🗑 erledigte löschen"
   löscht endgültig nur die erledigten Pendenzen, die im **aktuell aktiven**
   Projekt-/Personen-Filter sichtbar sind — nicht alle erledigten überhaupt.
-- **Nachträglich ändern**: über das "✎"-Symbol an einer offenen Pendenz
-  lassen sich Text, Projekt und Person jederzeit ändern (Projekt/Person auch
-  wieder entfernen). Die Auswahllisten speichern sofort, der Text beim
-  Verlassen des Feldes bzw. mit Enter (ein leeres Textfeld wird ignoriert,
-  der bisherige Text bleibt erhalten).
+- **Nachträglich ändern**: eine offene Pendenz anklicken (der Text, nicht
+  die Checkbox) aktiviert den Bearbeiten-Modus für Text, Projekt und Person
+  (Projekt/Person auch wieder entfernbar) — kein separates Symbol nötig.
+  Die Auswahllisten speichern sofort, der Text beim Verlassen des Feldes
+  bzw. mit Enter (ein leeres Textfeld wird ignoriert, der bisherige Text
+  bleibt erhalten).
 - **Reihenfolge**: der Ziehgriff (☰) an einer offenen Pendenz verschiebt sie
-  per Drag & Drop frei innerhalb der aktuell sichtbaren (gefilterten) Liste
-  (gleiches Prinzip wie das Verschieben von Modulen/Phasen bei den
-  Offerten); die Reihenfolge bleibt über Filter- und Geräte-Wechsel hinweg
-  erhalten. Neue Pendenzen landen immer zuoberst. Der Erledigt-Bereich hat
-  keine manuelle Reihenfolge (sortiert nach Erledigt-Zeitpunkt).
+  per Drag & Drop frei innerhalb der aktuell sichtbaren (gefilterten)
+  Liste — über Pointer Events verdrahtet (nicht die HTML5-Drag&Drop-API,
+  die auf Touchscreens praktisch nicht funktioniert), deckt also Maus,
+  Touch und Stift einheitlich ab; die Anwählfläche des Griffs ist bewusst
+  grosszügiger als das sichtbare Symbol. Die Reihenfolge bleibt über
+  Filter- und Geräte-Wechsel hinweg erhalten. Neue Pendenzen landen immer
+  zuoberst. Der Erledigt-Bereich hat keine manuelle Reihenfolge (sortiert
+  nach Erledigt-Zeitpunkt).
+- **Sync-Warteschlange**: mehrere Änderungen (z.B. der allererste
+  Ladevorgang beim Öffnen der App und direkt danach eine neu erfasste
+  Pendenz) laufen serialisiert nacheinander statt parallel überlappend --
+  sonst könnte ein noch laufender älterer Ladevorgang eine zwischenzeitlich
+  bereits gespeicherte neue Pendenz beim Zurückschreiben wieder verlieren.
 
 ## Bekannte Grenzen
 
