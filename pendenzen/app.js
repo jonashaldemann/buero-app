@@ -108,6 +108,18 @@ function personLabel(key) {
   const p = personen.find((x) => x.key === key);
   return p ? p.name : "";
 }
+// Kurzform für die Pendenz-Zeile selbst (Platz ist knapp) -- der volle Name
+// steht im "title"-Attribut und im Bearbeiten-Modus im Dropdown.
+function personInitials(key) {
+  const p = personen.find((x) => x.key === key);
+  if (!p) return "";
+  return p.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
 
 // ---------- Nextcloud ----------
 
@@ -164,13 +176,27 @@ function mergePendenzenLists(serverList, localList) {
 // deleteIds: Pendenzen, die endgültig entfernt werden sollen -- ohne das
 // würde mergePendenzenLists() sie aus dem (noch nicht aktualisierten)
 // Serverstand einfach wieder zurückholen.
-async function syncPendenzen(localChange, deleteIds) {
+//
+// Der Netzwerk-Teil (fetch -> merge -> put) läuft in einer Warteschlange
+// (syncQueue), NICHT parallel bei jedem Aufruf: sonst könnten sich zwei
+// schnell hintereinander ausgelöste Syncs gegenseitig überschreiben -- z.B.
+// der allererste Ladevorgang beim Öffnen der App (noch nicht fertig) und
+// das direkt danach erfasste "+ Neue Pendenz" derselben Person. Die lokale,
+// optimistische Änderung selbst bleibt sofort/synchron (für unmittelbares
+// UI-Feedback), nur das Schreiben/Lesen auf Nextcloud wird serialisiert.
+let syncQueue = Promise.resolve();
+
+function syncPendenzen(localChange, deleteIds) {
   if (typeof localChange === "function") {
     pendenzen = localChange(pendenzen);
     saveJSON(LS_KEYS.cache, pendenzen);
     render();
   }
+  syncQueue = syncQueue.then(() => syncPendenzenNow(deleteIds));
+  return syncQueue;
+}
 
+async function syncPendenzenNow(deleteIds) {
   const line = document.getElementById("syncLine");
   if (!isConfigured()) {
     if (line) line.textContent = "Nextcloud noch nicht eingerichtet · Einstellungen ⚙";
@@ -204,7 +230,11 @@ function handleAdd() {
   const text = textInput.value.trim();
   if (!text) return;
   const personSelect = document.getElementById("inputNeuPerson");
-  const person = personSelect.value || null;
+  // Explizite Auswahl im Dropdown gewinnt; sonst automatisch die Person des
+  // aktiven Filters übernehmen (das Dropdown zeigt das schon vorausgewählt
+  // an, siehe renderAddForm() -- hier nochmals als Absicherung, falls das
+  // Dropdown aus irgendeinem Grund doch leer ist).
+  const person = personSelect.value || (filterPerson !== "ALL" ? filterPerson : null);
   const projekt = filterProjekt === "ALL" ? null : filterProjekt;
   const now = new Date().toISOString();
   // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
@@ -296,6 +326,7 @@ function renderPersonFilterRow() {
     btn.addEventListener("click", () => {
       filterPerson = btn.dataset.person;
       renderPersonFilterRow();
+      renderAddForm();
       render();
     });
   });
@@ -323,17 +354,19 @@ function renderProjectFilterRow() {
   });
 }
 
+// Person-Dropdown fürs Erfassen: zeigt standardmässig die Person des aktiven
+// Personen-Filters vorausgewählt an (Todo "Person automatisch zugewiesen,
+// sofern eine Person als Filter eingestellt ist") -- lässt sich vor dem
+// Erfassen aber jederzeit manuell umstellen.
 function renderAddForm() {
   const personSelect = document.getElementById("inputNeuPerson");
-  const current = personSelect.value;
   personSelect.innerHTML =
     `<option value="">Person (optional)</option>` +
     personen.map((p) => `<option value="${escapeHtml(p.key)}">${escapeHtml(p.name)}</option>`).join("");
-  personSelect.value = current;
+  personSelect.value = filterPerson !== "ALL" ? filterPerson : "";
 }
 
 function renderMeta(p) {
-  const color = projectColor(p.projekt) || FALLBACK_COLOR;
   if (editingMetaIds.has(p.id)) {
     const projektOptions =
       `<option value="">Kein Projekt</option>` +
@@ -350,37 +383,36 @@ function renderMeta(p) {
       <button type="button" class="row-action" data-action="edit-done" data-id="${p.id}" aria-label="Fertig">✓</button>
     </span>`;
   }
-  const projLabel = p.projekt ? projectLabel(p.projekt) : "";
-  const persLabel = p.person ? personLabel(p.person) : "";
+  // Projekt wird hier bewusst NICHT als Text angezeigt -- der linke
+  // Farbrand der Zeile zeigt es schon, ein Tag daneben wäre nur
+  // Platzverschwendung (siehe Todo). Person als Kürzel (Initialen), voller
+  // Name im title-Attribut -- den ganzen Namen zeigt nur der Bearbeiten-Modus.
+  const initials = p.person ? personInitials(p.person) : "";
   return `<span class="pendenz-meta">
-    ${projLabel ? `<span class="pendenz-tag" style="background:${color}22;color:${color}">${escapeHtml(projLabel)}</span>` : ""}
-    ${persLabel ? `<span class="pendenz-tag">${escapeHtml(persLabel)}</span>` : ""}
-    <button type="button" class="row-action" data-action="edit-start" data-id="${p.id}" aria-label="Bearbeiten" title="Text/Projekt/Person ändern">✎</button>
+    ${initials ? `<span class="pendenz-tag" title="${escapeHtml(personLabel(p.person))}">${escapeHtml(initials)}</span>` : ""}
   </span>`;
 }
 
 // canMove: nur in der offenen Liste sinnvoll -- Reihenfolge erledigter
 // Pendenzen (sortiert nach Erledigt-Zeitpunkt) lässt sich nicht manuell ändern.
+// Die Pendenz selbst (Text) anklicken aktiviert den Bearbeiten-Modus, die
+// Checkbox schaltet unabhängig davon nur ab/an -- kein "✎"-Knopf mehr
+// nötig, und kein <label>-Wrapper mehr um Checkbox+Text (der hätte einen
+// Klick auf den Text auch fälschlich die Checkbox umschalten lassen).
 function renderRow(p, canMove) {
   const color = projectColor(p.projekt) || FALLBACK_COLOR;
   const editing = editingMetaIds.has(p.id);
   const dragHandle = canMove
-    ? `<span class="drag-handle" draggable="true" title="Ziehen zum Verschieben">${DRAG_HANDLE_SVG}</span>`
+    ? `<span class="drag-handle" title="Ziehen zum Verschieben">${DRAG_HANDLE_SVG}</span>`
     : "";
-  // Im Bearbeiten-Modus ein echtes Eingabefeld statt der Klick-zum-Abhaken-
-  // Beschriftung -- deshalb dort auch kein <label> um Checkbox+Text (sonst
-  // würde ein Klick ins Textfeld zusätzlich die Checkbox umschalten).
-  const checkWrapTag = editing ? "div" : "label";
   const textHtml = editing
     ? `<input type="text" class="pendenz-text-edit" data-action="edit-text" data-id="${p.id}" value="${escapeHtml(p.text)}">`
-    : `<span class="pendenz-text">${escapeHtml(p.text)}</span>`;
+    : `<span class="pendenz-text" data-action="edit-start" data-id="${p.id}">${escapeHtml(p.text)}</span>`;
   return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}${editing ? " editing" : ""}" data-id="${p.id}" style="--accent:${color}">
     <span class="pendenz-main">
       ${dragHandle}
-      <${checkWrapTag} class="pendenz-check">
-        <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
-        ${textHtml}
-      </${checkWrapTag}>
+      <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
+      ${textHtml}
     </span>
     ${renderMeta(p)}
   </div>`;
@@ -451,51 +483,58 @@ function render() {
   wireOpenListDrag();
 }
 
-// Drag & Drop zum freien Umsortieren der offenen Liste -- Griff startet den
-// Drag, die Zeile wird dabei live an die neue Stelle verschoben (statt nur
-// eine Linie anzuzeigen). Analog zum Positionen-Drag bei den Offerten
-// (siehe offerten/app.js renderPositionen()).
+// Drag & Drop zum freien Umsortieren der offenen Liste -- über Pointer
+// Events (nicht die HTML5-Drag&Drop-API) verdrahtet, weil Letztere auf
+// Smartphones/Touch praktisch nicht funktioniert (kein natives Touch-Drag
+// in den meisten mobilen Browsern). Pointer Events decken Maus, Touch und
+// Stift einheitlich mit demselben Code ab.
 function wireOpenListDrag() {
   const list = document.getElementById("openList");
-  list.querySelectorAll(".pendenz-row").forEach((row) => {
-    const handle = row.querySelector(".drag-handle");
-    if (!handle) return;
-    handle.addEventListener("dragstart", (e) => {
-      draggedRow = row;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", "");
-      row.classList.add("dragging");
-    });
-    handle.addEventListener("dragend", () => {
-      row.classList.remove("dragging");
-      draggedRow = null;
-      reorderFromDom();
-    });
-    row.addEventListener("dragover", (e) => {
-      if (!draggedRow || draggedRow === row) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const rect = row.getBoundingClientRect();
-      const before = e.clientY - rect.top < rect.height / 2;
-      row.parentNode.insertBefore(draggedRow, before ? row : row.nextSibling);
-    });
+  list.querySelectorAll(".drag-handle").forEach((handle) => {
+    handle.addEventListener("pointerdown", onDragHandlePointerDown);
   });
 }
 
-// Erlaubt das Ablegen unterhalb der letzten Zeile (ans Ende verschieben).
-// Einmalig verdrahtet (in init()), da #openList als Element bestehen bleibt
-// und nur sein Inhalt bei jedem render() neu aufgebaut wird.
-function wireOpenListEndDrop() {
+function onDragHandlePointerDown(e) {
+  if (e.pointerType === "mouse" && e.button !== 0) return; // nur linke Maustaste
+  const row = e.currentTarget.closest(".pendenz-row");
   const list = document.getElementById("openList");
-  list.addEventListener("dragover", (e) => {
-    if (!draggedRow) return;
-    e.preventDefault();
-    const rows = Array.from(list.children).filter((el) => el !== draggedRow && el.classList.contains("pendenz-row"));
-    const last = rows[rows.length - 1];
-    if (last && e.clientY > last.getBoundingClientRect().bottom) {
-      list.appendChild(draggedRow);
+  if (!row || !list) return;
+  e.preventDefault();
+
+  draggedRow = row;
+  row.classList.add("dragging");
+
+  // Bei jeder Pointer-Bewegung: anhand der Y-Position neu einsortieren --
+  // vor der ersten Zeile, deren Mitte unterhalb des Pointers liegt, sonst
+  // ganz ans Ende (deckt damit auch das Ablegen nach der letzten Zeile ab,
+  // ohne einen separaten "Ende der Liste"-Handler wie bei HTML5-Drag&Drop).
+  const onMove = (ev) => {
+    const others = Array.from(list.querySelectorAll(".pendenz-row")).filter((r) => r !== draggedRow);
+    let insertBefore = null;
+    for (const r of others) {
+      const rect = r.getBoundingClientRect();
+      if (ev.clientY < rect.top + rect.height / 2) {
+        insertBefore = r;
+        break;
+      }
     }
-  });
+    if (insertBefore) list.insertBefore(draggedRow, insertBefore);
+    else list.appendChild(draggedRow);
+  };
+
+  const onUp = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    row.classList.remove("dragging");
+    draggedRow = null;
+    reorderFromDom();
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
 }
 
 // ---------- Init ----------
@@ -507,13 +546,17 @@ function init() {
     onSaved: () => syncPendenzen()
   });
 
-  document.getElementById("addPendenzBtn").addEventListener("click", handleAdd);
-  document.getElementById("inputNeuText").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") handleAdd();
+  // Als <form> mit submit-Event statt Button-Klick + manueller
+  // Enter-Erkennung verdrahtet -- Enter im Textfeld löst so zuverlässig aus
+  // (auch über die "Los/Fertig"-Taste virtueller Smartphone-Tastaturen, die
+  // nicht überall ein normales keydown mit key "Enter" auslösen, aber ein
+  // <form> immer submitten).
+  document.getElementById("addForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleAdd();
   });
   document.getElementById("deleteDoneBtn").addEventListener("click", deleteErledigteInFilter);
   document.getElementById("refreshBtn").addEventListener("click", () => syncPendenzen());
-  wireOpenListEndDrop();
 
   window.addEventListener("online", () => syncPendenzen());
   window.addEventListener("visibilitychange", () => {
