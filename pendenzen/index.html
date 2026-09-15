@@ -66,6 +66,21 @@
     border-left: 4px solid var(--accent, var(--border));
   }
   .pendenz-row.erledigt { opacity: 0.55; }
+  /* Im Bearbeiten-Modus reicht eine Zeile nicht mehr (Textfeld + zwei
+     Dropdowns + Fertig-Knopf) -- dann bricht die Zeile in zwei Zeilen um:
+     oben Text, darunter die Auswahllisten. */
+  .pendenz-row.editing { flex-wrap: wrap; }
+  .pendenz-row.editing .pendenz-main,
+  .pendenz-row.editing .pendenz-meta-edit {
+    flex: 1 1 100%;
+  }
+  .pendenz-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
   .pendenz-check {
     display: flex;
     align-items: center;
@@ -77,6 +92,24 @@
   .pendenz-check input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
   .pendenz-text { font-size: 15px; word-break: break-word; }
   .pendenz-row.erledigt .pendenz-text { text-decoration: line-through; color: var(--text-muted); }
+  .pendenz-text-edit {
+    font-size: 15px;
+    font-family: var(--font-light);
+    background: var(--surface-2);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--text);
+    width: 100%;
+  }
+  .drag-handle {
+    flex: none;
+    color: var(--text-muted);
+    cursor: grab;
+    display: flex;
+    touch-action: none;
+  }
+  .pendenz-row.dragging { opacity: 0.4; }
   .pendenz-meta {
     display: flex;
     align-items: center;
@@ -85,6 +118,7 @@
     flex-wrap: wrap;
     justify-content: flex-end;
   }
+  .pendenz-row.editing .pendenz-meta-edit { justify-content: flex-start; margin-left: 26px; }
   .pendenz-tag {
     font-size: 11px;
     background: var(--surface-2);
@@ -114,14 +148,6 @@
     flex: none;
   }
   .row-action:active { color: var(--accent-primary); }
-  .pendenz-move {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: none;
-    margin-left: 4px;
-  }
-  .pendenz-move .row-action { font-size: 11px; padding: 2px 4px; }
 
   #doneSection h2 {
     font-family: var(--font-medium);

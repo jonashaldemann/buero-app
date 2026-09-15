@@ -52,10 +52,17 @@ let pendenzen = loadJSON(LS_KEYS.cache, []);
 let filterPerson = "ALL";
 let filterProjekt = "ALL";
 
-// ids offener Pendenzen, deren Projekt/Person gerade inline bearbeitet wird
-// (siehe renderRow()/updatePendenzField()) -- rein UI-Zustand, nicht Teil
-// der gespeicherten Daten.
+// ids offener Pendenzen, die gerade inline bearbeitet werden (Text/Projekt/
+// Person, siehe renderRow()/updatePendenzField()) -- rein UI-Zustand, nicht
+// Teil der gespeicherten Daten.
 let editingMetaIds = new Set();
+
+// DOM-Element der gerade per Drag & Drop gezogenen Zeile, null ausserhalb
+// eines Drag-Vorgangs (analog zum Positionen-Drag bei den Offerten).
+let draggedRow = null;
+
+const DRAG_HANDLE_SVG =
+  '<svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="10.8" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="15.6" width="12" height="2.4" rx="1.2" fill="currentColor"/></svg>';
 
 // ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
 
@@ -201,7 +208,7 @@ function handleAdd() {
   const projekt = filterProjekt === "ALL" ? null : filterProjekt;
   const now = new Date().toISOString();
   // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
-  // Pfeiltasten frei verschiebbar (siehe moveOrder()).
+  // Drag & Drop frei verschiebbar (siehe reorderFromDom()).
   const minOrder = pendenzen.filter((p) => !p.erledigt).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
   const item = {
     id: uid(),
@@ -237,25 +244,22 @@ function updatePendenzField(id, field, value) {
   syncPendenzen((list) => list.map((p) => (p.id === id ? { ...p, [field]: value, updatedAt: now, updatedBy: personName() } : p)));
 }
 
-// Verschiebt eine Pendenz in der aktuell sichtbaren (gefilterten, offenen)
-// Liste um eine Position nach oben (direction -1) oder unten (+1) -- durch
-// Vertauschen des order-Werts mit dem jeweils benachbarten sichtbaren
-// Eintrag. Am oberen/unteren Rand der Liste passiert nichts.
-function moveOrder(id, direction) {
-  const visible = filteredPendenzen()
-    .filter((p) => !p.erledigt)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const idx = visible.findIndex((p) => p.id === id);
-  const swapIdx = idx + direction;
-  if (idx < 0 || swapIdx < 0 || swapIdx >= visible.length) return;
-  const a = visible[idx];
-  const b = visible[swapIdx];
+// Übernimmt die per Drag & Drop neu angeordnete DOM-Reihenfolge der offenen
+// Liste (siehe wireOpenListDrag()) als neue order-Werte. Verteilt dabei
+// bewusst genau die order-Werte, die die sichtbaren (gefilterten) Pendenzen
+// bereits hatten, nur in neuer Zuordnung -- so bleibt die Einordnung
+// relativ zu Pendenzen ausserhalb des aktuellen Filters erhalten, statt
+// einen komplett neuen Wertebereich zu belegen.
+function reorderFromDom() {
+  const domIds = Array.from(document.querySelectorAll("#openList .pendenz-row")).map((el) => el.dataset.id);
+  const visible = filteredPendenzen().filter((p) => !p.erledigt);
+  const orderValues = visible.map((p) => p.order ?? 0).sort((a, b) => a - b);
   const now = new Date().toISOString();
   syncPendenzen((list) =>
     list.map((p) => {
-      if (p.id === a.id) return { ...p, order: b.order ?? 0, updatedAt: now, updatedBy: personName() };
-      if (p.id === b.id) return { ...p, order: a.order ?? 0, updatedAt: now, updatedBy: personName() };
-      return p;
+      const idx = domIds.indexOf(p.id);
+      if (idx === -1) return p;
+      return { ...p, order: orderValues[idx], updatedAt: now, updatedBy: personName() };
     })
   );
 }
@@ -351,7 +355,7 @@ function renderMeta(p) {
   return `<span class="pendenz-meta">
     ${projLabel ? `<span class="pendenz-tag" style="background:${color}22;color:${color}">${escapeHtml(projLabel)}</span>` : ""}
     ${persLabel ? `<span class="pendenz-tag">${escapeHtml(persLabel)}</span>` : ""}
-    <button type="button" class="row-action" data-action="edit-start" data-id="${p.id}" aria-label="Projekt/Person ändern" title="Projekt/Person ändern">✎</button>
+    <button type="button" class="row-action" data-action="edit-start" data-id="${p.id}" aria-label="Bearbeiten" title="Text/Projekt/Person ändern">✎</button>
   </span>`;
 }
 
@@ -359,19 +363,26 @@ function renderMeta(p) {
 // Pendenzen (sortiert nach Erledigt-Zeitpunkt) lässt sich nicht manuell ändern.
 function renderRow(p, canMove) {
   const color = projectColor(p.projekt) || FALLBACK_COLOR;
-  const moveButtons = canMove
-    ? `<span class="pendenz-move">
-        <button type="button" class="row-action" data-action="move-up" data-id="${p.id}" aria-label="Nach oben verschieben">▲</button>
-        <button type="button" class="row-action" data-action="move-down" data-id="${p.id}" aria-label="Nach unten verschieben">▼</button>
-      </span>`
+  const editing = editingMetaIds.has(p.id);
+  const dragHandle = canMove
+    ? `<span class="drag-handle" draggable="true" title="Ziehen zum Verschieben">${DRAG_HANDLE_SVG}</span>`
     : "";
-  return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}" style="--accent:${color}">
-    <label class="pendenz-check">
-      <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
-      <span class="pendenz-text">${escapeHtml(p.text)}</span>
-    </label>
+  // Im Bearbeiten-Modus ein echtes Eingabefeld statt der Klick-zum-Abhaken-
+  // Beschriftung -- deshalb dort auch kein <label> um Checkbox+Text (sonst
+  // würde ein Klick ins Textfeld zusätzlich die Checkbox umschalten).
+  const checkWrapTag = editing ? "div" : "label";
+  const textHtml = editing
+    ? `<input type="text" class="pendenz-text-edit" data-action="edit-text" data-id="${p.id}" value="${escapeHtml(p.text)}">`
+    : `<span class="pendenz-text">${escapeHtml(p.text)}</span>`;
+  return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}${editing ? " editing" : ""}" data-id="${p.id}" style="--accent:${color}">
+    <span class="pendenz-main">
+      ${dragHandle}
+      <${checkWrapTag} class="pendenz-check">
+        <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
+        ${textHtml}
+      </${checkWrapTag}>
+    </span>
     ${renderMeta(p)}
-    ${moveButtons}
   </div>`;
 }
 
@@ -401,12 +412,6 @@ function render() {
   document.querySelectorAll('[data-action="toggle"]').forEach((cb) => {
     cb.addEventListener("change", () => toggleErledigt(cb.dataset.id, cb.checked));
   });
-  document.querySelectorAll('[data-action="move-up"]').forEach((btn) => {
-    btn.addEventListener("click", () => moveOrder(btn.dataset.id, -1));
-  });
-  document.querySelectorAll('[data-action="move-down"]').forEach((btn) => {
-    btn.addEventListener("click", () => moveOrder(btn.dataset.id, 1));
-  });
   document.querySelectorAll('[data-action="edit-start"]').forEach((btn) => {
     btn.addEventListener("click", () => {
       editingMetaIds.add(btn.dataset.id);
@@ -425,6 +430,72 @@ function render() {
   document.querySelectorAll('[data-action="edit-person"]').forEach((sel) => {
     sel.addEventListener("change", () => updatePendenzField(sel.dataset.id, "person", sel.value || null));
   });
+  document.querySelectorAll('[data-action="edit-text"]').forEach((input) => {
+    const commit = () => {
+      const val = input.value.trim();
+      if (val && val !== input.defaultValue) updatePendenzField(input.dataset.id, "text", val);
+    };
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        // Enter = fertig: speichern UND den ganzen Bearbeiten-Modus dieser
+        // Zeile schliessen (nicht nur das Textfeld verlassen).
+        e.preventDefault();
+        commit();
+        editingMetaIds.delete(input.dataset.id);
+        render();
+      }
+    });
+  });
+
+  wireOpenListDrag();
+}
+
+// Drag & Drop zum freien Umsortieren der offenen Liste -- Griff startet den
+// Drag, die Zeile wird dabei live an die neue Stelle verschoben (statt nur
+// eine Linie anzuzeigen). Analog zum Positionen-Drag bei den Offerten
+// (siehe offerten/app.js renderPositionen()).
+function wireOpenListDrag() {
+  const list = document.getElementById("openList");
+  list.querySelectorAll(".pendenz-row").forEach((row) => {
+    const handle = row.querySelector(".drag-handle");
+    if (!handle) return;
+    handle.addEventListener("dragstart", (e) => {
+      draggedRow = row;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "");
+      row.classList.add("dragging");
+    });
+    handle.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      draggedRow = null;
+      reorderFromDom();
+    });
+    row.addEventListener("dragover", (e) => {
+      if (!draggedRow || draggedRow === row) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      row.parentNode.insertBefore(draggedRow, before ? row : row.nextSibling);
+    });
+  });
+}
+
+// Erlaubt das Ablegen unterhalb der letzten Zeile (ans Ende verschieben).
+// Einmalig verdrahtet (in init()), da #openList als Element bestehen bleibt
+// und nur sein Inhalt bei jedem render() neu aufgebaut wird.
+function wireOpenListEndDrop() {
+  const list = document.getElementById("openList");
+  list.addEventListener("dragover", (e) => {
+    if (!draggedRow) return;
+    e.preventDefault();
+    const rows = Array.from(list.children).filter((el) => el !== draggedRow && el.classList.contains("pendenz-row"));
+    const last = rows[rows.length - 1];
+    if (last && e.clientY > last.getBoundingClientRect().bottom) {
+      list.appendChild(draggedRow);
+    }
+  });
 }
 
 // ---------- Init ----------
@@ -442,6 +513,7 @@ function init() {
   });
   document.getElementById("deleteDoneBtn").addEventListener("click", deleteErledigteInFilter);
   document.getElementById("refreshBtn").addEventListener("click", () => syncPendenzen());
+  wireOpenListEndDrop();
 
   window.addEventListener("online", () => syncPendenzen());
   window.addEventListener("visibilitychange", () => {
