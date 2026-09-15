@@ -1,6 +1,6 @@
 # Büro-Apps
 
-Fünf kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Sechs kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
@@ -8,30 +8,31 @@ App auf dem Homescreen installierbar:
 - **[Wettbewerbsprogramme](wettbewerbsprogramme/)** — Architekturwettbewerbe (JSON) hochladen und vergleichen.
 - **[Offerten](offerten/)** — Offerten aus Modulen zusammenstellen, Kosten berechnen, auf Nextcloud sichern.
 - **[Adressliste](adressliste/)** — Adressen filtern, Ansichten speichern, auf Nextcloud sichern.
+- **[Pendenzen](pendenzen/)** — To-do-Liste nach Projekt und Person filterbar, auf Nextcloud sichern.
 
-Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit fünf
-Kacheln, die auf die fünf Unterordner verlinken. Jede der fünf Apps hat ihr
+Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit sechs
+Kacheln, die auf die sechs Unterordner verlinken. Jede der sechs Apps hat ihr
 eigenes `manifest.json` und ihren eigenen `service-worker.js` — man kann also
 entweder die Startseite installieren (Kachel-Menü) **oder** direkt auf einer
 Unterseite "Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine
 App als eigenes Icon auf dem Homescreen.
 
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog) liegt
-in `shared/common.js` und wird von allen fünf Apps eingebunden.
+in `shared/common.js` und wird von allen sechs Apps eingebunden.
 `localStorage` ist pro Domain (nicht pro Unterordner) gültig — einmal in
-**irgendeiner** der fünf Apps unter dem Zahnrad-Symbol eingerichtet, gelten
-Benutzername/App-Passwort automatisch auch in den anderen vieren.
+**irgendeiner** der sechs Apps unter dem Zahnrad-Symbol eingerichtet, gelten
+Benutzername/App-Passwort automatisch auch in den anderen fünfen.
 
-## Ersteinrichtung (einmalig, für alle fünf Apps zusammen)
+## Ersteinrichtung (einmalig, für alle sechs Apps zusammen)
 
 1. In Nextcloud: **Einstellungen → Sicherheit → App-Passwörter** → neues
    App-Passwort erstellen (z.B. Name "Büro-App").
-2. In einer der fünf Apps (egal welche) auf das Zahnrad-Symbol tippen:
+2. In einer der sechs Apps (egal welche) auf das Zahnrad-Symbol tippen:
    - **Benutzername**: euer Nextcloud-Login
    - **App-Passwort**: das eben erstellte
    - **Anzeigename**: erscheint z.B. in der Zeiterfassungs-CSV als "Person"
 3. "Verbindung testen" klicken, bei Erfolg "Speichern". Ab jetzt sind die
-   Zugangsdaten in allen fünf Apps auf diesem Gerät nutzbar.
+   Zugangsdaten in allen sechs Apps auf diesem Gerät nutzbar.
 
 **Sicherheitshinweis:** Das App-Passwort wird ausschliesslich lokal im
 Browser gespeichert (localStorage) und niemals ins Repo committet.
@@ -44,9 +45,9 @@ Account hat seinen eigenen, komplett getrennten Nextcloud-Dateibereich.
 Die Managed Nextcloud bei hosting.de schickt bei Cross-Origin-Requests
 (Browser → Nextcloud von einer anderen Domain aus) keine
 `Access-Control-Allow-Origin`-Header — der Browser blockiert deshalb den
-direkten Zugriff. Deshalb sprechen alle fünf Apps nicht direkt mit Nextcloud,
+direkten Zugriff. Deshalb sprechen alle sechs Apps nicht direkt mit Nextcloud,
 sondern über einen kleinen **Cloudflare Worker** als Proxy (`worker.js`,
-gemeinsam für alle fünf Apps). Der Worker läuft server-seitig, hat also kein
+gemeinsam für alle sechs Apps). Der Worker läuft server-seitig, hat also kein
 CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die fehlenden
 Header. Er speichert nichts — die Daten liegen weiterhin ausschliesslich auf
 eurer eigenen Nextcloud.
@@ -63,7 +64,7 @@ eurer eigenen Nextcloud.
 5. Cloudflare zeigt euch jetzt eure Worker-URL, z.B.
    `https://zeit-proxy.euer-name.workers.dev`.
 6. Diese URL bei `PROXY_URL` in `shared/common.js` eintragen (eine einzige
-   Stelle, gilt für alle fünf Apps), committen, pushen.
+   Stelle, gilt für alle sechs Apps), committen, pushen.
 
 **Falls der Worker schon läuft:** Bei jeder Erweiterung der App (neue
 HTTP-Methode, neuer Header) muss der Code in `worker.js` erneut im
@@ -574,21 +575,56 @@ das Browserfenster.
 
 ---
 
+## Pendenzen
+
+Einfache To-do-Liste, nach Projekt und Person filterbar.
+
+- **Speicherort**: anders als Offerten/Adressliste (eine Datei pro
+  Datensatz) liegen alle Pendenzen in **einer** gemeinsamen Datei
+  `Buero/Admin/Pendenzen/pendenzen.json` — bei kurzen, oft schnell
+  angehakten/ergänzten Texten wäre eine Datei pro Pendenz nur Overhead.
+- **Gleichzeitige Bearbeitung**: da alle Pendenzen eine Datei teilen, würde
+  ein einfaches Überschreiben Änderungen einer anderen Person verlieren.
+  Beim Speichern wird deshalb der aktuelle Serverstand nochmals geholt und
+  pro Pendenz (per id) gemergt — die jeweils neuere `updatedAt` gewinnt, nur
+  lokal oder nur serverseitig bekannte Pendenzen bleiben in jedem Fall
+  erhalten. Anders als bei den Offerten (Feld-Merge) ist das ein Merge auf
+  Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog.
+- **Projekte & Farben**: kommen aus derselben zentral verwalteten Liste wie
+  die Zeiterfassung (`PROJECTS_SHARE_TOKEN`), damit ein Projekt überall
+  gleich heisst und gleich aussieht. Ein Klick auf einen Projekt-Button
+  filtert die Liste; eine neue Pendenz wird automatisch dem gerade
+  ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt).
+- **Personen**: die (aktuell 2) Personen für das optionale "Person"-Feld und
+  die Personen-Filterknöpfe kommen aus `pendenzen/personen.json`
+  (`{key, name}`, analog zu `offerten/unterzeichner.json`) — das ist keine
+  Nextcloud-Login-Liste, nur eine feste Auswahlliste zum Zuordnen/Filtern.
+  Neue Person: einfach in dieser Datei ergänzen.
+- **Erledigen & Löschen**: Abhaken verschiebt eine Pendenz optisch in den
+  Abschnitt "Erledigt" weiter unten (durchgestrichen), lässt sich dort
+  jederzeit wieder zurückholen (Häkchen entfernen). "🗑 erledigte löschen"
+  löscht endgültig nur die erledigten Pendenzen, die im **aktuell aktiven**
+  Projekt-/Personen-Filter sichtbar sind — nicht alle erledigten überhaupt.
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
   App auf zwei Geräten gleichzeitig nutzt, kann beim Sync ein Eintrag
   verloren gehen (read-modify-write ohne Locking). Bei normalem Gebrauch (ein
-  Gerät) ist das kein Thema. Ausnahme: die Adressliste hat eine einfache
-  Konflikt-Erkennung pro Kontakt eingebaut (siehe Abschnitt "Adressliste").
+  Gerät) ist das kein Thema. Ausnahmen: die Adressliste hat eine einfache
+  Konflikt-Erkennung pro Kontakt eingebaut (siehe Abschnitt "Adressliste"),
+  die Offerten mergen beim Speichern pro Feld (siehe Abschnitt "Offerten"),
+  und die Pendenzen mergen ihre gemeinsame Liste pro Eintrag (siehe
+  Abschnitt "Pendenzen").
 - Läuft die Zeiterfassung über Stunden im Hintergrund/Tab geschlossen, wird
   der Zähler beim nächsten Öffnen korrekt weitergerechnet (kein
   Datenverlust), aber es gibt keine Push-Erinnerung, falls vergessen wird,
   auf Stop zu klicken.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
-  `icons/adressliste-*.png` (je 192px + 512px PNG). Zum Ändern einfach unter
-  denselben Dateinamen ersetzen — keine Code-/Manifest-Änderung nötig.
+  `icons/adressliste-*.png`, `icons/pendenzen-*.png` (je 192px + 512px PNG).
+  Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
+  Code-/Manifest-Änderung nötig.
 
 ## Lokal testen
 
@@ -596,7 +632,7 @@ das Browserfenster.
 python3 -m http.server 8080
 # im Browser: http://localhost:8080 (Startseite)
 # bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/,
-# /offerten/, /adressliste/
+# /offerten/, /adressliste/, /pendenzen/
 ```
 
 ## Auf GitHub veröffentlichen (GitHub Pages)
