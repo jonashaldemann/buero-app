@@ -46,11 +46,16 @@ let projectList = loadJSON(LS_KEYS.projectsCache, ["P1", "P2", "P3"]);
 let personen = [];
 
 // { id, text, projekt ("P1"/... oder null), person (key oder null),
-//   erledigt, erledigtAt, createdAt, updatedAt, updatedBy }
+//   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy }
 let pendenzen = loadJSON(LS_KEYS.cache, []);
 
 let filterPerson = "ALL";
 let filterProjekt = "ALL";
+
+// ids offener Pendenzen, deren Projekt/Person gerade inline bearbeitet wird
+// (siehe renderRow()/updatePendenzField()) -- rein UI-Zustand, nicht Teil
+// der gespeicherten Daten.
+let editingMetaIds = new Set();
 
 // ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
 
@@ -195,6 +200,9 @@ function handleAdd() {
   const person = personSelect.value || null;
   const projekt = filterProjekt === "ALL" ? null : filterProjekt;
   const now = new Date().toISOString();
+  // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
+  // Pfeiltasten frei verschiebbar (siehe moveOrder()).
+  const minOrder = pendenzen.filter((p) => !p.erledigt).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
   const item = {
     id: uid(),
     text,
@@ -202,6 +210,7 @@ function handleAdd() {
     person,
     erledigt: false,
     erledigtAt: null,
+    order: minOrder - 1,
     createdAt: now,
     updatedAt: now,
     updatedBy: personName()
@@ -218,6 +227,36 @@ function toggleErledigt(id, erledigt) {
     list.map((p) =>
       p.id === id ? { ...p, erledigt, erledigtAt: erledigt ? now : null, updatedAt: now, updatedBy: personName() } : p
     )
+  );
+}
+
+// Ändert Projekt oder Person einer bestehenden Pendenz (siehe der
+// "✎"-Knopf in renderRow()).
+function updatePendenzField(id, field, value) {
+  const now = new Date().toISOString();
+  syncPendenzen((list) => list.map((p) => (p.id === id ? { ...p, [field]: value, updatedAt: now, updatedBy: personName() } : p)));
+}
+
+// Verschiebt eine Pendenz in der aktuell sichtbaren (gefilterten, offenen)
+// Liste um eine Position nach oben (direction -1) oder unten (+1) -- durch
+// Vertauschen des order-Werts mit dem jeweils benachbarten sichtbaren
+// Eintrag. Am oberen/unteren Rand der Liste passiert nichts.
+function moveOrder(id, direction) {
+  const visible = filteredPendenzen()
+    .filter((p) => !p.erledigt)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const idx = visible.findIndex((p) => p.id === id);
+  const swapIdx = idx + direction;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= visible.length) return;
+  const a = visible[idx];
+  const b = visible[swapIdx];
+  const now = new Date().toISOString();
+  syncPendenzen((list) =>
+    list.map((p) => {
+      if (p.id === a.id) return { ...p, order: b.order ?? 0, updatedAt: now, updatedBy: personName() };
+      if (p.id === b.id) return { ...p, order: a.order ?? 0, updatedAt: now, updatedBy: personName() };
+      return p;
+    })
   );
 }
 
@@ -289,32 +328,63 @@ function renderAddForm() {
   personSelect.value = current;
 }
 
-function renderRow(p) {
+function renderMeta(p) {
   const color = projectColor(p.projekt) || FALLBACK_COLOR;
+  if (editingMetaIds.has(p.id)) {
+    const projektOptions =
+      `<option value="">Kein Projekt</option>` +
+      projectList.map((name, i) => {
+        const id = `P${i + 1}`;
+        return `<option value="${id}" ${p.projekt === id ? "selected" : ""}>${escapeHtml(name)}</option>`;
+      }).join("");
+    const personOptions =
+      `<option value="">Keine Person</option>` +
+      personen.map((per) => `<option value="${escapeHtml(per.key)}" ${p.person === per.key ? "selected" : ""}>${escapeHtml(per.name)}</option>`).join("");
+    return `<span class="pendenz-meta pendenz-meta-edit">
+      <select data-action="edit-projekt" data-id="${p.id}">${projektOptions}</select>
+      <select data-action="edit-person" data-id="${p.id}">${personOptions}</select>
+      <button type="button" class="row-action" data-action="edit-done" data-id="${p.id}" aria-label="Fertig">✓</button>
+    </span>`;
+  }
   const projLabel = p.projekt ? projectLabel(p.projekt) : "";
   const persLabel = p.person ? personLabel(p.person) : "";
+  return `<span class="pendenz-meta">
+    ${projLabel ? `<span class="pendenz-tag" style="background:${color}22;color:${color}">${escapeHtml(projLabel)}</span>` : ""}
+    ${persLabel ? `<span class="pendenz-tag">${escapeHtml(persLabel)}</span>` : ""}
+    <button type="button" class="row-action" data-action="edit-start" data-id="${p.id}" aria-label="Projekt/Person ändern" title="Projekt/Person ändern">✎</button>
+  </span>`;
+}
+
+// canMove: nur in der offenen Liste sinnvoll -- Reihenfolge erledigter
+// Pendenzen (sortiert nach Erledigt-Zeitpunkt) lässt sich nicht manuell ändern.
+function renderRow(p, canMove) {
+  const color = projectColor(p.projekt) || FALLBACK_COLOR;
+  const moveButtons = canMove
+    ? `<span class="pendenz-move">
+        <button type="button" class="row-action" data-action="move-up" data-id="${p.id}" aria-label="Nach oben verschieben">▲</button>
+        <button type="button" class="row-action" data-action="move-down" data-id="${p.id}" aria-label="Nach unten verschieben">▼</button>
+      </span>`
+    : "";
   return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}" style="--accent:${color}">
     <label class="pendenz-check">
       <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
       <span class="pendenz-text">${escapeHtml(p.text)}</span>
     </label>
-    <span class="pendenz-meta">
-      ${projLabel ? `<span class="pendenz-tag" style="background:${color}22;color:${color}">${escapeHtml(projLabel)}</span>` : ""}
-      ${persLabel ? `<span class="pendenz-tag">${escapeHtml(persLabel)}</span>` : ""}
-    </span>
+    ${renderMeta(p)}
+    ${moveButtons}
   </div>`;
 }
 
 function render() {
   const list = filteredPendenzen();
-  const offen = list.filter((p) => !p.erledigt).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const offen = list.filter((p) => !p.erledigt).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const erledigt = list
     .filter((p) => p.erledigt)
     .sort((a, b) => String(b.erledigtAt || b.updatedAt || "").localeCompare(String(a.erledigtAt || a.updatedAt || "")));
 
   const openList = document.getElementById("openList");
   openList.innerHTML = offen.length
-    ? offen.map(renderRow).join("")
+    ? offen.map((p) => renderRow(p, true)).join("")
     : '<p class="hint" style="margin:0;">Keine offenen Pendenzen im aktuellen Filter.</p>';
 
   const doneSection = document.getElementById("doneSection");
@@ -322,7 +392,7 @@ function render() {
   const deleteDoneBtn = document.getElementById("deleteDoneBtn");
   if (erledigt.length) {
     doneSection.style.display = "";
-    doneList.innerHTML = erledigt.map(renderRow).join("");
+    doneList.innerHTML = erledigt.map((p) => renderRow(p, false)).join("");
     deleteDoneBtn.textContent = `🗑 ${erledigt.length} erledigte löschen`;
   } else {
     doneSection.style.display = "none";
@@ -330,6 +400,30 @@ function render() {
 
   document.querySelectorAll('[data-action="toggle"]').forEach((cb) => {
     cb.addEventListener("change", () => toggleErledigt(cb.dataset.id, cb.checked));
+  });
+  document.querySelectorAll('[data-action="move-up"]').forEach((btn) => {
+    btn.addEventListener("click", () => moveOrder(btn.dataset.id, -1));
+  });
+  document.querySelectorAll('[data-action="move-down"]').forEach((btn) => {
+    btn.addEventListener("click", () => moveOrder(btn.dataset.id, 1));
+  });
+  document.querySelectorAll('[data-action="edit-start"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      editingMetaIds.add(btn.dataset.id);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-action="edit-done"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      editingMetaIds.delete(btn.dataset.id);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-action="edit-projekt"]').forEach((sel) => {
+    sel.addEventListener("change", () => updatePendenzField(sel.dataset.id, "projekt", sel.value || null));
+  });
+  document.querySelectorAll('[data-action="edit-person"]').forEach((sel) => {
+    sel.addEventListener("change", () => updatePendenzField(sel.dataset.id, "person", sel.value || null));
   });
 }
 
