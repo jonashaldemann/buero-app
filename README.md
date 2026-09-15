@@ -605,6 +605,15 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   jederzeit wieder zurückholen (Häkchen entfernen). "🗑 erledigte löschen"
   löscht endgültig nur die erledigten Pendenzen, die im **aktuell aktiven**
   Projekt-/Personen-Filter sichtbar sind — nicht alle erledigten überhaupt.
+- **Nachträglich ändern**: über das "✎"-Symbol an einer offenen Pendenz
+  lassen sich Projekt und Person jederzeit ändern (auch nachträglich
+  entfernen). Der Pendenztext selbst ist bewusst nicht nachträglich
+  editierbar — für einen Tippfehler lieber löschen und neu erfassen.
+- **Reihenfolge**: die Pfeile ▲/▼ an einer offenen Pendenz verschieben sie
+  innerhalb der aktuell sichtbaren (gefilterten) Liste; die Reihenfolge
+  bleibt über Filter- und Geräte-Wechsel hinweg erhalten. Neue Pendenzen
+  landen immer zuoberst. Der Erledigt-Bereich hat keine manuelle
+  Reihenfolge (sortiert nach Erledigt-Zeitpunkt).
 
 ## Bekannte Grenzen
 
