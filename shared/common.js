@@ -1,18 +1,19 @@
 /* ============================================================
    Gemeinsame Hilfsfunktionen für alle Büro-Apps (Zeiterfassung,
-   Quittung, Wettbewerbsprogramme, Offerten).
+   Quittung, Wettbewerbsprogramme, Offerten, Adressliste, Pendenzen).
 
    Wird per <script src="../shared/common.js"> VOR dem jeweiligen
    app.js eingebunden. localStorage ist pro Origin (nicht pro
    Pfad) gültig -- die Nextcloud-Zugangsdaten (SETTINGS_KEY), einmal
-   in irgendeiner der vier Apps gespeichert, sind automatisch in
+   in irgendeiner der Apps gespeichert, sind automatisch in
    allen anderen ebenfalls verfügbar.
 
    Jede index.html, die dieses Skript einbindet, muss folgende
    Element-IDs für den Einstellungen-Dialog bereitstellen (Markup
    lässt sich ohne Build-Schritt nicht teilen, ist aber stabil):
-   settingsBtn, settingsOverlay, closeSettings, inputDisplayName,
-   inputUser, inputPass, saveSettingsBtn, testConnBtn, testResult.
+   settingsBtn, settingsOverlay, closeSettings, inputUser, inputPass,
+   saveSettingsBtn, testConnBtn, testResult. Kein eigenes Anzeigename-Feld
+   (mehr) -- siehe deriveDisplayName().
    ============================================================ */
 
 const SETTINGS_KEY = "zeit_settings";
@@ -146,7 +147,6 @@ function togglePasswordVisibility() {
 }
 
 function openSettings() {
-  document.getElementById("inputDisplayName").value = settings.displayName || "";
   document.getElementById("inputUser").value = settings.username;
   document.getElementById("inputPass").value = settings.appPassword;
   resetPasswordVisibility();
@@ -156,10 +156,19 @@ function openSettings() {
 function closeSettingsFn() {
   document.getElementById("settingsOverlay").classList.add("hidden");
 }
+// Kein eigenes Anzeigename-Feld mehr im Dialog -- der Name (z.B. für die
+// Zeiterfassungs-CSV-Spalte "Person") wird automatisch aus dem Benutzernamen
+// abgeleitet: bei einer E-Mail-Adresse der Teil vor dem "@", sonst der ganze
+// Benutzername, erster Buchstabe gross (z.B. "jonas" -> "Jonas",
+// "jonas@firma.ch" -> "Jonas").
+function deriveDisplayName(username) {
+  const namePart = (username || "").split("@")[0].trim();
+  return namePart ? namePart.charAt(0).toUpperCase() + namePart.slice(1) : "";
+}
 function saveSettings(onSaved) {
-  settings.displayName = document.getElementById("inputDisplayName").value.trim();
   settings.username = document.getElementById("inputUser").value.trim();
   settings.appPassword = document.getElementById("inputPass").value.trim();
+  settings.displayName = deriveDisplayName(settings.username);
   saveJSON(SETTINGS_KEY, settings);
   closeSettingsFn();
   if (typeof onSaved === "function") onSaved();

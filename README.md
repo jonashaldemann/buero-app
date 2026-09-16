@@ -34,9 +34,14 @@ Benutzername/App-Passwort automatisch auch in den anderen fünfen.
 2. In einer der sechs Apps (egal welche) auf das Zahnrad-Symbol tippen:
    - **Benutzername**: euer Nextcloud-Login
    - **App-Passwort**: das eben erstellte
-   - **Anzeigename**: erscheint z.B. in der Zeiterfassungs-CSV als "Person"
 3. "Verbindung testen" klicken, bei Erfolg "Speichern". Ab jetzt sind die
    Zugangsdaten in allen sechs Apps auf diesem Gerät nutzbar.
+
+Kein eigenes Anzeigename-Feld (mehr) — der Name, der z.B. in der
+Zeiterfassungs-CSV als "Person" erscheint, wird automatisch aus dem
+Benutzernamen abgeleitet (`deriveDisplayName()` in `shared/common.js`): bei
+einer E-Mail-Adresse der Teil vor dem "@", sonst der ganze Benutzername,
+erster Buchstabe gross (z.B. `jonas` → "Jonas", `jonas@firma.ch` → "Jonas").
 
 **Sicherheitshinweis:** Das App-Passwort wird ausschliesslich lokal im
 Browser gespeichert (localStorage) und niemals ins Repo committet.
@@ -158,17 +163,27 @@ aktualisiert; nur wirklich neue Tag/Projekt-Kombinationen werden angehängt.
 - `Dauer_Min` ist auf 2 Nachkommastellen genau.
 - `Kommentar` lässt sich in der App unter "Heute" pro Projekt eintragen,
   bezieht sich auf die Tagessumme, nur für den **heutigen** Tag editierbar.
-- `Person` kommt aus dem "Anzeigename" in den Einstellungen.
+- `Person` kommt aus dem Anzeigename, der automatisch aus dem Benutzernamen
+  abgeleitet wird (siehe "Ersteinrichtung" oben).
 - Klicks unter 5 Sekunden werden ignoriert (Schutz vor Versehen-Klicks).
 
 ### Auswertung (zeiterfassung/dashboard/)
 
 Eine separate, schreibgeschützte Auswertungsseite (Charts + Tabelle nach
-Projekt/Person, Jahr/Projekt/Person-Filter) liegt unter
-`zeiterfassung/dashboard/` — liest die CSVs über öffentliche
-Nextcloud-Freigabelinks (`PERSON_SOURCES` in `dashboard/js/dashboard.js`),
-kein Login nötig. Aktuell nirgends in der App verlinkt, direkt per URL
-aufrufbar.
+Projekt/Person) liegt unter `zeiterfassung/dashboard/` — liest die CSVs über
+öffentliche Nextcloud-Freigabelinks (`PERSON_SOURCES` in
+`dashboard/js/dashboard.js`), kein Login nötig. Von der Startseite aus über
+ein eigenes Icon ("Auswertung") erreichbar.
+
+Filterbar nach Jahr, Projekt, Person sowie zusätzlich nach Zeitraum: "Ganzes
+Jahr" (Standard), "Heute", "Diese Woche", "Dieser Monat" oder "Frei
+wählbar" (zwei Datumsfelder). Die Jahres-CSV wird weiterhin komplett geladen,
+der Zeitraum-Filter schränkt die schon geladenen Zeilen per Datumsvergleich
+zusätzlich ein. "Heute"/"Diese Woche"/"Dieser Monat" beziehen sich immer auf
+das echte heutige Datum — weicht das vom gerade gewählten Jahr ab, wechselt
+die Jahresauswahl automatisch mit (sonst gäbe es scheinbar keine Treffer).
+Ein frei gewählter Zeitraum, der über einen Jahreswechsel hinausgeht, wird
+nicht unterstützt — gezeigt wird dann nur der Teil im gerade geladenen Jahr.
 
 ---
 
@@ -625,7 +640,13 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   Home-Bildschirm-App installierten PWAs auf iOS löst die Eingabetaste/das
   Häkchen der virtuellen Tastatur das native Form-Submit bekanntermassen
   nicht zuverlässig aus (WebKit-Eigenheit nur im Standalone-Modus, in einem
-  normalen Safari-Tab funktioniert es).
+  normalen Safari-Tab funktioniert es). Zusätzlich `type="search"` statt
+  `"text"` fürs Eingabefeld (ein weiterer bekannter, risikoarmer Kniff dafür
+  -- Suchfelder haben in Safari eine eigene, verlässlichere native
+  Tastatur-Behandlung). **Unverifiziert auf echtem iPhone** (im Entwicklungs-
+  Setup nicht testbar) -- falls es dort immer noch nicht zuverlässig
+  funktioniert, ist "+" antippen die verlässliche Alternative, dafür bleibt
+  der Button bewusst bestehen.
 - **Erledigen & Löschen**: Abhaken verschiebt eine Pendenz optisch in den
   Abschnitt "Erledigt" weiter unten (durchgestrichen), lässt sich dort
   jederzeit wieder zurückholen (Häkchen entfernen). "🗑 erledigte löschen"

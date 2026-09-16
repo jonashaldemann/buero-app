@@ -47,8 +47,23 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .add-row input[type="text"] { flex: 1; min-width: 160px; }
-  .add-row select { flex: none; width: auto; min-width: 140px; }
+  /* type="search" statt "text" (siehe Kommentar im HTML) -- ist NICHT Teil
+     der gemeinsamen input[type="text"]-Regel in css/style.css, deshalb hier
+     Grösse/Optik selbst nachgezogen plus die native Lupe/Rundung entfernt. */
+  .add-row input[type="search"] {
+    flex: 1;
+    min-width: 160px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--surface-2);
+    border: none;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: var(--font-light);
+  }
+  .add-row input[type="search"]:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
   .add-row button { flex: none; padding: 0 20px; }
 
   .pendenz-list {
@@ -206,7 +221,14 @@
   <section class="filter-row" id="projectFilterRow"></section>
 
   <form id="addForm" class="add-row">
-    <input type="text" id="inputNeuText" placeholder="Neue Pendenz…" autocomplete="off">
+    <!-- type="search" statt "text": ein bekannter, geringes Risiko bergender
+         Kniff gegen genau die iOS-Standalone-PWA-Eigenheit, dass die
+         Eingabetaste/das Häkchen der virtuellen Tastatur bei type="text"
+         das Form-Submit nicht zuverlässig auslöst -- Suchfelder haben dafür
+         eine eigene, verlässlichere native Behandlung. UNVERIFIZIERT auf
+         echtem iPhone (hier nicht testbar) -- falls es immer noch nicht
+         klappt, einfach wieder auf type="text" zurückstellen. -->
+    <input type="search" id="inputNeuText" placeholder="Neue Pendenz…" autocomplete="off" enterkeyhint="done">
     <button type="submit" class="btn-primary">+</button>
   </form>
 
@@ -242,8 +264,6 @@
     </div>
 
     <div class="form-group">
-      <label>Anzeigename</label>
-      <input type="text" id="inputDisplayName" placeholder="z.B. Jonas">
       <label>Benutzername</label>
       <input type="text" id="inputUser" placeholder="jonas">
       <label>App-Passwort</label>
