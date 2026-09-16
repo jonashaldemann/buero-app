@@ -1,10 +1,9 @@
-const CACHE_NAME = "pendenzen-v1";
+const CACHE_NAME = "pendenzen-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.json",
-  "./personen.json",
   "../shared/common.js",
   "../css/style.css",
   "../icons/pendenzen-192.png",
@@ -29,6 +28,9 @@ self.addEventListener("activate", (event) => {
 
 // App-Shell: aus Cache, Fallback Netz. Pendenzen liegen auf Nextcloud (siehe
 // app.js), nicht hier -- die kommen sowieso nie aus dem Service-Worker-Cache.
+// ../shared/personen.json bewusst NICHT gecacht (wie absender.json bei den
+// Offerten) -- soll immer frisch vom Netz kommen, damit eine neue/geänderte
+// Person ohne Code-Update ankommt.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(

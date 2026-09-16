@@ -12,72 +12,43 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/style.css">
 <style>
+  /* App-Icon-Raster wie auf dem Smartphone-Homescreen (statt einer langen
+     Liste mit Beschreibungstext) -- mit inzwischen sieben Kacheln passte
+     die Liste auf dem Handy nicht mehr ohne Scrollen auf eine Seite.
+     Beschreibung steht nur noch als "title"-Tooltip (Desktop-Hover), nicht
+     mehr sichtbar als Text. */
   .tile-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px 8px;
   }
   .tile {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    background: var(--surface);
-    border-radius: 20px;
-    padding: 20px;
-    text-decoration: none;
-    color: var(--text);
-  }
-  .tile:active { background: var(--surface-2); }
-  .tile.tile-stack {
     flex-direction: column;
-    align-items: stretch;
-    padding: 0;
-    gap: 0;
-  }
-  .tile.tile-stack:active { background: var(--surface); }
-  .tile-main {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    text-decoration: none;
-    color: var(--text);
-    border-radius: 20px 20px 0 0;
-  }
-  .tile-main:active { background: var(--surface-2); }
-  .tile-sub {
-    display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 20px 16px 84px;
-    padding: 8px 12px;
-    border-radius: 12px;
-    background: var(--surface-2);
     text-decoration: none;
-    color: var(--text-muted);
-    font-size: 13px;
+    color: var(--text);
+    padding: 6px 2px;
+    border-radius: 16px;
   }
-  .tile-sub:active { color: var(--text); }
+  .tile:active { background: var(--surface-2); }
   .tile-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: none;
     color: #fff;
   }
-  .tile-text h2 {
+  .tile-label {
     font-family: var(--font-medium);
-    font-size: 17px;
+    font-size: 12px;
     font-weight: normal;
-    margin: 0 0 2px;
-  }
-  .tile-text p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.25;
   }
 </style>
 </head>
@@ -89,70 +60,53 @@
 
 <main>
   <div class="tile-grid">
-    <div class="tile tile-stack">
-      <a class="tile-main" href="zeiterfassung/">
-        <span class="tile-icon" style="background:#4F7089">
-          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm.5 5v5.25l4.25 2.52-.75 1.23L11 13V7h1.5z" fill="currentColor"/></svg>
-        </span>
-        <span class="tile-text">
-          <h2>Zeiterfassung</h2>
-          <p>Zeit pro Projekt erfassen, Nachtragen, Sync mit Nextcloud</p>
-        </span>
-      </a>
-      <a class="tile-sub" href="zeiterfassung/dashboard/">
-        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 13h4v8H3v-8zm7-6h4v14h-4V7zm7 3h4v11h-4V10z" fill="currentColor"/></svg>
-        Dashboard
-      </a>
-    </div>
+    <a class="tile" href="zeiterfassung/" title="Zeit pro Projekt erfassen, Nachtragen, Sync mit Nextcloud">
+      <span class="tile-icon" style="background:#4F7089">
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm.5 5v5.25l4.25 2.52-.75 1.23L11 13V7h1.5z" fill="currentColor"/></svg>
+      </span>
+      <span class="tile-label">Zeiterfassung</span>
+    </a>
 
-    <a class="tile" href="quittung/">
+    <a class="tile" href="zeiterfassung/dashboard/" title="Auswertung der erfassten Zeiten nach Projekt/Person">
+      <span class="tile-icon" style="background:#4F7089">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M3 13h4v8H3v-8zm7-6h4v14h-4V7zm7 3h4v11h-4V10z" fill="currentColor"/></svg>
+      </span>
+      <span class="tile-label">Auswertung</span>
+    </a>
+
+    <a class="tile" href="quittung/" title="Belege fotografieren/hochladen, für Banana aufbereiten">
       <span class="tile-icon" style="background:#C97960">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 2L7.17 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2h-3.17L15 2H9zm3 15a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
       </span>
-      <span class="tile-text">
-        <h2>Quittung</h2>
-        <p>Belege fotografieren/hochladen, für Banana aufbereiten</p>
-      </span>
+      <span class="tile-label">Quittung</span>
     </a>
 
-    <a class="tile" href="wettbewerbsprogramme/">
+    <a class="tile" href="wettbewerbsprogramme/" title="Architekturwettbewerbe hochladen und vergleichen">
       <span class="tile-icon" style="background:#8F9A85">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h7v2H4z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h7v2H4z" fill="currentColor"/></svg>
       </span>
-      <span class="tile-text">
-        <h2>Wettbewerbsprogramme</h2>
-        <p>Architekturwettbewerbe hochladen und vergleichen</p>
-      </span>
+      <span class="tile-label">Wettbewerbsprogramme</span>
     </a>
 
-    <a class="tile" href="offerten/">
+    <a class="tile" href="offerten/" title="Offerten aus Modulen zusammenstellen, Kosten berechnen">
       <span class="tile-icon" style="background:#BF9B4F">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/></svg>
       </span>
-      <span class="tile-text">
-        <h2>Offerten</h2>
-        <p>Offerten aus Modulen zusammenstellen, Kosten berechnen</p>
-      </span>
+      <span class="tile-label">Offerten</span>
     </a>
 
-    <a class="tile" href="adressliste/">
+    <a class="tile" href="adressliste/" title="Adressen filtern, Ansichten speichern, mit Nextcloud synchronisieren">
       <span class="tile-icon" style="background:#8C6E86">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 5a2 2 0 012-2h6a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm5 3.5A1.75 1.75 0 1 0 9 5a1.75 1.75 0 000 3.5zM6 16c0-1.66 1.79-3 4-3s4 1.34 4 3v.5H6V16zM19 7h-3v2h3v2h-3v2h3v2h-3v2h4V6h-1z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 5a2 2 0 012-2h6a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm5 3.5A1.75 1.75 0 1 0 9 5a1.75 1.75 0 000 3.5zM6 16c0-1.66 1.79-3 4-3s4 1.34 4 3v.5H6V16zM19 7h-3v2h3v2h-3v2h3v2h-3v2h4V6h-1z" fill="currentColor"/></svg>
       </span>
-      <span class="tile-text">
-        <h2>Adressliste</h2>
-        <p>Adressen filtern, Ansichten speichern, mit Nextcloud synchronisieren</p>
-      </span>
+      <span class="tile-label">Adressliste</span>
     </a>
 
-    <a class="tile" href="pendenzen/">
+    <a class="tile" href="pendenzen/" title="To-do-Liste nach Projekt und Person filterbar">
       <span class="tile-icon" style="background:#4A7856">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg>
       </span>
-      <span class="tile-text">
-        <h2>Pendenzen</h2>
-        <p>To-do-Liste nach Projekt und Person filterbar</p>
-      </span>
+      <span class="tile-label">Pendenzen</span>
     </a>
   </div>
 </main>

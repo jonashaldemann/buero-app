@@ -78,13 +78,16 @@ async function loadAbsender() {
 
 // Liste möglicher Unterzeichner (Name + Dateiname der Unterschrift auf
 // Nextcloud) -- ändert sich praktisch nie, deshalb zentral in einer Datei
-// statt pro Offerte erfasst. Die PNGs selbst liegen auf Nextcloud (siehe
-// SIGNATURE_FOLDER_PATH in pdf.js) und werden erst beim PDF-Export
-// nachgeladen, nicht hier.
+// statt pro Offerte erfasst. Zentral in ../shared/personen.json (nicht hier
+// in offerten/), weil dieselbe Personenliste auch bei den Pendenzen fürs
+// Zuordnen/Filtern verwendet wird -- eine Person einmal pflegen statt in
+// mehreren Modulen duplizieren. Die Unterschrift-PNGs selbst liegen auf
+// Nextcloud (siehe SIGNATURE_FOLDER_PATH in pdf.js) und werden erst beim
+// PDF-Export nachgeladen, nicht hier.
 let unterzeichnerConfig = [];
 async function loadUnterzeichnerConfig() {
   try {
-    const res = await fetch("unterzeichner.json");
+    const res = await fetch("../shared/personen.json");
     unterzeichnerConfig = res.ok ? await res.json() : [];
   } catch (e) {
     unterzeichnerConfig = [];
@@ -593,7 +596,7 @@ function openEditor(offer, filename, newTyp) {
 function renderUnterzeichnerCheckboxes() {
   const list = document.getElementById("unterzeichnerList");
   if (!unterzeichnerConfig.length) {
-    list.innerHTML = '<p class="hint" style="margin:0;">Keine Unterzeichner konfiguriert (unterzeichner.json).</p>';
+    list.innerHTML = '<p class="hint" style="margin:0;">Keine Unterzeichner konfiguriert (../shared/personen.json).</p>';
     return;
   }
   const selected = new Set(editingOffer.unterzeichner || []);

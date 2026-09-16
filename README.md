@@ -10,12 +10,16 @@ App auf dem Homescreen installierbar:
 - **[Adressliste](adressliste/)** — Adressen filtern, Ansichten speichern, auf Nextcloud sichern.
 - **[Pendenzen](pendenzen/)** — To-do-Liste nach Projekt und Person filterbar, auf Nextcloud sichern.
 
-Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher mit sechs
-Kacheln, die auf die sechs Unterordner verlinken. Jede der sechs Apps hat ihr
-eigenes `manifest.json` und ihren eigenen `service-worker.js` — man kann also
-entweder die Startseite installieren (Kachel-Menü) **oder** direkt auf einer
-Unterseite "Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine
-App als eigenes Icon auf dem Homescreen.
+Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher: ein
+App-Icon-Raster wie auf dem Smartphone-Homescreen (3 Spalten, Icon + kurzes
+Label, Beschreibung nur noch als Tooltip) statt einer langen Liste mit
+Beschreibungstext — mit sieben Kacheln (sechs Apps plus die Zeiterfassungs-
+Auswertung als eigenes Icon) passte Letzteres auf dem Handy nicht mehr ohne
+Scrollen auf eine Seite. Jede der sechs Apps hat ihr eigenes `manifest.json`
+und ihren eigenen `service-worker.js` — man kann also entweder die
+Startseite installieren (Icon-Raster) **oder** direkt auf einer Unterseite
+"Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine App als
+eigenes Icon auf dem Homescreen.
 
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog) liegt
 in `shared/common.js` und wird von allen sechs Apps eingebunden.
@@ -425,7 +429,10 @@ für den PDF-Briefkopf verwendet (`absender` in `offerten/app.js`, siehe
 ### Unterschriften
 
 Wählbare Unterzeichner (Checkboxen im Editor, nach dem Brieftext, Mehrfach-
-auswahl möglich) sind in `offerten/unterzeichner.json` definiert:
+auswahl möglich) kommen aus `shared/personen.json` — zentral im `shared/`-
+Ordner statt in `offerten/` selbst, weil dieselbe Personenliste auch bei den
+Pendenzen fürs Zuordnen/Filtern verwendet wird (eine Person einmal pflegen
+statt pro Modul zu duplizieren):
 
 ```json
 [
@@ -433,6 +440,9 @@ auswahl möglich) sind in `offerten/unterzeichner.json` definiert:
   { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
 ]
 ```
+
+`datei` (die Unterschrift-PNG) wird nur von den Offerten verwendet, die
+Pendenzen ignorieren dieses Feld einfach.
 
 Beim PDF-Export werden die PNGs der ausgewählten Personen live von Nextcloud
 geladen (Ordner `SIGNATURE_FOLDER_PATH` in `offerten/pdf.js`, Standard
@@ -594,21 +604,28 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   die Zeiterfassung (`PROJECTS_SHARE_TOKEN`), damit ein Projekt überall
   gleich heisst und gleich aussieht. Ein Klick auf einen Projekt-Button
   filtert die Liste; eine neue Pendenz wird automatisch dem gerade
-  ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt). In der
-  Zeile selbst steht der Projektname bewusst nicht als Text (nur der linke
-  Farbrand zeigt ihn) — Platzgründe, die Farbe reicht zum Erkennen.
-- **Personen**: die (aktuell 2) Personen für das optionale "Person"-Feld und
-  die Personen-Filterknöpfe kommen aus `pendenzen/personen.json`
-  (`{key, name}`, analog zu `offerten/unterzeichner.json`) — das ist keine
-  Nextcloud-Login-Liste, nur eine feste Auswahlliste zum Zuordnen/Filtern.
-  Neue Person: einfach in dieser Datei ergänzen. Ist ein Personen-Filter
-  aktiv, wird das Erfassen-Dropdown automatisch darauf vorausgewählt (lässt
-  sich vor dem Erfassen noch umstellen); in der Zeile selbst erscheint nur
-  das Kürzel (Initialen), der volle Name als Tooltip bzw. im
-  Bearbeiten-Modus.
-- **Erfassen**: Enter im Textfeld erfasst direkt (echtes `<form>` mit
-  submit-Event, kein Klick auf "+" nötig — funktioniert auch mit der
-  "Los/Fertig"-Taste virtueller Smartphone-Tastaturen).
+  ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt). Die ganze
+  Zeile nimmt die Projektfarbe als Hintergrund an (nicht nur ein schmaler
+  Rand) — der Projektname steht bewusst nicht zusätzlich als Text daneben,
+  die Farbe reicht zum Erkennen, Platzgründe. Text/Icons wechseln je nach
+  Helligkeit der Farbe automatisch zwischen Weiss und der normalen
+  Textfarbe (`isDarkColor()` in `pendenzen/app.js`, grobe Luma-Schwelle,
+  keine volle WCAG-Kontrastprüfung).
+- **Personen**: die (aktuell 2) Personen für die Personen-Filterknöpfe
+  kommen aus `shared/personen.json` (gemeinsam mit den Offerten, siehe
+  Abschnitt "Unterschriften" dort — eine Person einmal pflegen statt pro
+  Modul zu duplizieren). Ein eigenes Personen-Dropdown beim Erfassen gibt es
+  bewusst nicht (mehr): wie beim Projekt kommt die Person rein aus dem
+  aktiven Personen-Filter, das deckt den Bedarf schon ab. In der Zeile
+  selbst erscheint nur das Kürzel (Initialen), der volle Name als Tooltip
+  bzw. im Bearbeiten-Modus.
+- **Erfassen**: Enter im Textfeld erfasst direkt -- ein `<form>` mit
+  submit-Event deckt Klick auf "+" und Enter am Desktop ab, zusätzlich ein
+  eigener keydown-Handler ausschliesslich fürs Textfeld: in als
+  Home-Bildschirm-App installierten PWAs auf iOS löst die Eingabetaste/das
+  Häkchen der virtuellen Tastatur das native Form-Submit bekanntermassen
+  nicht zuverlässig aus (WebKit-Eigenheit nur im Standalone-Modus, in einem
+  normalen Safari-Tab funktioniert es).
 - **Erledigen & Löschen**: Abhaken verschiebt eine Pendenz optisch in den
   Abschnitt "Erledigt" weiter unten (durchgestrichen), lässt sich dort
   jederzeit wieder zurückholen (Häkchen entfernen). "🗑 erledigte löschen"
@@ -616,10 +633,10 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   Projekt-/Personen-Filter sichtbar sind — nicht alle erledigten überhaupt.
 - **Nachträglich ändern**: eine offene Pendenz anklicken (der Text, nicht
   die Checkbox) aktiviert den Bearbeiten-Modus für Text, Projekt und Person
-  (Projekt/Person auch wieder entfernbar) — kein separates Symbol nötig.
-  Die Auswahllisten speichern sofort, der Text beim Verlassen des Feldes
-  bzw. mit Enter (ein leeres Textfeld wird ignoriert, der bisherige Text
-  bleibt erhalten).
+  (Projekt/Person auch wieder entfernbar) — kein separates Symbol nötig, die
+  Checkbox schaltet unabhängig davon nur ab/an. Die Auswahllisten speichern
+  sofort, der Text beim Verlassen des Feldes bzw. mit Enter (ein leeres
+  Textfeld wird ignoriert, der bisherige Text bleibt erhalten).
 - **Reihenfolge**: der Ziehgriff (☰) an einer offenen Pendenz verschiebt sie
   per Drag & Drop frei innerhalb der aktuell sichtbaren (gefilterten)
   Liste — über Pointer Events verdrahtet (nicht die HTML5-Drag&Drop-API,
