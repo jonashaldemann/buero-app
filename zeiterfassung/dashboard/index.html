@@ -24,9 +24,21 @@
 
 <main>
   <section class="filters">
+    <select id="filterZeitraum">
+      <option value="">Ganzes Jahr</option>
+      <option value="heute">Heute</option>
+      <option value="woche">Diese Woche</option>
+      <option value="monat">Dieser Monat</option>
+      <option value="frei">Frei wählbar…</option>
+    </select>
     <select id="filterYear"></select>
     <select id="filterProject"></select>
     <select id="filterPerson"></select>
+  </section>
+  <section class="filters" id="freiRangeRow" style="display:none;">
+    <input type="date" id="filterVon">
+    <span class="filters-range-sep">–</span>
+    <input type="date" id="filterBis">
   </section>
 
   <section class="status-line" id="statusLine">Lädt…</section>

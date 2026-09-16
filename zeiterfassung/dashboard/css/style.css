@@ -76,7 +76,7 @@ main {
   gap: 8px;
   flex-wrap: wrap;
 }
-.filters select {
+.filters select, .filters input[type="date"] {
   flex: 1;
   min-width: 110px;
   background: var(--surface);
@@ -86,6 +86,12 @@ main {
   padding: 10px 12px;
   font-family: var(--font-light);
   font-size: 14px;
+}
+.filters-range-sep {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  flex: none;
 }
 
 .status-line {
