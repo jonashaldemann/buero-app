@@ -146,12 +146,105 @@ function populateYearFilter() {
   yearSelect.value = String(currentYear);
 }
 
+// ---------- Zeitraum-Filter (Tag/Woche/Monat/frei, zusätzlich zum Jahr) ----------
+//
+// Die Jahres-CSV wird weiterhin komplett geladen (siehe loadAllData()); der
+// Zeitraum-Filter schränkt die schon geladenen Zeilen zusätzlich per
+// Datumsvergleich ein (r.date ist "YYYY-MM-DD", funktioniert darum auch als
+// simpler String-Vergleich). "Heute"/"Diese Woche"/"Dieser Monat" beziehen
+// sich immer auf das echte heutige Datum -- weicht das vom gerade gewählten
+// Jahr ab, wird das Jahr automatisch mitgewechselt (siehe onZeitraumChange()/
+// onFreiRangeChange()), sonst gäbe es scheinbar keine Treffer. Ein
+// "frei wählbar"-Zeitraum, der über einen Jahreswechsel hinausgeht, ist NICHT
+// unterstützt -- gezeigt wird dann nur der Teil im gerade geladenen Jahr.
+function toISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function startOfWeek(d) {
+  // Montag als Wochenbeginn.
+  const diff = (d.getDay() + 6) % 7;
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+  return monday;
+}
+function computeZeitraumRange(zeitraum) {
+  const now = new Date();
+  if (zeitraum === "heute") {
+    const iso = toISODate(now);
+    return { von: iso, bis: iso };
+  }
+  if (zeitraum === "woche") {
+    const monday = startOfWeek(now);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    return { von: toISODate(monday), bis: toISODate(sunday) };
+  }
+  if (zeitraum === "monat") {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { von: toISODate(first), bis: toISODate(last) };
+  }
+  return null;
+}
+
 function getFilteredRows() {
   const project = document.getElementById("filterProject").value;
   const person = document.getElementById("filterPerson").value;
-  return allRows.filter(
-    (r) => (!project || r.project === project) && (!person || r.person === person)
-  );
+  const zeitraum = document.getElementById("filterZeitraum").value;
+
+  let von = null;
+  let bis = null;
+  if (zeitraum === "frei") {
+    von = document.getElementById("filterVon").value || null;
+    bis = document.getElementById("filterBis").value || null;
+  } else if (zeitraum) {
+    const range = computeZeitraumRange(zeitraum);
+    von = range.von;
+    bis = range.bis;
+  }
+
+  return allRows.filter((r) => {
+    if (project && r.project !== project) return false;
+    if (person && r.person !== person) return false;
+    if (von && r.date < von) return false;
+    if (bis && r.date > bis) return false;
+    return true;
+  });
+}
+
+// Bei "Heute"/"Diese Woche"/"Dieser Monat" (immer bezogen aufs echte
+// heutige Datum) bzw. beim "von"-Datum des freien Zeitraums: falls das
+// implizierte Jahr nicht dem gerade geladenen entspricht, das Jahr
+// mitwechseln und neu laden -- sonst zeigt der Filter scheinbar nichts an.
+function syncYearToImpliedDate(isoDate) {
+  if (!isoDate) return false;
+  const impliedYear = isoDate.slice(0, 4);
+  const yearSelect = document.getElementById("filterYear");
+  const hasOption = Array.from(yearSelect.options).some((o) => o.value === impliedYear);
+  if (hasOption && yearSelect.value !== impliedYear) {
+    yearSelect.value = impliedYear;
+    return true;
+  }
+  return false;
+}
+
+function onZeitraumChange() {
+  const zeitraum = document.getElementById("filterZeitraum").value;
+  document.getElementById("freiRangeRow").style.display = zeitraum === "frei" ? "" : "none";
+
+  const range = zeitraum && zeitraum !== "frei" ? computeZeitraumRange(zeitraum) : null;
+  if (range && syncYearToImpliedDate(range.von)) {
+    refresh();
+    return;
+  }
+  renderAll();
+}
+
+function onFreiRangeChange() {
+  const von = document.getElementById("filterVon").value;
+  if (syncYearToImpliedDate(von)) {
+    refresh();
+    return;
+  }
+  renderAll();
 }
 
 // ---------- Rendering ----------
@@ -256,6 +349,9 @@ function init() {
   document.getElementById("filterYear").addEventListener("change", refresh);
   document.getElementById("filterProject").addEventListener("change", renderAll);
   document.getElementById("filterPerson").addEventListener("change", renderAll);
+  document.getElementById("filterZeitraum").addEventListener("change", onZeitraumChange);
+  document.getElementById("filterVon").addEventListener("change", onFreiRangeChange);
+  document.getElementById("filterBis").addEventListener("change", renderAll);
   document.getElementById("refreshBtn").addEventListener("click", refresh);
 
   refresh();

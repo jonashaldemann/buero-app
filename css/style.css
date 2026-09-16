@@ -284,6 +284,14 @@ input[type="date"], input[type="number"], select {
   font-size: 15px;
   font-family: var(--font-light);
   width: 100%;
+  /* max-width/min-width explizit statt nur width:100% -- Safaris natives
+     Datumsfeld (die Tag/Monat/Jahr-Unterelemente kommen aus einem eigenen
+     Shadow-DOM, das eine eigene Mindestbreite mitbringen kann) wurde sonst
+     gemeldet, optisch breiter als die übrigen Felder derselben Spalte zu
+     wirken. */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 select { appearance: none; -webkit-appearance: none; }
 input:focus, select:focus { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
