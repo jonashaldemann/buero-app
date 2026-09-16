@@ -27,7 +27,7 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. absender.json/unterzeichner.json
+// App-Shell: aus Cache, Fallback Netz. absender.json/../shared/personen.json
 // bewusst NICHT in ASSETS gelistet -- die sollen immer frisch vom Netz
 // kommen, damit Änderungen (Adresse, neue/andere Unterzeichner etc.) ohne
 // Code-Update ankommen. Die PDF-Bibliothek
