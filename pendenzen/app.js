@@ -19,9 +19,12 @@
    (siehe Kommentar in pdf.js/app.js der Offerten): jedes Modul bleibt so
    unabhängig ladbar, ohne Reihenfolge-Abhängigkeiten zwischen den Apps.
 
-   Personen (aktuell 2, siehe personen.json) sind KEINE Nextcloud-Logins --
-   das ist eine reine Auswahlliste für das optionale "Person"-Feld einer
-   Pendenz und die Personen-Filterknöpfe, analog zu offerten/unterzeichner.json.
+   Personen (aktuell 2, siehe ../shared/personen.json) sind KEINE
+   Nextcloud-Logins -- das ist eine reine Auswahlliste für das optionale
+   "Person"-Feld einer Pendenz und die Personen-Filterknöpfe. Zentral in
+   shared/ (nicht hier in pendenzen/) abgelegt, weil dieselbe Liste auch von
+   den Offerten (dort als Unterzeichner-Auswahl) verwendet wird -- eine
+   Person einmal pflegen statt pro Modul zu duplizieren.
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, Einstellungen-UI usw.
    kommen aus ../shared/common.js.
@@ -96,9 +99,23 @@ function projectColor(id) {
   return PROJECT_COLOR_PALETTE[idx % PROJECT_COLOR_PALETTE.length];
 }
 
+// Ob eine Hex-Farbe (als Zeilenhintergrund, siehe renderRow()) eher dunkel
+// ist -- entscheidet, ob Text/Icons in Weiss oder in der normalen (dunklen)
+// Textfarbe gut lesbar sind. Wahrgenommene Helligkeit nach der
+// ITU-R-BT.601-Luma-Formel, für diesen Zweck (grobe Hell/Dunkel-Weiche,
+// keine WCAG-Kontrastprüfung) genau genug.
+function isDarkColor(hex) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 150;
+}
+
 async function loadPersonen() {
   try {
-    const res = await fetch("personen.json");
+    const res = await fetch("../shared/personen.json");
     personen = res.ok ? await res.json() : [];
   } catch (e) {
     personen = [];
@@ -229,12 +246,10 @@ function handleAdd() {
   const textInput = document.getElementById("inputNeuText");
   const text = textInput.value.trim();
   if (!text) return;
-  const personSelect = document.getElementById("inputNeuPerson");
-  // Explizite Auswahl im Dropdown gewinnt; sonst automatisch die Person des
-  // aktiven Filters übernehmen (das Dropdown zeigt das schon vorausgewählt
-  // an, siehe renderAddForm() -- hier nochmals als Absicherung, falls das
-  // Dropdown aus irgendeinem Grund doch leer ist).
-  const person = personSelect.value || (filterPerson !== "ALL" ? filterPerson : null);
+  // Kein eigenes Personen-Dropdown fürs Erfassen (mehr) -- wie beim Projekt
+  // kommt die Person rein aus dem aktiven Filter. Sich nachträglich ändern
+  // lässt sie trotzdem jederzeit (Pendenz anklicken, siehe updatePendenzField()).
+  const person = filterPerson !== "ALL" ? filterPerson : null;
   const projekt = filterProjekt === "ALL" ? null : filterProjekt;
   const now = new Date().toISOString();
   // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
@@ -254,7 +269,6 @@ function handleAdd() {
   };
   syncPendenzen((list) => [...list, item]);
   textInput.value = "";
-  personSelect.value = "";
   textInput.focus();
 }
 
@@ -326,7 +340,6 @@ function renderPersonFilterRow() {
     btn.addEventListener("click", () => {
       filterPerson = btn.dataset.person;
       renderPersonFilterRow();
-      renderAddForm();
       render();
     });
   });
@@ -352,18 +365,6 @@ function renderProjectFilterRow() {
       render();
     });
   });
-}
-
-// Person-Dropdown fürs Erfassen: zeigt standardmässig die Person des aktiven
-// Personen-Filters vorausgewählt an (Todo "Person automatisch zugewiesen,
-// sofern eine Person als Filter eingestellt ist") -- lässt sich vor dem
-// Erfassen aber jederzeit manuell umstellen.
-function renderAddForm() {
-  const personSelect = document.getElementById("inputNeuPerson");
-  personSelect.innerHTML =
-    `<option value="">Person (optional)</option>` +
-    personen.map((p) => `<option value="${escapeHtml(p.key)}">${escapeHtml(p.name)}</option>`).join("");
-  personSelect.value = filterPerson !== "ALL" ? filterPerson : "";
 }
 
 function renderMeta(p) {
@@ -401,6 +402,10 @@ function renderMeta(p) {
 // Klick auf den Text auch fälschlich die Checkbox umschalten lassen).
 function renderRow(p, canMove) {
   const color = projectColor(p.projekt) || FALLBACK_COLOR;
+  // Die ganze Zeile nimmt die Projektfarbe als Hintergrund an (nicht nur ein
+  // schmaler Rand) -- Text/Icons wechseln je nach Helligkeit der Farbe
+  // zwischen Weiss und der normalen Textfarbe (siehe isDarkColor()).
+  const onDark = isDarkColor(color);
   const editing = editingMetaIds.has(p.id);
   const dragHandle = canMove
     ? `<span class="drag-handle" title="Ziehen zum Verschieben">${DRAG_HANDLE_SVG}</span>`
@@ -408,7 +413,7 @@ function renderRow(p, canMove) {
   const textHtml = editing
     ? `<input type="text" class="pendenz-text-edit" data-action="edit-text" data-id="${p.id}" value="${escapeHtml(p.text)}">`
     : `<span class="pendenz-text" data-action="edit-start" data-id="${p.id}">${escapeHtml(p.text)}</span>`;
-  return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}${editing ? " editing" : ""}" data-id="${p.id}" style="--accent:${color}">
+  return `<div class="pendenz-row${p.erledigt ? " erledigt" : ""}${editing ? " editing" : ""}${onDark ? " on-dark" : ""}" data-id="${p.id}" style="--accent:${color}; background:${color}; color:${onDark ? "#fff" : "var(--text)"};">
     <span class="pendenz-main">
       ${dragHandle}
       <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.erledigt ? "checked" : ""}>
@@ -546,14 +551,23 @@ function init() {
     onSaved: () => syncPendenzen()
   });
 
-  // Als <form> mit submit-Event statt Button-Klick + manueller
-  // Enter-Erkennung verdrahtet -- Enter im Textfeld löst so zuverlässig aus
-  // (auch über die "Los/Fertig"-Taste virtueller Smartphone-Tastaturen, die
-  // nicht überall ein normales keydown mit key "Enter" auslösen, aber ein
-  // <form> immer submitten).
+  // <form> mit submit-Event (deckt Klick auf "+" ab) PLUS zusätzlich ein
+  // eigener keydown-Handler auf das Textfeld: in als Home-Bildschirm-App
+  // installierten PWAs auf iOS ("apple-mobile-web-app-capable") löst die
+  // Eingabetaste/das Häkchen der virtuellen Tastatur das native
+  // Form-Submit bekanntermassen nicht zuverlässig aus (WebKit-Eigenheit nur
+  // im Standalone-Modus, in einem normalen Safari-Tab funktioniert es).
+  // e.preventDefault() im keydown verhindert dabei ein doppeltes Auslösen
+  // dort, wo Enter ohnehin ein natives Submit auslösen würde.
   document.getElementById("addForm").addEventListener("submit", (e) => {
     e.preventDefault();
     handleAdd();
+  });
+  document.getElementById("inputNeuText").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAdd();
+    }
   });
   document.getElementById("deleteDoneBtn").addEventListener("click", deleteErledigteInFilter);
   document.getElementById("refreshBtn").addEventListener("click", () => syncPendenzen());
@@ -570,7 +584,6 @@ function init() {
   Promise.all([loadPersonen(), refreshProjectNames()]).then(() => {
     renderPersonFilterRow();
     renderProjectFilterRow();
-    renderAddForm();
   });
 
   if (isConfigured()) syncPendenzen();

@@ -56,6 +56,10 @@
     flex-direction: column;
     gap: 8px;
   }
+  /* Die Projektfarbe füllt die ganze Zeile (nicht nur ein schmaler Rand) --
+     background/color kommen als Inline-Style pro Zeile aus app.js
+     (renderRow()/isDarkColor()), var(--surface) ist nur der Fallback ohne
+     Projekt/JS. */
   .pendenz-row {
     display: flex;
     align-items: center;
@@ -63,7 +67,6 @@
     background: var(--surface);
     border-radius: 14px;
     padding: 12px 14px;
-    border-left: 4px solid var(--accent, var(--border));
   }
   .pendenz-row.erledigt { opacity: 0.55; }
   /* Im Bearbeiten-Modus reicht eine Zeile nicht mehr (Textfeld + zwei
@@ -92,7 +95,7 @@
     min-width: 0;
     padding: 6px 0;
   }
-  .pendenz-row.erledigt .pendenz-text { text-decoration: line-through; color: var(--text-muted); }
+  .pendenz-row.erledigt .pendenz-text { text-decoration: line-through; }
   .pendenz-text-edit {
     font-size: 15px;
     font-family: var(--font-light);
@@ -136,6 +139,11 @@
     padding: 3px 9px;
     white-space: nowrap;
   }
+  /* Zeile mit dunklem Projekt-Hintergrund (siehe isDarkColor() in app.js) --
+     Griff/Tag/Fertig-Knopf sonst zu dunkel/kontrastarm auf dunkler Farbe. */
+  .pendenz-row.on-dark .drag-handle { color: rgba(255, 255, 255, 0.8); }
+  .pendenz-row.on-dark .pendenz-tag { background: rgba(255, 255, 255, 0.25); color: #fff; }
+  .pendenz-row.on-dark .row-action { color: rgba(255, 255, 255, 0.85); }
   .pendenz-meta-edit select {
     width: auto;
     padding: 4px 8px;
@@ -199,7 +207,6 @@
 
   <form id="addForm" class="add-row">
     <input type="text" id="inputNeuText" placeholder="Neue Pendenz…" autocomplete="off">
-    <select id="inputNeuPerson"><option value="">Person (optional)</option></select>
     <button type="submit" class="btn-primary">+</button>
   </form>
 
