@@ -161,6 +161,23 @@ main {
   padding: 6px 0;
 }
 
+.vbar-chart {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px 16px;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  overflow-x: auto;
+}
+.vbar {
+  flex: 0 0 6px;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent-primary);
+}
+
 .table-block {
   background: var(--surface);
   border-radius: 14px;

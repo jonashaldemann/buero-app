@@ -270,7 +270,7 @@ function renderAll() {
   const rows = getFilteredRows();
   renderSummary(rows);
   renderBarChart("chartByProject", groupSum(rows, "project"), true);
-  renderBarChart("chartByPerson", groupSum(rows, "person"), false);
+  renderDayBarChart("chartByDay", groupByDay(rows));
   renderTable(rows);
 }
 
@@ -284,6 +284,19 @@ function groupSum(rows, field) {
   return Object.entries(map)
     .map(([name, v]) => ({ name, minutes: v.minutes, projectId: v.projectId }))
     .sort((a, b) => b.minutes - a.minutes);
+}
+
+// Für "Nach Tag": Summe pro Kalendertag, chronologisch sortiert -- egal wie
+// lang der gefilterte Zeitraum ist, ergibt das eine (ggf. sehr lange) Reihe
+// schmaler Balken statt einzeln beschrifteter Zeilen wie bei groupSum().
+function groupByDay(rows) {
+  const map = {};
+  rows.forEach((r) => {
+    map[r.date] = (map[r.date] || 0) + r.durationMin;
+  });
+  return Object.entries(map)
+    .map(([date, minutes]) => ({ date, minutes }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 function renderSummary(rows) {
@@ -310,6 +323,25 @@ function renderBarChart(containerId, grouped, colorByProject) {
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
       </div>`;
+    })
+    .join("");
+}
+
+// Vertikale Balken nebeneinander, ein Balken pro Tag -- bewusst ohne
+// Einzelbeschriftung (bei langen Zeiträumen wären das zu viele Labels);
+// stattdessen Datum+Dauer als title-Tooltip beim Hovern/Antippen.
+function renderDayBarChart(containerId, grouped) {
+  const container = document.getElementById(containerId);
+  if (grouped.length === 0) {
+    container.innerHTML = '<div class="bar-empty">Keine Daten für diesen Filter</div>';
+    return;
+  }
+  const max = Math.max(...grouped.map((g) => g.minutes), 1);
+  container.innerHTML = grouped
+    .map((g) => {
+      const pct = Math.max(4, Math.round((g.minutes / max) * 100));
+      const title = `${g.date}: ${formatHM(g.minutes)}`;
+      return `<div class="vbar" style="height:${pct}%" title="${escapeHtml(title)}"></div>`;
     })
     .join("");
 }

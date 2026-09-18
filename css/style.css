@@ -166,7 +166,7 @@ main {
 .control-buttons .proj-btn[data-action="STOP"] { --accent: #B5654C; }
 .control-buttons .proj-btn.manual { --accent: #A79C8C; }
 
-.today h2 {
+.today h2, .recent-block h2 {
   font-family: var(--font-medium);
   font-size: 13px;
   letter-spacing: 0.3px;
