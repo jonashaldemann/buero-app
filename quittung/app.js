@@ -426,6 +426,58 @@ async function appendBananaBooking(entry) {
   if (!putRes.ok) throw new Error(`Buchung schreiben fehlgeschlagen (${putRes.status})`);
 }
 
+function formatChf(amount) {
+  return `${amount.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Fr.`;
+}
+
+// Parst buchungen.txt (Kopfzeile + tab-getrennte Zeilen, siehe BANANA_TXT_HEADER)
+// zurück in Objekte -- Reihenfolge entspricht der Schreibreihenfolge in
+// appendBananaBooking() (älteste zuerst, neueste am Ende).
+function parseBananaBookings(text) {
+  const lines = text.split("\n").filter((l) => l.trim());
+  lines.shift(); // Kopfzeile überspringen
+  return lines.map((line) => {
+    const [date, description, income, expenses, doc, category, account, vatCode] = line.split("\t");
+    return { date, description, income, expenses, doc, category, account, vatCode };
+  });
+}
+
+async function fetchRecentReceipts() {
+  const relPath = bananaTxtRelativePath();
+  const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`Buchungsdatei lesen fehlgeschlagen (${res.status})`);
+  const text = await res.text();
+  return text ? parseBananaBookings(text) : [];
+}
+
+function receiptRowHtml(row) {
+  const amount = row.expenses ? row.expenses : row.income;
+  return `<tr><td>${escapeHtml(row.doc)}</td><td>${escapeHtml(row.description)}</td><td>${escapeHtml(formatChf(parseFloat(amount) || 0))}</td></tr>`;
+}
+
+function renderReceiptList(tbodyId, rows, emptyMessage) {
+  const tbody = document.getElementById(tbodyId);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="3">${emptyMessage}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(receiptRowHtml).join("");
+}
+
+async function refreshRecentReceipts() {
+  if (!isConfigured() || !navigator.onLine) return;
+  try {
+    const bookings = await fetchRecentReceipts();
+    const ausgaben = bookings.filter((b) => b.expenses).slice(-5).reverse();
+    const einnahmen = bookings.filter((b) => b.income).slice(-2).reverse();
+    renderReceiptList("recentAusgabenBody", ausgaben, "Noch keine Ausgaben erfasst.");
+    renderReceiptList("recentEinnahmenBody", einnahmen, "Noch keine Einnahmen erfasst.");
+  } catch (err) {
+    console.warn("Letzte Belege konnten nicht geladen werden:", err);
+  }
+}
+
 // Passende MwSt/USt-Codes je nach Einnahme/Ausgabe -- Umsatzsteuer- und
 // Vorsteuer-Codes schliessen sich in Banana gegenseitig aus.
 function renderReceiptMwstOptions(typ) {
@@ -548,6 +600,7 @@ async function saveReceiptEntry() {
 
     resultEl.textContent = `Beleg ${belegnummer} gespeichert.`;
     resultEl.className = "test-result ok";
+    refreshRecentReceipts();
     setTimeout(closeReceiptEntry, 1200);
   } catch (err) {
     setErr("Fehler: " + err.message);
@@ -561,7 +614,8 @@ async function saveReceiptEntry() {
 function init() {
   initSettingsUI({
     checkRelPath: bananaTxtRelativePath,
-    ensureFolderFn: ensureReceiptFolder
+    ensureFolderFn: ensureReceiptFolder,
+    onSaved: refreshRecentReceipts
   });
 
   document.getElementById("receiptEntryBtn").addEventListener("click", openReceiptEntry);
@@ -572,11 +626,15 @@ function init() {
   document.getElementById("receiptTyp").addEventListener("change", onReceiptTypChange);
 
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshReceiptMasterData();
+    if (document.visibilityState === "visible") {
+      refreshReceiptMasterData();
+      refreshRecentReceipts();
+    }
   });
 
   setInterval(refreshReceiptMasterData, 60000); // Kontenplan/Kategorien/MwSt-Codes alle 60s neu laden
   refreshReceiptMasterData();
+  refreshRecentReceipts();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});

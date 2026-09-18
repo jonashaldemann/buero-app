@@ -185,6 +185,11 @@ die Jahresauswahl automatisch mit (sonst gäbe es scheinbar keine Treffer).
 Ein frei gewählter Zeitraum, der über einen Jahreswechsel hinausgeht, wird
 nicht unterstützt — gezeigt wird dann nur der Teil im gerade geladenen Jahr.
 
+Charts: "Nach Projekt" (horizontale Balken, ein Balken pro Projekt) und "Nach
+Tag" (vertikale Balken nebeneinander, ein Balken pro Kalendertag im aktuell
+gefilterten Zeitraum, ohne Einzelbeschriftung — bei langen Zeiträumen also
+viele schmale Balken; Datum + Dauer als Tooltip beim Hovern/Antippen).
+
 ---
 
 ## Quittung
@@ -223,6 +228,12 @@ Banana vorbereiten.
 **Wichtig:** Diese Funktion braucht zwingend eine Internetverbindung (die
 nächste Belegnummer wird live aus dem Ordnerinhalt ermittelt) — kein
 Offline-Modus.
+
+Unter dem Button zeigen zwei Listen ("Letzte Ausgaben"/"Letzte Einnahmen",
+je Nummer/Bezeichnung/Betrag) die letzten 5 bzw. 2 Buchungen — direkt aus
+`buchungen.txt` geparst (welche der beiden Spalten Income/Expenses gefüllt
+ist, entscheidet Ausgabe vs. Einnahme), neueste zuerst. Aktualisiert sich
+nach jedem gespeicherten Beleg sowie beim Zurückkehren in die App.
 
 ### Banana-Import-Format (buchungen.txt)
 
@@ -568,7 +579,11 @@ das Browserfenster.
   hinzufügen; Entfernen über "⚙ Optionen" löscht nur aus der Auswahlliste,
   nicht aus bereits gespeicherten Kontakten mit diesem Wert. Beim
   allerersten Start werden die Listen automatisch aus den schon
-  vorhandenen Kontakten befüllt.
+  vorhandenen Kontakten befüllt. `_optionen.json` liegt im selben Ordner wie
+  die Kontakt-Dateien und wird beim Laden der Kontaktliste ausdrücklich
+  ausgeschlossen (`OPTIONS_FILENAME`-Filter in `refreshContacts()`) — sonst
+  würde sie selbst als leerer Phantom-Kontakt mit allen Status-Werten
+  angezeigt.
 - **Ansichten speichern**: die aktuelle Kombination aus Spalten (inkl.
   Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
   (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
