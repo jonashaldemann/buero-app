@@ -209,7 +209,9 @@ async function refreshContacts() {
   line.textContent = "Lädt…";
   try {
     await ensureAdressenFolder();
-    const filenames = (await listJsonFilenames(adressenSegments())).filter((f) => f !== LEGACY_VIEWS_FILENAME);
+    const filenames = (await listJsonFilenames(adressenSegments())).filter(
+      (f) => f !== LEGACY_VIEWS_FILENAME && f !== OPTIONS_FILENAME
+    );
     const loaded = await Promise.all(
       filenames.map(async (filename) => {
         try {
