@@ -252,7 +252,7 @@ async function nextBelegnummer(typ) {
 }
 
 function sanitizeForFilename(s) {
-  return s.trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").slice(0, 15).trim();
+  return s.trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").slice(0, 60).trim();
 }
 
 function fileExtension(file) {

@@ -219,7 +219,7 @@ Banana vorbereiten.
      eingebettet (A4, Bild zentriert/eingepasst, Hoch- oder Querformat je
      nach Seitenverhältnis) — siehe `imageFileToPdfBlob()`/
      `buildSingleImagePdf()` in `quittung/app.js`.
-   - Die Datei wird als `[Belegnummer] [Verwendungszweck, max. 15
+   - Die Datei wird als `[Belegnummer] [Verwendungszweck, max. 60
      Zeichen].pdf` in diesen Ordner hochgeladen, z.B.
      `26-A003 KUARIO Quittung.pdf`.
    - Zusätzlich wird die Buchung als Zeile an `buchungen.txt` im selben
