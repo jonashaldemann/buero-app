@@ -76,30 +76,47 @@ async function refreshProjectNames() {
 
 // Beim Protokoll gelten Projektnummer UND Projektname (anders als bei
 // Zeiterfassung/Pendenzen, die nur den Namen zeigen) -- "021 – Neubau
-// Werkhof" statt nur "Neubau Werkhof".
-function projectLabel(id) {
-  const p = projectList.find((p) => p.id === id);
-  return p ? `${p.id} – ${p.name}` : id || "";
+// Werkhof" statt nur "Neubau Werkhof". Baut bewusst aus den am Protokoll
+// SELBST gespeicherten Feldern (projekt/projektName, siehe
+// readHeaderFieldsIntoProtokoll()) statt aus einer erneuten Live-Suche in
+// projectList -- sonst wäre bei einer mehrfach vergebenen Nummer (z.B.
+// "000" für mehrere interne Kategorien) nicht mehr rekonstruierbar, welcher
+// der gleichnummerigen Einträge tatsächlich gemeint war.
+function projectLabel(protokoll) {
+  if (!protokoll.projekt) return "";
+  return protokoll.projektName ? `${protokoll.projekt} – ${protokoll.projektName}` : protokoll.projekt;
 }
 
-// Reiner Projektname (ohne Nummer) -- gebraucht für den Pendenzen-Sync
-// (siehe syncInternePendenzen() unten): Pendenzen/Zeiterfassung ordnen
-// Projekte über den Namen zu, nicht über die Nummer, weil dieselbe Nummer
-// in der zentralen Liste mehrfach vergeben sein kann (z.B. "000" für
-// mehrere interne Kategorien) und dann keine eindeutige ID mehr wäre.
-function projectNameOnly(id) {
-  const p = projectList.find((p) => p.id === id);
-  return p ? p.name : "";
-}
-
+// Optionen-Werte sind der Array-Index in projectList, NICHT die Nummer --
+// die zentrale Liste erlaubt dieselbe Nummer mehrfach (siehe README,
+// "Projektnamen zentral verwalten"), z.B. "000 Büro Allgemein" und
+// "000 Akquisition"; über die Nummer allein liessen sich zwei solche
+// Optionen im Dropdown nicht auseinanderhalten. Nummer UND Name jeder
+// Option stehen deshalb als data-Attribute, siehe readHeaderFieldsIntoProtokoll().
 function renderProjektSelect() {
   const select = document.getElementById("inputProjekt");
   if (!select) return;
-  const current = editingProtokoll ? editingProtokoll.projekt : select.value;
-  select.innerHTML =
-    '<option value="">– kein Projekt –</option>' +
-    projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`).join("");
-  select.value = current || "";
+  const currentId = editingProtokoll ? editingProtokoll.projekt : "";
+  const currentName = editingProtokoll ? editingProtokoll.projektName : "";
+
+  // Bevorzugt eine Option, die sowohl in Nummer ALS AUCH Name übereinstimmt
+  // (disambiguiert eine doppelt vergebene Nummer); ohne Namens-Treffer (z.B.
+  // bei noch nicht gespeicherten alten Protokollen ohne projektName) reicht
+  // die Nummer allein.
+  let matchIndex = projectList.findIndex((p) => p.id === currentId && p.name === currentName);
+  if (matchIndex === -1) matchIndex = projectList.findIndex((p) => p.id === currentId);
+
+  let options = projectList.map(
+    (p, i) => `<option value="${i}" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`
+  );
+  if (currentId && matchIndex === -1) {
+    options = [
+      `<option value="-1" data-id="${escapeHtml(currentId)}" data-name="${escapeHtml(currentName)}">${escapeHtml(currentId)} – ${escapeHtml(currentName)} (nicht mehr in der Liste)</option>`,
+      ...options
+    ];
+  }
+  select.innerHTML = '<option value="">– kein Projekt –</option>' + options.join("");
+  select.value = currentId ? String(matchIndex) : "";
 }
 
 // ---------- Personen (Büro-Personen für Teilnehmende/Kürzel) ----------
@@ -275,7 +292,7 @@ function renderList() {
       return `<tr data-clickable data-index="${i}">
         <td>${escapeHtml(chDate(d.datum))}</td>
         <td>${escapeHtml(d.titel || "–")}</td>
-        <td>${escapeHtml(projectLabel(d.projekt) || "–")}</td>
+        <td>${escapeHtml(projectLabel(d) || "–")}</td>
         <td>${escapeHtml(d.ort || "–")}</td>
         <td>${(d.teilnehmende || []).length}</td>
       </tr>`;
@@ -296,6 +313,7 @@ function blankProtokoll() {
   return {
     titel: "",
     projekt: "",
+    projektName: "", // siehe renderProjektSelect() -- zur Disambiguierung, falls dieselbe Nummer mehrfach vergeben ist
     datum: formatDate(new Date()),
     zeitVon: "",
     zeitBis: "",
@@ -338,7 +356,10 @@ function closeEditor() {
 
 function readHeaderFieldsIntoProtokoll() {
   editingProtokoll.titel = document.getElementById("inputTitel").value.trim();
-  editingProtokoll.projekt = document.getElementById("inputProjekt").value || "";
+  const projektSelect = document.getElementById("inputProjekt");
+  const projektOpt = projektSelect.options[projektSelect.selectedIndex];
+  editingProtokoll.projekt = (projektOpt && projektOpt.dataset.id) || "";
+  editingProtokoll.projektName = (projektOpt && projektOpt.dataset.name) || "";
   editingProtokoll.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingProtokoll.zeitVon = document.getElementById("inputZeitVon").value || "";
   editingProtokoll.zeitBis = document.getElementById("inputZeitBis").value || "";
@@ -587,13 +608,13 @@ async function syncInternePendenzen(protokoll, filename) {
     kandidaten.forEach((k) => {
       const existing = byId.get(k.id);
       if (existing) {
-        byId.set(k.id, { ...existing, text: k.text, projekt: projectNameOnly(protokoll.projekt) || null, person: k.person, updatedAt: now, updatedBy: personName() });
+        byId.set(k.id, { ...existing, text: k.text, projekt: protokoll.projektName || null, person: k.person, updatedAt: now, updatedBy: personName() });
       } else {
         const minOrder = serverList.filter((p) => !p.erledigt).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
         byId.set(k.id, {
           id: k.id,
           text: k.text,
-          projekt: projectNameOnly(protokoll.projekt) || null,
+          projekt: protokoll.projektName || null,
           person: k.person,
           erledigt: false,
           erledigtAt: null,
@@ -730,7 +751,7 @@ function init() {
     resultEl.textContent = "Erstellt PDF…";
     resultEl.className = "test-result";
     try {
-      await exportProtokollPdf(editingProtokoll, projectLabel);
+      await exportProtokollPdf(editingProtokoll);
       resultEl.textContent = "PDF erstellt.";
       resultEl.className = "test-result ok";
     } catch (err) {
