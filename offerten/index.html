@@ -391,8 +391,20 @@
         </div>
       </div>
 
-      <label>Projekt</label>
-      <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
+      <div id="projektFreitextGroup" class="two-col">
+        <div>
+          <label>Projektnummer (optional)</label>
+          <input type="text" id="inputProjektnummer" placeholder="z.B. 021">
+        </div>
+        <div>
+          <label>Projekt</label>
+          <input type="text" id="inputProjekt" placeholder="z.B. Neubau Werkhof">
+        </div>
+      </div>
+      <div id="projektAuswahlGroup" style="display:none;">
+        <label>Projekt</label>
+        <select id="inputProjektAuswahl"></select>
+      </div>
 
       <label>Empfänger (Name/Firma)</label>
       <input type="text" id="inputEmpfaenger" placeholder="z.B. Gemeinde Musterwil">

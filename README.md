@@ -388,6 +388,16 @@ alles neu erfassen zu müssen.
   Brief-Datumszeile kommt zentral aus `absender.json` (siehe unten), kein
   eigenes Feld pro Offerte/Rechnung. Darunter die **Unterschrift(en)**
   (siehe eigener Abschnitt unten).
+- **Projekt**: bei **Offerten** zwei frei eingebbare Felder, Projektnummer
+  (optional) und Projekt(-name) — beide unabhängig von der zentral
+  verwalteten Projektliste, weil aus einer Offerte nicht immer ein Projekt
+  mit eigener Nummer entsteht. Bei **Rechnungen** stattdessen ein Dropdown
+  mit derselben zentral verwalteten Projektliste wie Zeiterfassung/
+  Pendenzen/Protokoll (siehe Abschnitt "Projektnamen zentral verwalten"
+  oben) — eine Rechnung betrifft praktisch immer ein bereits laufendes,
+  nummeriertes Projekt; Auswahl übernimmt Nummer und Name automatisch in
+  dieselben (bei Rechnungen nur versteckten) Felder. Liste und PDF zeigen
+  "Nummer – Name", sofern eine Projektnummer gesetzt ist.
 - **Automatische Nummerierung**: Checkbox oberhalb der Positionsliste, pro
   Offerte/Rechnung. Aus wirkt sofort (auch ohne zu speichern) und blendet
   die `1)`/`2)`/… vor den Modultiteln aus — im Web-Formular wie im PDF.
@@ -712,9 +722,11 @@ bei den Offerten), PDF-Export, auf Nextcloud gesichert (ein File pro
 Protokoll, wie bei den Offerten).
 
 - **Speicherort**: `Buero/Admin/Protokolle`, ein JSON pro Protokoll.
-- **Projekt**: kommt aus derselben zentral verwalteten Liste wie
+- **Projekt**: Dropdown aus derselben zentral verwalteten Liste wie
   Zeiterfassung/Pendenzen (siehe Abschnitt "Projektnamen zentral verwalten"
   oben) — eigene Kopie in `protokoll/app.js` (`PROJECTS_SHARE_TOKEN`).
+  Anders als bei Zeiterfassung/Pendenzen (nur der Name) zeigen Auswahl,
+  Liste und PDF hier **Projektnummer UND Name** ("021 – Neubau Werkhof").
 - **Teilnehmende & Kürzel**: Büro-Personen (aus `shared/personen.json`)
   lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
   automatisch (Initialen, nicht änderbar); externe Teilnehmende werden frei

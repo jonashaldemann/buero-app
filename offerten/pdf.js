@@ -423,7 +423,8 @@ function drawPositionenPage(ctx, offer) {
   y -= 24;
 
   if (offer.projekt) {
-    drawText(ctx, offer.projekt, PDF_MARGIN, y, { size: SIZE_HEAD, font: ctx.medium });
+    const projektLine = [offer.projektnummer, offer.projekt].filter(Boolean).join(" – ");
+    drawText(ctx, projektLine, PDF_MARGIN, y, { size: SIZE_HEAD, font: ctx.medium });
     y -= 18;
   }
 

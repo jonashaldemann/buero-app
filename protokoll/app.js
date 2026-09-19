@@ -74,9 +74,12 @@ async function refreshProjectNames() {
   }
 }
 
+// Beim Protokoll gelten Projektnummer UND Projektname (anders als bei
+// Zeiterfassung/Pendenzen, die nur den Namen zeigen) -- "021 – Neubau
+// Werkhof" statt nur "Neubau Werkhof".
 function projectLabel(id) {
   const p = projectList.find((p) => p.id === id);
-  return p ? p.name : id || "";
+  return p ? `${p.id} – ${p.name}` : id || "";
 }
 
 function renderProjektSelect() {
@@ -85,7 +88,7 @@ function renderProjektSelect() {
   const current = editingProtokoll ? editingProtokoll.projekt : select.value;
   select.innerHTML =
     '<option value="">– kein Projekt –</option>' +
-    projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
+    projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`).join("");
   select.value = current || "";
 }
 
