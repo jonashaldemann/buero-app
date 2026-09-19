@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Protokoll</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/protokoll-192.png">
+<link rel="apple-touch-icon" href="../icons/protokoll-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Wie bei den Offerten: am Rechner erstellt, nicht auf dem Handy --
+     mehr Breite als die sonst mobile-first begrenzten 480px. */
+  main { max-width: min(1100px, 96vw); }
+  #editorOverlay .sheet { max-width: min(900px, 96vw); }
+
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: grab;
+    padding: 4px;
+    align-self: stretch;
+  }
+  .drag-handle:active { cursor: grabbing; color: var(--text); }
+  .bullet-row.dragging, .phase-row.dragging { opacity: 0.35; }
+
+  .abschnitte-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }
+
+  .phase-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 28px;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  .phase-titel {
+    background: none;
+    border: none;
+    padding: 6px 0;
+    font-family: var(--font-medium);
+    font-size: 16px;
+    color: var(--text);
+  }
+  .phase-titel::placeholder { color: var(--text-muted); }
+
+  .bullet-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 150px 28px;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface-2);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .bullet-text { background: var(--surface); font-size: 13px; min-height: 40px; resize: vertical; }
+  .bullet-kuerzel { background: var(--surface); font-size: 13px; }
+
+  .mod-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mod-delete:active { color: #B5654C; }
+
+  .add-mod-btn {
+    background: var(--surface-2);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    flex: 1;
+    color: var(--text-muted);
+    font-family: var(--font-medium);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .add-mod-btn:active { background: var(--surface); }
+
+  .teilnehmende-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+  .teilnehmer-row {
+    display: grid;
+    grid-template-columns: 1fr 90px 28px;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface-2);
+    border-radius: 12px;
+    padding: 8px 12px;
+  }
+  .teilnehmer-name { font-size: 14px; }
+  .teilnehmer-name-input, .teilnehmer-row input[type="text"] { background: var(--surface); font-size: 13px; }
+  .teilnehmer-row input[disabled] { color: var(--text-muted); background: none; border-color: transparent; }
+
+  .person-quick-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .person-quick-add .add-mod-btn { flex: none; padding: 8px 14px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 14px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Protokoll</h1>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="status-card" id="statusCard">
+    <div class="status-label">Protokolle</div>
+    <div class="status-timer" id="countLabel">0</div>
+    <div class="sync-line" id="syncLine">&nbsp;</div>
+  </section>
+
+  <section class="form-actions">
+    <button id="newProtokollBtn" class="btn-primary">+ Neu</button>
+    <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
+  </section>
+
+  <section class="table-block">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Titel</th>
+            <th>Projekt</th>
+            <th>Ort</th>
+            <th>Teiln.</th>
+          </tr>
+        </thead>
+        <tbody id="protokollBody">
+          <tr><td colspan="5">Noch keine Protokolle geladen.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="jonas">
+      <label>App-Passwort</label>
+      <div class="password-field">
+        <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+        <button type="button" id="togglePassBtn" class="password-toggle" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für die anderen Module (einmal einrichten, überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<!-- Editor -->
+<div id="editorOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="editorTitle">Neues Protokoll</h2>
+      <button id="closeEditor" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Sitzungstitel</label>
+      <input type="text" id="inputTitel" placeholder="z.B. Besprechung Strategische Planung (Phase 1)">
+
+      <div class="two-col">
+        <div>
+          <label>Projekt</label>
+          <select id="inputProjekt"></select>
+        </div>
+        <div>
+          <label>Datum</label>
+          <input type="date" id="inputDatum">
+        </div>
+      </div>
+      <div class="three-col">
+        <div>
+          <label>Zeit von</label>
+          <input type="time" id="inputZeitVon">
+        </div>
+        <div>
+          <label>Zeit bis</label>
+          <input type="time" id="inputZeitBis">
+        </div>
+        <div>
+          <label>Ort</label>
+          <input type="text" id="inputOrt" placeholder="z.B. Büro Rautistrasse">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Teilnehmende</label>
+      <div class="teilnehmende-list" id="teilnehmendeList"></div>
+      <div class="person-quick-add" id="personQuickAdd"></div>
+      <div class="form-actions">
+        <button type="button" class="add-mod-btn" id="addTeilnehmerBtn">+ Teilnehmer/in</button>
+      </div>
+      <p class="hint">
+        Büro-Personen bekommen ihr Kürzel automatisch (Initialen); bei
+        externen Teilnehmenden lässt es sich frei eintragen. Das Kürzel
+        wird bei den Stichpunkten unten verwendet, um einen Punkt als
+        Pendenz zu markieren.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Hauptteil</label>
+      <div class="abschnitte-list" id="abschnitteList"></div>
+      <div class="form-actions">
+        <button type="button" class="add-mod-btn" id="addTitelBtn">+ Zwischentitel</button>
+        <button type="button" class="add-mod-btn" id="addBulletBtn">+ Stichpunkt</button>
+      </div>
+    </div>
+
+    <div id="editorResult" class="test-result"></div>
+
+    <div class="form-actions" style="margin-top:14px;">
+      <button id="pdfProtokollBtn" class="btn-secondary">PDF erstellen</button>
+      <button id="deleteProtokollBtn" class="btn-secondary">Löschen</button>
+      <button id="saveProtokollBtn" class="btn-primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="../shared/common.js"></script>
+<script src="pdf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
