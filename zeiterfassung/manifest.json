@@ -1,6 +1,6 @@
 {
   "name": "Zeiterfassung",
-  "short_name": "Zeit",
+  "short_name": "Zeiterfassung",
   "description": "Zeiterfassung pro Projekt mit Sync auf Nextcloud",
   "start_url": "./index.html",
   "scope": "./",

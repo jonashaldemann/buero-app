@@ -45,7 +45,25 @@ const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 const FALLBACK_COLOR = "#B7AFA0";
 
-let projectList = loadJSON(LS_KEYS.projectsCache, ["P1", "P2", "P3"]);
+let projectList = loadJSON(LS_KEYS.projectsCache, [
+  { id: "P1", name: "P1" },
+  { id: "P2", name: "P2" },
+  { id: "P3", name: "P3" }
+]);
+
+// Kopie aus zeiterfassung/app.js -- siehe dort für die Begründung
+// (dreistellige Projektnummer optional führend pro Zeile, sonst
+// Rückwärtskompatibilität über die alte positionsbasierte ID "P<n>").
+function parseProjectList(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const m = /^(\d{3})\s+(.+)$/.exec(line);
+      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
+    });
+}
 let personen = [];
 
 // { id, text, projekt ("P1"/... oder null), person (key oder null),
@@ -75,28 +93,35 @@ async function refreshProjectNames() {
     const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const text = await res.text();
-    const names = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (names.length === 0) return; // leere Datei -> alten Stand behalten
-    projectList = names;
-    saveJSON(LS_KEYS.projectsCache, names);
+    const list = parseProjectList(text);
+    if (list.length === 0) return; // leere Datei -> alten Stand behalten
+    projectList = list;
+    saveJSON(LS_KEYS.projectsCache, list);
   } catch (err) {
     console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
   }
 }
 
-function projectIndexFromId(id) {
-  const m = /^P(\d+)$/.exec(id || "");
-  return m ? parseInt(m[1], 10) - 1 : -1;
-}
 function projectLabel(id) {
-  const idx = projectIndexFromId(id);
-  if (idx >= 0 && projectList[idx]) return projectList[idx];
-  return id || "";
+  const p = projectList.find((p) => p.id === id);
+  return p ? p.name : id || "";
+}
+// Farbindex aus der Projekt-ID -- Kopie aus zeiterfassung/app.js (siehe dort):
+// alte ID-Form "P<n>" behält per -1 exakt ihre bisherige Farbe, eine neue
+// dreistellige Projektnummer nimmt ihren Zahlenwert direkt. Bewusst
+// unabhängig von projectList (nur Regex auf der ID selbst) -- die Farbe
+// einer Pendenz-Zeile steht dadurch sofort fest, ohne auf das Laden der
+// zentralen Projektnamen warten zu müssen.
+function projectColorIndex(id) {
+  const legacy = /^P(\d+)$/.exec(id || "");
+  if (legacy) return parseInt(legacy[1], 10) - 1;
+  const numeric = /^(\d+)$/.exec(id || "");
+  return numeric ? parseInt(numeric[1], 10) : null;
 }
 function projectColor(id) {
-  const idx = projectIndexFromId(id);
-  if (idx < 0) return null;
-  return PROJECT_COLOR_PALETTE[idx % PROJECT_COLOR_PALETTE.length];
+  const idx = projectColorIndex(id);
+  if (idx === null) return null;
+  return PROJECT_COLOR_PALETTE[((idx % PROJECT_COLOR_PALETTE.length) + PROJECT_COLOR_PALETTE.length) % PROJECT_COLOR_PALETTE.length];
 }
 
 // Ob eine Hex-Farbe (als Zeilenhintergrund, siehe renderRow()) eher dunkel
@@ -349,11 +374,10 @@ function renderProjectFilterRow() {
   const container = document.getElementById("projectFilterRow");
   let html = `<button type="button" class="filter-chip${filterProjekt === "ALL" ? " active" : ""}" data-projekt="ALL">Alle</button>`;
   html += projectList
-    .map((name, i) => {
-      const id = `P${i + 1}`;
-      const color = PROJECT_COLOR_PALETTE[i % PROJECT_COLOR_PALETTE.length];
-      return `<button type="button" class="filter-chip${filterProjekt === id ? " active" : ""}" data-projekt="${id}" style="--accent:${color}">
-        <span class="chip-dot" style="background:${color}"></span>${escapeHtml(name)}
+    .map((p) => {
+      const color = projectColor(p.id) || FALLBACK_COLOR;
+      return `<button type="button" class="filter-chip${filterProjekt === p.id ? " active" : ""}" data-projekt="${escapeHtml(p.id)}" style="--accent:${color}">
+        <span class="chip-dot" style="background:${color}"></span>${escapeHtml(p.name)}
       </button>`;
     })
     .join("");
@@ -371,10 +395,7 @@ function renderMeta(p) {
   if (editingMetaIds.has(p.id)) {
     const projektOptions =
       `<option value="">Kein Projekt</option>` +
-      projectList.map((name, i) => {
-        const id = `P${i + 1}`;
-        return `<option value="${id}" ${p.projekt === id ? "selected" : ""}>${escapeHtml(name)}</option>`;
-      }).join("");
+      projectList.map((proj) => `<option value="${escapeHtml(proj.id)}" ${p.projekt === proj.id ? "selected" : ""}>${escapeHtml(proj.name)}</option>`).join("");
     const personOptions =
       `<option value="">Keine Person</option>` +
       personen.map((per) => `<option value="${escapeHtml(per.key)}" ${p.person === per.key ? "selected" : ""}>${escapeHtml(per.name)}</option>`).join("");

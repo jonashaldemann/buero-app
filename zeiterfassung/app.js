@@ -32,9 +32,43 @@ const TARGET_FOLDER_PATH = "Buero/Admin/Zeiterfassung";
 // (gedeckte Erdtöne: Taubenblau, Salbeigrün, Terrakotta, Schiefergrün, Greige).
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 
-// Zentral verwaltete Projektliste (Array beliebiger Länge). Fallback P1/P2/P3,
-// falls noch nie erfolgreich geladen und keine zentrale Verwaltung aktiv ist.
-let projectList = loadJSON(LS_KEYS.projectsCache, ["P1", "P2", "P3"]);
+// Zentral verwaltete Projektliste: Array von { id, name }. Jede Zeile der
+// Textdatei ist entweas "NNN Projekttitel" (dreistellige Projektnummer,
+// Leerschlag, Titel -- die Nummer ist die stabile ID) oder, für noch nicht
+// umgestellte/alte Zeilen, einfach nur der Titel (bekommt dann wie bisher
+// eine positionsbasierte ID "P<Zeilennummer>", siehe parseProjectList()).
+// Fallback P1/P2/P3, falls noch nie erfolgreich geladen und keine zentrale
+// Verwaltung aktiv ist.
+let projectList = loadJSON(LS_KEYS.projectsCache, [
+  { id: "P1", name: "P1" },
+  { id: "P2", name: "P2" },
+  { id: "P3", name: "P3" }
+]);
+
+// Erkennt pro Zeile eine optionale führende dreistellige Projektnummer
+// ("021 Neubau Werkhof") -- ohne diese bleibt die alte, rein
+// positionsbasierte ID "P<Zeilennummer>" bestehen (Rückwärtskompatibilität
+// für noch nicht umgestellte Zeilen bzw. bestehende Zeiterfassungsdaten).
+function parseProjectList(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const m = /^(\d{3})\s+(.+)$/.exec(line);
+      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
+    });
+}
+
+// Farbindex aus einer Projekt-ID: bei der alten ID-Form "P<n>" wie bisher
+// n-1 (damit P1/P2/P3 exakt dieselbe Farbe wie vor der Umstellung behalten),
+// bei einer neuen dreistelligen Projektnummer direkt deren Zahlenwert.
+function projectColorIndex(id) {
+  const legacy = /^P(\d+)$/.exec(id || "");
+  if (legacy) return parseInt(legacy[1], 10) - 1;
+  const numeric = /^(\d+)$/.exec(id || "");
+  return numeric ? parseInt(numeric[1], 10) : null;
+}
 
 let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|..., start: ISOString }
 let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, projectId }
@@ -65,19 +99,20 @@ function formatHM(totalSec) {
   const m = Math.round((totalSec % 3600) / 60);
   return h > 0 ? `${h} h ${pad(m)} min` : `${m} min`;
 }
+// Position in der aktuellen Projektliste (für die Sortierung von
+// Buttons/"Heute"-Liste in Dateireihenfolge) -- anders als die Farbe (siehe
+// projectColorIndex()) unabhängig vom ID-Format.
 function projectIndexFromAction(action) {
-  const m = /^P(\d+)$/.exec(action);
-  return m ? parseInt(m[1], 10) - 1 : -1;
+  return projectList.findIndex((p) => p.id === action);
 }
 function projectLabel(action) {
-  const idx = projectIndexFromAction(action);
-  if (idx >= 0 && projectList[idx]) return projectList[idx];
-  return action;
+  const p = projectList.find((p) => p.id === action);
+  return p ? p.name : action;
 }
 function projectColor(action) {
-  const idx = projectIndexFromAction(action);
-  if (idx < 0) return null;
-  return PROJECT_COLOR_PALETTE[idx % PROJECT_COLOR_PALETTE.length];
+  const idx = projectColorIndex(action);
+  if (idx === null) return null;
+  return PROJECT_COLOR_PALETTE[((idx % PROJECT_COLOR_PALETTE.length) + PROJECT_COLOR_PALETTE.length) % PROJECT_COLOR_PALETTE.length];
 }
 
 // ---------- Zustandsautomat ----------
@@ -122,9 +157,9 @@ function closeCurrentSession(now) {
 function renderProjectButtons() {
   const container = document.getElementById("projectButtons");
   container.innerHTML = projectList
-    .map((name, i) => {
-      const color = PROJECT_COLOR_PALETTE[i % PROJECT_COLOR_PALETTE.length];
-      return `<button class="proj-btn" data-action="P${i + 1}" style="--accent:${color}">${escapeHtml(name)}</button>`;
+    .map((p) => {
+      const color = projectColor(p.id) || PROJECT_COLOR_PALETTE[0];
+      return `<button class="proj-btn" data-action="${escapeHtml(p.id)}" style="--accent:${color}">${escapeHtml(p.name)}</button>`;
     })
     .join("");
   container.querySelectorAll(".proj-btn").forEach((btn) => {
@@ -330,12 +365,12 @@ async function refreshProjectNames() {
     const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const text = await res.text();
-    const names = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (names.length === 0) return; // leere Datei -> alten Stand behalten
+    const list = parseProjectList(text);
+    if (list.length === 0) return; // leere Datei -> alten Stand behalten
 
-    const changed = JSON.stringify(names) !== JSON.stringify(projectList);
-    projectList = names;
-    saveJSON(LS_KEYS.projectsCache, names);
+    const changed = JSON.stringify(list) !== JSON.stringify(projectList);
+    projectList = list;
+    saveJSON(LS_KEYS.projectsCache, list);
     if (changed) renderProjectButtons();
     render();
   } catch (err) {
@@ -355,7 +390,7 @@ function openManualEntry() {
 
   const projectSelect = document.getElementById("manualProject");
   projectSelect.innerHTML = projectList
-    .map((name, i) => `<option value="P${i + 1}">${escapeHtml(name)}</option>`)
+    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
     .join("");
 
   document.getElementById("manualHours").value = "";
