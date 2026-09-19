@@ -115,19 +115,28 @@ Zielordner: `TARGET_FOLDER_PATH` in `zeiterfassung/app.js` (Standard
 
 ### Projektnamen zentral verwalten
 
-Die Projektnamen (P1/P2/P3) werden zentral von der Büroleitung in einer
-einfachen Textdatei auf Nextcloud verwaltet. Alle Geräte laden sie
-automatisch (beim Start, danach alle 60 Sekunden sowie beim Zurückkehren in
-den Tab).
+Die Projekte werden zentral von der Büroleitung in einer einfachen
+Textdatei auf Nextcloud verwaltet (ein Projekt pro Zeile, **dreistellige
+Projektnummer, Leerschlag, Projekttitel** — der Titel darf selbst
+Leerschläge enthalten). Die Projektnummer ist die stabile ID: Zeilen lassen
+sich beliebig umsortieren, dazwischen einfügen oder entfernen, ohne dass
+sich die Zuordnung bestehender Zeiterfassungs-/Pendenzen-Einträge ändert
+(anders als bei einer rein positionsbasierten Liste). Alle Geräte laden die
+Datei automatisch (beim Start, danach alle 60 Sekunden sowie beim
+Zurückkehren in den Tab).
 
 1. In Nextcloud eine Textdatei anlegen, z.B.
-   `Buero/Admin/Zeiterfassung/projekte.txt`, mit **genau 3 Zeilen** (Zeile 1 =
-   Name für P1, Zeile 2 = P2, Zeile 3 = P3):
+   `Buero/Admin/Zeiterfassung/projekte.txt`:
    ```
-   Projekt Nord
-   Projekt Süd
-   Verwaltung
+   021 Neubau Werkhof
+   014 Umbau Altstetten
+   003 Verwaltung
    ```
+   **Zeilen ohne Nummer** (z.B. noch nicht umgestellte Altbestände) bleiben
+   aus Kompatibilitätsgründen weiterhin unterstützt — sie bekommen wie vor
+   dieser Umstellung eine positionsbasierte ID `P1`/`P2`/… nach ihrer
+   Zeilennummer in der Datei; das ist aber nur ein Übergangs-Fallback, für
+   neue Projekte immer eine echte Nummer vergeben.
 2. Datei in Nextcloud anklicken → **Teilen** → **Link erstellen** (öffentlicher
    Freigabelink, keine Zugangsdaten nötig zum Lesen). Nextcloud zeigt einen
    Link wie `https://.../s/AbCdEfGh123`.
@@ -135,11 +144,15 @@ den Tab).
    **Sicherheitshinweis:** Wer diesen Link kennt, kann die Projektnamen
    lesen (nicht aber eure Zeiterfassungsdaten). Der Link lässt sich jederzeit
    in Nextcloud widerrufen.
-3. Den Teil nach `/s/` (den Token) in `zeiterfassung/app.js` bei
-   `PROJECTS_SHARE_TOKEN` eintragen, committen, pushen.
+3. Den Teil nach `/s/` (den Token) in `zeiterfassung/app.js` **und**
+   `pendenzen/app.js` bei `PROJECTS_SHARE_TOKEN` eintragen, committen,
+   pushen (beide Module führen bewusst je eine eigene Kopie der Projektliste
+   — siehe Kommentar in `pendenzen/app.js`).
 4. Später ändern: einfach die Textdatei in Nextcloud bearbeiten und
    speichern — alle Geräte übernehmen die neuen Namen automatisch, kein
-   Code-Update nötig.
+   Code-Update nötig. Eine bestehende Projektnummer NICHT wiederverwenden,
+   sobald sie einmal einem Projekt zugeteilt wurde (sonst rutschen alte
+   Zeiterfassungs-/Pendenzen-Einträge unter das neue Projekt).
 
 ### Datenformat
 
