@@ -87,13 +87,28 @@ async function refreshProjectNames() {
 
 // Dropdown für Rechnungen: "021 – Neubau Werkhof" -- Nummer UND Name in
 // einem Feld, siehe Kommentar bei PROJECTS_SHARE_TOKEN oben.
+// Optionen-Werte sind der Array-Index in projectList, NICHT die Nummer --
+// die zentrale Liste erlaubt dieselbe Nummer mehrfach (siehe README,
+// "Projektnamen zentral verwalten"), z.B. "000 Büro Allgemein" und
+// "000 Akquisition"; über die Nummer allein liessen sich zwei solche
+// Optionen im Dropdown weder auseinanderhalten noch beim Wiederöffnen
+// einer Rechnung korrekt vorauswählen. Nummer UND Name jeder Option stehen
+// deshalb als data-Attribute, siehe onProjektAuswahlChange().
 function renderProjektAuswahl() {
   const select = document.getElementById("inputProjektAuswahl");
   if (!select) return;
-  const current = editingOffer ? editingOffer.projektnummer : "";
-  const currentInList = projectList.some((p) => p.id === current);
+  const currentId = editingOffer ? editingOffer.projektnummer : "";
+  const currentName = editingOffer ? editingOffer.projekt : "";
 
-  let options = projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`);
+  // Bevorzugt eine Option, die sowohl in Nummer ALS AUCH Name übereinstimmt
+  // (disambiguiert eine doppelt vergebene Nummer), sonst irgendeine mit
+  // passender Nummer.
+  let matchIndex = projectList.findIndex((p) => p.id === currentId && p.name === currentName);
+  if (matchIndex === -1) matchIndex = projectList.findIndex((p) => p.id === currentId);
+
+  let options = projectList.map(
+    (p, i) => `<option value="${i}" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`
+  );
   // Nummer nicht (mehr) in der aktiven Liste (z.B. altes, inzwischen
   // abgeschlossenes/archiviertes Projekt einer bestehenden Rechnung) --
   // trotzdem als eigene, vorausgewählte Option zeigen statt einfach auf
@@ -101,15 +116,15 @@ function renderProjektAuswahl() {
   // alten Rechnung so aus, als sei das Projekt verloren gegangen (ist es
   // nicht, projektnummer/projekt bleiben im Hintergrund unverändert) -- und
   // eine versehentliche Neuauswahl würde die alten Werte überschreiben.
-  if (current && !currentInList) {
+  if (currentId && matchIndex === -1) {
     options = [
-      `<option value="${escapeHtml(current)}" data-name="${escapeHtml(editingOffer.projekt || "")}">${escapeHtml(current)} – ${escapeHtml(editingOffer.projekt || "")} (nicht mehr in der Liste)</option>`,
+      `<option value="-1" data-id="${escapeHtml(currentId)}" data-name="${escapeHtml(currentName)}">${escapeHtml(currentId)} – ${escapeHtml(currentName)} (nicht mehr in der Liste)</option>`,
       ...options
     ];
   }
 
   select.innerHTML = '<option value="">– Projekt wählen –</option>' + options.join("");
-  select.value = current || "";
+  select.value = currentId ? String(matchIndex) : "";
 }
 
 // Aktuell im Editor offene Offerte (Arbeitskopie) und ihr Dateiname auf
@@ -637,15 +652,13 @@ function applyTypVisibility(typ) {
 // EINGABE-Widgets unterscheiden sich.
 function onProjektAuswahlChange() {
   const select = document.getElementById("inputProjektAuswahl");
-  const p = projectList.find((x) => x.id === select.value);
-  // Neben echten Listeneinträgen kann auch die synthetische "(nicht mehr in
-  // der Liste)"-Option ausgewählt sein (siehe renderProjektAuswahl()) --
-  // deren Name steckt im data-name-Attribut, nicht in projectList. Ohne
-  // diesen Fallback würde ein erneutes Auswählen dieser Option Nummer/Name
-  // fälschlich leeren statt sie zu erhalten.
+  // Optionswert ist der Array-Index (siehe renderProjektAuswahl()), nicht
+  // die Nummer -- Nummer und Name der ausgewählten Option kommen deshalb
+  // aus ihren data-Attributen, nicht aus einer erneuten Suche in
+  // projectList (die bei doppelt vergebener Nummer wieder mehrdeutig wäre).
   const opt = select.options[select.selectedIndex];
-  document.getElementById("inputProjektnummer").value = select.value || "";
-  document.getElementById("inputProjekt").value = p ? p.name : (opt && opt.dataset.name) || "";
+  document.getElementById("inputProjektnummer").value = (opt && opt.dataset.id) || "";
+  document.getElementById("inputProjekt").value = (opt && opt.dataset.name) || "";
 }
 
 function openEditor(offer, filename, newTyp) {

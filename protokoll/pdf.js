@@ -109,7 +109,18 @@ function drawRule(ctx, y, { x0 = PDF_MARGIN, x1 = PDF_PAGE_WIDTH - PDF_MARGIN, t
 
 // ---------- Kopf: Absender, Titel, Meta-Infos, Teilnehmende ----------
 
-function drawHeader(ctx, protokoll, absender, projektLabelFn) {
+// "Nummer – Name" aus den am Protokoll selbst gespeicherten Feldern (nicht
+// aus einer Live-Suche in einer Projektliste, die es hier -- eigenständig
+// gehalten wie offerten/pdf.js -- gar nicht gibt): eine Projektnummer kann
+// in der zentralen Liste mehrfach vergeben sein (z.B. "000" für mehrere
+// interne Kategorien), darum steht der tatsächlich gemeinte Name direkt am
+// Protokoll (siehe readHeaderFieldsIntoProtokoll() in app.js).
+function projektLabel(protokoll) {
+  if (!protokoll.projekt) return "";
+  return protokoll.projektName ? `${protokoll.projekt} – ${protokoll.projektName}` : protokoll.projekt;
+}
+
+function drawHeader(ctx, protokoll, absender) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
   if (absender) {
@@ -132,7 +143,7 @@ function drawHeader(ctx, protokoll, absender, projektLabelFn) {
   const metaRows = [];
   const zeitraum = [protokoll.zeitVon, protokoll.zeitBis].filter(Boolean).join(" – ");
   metaRows.push(["Datum/Zeit", [chDateLong(protokoll.datum), zeitraum ? `${zeitraum} Uhr` : ""].filter(Boolean).join(", ")]);
-  if (protokoll.projekt) metaRows.push(["Projekt", projektLabelFn(protokoll.projekt)]);
+  if (protokoll.projekt) metaRows.push(["Projekt", projektLabel(protokoll)]);
   if (protokoll.ort) metaRows.push(["Ort", protokoll.ort]);
 
   metaRows.forEach(([label, value]) => {
@@ -225,7 +236,7 @@ function downloadPdfBytes(bytes, filename) {
 
 // ---------- Einstiegspunkt ----------
 
-async function exportProtokollPdf(protokoll, projektLabelFn) {
+async function exportProtokollPdf(protokoll) {
   if (typeof PDFLib === "undefined" || typeof fontkit === "undefined") {
     throw new Error("PDF-Bibliothek nicht verfügbar (fürs erste Mal wird eine Internetverbindung gebraucht).");
   }
@@ -263,7 +274,7 @@ async function exportProtokollPdf(protokoll, projektLabelFn) {
   };
 
   newPage(ctx);
-  drawHeader(ctx, protokoll, absender, projektLabelFn || ((id) => id));
+  drawHeader(ctx, protokoll, absender);
   drawAbschnitte(ctx, protokoll);
 
   const bytes = await pdfDoc.save();

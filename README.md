@@ -147,9 +147,13 @@ vorkommt als eine Umbenennung.
 
 **Protokoll und Rechnungen** (bei den Offerten) hingegen wählen ein Projekt
 über ein Dropdown mit **Nummer UND Name gemeinsam** (siehe jeweiliger
-Abschnitt unten) — dort sollte die Nummer daher eindeutig sein, sonst lässt
-sich beim Erfassen nicht zuverlässig zwischen zwei gleichnummerierten
-Projekten wählen.
+Abschnitt unten). Auch hier ist eine mehrfach vergebene Nummer unproblematisch:
+die Dropdown-Optionen selbst sind intern über ihre Position in der Liste
+(nicht über die Nummer) eindeutig identifizierbar, sodass sich zwei
+gleichnummerierte Projekte trotzdem sauber auseinanderhalten lassen —
+sowohl beim Auswählen als auch beim späteren Wiederöffnen eines
+gespeicherten Protokolls/einer Rechnung (die richtige Option bleibt
+vorausgewählt, nicht z.B. die erste mit derselben Nummer).
 
 1. In Nextcloud eine Textdatei anlegen, z.B.
    `Buero/Admin/Zeiterfassung/projekte.txt`:
