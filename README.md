@@ -701,6 +701,53 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   sonst könnte ein noch laufender älterer Ladevorgang eine zwischenzeitlich
   bereits gespeicherte neue Pendenz beim Zurückschreiben wieder verlieren.
 
+---
+
+## Protokoll
+
+Sitzungsprotokolle (Aktennotizen) erfassen: Header (Sitzungstitel, Projekt,
+Datum/Zeit, Ort), Teilnehmende mit optionalem Kürzel, Hauptteil als einfache
+Liste aus Zwischentiteln und Stichpunkten (Struktur analog zu Phasen/Modulen
+bei den Offerten), PDF-Export, auf Nextcloud gesichert (ein File pro
+Protokoll, wie bei den Offerten).
+
+- **Speicherort**: `Buero/Admin/Protokolle`, ein JSON pro Protokoll.
+- **Projekt**: kommt aus derselben zentral verwalteten Liste wie
+  Zeiterfassung/Pendenzen (siehe Abschnitt "Projektnamen zentral verwalten"
+  oben) — eigene Kopie in `protokoll/app.js` (`PROJECTS_SHARE_TOKEN`).
+- **Teilnehmende & Kürzel**: Büro-Personen (aus `shared/personen.json`)
+  lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
+  automatisch (Initialen, nicht änderbar); externe Teilnehmende werden frei
+  eingetragen, inkl. einem optional frei wählbaren Kürzel.
+- **Hauptteil**: Zwischentitel und Stichpunkte lassen sich wie die
+  Phasen/Module bei den Offerten per Ziehgriff neu anordnen. Ein Stichpunkt
+  kann optional ein Kürzel einer Teilnehmerin/eines Teilnehmers zugewiesen
+  bekommen — das markiert ihn zugleich als Pendenz (kein separates Häkchen
+  nötig).
+- **Automatische Pendenzen**: ist das zugewiesene Kürzel das einer
+  **Büro**-Person (externe Teilnehmende lösen nichts aus), wird beim
+  Speichern automatisch ein Eintrag in `Buero/Admin/Pendenzen/pendenzen.json`
+  angelegt/aktualisiert (Projekt, Person und Text aus dem Protokoll). Die
+  Pendenz-ID ist über Protokoll- und Stichpunkt-ID stabil: ein erneutes
+  Speichern aktualisiert denselben Eintrag (Textänderungen werden
+  übernommen), statt zu duplizieren, und ein in der Pendenzen-App bereits
+  gesetztes Häkchen bzw. eine manuell geänderte Reihenfolge bleiben dabei
+  erhalten. Wird das Kürzel wieder entfernt oder der Stichpunkt gelöscht,
+  verschwindet die zugehörige, vom Protokoll selbst angelegte Pendenz auch
+  wieder. Kein Merge mit gleichzeitigen Änderungen aus der Pendenzen-App
+  selbst (anders als deren eigener Sync) — Protokolle werden dafür deutlich
+  seltener gespeichert als einzelne Pendenzen bearbeitet.
+- **Gleichzeitige Bearbeitung**: wie bei der Adressliste — vor dem Speichern
+  eines bestehenden Protokolls wird der Serverstand nochmals verglichen,
+  bei einer Abweichung warnt die App und lässt die Wahl zwischen
+  Überschreiben und neu laden.
+- **PDF-Export**: eine durchgehende Seite (kein Brief/Positionen-Split wie
+  bei den Offerten) mit Absenderblock, Titel, Meta-Infos, Teilnehmenden und
+  dem Hauptteil; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
+  frei, in der — falls gesetzt — das Kürzel der zuständigen Person steht.
+  Nutzt dieselbe pdf-lib-Infrastruktur wie die Offerten (`protokoll/pdf.js`,
+  eigenständig gehalten).
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
