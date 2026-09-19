@@ -397,7 +397,15 @@ alles neu erfassen zu müssen.
   oben) — eine Rechnung betrifft praktisch immer ein bereits laufendes,
   nummeriertes Projekt; Auswahl übernimmt Nummer und Name automatisch in
   dieselben (bei Rechnungen nur versteckten) Felder. Liste und PDF zeigen
-  "Nummer – Name", sofern eine Projektnummer gesetzt ist.
+  "Nummer – Name", sofern eine Projektnummer gesetzt ist. Verschwindet ein
+  Projekt später aus der zentralen Liste (z.B. abgeschlossen/archiviert),
+  bleiben bereits gespeicherte Rechnungen davon unberührt (Nummer/Name sind
+  beim Speichern als reiner Text übernommen worden, keine Live-Verknüpfung)
+  — beim erneuten Öffnen einer solchen Rechnung erscheint die nicht mehr
+  aktive Nummer trotzdem als eigene, vorausgewählte Dropdown-Option
+  ("… (nicht mehr in der Liste)"), damit es nicht aussieht, als sei das
+  Projekt verloren gegangen, und eine unabsichtliche Neuauswahl die alten
+  Werte nicht überschreibt.
 - **Automatische Nummerierung**: Checkbox oberhalb der Positionsliste, pro
   Offerte/Rechnung. Aus wirkt sofort (auch ohne zu speichern) und blendet
   die `1)`/`2)`/… vor den Modultiteln aus — im Web-Formular wie im PDF.
