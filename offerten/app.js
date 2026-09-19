@@ -91,10 +91,25 @@ function renderProjektAuswahl() {
   const select = document.getElementById("inputProjektAuswahl");
   if (!select) return;
   const current = editingOffer ? editingOffer.projektnummer : "";
-  select.innerHTML =
-    '<option value="">– Projekt wählen –</option>' +
-    projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`).join("");
-  select.value = projectList.some((p) => p.id === current) ? current : "";
+  const currentInList = projectList.some((p) => p.id === current);
+
+  let options = projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`);
+  // Nummer nicht (mehr) in der aktiven Liste (z.B. altes, inzwischen
+  // abgeschlossenes/archiviertes Projekt einer bestehenden Rechnung) --
+  // trotzdem als eigene, vorausgewählte Option zeigen statt einfach auf
+  // "– Projekt wählen –" zurückzufallen. Sonst sieht es beim Öffnen einer
+  // alten Rechnung so aus, als sei das Projekt verloren gegangen (ist es
+  // nicht, projektnummer/projekt bleiben im Hintergrund unverändert) -- und
+  // eine versehentliche Neuauswahl würde die alten Werte überschreiben.
+  if (current && !currentInList) {
+    options = [
+      `<option value="${escapeHtml(current)}" data-name="${escapeHtml(editingOffer.projekt || "")}">${escapeHtml(current)} – ${escapeHtml(editingOffer.projekt || "")} (nicht mehr in der Liste)</option>`,
+      ...options
+    ];
+  }
+
+  select.innerHTML = '<option value="">– Projekt wählen –</option>' + options.join("");
+  select.value = current || "";
 }
 
 // Aktuell im Editor offene Offerte (Arbeitskopie) und ihr Dateiname auf
@@ -623,8 +638,14 @@ function applyTypVisibility(typ) {
 function onProjektAuswahlChange() {
   const select = document.getElementById("inputProjektAuswahl");
   const p = projectList.find((x) => x.id === select.value);
-  document.getElementById("inputProjektnummer").value = p ? p.id : "";
-  document.getElementById("inputProjekt").value = p ? p.name : "";
+  // Neben echten Listeneinträgen kann auch die synthetische "(nicht mehr in
+  // der Liste)"-Option ausgewählt sein (siehe renderProjektAuswahl()) --
+  // deren Name steckt im data-name-Attribut, nicht in projectList. Ohne
+  // diesen Fallback würde ein erneutes Auswählen dieser Option Nummer/Name
+  // fälschlich leeren statt sie zu erhalten.
+  const opt = select.options[select.selectedIndex];
+  document.getElementById("inputProjektnummer").value = select.value || "";
+  document.getElementById("inputProjekt").value = p ? p.name : (opt && opt.dataset.name) || "";
 }
 
 function openEditor(offer, filename, newTyp) {
