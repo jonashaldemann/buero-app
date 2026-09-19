@@ -49,6 +49,54 @@ const OFFERTEN_TARGET_FOLDER_PATH = "Buero/Admin/Offerten und Rechnungen";
 // { filename, data } -- data ist das geparste JSON.
 let offers = loadJSON(LS_KEYS.cache, []);
 
+// Zentral verwaltete Projektliste (Kopie aus zeiterfassung/app.js, siehe
+// dort für die Begründung der Dopplung) -- bei Rechnungen (typ "rechnung")
+// wird Projektnummer+Projekt daraus ausgewählt statt frei eingegeben, weil
+// eine Rechnung praktisch immer ein bereits laufendes, nummeriertes Projekt
+// betrifft. Bei Offerten (typ "offerte") bleiben beide Felder frei eingebbar
+// -- aus einer Offerte entsteht nicht immer ein Projekt mit eigener Nummer.
+const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
+let projectList = loadJSON("offerten_projects_cache", []);
+
+function parseProjectList(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const m = /^(\d{3})\s+(.+)$/.exec(line);
+      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
+    });
+}
+
+async function refreshProjectNames() {
+  if (!PROJECTS_SHARE_TOKEN) return;
+  try {
+    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const text = await res.text();
+    const list = parseProjectList(text);
+    if (list.length === 0) return;
+    projectList = list;
+    saveJSON("offerten_projects_cache", list);
+    renderProjektAuswahl();
+  } catch (err) {
+    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
+  }
+}
+
+// Dropdown für Rechnungen: "021 – Neubau Werkhof" -- Nummer UND Name in
+// einem Feld, siehe Kommentar bei PROJECTS_SHARE_TOKEN oben.
+function renderProjektAuswahl() {
+  const select = document.getElementById("inputProjektAuswahl");
+  if (!select) return;
+  const current = editingOffer ? editingOffer.projektnummer : "";
+  select.innerHTML =
+    '<option value="">– Projekt wählen –</option>' +
+    projectList.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`).join("");
+  select.value = projectList.some((p) => p.id === current) ? current : "";
+}
+
 // Aktuell im Editor offene Offerte (Arbeitskopie) und ihr Dateiname auf
 // Nextcloud (null = noch nicht gespeichert, also eine neue Offerte).
 let editingOffer = null;
@@ -288,7 +336,7 @@ function renderList() {
         <td>${escapeHtml(d.offert_nr || "–")}</td>
         <td>${escapeHtml(chDate(d.datum))}</td>
         <td><span class="typ-badge${isRechnung ? " rechnung" : ""}">${typLabel(d.typ)}</span></td>
-        <td>${escapeHtml(d.projekt || o.filename)}</td>
+        <td>${escapeHtml([d.projektnummer, d.projekt || o.filename].filter(Boolean).join(" – "))}</td>
         <td>${escapeHtml(d.empfaenger || "–")}</td>
         <td>${escapeHtml(chNumber(stundenTotal))}</td>
         <td>${escapeHtml(chFrRounded(total))}</td>
@@ -472,6 +520,7 @@ function blankOffer(typ) {
     typ: typ === "rechnung" ? "rechnung" : "offerte",
     empfaenger: "",
     adresse: "",
+    projektnummer: "",
     projekt: "",
     datum: formatDate(new Date()),
     offert_nr: "",
@@ -500,12 +549,12 @@ function blankOffer(typ) {
 // dasselbe Feld auf beiden Seiten anders als die Baseline UND
 // unterschiedlich voneinander ist, ist das ein echter Konflikt.
 const MERGE_FIELDS = [
-  "typ", "empfaenger", "adresse", "projekt", "datum", "offert_nr", "status",
+  "typ", "empfaenger", "adresse", "projektnummer", "projekt", "datum", "offert_nr", "status",
   "betreff", "brieftext", "unterzeichner", "stundensatz_chf", "mwst_prozent",
   "nebenkosten_chf", "automatische_nummerierung", "positionen"
 ];
 const MERGE_FIELD_LABELS = {
-  typ: "Typ", empfaenger: "Empfänger", adresse: "Adresse", projekt: "Projekt",
+  typ: "Typ", empfaenger: "Empfänger", adresse: "Adresse", projektnummer: "Projektnummer", projekt: "Projekt",
   datum: "Datum", offert_nr: "Offert-/Rechnungsnummer", status: "Status",
   betreff: "Betreff", brieftext: "Brieftext", unterzeichner: "Unterzeichner",
   stundensatz_chf: "Stundensatz", mwst_prozent: "MWST-Prozent",
@@ -558,6 +607,24 @@ function applyTypVisibility(typ) {
   const isRechnung = typ === "rechnung";
   document.getElementById("offertNrLabel").textContent = isRechnung ? "Rechnungs-Nr. (optional)" : "Offert-Nr. (optional)";
   document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
+  // Rechnung: Projekt aus der zentralen Liste wählen (Nummer+Name daraus
+  // übernehmen). Offerte: beide Felder frei eingeben (siehe Kommentar bei
+  // PROJECTS_SHARE_TOKEN oben).
+  document.getElementById("projektFreitextGroup").style.display = isRechnung ? "none" : "";
+  document.getElementById("projektAuswahlGroup").style.display = isRechnung ? "" : "none";
+  if (isRechnung) renderProjektAuswahl();
+}
+
+// Übernimmt bei Auswahl eines Projekts aus der zentralen Liste (nur bei
+// Rechnungen sichtbar) Nummer+Name in die eigentlichen (bei Rechnungen
+// versteckten, aber weiterhin massgeblichen) Freitext-Felder -- so bleibt
+// readHeaderFieldsIntoOffer() für beide Typen identisch, nur die
+// EINGABE-Widgets unterscheiden sich.
+function onProjektAuswahlChange() {
+  const select = document.getElementById("inputProjektAuswahl");
+  const p = projectList.find((x) => x.id === select.value);
+  document.getElementById("inputProjektnummer").value = p ? p.id : "";
+  document.getElementById("inputProjekt").value = p ? p.name : "";
 }
 
 function openEditor(offer, filename, newTyp) {
@@ -571,7 +638,9 @@ function openEditor(offer, filename, newTyp) {
   applyTypVisibility(editingOffer.typ);
   document.getElementById("inputEmpfaenger").value = editingOffer.empfaenger || "";
   document.getElementById("inputAdresse").value = editingOffer.adresse || "";
+  document.getElementById("inputProjektnummer").value = editingOffer.projektnummer || "";
   document.getElementById("inputProjekt").value = editingOffer.projekt || "";
+  renderProjektAuswahl();
   document.getElementById("inputDatum").value = editingOffer.datum || formatDate(new Date());
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
   document.getElementById("inputStatus").value = editingOffer.status || "in_bearbeitung";
@@ -809,6 +878,7 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.typ = document.getElementById("inputTyp").value === "rechnung" ? "rechnung" : "offerte";
   editingOffer.empfaenger = document.getElementById("inputEmpfaenger").value.trim();
   editingOffer.adresse = document.getElementById("inputAdresse").value.trim();
+  editingOffer.projektnummer = document.getElementById("inputProjektnummer").value.trim();
   editingOffer.projekt = document.getElementById("inputProjekt").value.trim();
   editingOffer.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
@@ -992,6 +1062,7 @@ function init() {
   document.getElementById("inputTyp").addEventListener("change", (e) => {
     applyTypVisibility(e.target.value);
   });
+  document.getElementById("inputProjektAuswahl").addEventListener("change", onProjektAuswahlChange);
   document.getElementById("addModBtn").addEventListener("click", () => {
     editingOffer.positionen.push({ typ: "modul", titel: "", beschrieb: [], stunden: 0, bemerkung: "", bemerkungAktiv: false, pauschalAktiv: false, pauschalBetrag: 0 });
     renderPositionen();
@@ -1023,11 +1094,13 @@ function init() {
 
   window.addEventListener("online", refreshOffers);
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshOffers();
+    if (document.visibilityState === "visible") { refreshOffers(); refreshProjectNames(); }
   });
+  setInterval(refreshProjectNames, 60000);
 
   loadAbsender();
   loadUnterzeichnerConfig();
+  refreshProjectNames();
   renderList();
   if (isConfigured()) refreshOffers();
 
