@@ -66,7 +66,7 @@ function parseProjectList(text) {
 }
 let personen = [];
 
-// { id, text, projekt ("P1"/... oder null), person (key oder null),
+// { id, text, projekt (Projektname oder null), person (key oder null),
 //   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy }
 let pendenzen = loadJSON(LS_KEYS.cache, []);
 
@@ -102,26 +102,29 @@ async function refreshProjectNames() {
   }
 }
 
-function projectLabel(id) {
-  const p = projectList.find((p) => p.id === id);
-  return p ? p.name : id || "";
+// Eine Pendenz speichert im Feld "projekt" seit der Umstellung auf
+// namensbasierte Zuordnung direkt den Projektnamen (nicht mehr die
+// Projektnummer) -- siehe Kommentar bei stringHash() unten für die
+// Begründung. projectLabel() ist dadurch trivial, bleibt aber als Funktion
+// bestehen, falls projekt mal nicht (mehr) gesetzt ist.
+function projectLabel(name) {
+  return name || "";
 }
-// Farbindex aus der Projekt-ID -- Kopie aus zeiterfassung/app.js (siehe dort):
-// alte ID-Form "P<n>" behält per -1 exakt ihre bisherige Farbe, eine neue
-// dreistellige Projektnummer nimmt ihren Zahlenwert direkt. Bewusst
-// unabhängig von projectList (nur Regex auf der ID selbst) -- die Farbe
-// einer Pendenz-Zeile steht dadurch sofort fest, ohne auf das Laden der
-// zentralen Projektnamen warten zu müssen.
-function projectColorIndex(id) {
-  const legacy = /^P(\d+)$/.exec(id || "");
-  if (legacy) return parseInt(legacy[1], 10) - 1;
-  const numeric = /^(\d+)$/.exec(id || "");
-  return numeric ? parseInt(numeric[1], 10) : null;
+// Einfacher String-Hash für die Farbzuordnung -- Kopie aus
+// zeiterfassung/app.js (siehe dort): deterministisch aus dem Projektnamen,
+// unabhängig von einer eventuell nicht eindeutigen Projektnummer (die
+// zentrale Liste erlaubt z.B. mehrere interne/nicht-projektbezogene
+// Kategorien mit derselben Nummer "000", etwa "000 Büro Allgemein" und
+// "000 Akquisition" -- über die Nummer liessen die sich nicht mehr
+// unterscheiden, weder bei der Farbe noch beim Filtern).
+function stringHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
-function projectColor(id) {
-  const idx = projectColorIndex(id);
-  if (idx === null) return null;
-  return PROJECT_COLOR_PALETTE[((idx % PROJECT_COLOR_PALETTE.length) + PROJECT_COLOR_PALETTE.length) % PROJECT_COLOR_PALETTE.length];
+function projectColor(name) {
+  if (!name) return null;
+  return PROJECT_COLOR_PALETTE[stringHash(name) % PROJECT_COLOR_PALETTE.length];
 }
 
 // Ob eine Hex-Farbe (als Zeilenhintergrund, siehe renderRow()) eher dunkel
@@ -375,8 +378,8 @@ function renderProjectFilterRow() {
   let html = `<button type="button" class="filter-chip${filterProjekt === "ALL" ? " active" : ""}" data-projekt="ALL">Alle</button>`;
   html += projectList
     .map((p) => {
-      const color = projectColor(p.id) || FALLBACK_COLOR;
-      return `<button type="button" class="filter-chip${filterProjekt === p.id ? " active" : ""}" data-projekt="${escapeHtml(p.id)}" style="--accent:${color}">
+      const color = projectColor(p.name) || FALLBACK_COLOR;
+      return `<button type="button" class="filter-chip${filterProjekt === p.name ? " active" : ""}" data-projekt="${escapeHtml(p.name)}" style="--accent:${color}">
         <span class="chip-dot" style="background:${color}"></span>${escapeHtml(p.name)}
       </button>`;
     })
@@ -395,7 +398,7 @@ function renderMeta(p) {
   if (editingMetaIds.has(p.id)) {
     const projektOptions =
       `<option value="">Kein Projekt</option>` +
-      projectList.map((proj) => `<option value="${escapeHtml(proj.id)}" ${p.projekt === proj.id ? "selected" : ""}>${escapeHtml(proj.name)}</option>`).join("");
+      projectList.map((proj) => `<option value="${escapeHtml(proj.name)}" ${p.projekt === proj.name ? "selected" : ""}>${escapeHtml(proj.name)}</option>`).join("");
     const personOptions =
       `<option value="">Keine Person</option>` +
       personen.map((per) => `<option value="${escapeHtml(per.key)}" ${p.person === per.key ? "selected" : ""}>${escapeHtml(per.name)}</option>`).join("");

@@ -116,14 +116,40 @@ Zielordner: `TARGET_FOLDER_PATH` in `zeiterfassung/app.js` (Standard
 ### Projektnamen zentral verwalten
 
 Die Projekte werden zentral von der Büroleitung in einer einfachen
-Textdatei auf Nextcloud verwaltet (ein Projekt pro Zeile, **dreistellige
-Projektnummer, Leerschlag, Projekttitel** — der Titel darf selbst
-Leerschläge enthalten). Die Projektnummer ist die stabile ID: Zeilen lassen
-sich beliebig umsortieren, dazwischen einfügen oder entfernen, ohne dass
-sich die Zuordnung bestehender Zeiterfassungs-/Pendenzen-Einträge ändert
-(anders als bei einer rein positionsbasierten Liste). Alle Geräte laden die
-Datei automatisch (beim Start, danach alle 60 Sekunden sowie beim
-Zurückkehren in den Tab).
+Textdatei auf Nextcloud verwaltet (ein Projekt pro Zeile, optional mit
+**dreistelliger Projektnummer, Leerschlag, Projekttitel** — der Titel darf
+selbst Leerschläge enthalten; eine Zeile ohne führende Nummer ist ebenso
+gültig und besteht dann nur aus dem Titel). Alle Geräte laden die Datei
+automatisch (beim Start, danach alle 60 Sekunden sowie beim Zurückkehren in
+den Tab).
+
+**Zeiterfassung und Pendenzen** ordnen Einträge, filtern und weisen Farben
+**über den Projektnamen** zu, nicht über die Nummer — eine Nummer ist dort
+also rein kosmetisch (wird beim Anzeigen aus der Zeile herausgeparst, taucht
+aber nirgends in der App auf) und darf durchaus mehrfach vergeben sein, z.B.
+für mehrere interne/nicht-projektbezogene Kategorien:
+```
+000 Büro Allgemein
+000 Akquisition
+021 Neubau Werkhof
+014 Umbau Altstetten
+```
+"Büro Allgemein" und "Akquisition" bekommen hier trotz identischer Nummer
+"000" unterschiedliche Farben und werden beim Filtern korrekt auseinander-
+gehalten (Farbe = String-Hash des Namens, siehe `stringHash()` in
+`zeiterfassung/app.js`/`pendenzen/app.js`/`zeiterfassung/dashboard/js/
+dashboard.js`). Einzige Einschränkung: der **Name** muss eindeutig sein — zwei
+Zeilen mit demselben Namen wären für Zeiterfassung/Pendenzen nicht
+unterscheidbar. Ein Projekt umzubenennen trennt bestehende Einträge vom
+"neuen" Namen (kein stabiler ID-Bezug wie bei einer reinen Nummer) — dafür
+sind Nummern-Dopplungen (s.o.) unproblematisch, was in der Praxis öfter
+vorkommt als eine Umbenennung.
+
+**Protokoll und Rechnungen** (bei den Offerten) hingegen wählen ein Projekt
+über ein Dropdown mit **Nummer UND Name gemeinsam** (siehe jeweiliger
+Abschnitt unten) — dort sollte die Nummer daher eindeutig sein, sonst lässt
+sich beim Erfassen nicht zuverlässig zwischen zwei gleichnummerierten
+Projekten wählen.
 
 1. In Nextcloud eine Textdatei anlegen, z.B.
    `Buero/Admin/Zeiterfassung/projekte.txt`:
@@ -132,11 +158,6 @@ Zurückkehren in den Tab).
    014 Umbau Altstetten
    003 Verwaltung
    ```
-   **Zeilen ohne Nummer** (z.B. noch nicht umgestellte Altbestände) bleiben
-   aus Kompatibilitätsgründen weiterhin unterstützt — sie bekommen wie vor
-   dieser Umstellung eine positionsbasierte ID `P1`/`P2`/… nach ihrer
-   Zeilennummer in der Datei; das ist aber nur ein Übergangs-Fallback, für
-   neue Projekte immer eine echte Nummer vergeben.
 2. Datei in Nextcloud anklicken → **Teilen** → **Link erstellen** (öffentlicher
    Freigabelink, keine Zugangsdaten nötig zum Lesen). Nextcloud zeigt einen
    Link wie `https://.../s/AbCdEfGh123`.
@@ -144,15 +165,14 @@ Zurückkehren in den Tab).
    **Sicherheitshinweis:** Wer diesen Link kennt, kann die Projektnamen
    lesen (nicht aber eure Zeiterfassungsdaten). Der Link lässt sich jederzeit
    in Nextcloud widerrufen.
-3. Den Teil nach `/s/` (den Token) in `zeiterfassung/app.js` **und**
-   `pendenzen/app.js` bei `PROJECTS_SHARE_TOKEN` eintragen, committen,
-   pushen (beide Module führen bewusst je eine eigene Kopie der Projektliste
-   — siehe Kommentar in `pendenzen/app.js`).
+3. Den Teil nach `/s/` (den Token) in `zeiterfassung/app.js`, `pendenzen/
+   app.js`, `protokoll/app.js` **und** `offerten/app.js` bei
+   `PROJECTS_SHARE_TOKEN` eintragen, committen, pushen (jedes Modul führt
+   bewusst eine eigene Kopie der Projektliste — siehe Kommentar in
+   `pendenzen/app.js`).
 4. Später ändern: einfach die Textdatei in Nextcloud bearbeiten und
    speichern — alle Geräte übernehmen die neuen Namen automatisch, kein
-   Code-Update nötig. Eine bestehende Projektnummer NICHT wiederverwenden,
-   sobald sie einmal einem Projekt zugeteilt wurde (sonst rutschen alte
-   Zeiterfassungs-/Pendenzen-Einträge unter das neue Projekt).
+   Code-Update nötig.
 
 ### Datenformat
 
@@ -663,7 +683,10 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog.
 - **Projekte & Farben**: kommen aus derselben zentral verwalteten Liste wie
   die Zeiterfassung (`PROJECTS_SHARE_TOKEN`), damit ein Projekt überall
-  gleich heisst und gleich aussieht. Ein Klick auf einen Projekt-Button
+  gleich heisst und gleich aussieht — Zuordnung/Filter/Farbe erfolgen dabei
+  über den **Projektnamen** (siehe Abschnitt "Projektnamen zentral
+  verwalten" oben), eine Pendenz speichert im Feld `projekt` also den Namen,
+  nicht eine Nummer. Ein Klick auf einen Projekt-Button
   filtert die Liste; eine neue Pendenz wird automatisch dem gerade
   ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt). Die ganze
   Zeile nimmt die Projektfarbe als Hintergrund an (nicht nur ein schmaler
@@ -747,7 +770,10 @@ Protokoll, wie bei den Offerten).
 - **Automatische Pendenzen**: ist das zugewiesene Kürzel das einer
   **Büro**-Person (externe Teilnehmende lösen nichts aus), wird beim
   Speichern automatisch ein Eintrag in `Buero/Admin/Pendenzen/pendenzen.json`
-  angelegt/aktualisiert (Projekt, Person und Text aus dem Protokoll). Die
+  angelegt/aktualisiert (Person und Text aus dem Protokoll; als Projekt wird
+  der reine **Name** des im Protokoll gewählten Projekts übernommen, nicht
+  die Nummer — Pendenzen ordnet Projekte namensbasiert zu, siehe Abschnitt
+  "Projektnamen zentral verwalten" oben). Die
   Pendenz-ID ist über Protokoll- und Stichpunkt-ID stabil: ein erneutes
   Speichern aktualisiert denselben Eintrag (Textänderungen werden
   übernommen), statt zu duplizieren, und ein in der Pendenzen-App bereits

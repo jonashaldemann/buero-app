@@ -259,15 +259,17 @@ function formatHM(totalMin) {
   return h > 0 ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
 }
 
-// Wie in zeiterfassung/app.js: die alte ID-Form "P<n>" behält per -1 exakt
-// ihre bisherige Farbe, eine neue dreistellige Projektnummer (siehe
-// "Projektnamen zentral verwalten" im README) nimmt ihren Zahlenwert direkt.
-function projectColorFor(projectId) {
-  const legacy = /^P(\d+)$/.exec(projectId || "");
-  if (legacy) return PROJECT_COLOR_PALETTE[(parseInt(legacy[1], 10) - 1) % PROJECT_COLOR_PALETTE.length];
-  const numeric = /^(\d+)$/.exec(projectId || "");
-  if (!numeric) return "#8C8171";
-  return PROJECT_COLOR_PALETTE[parseInt(numeric[1], 10) % PROJECT_COLOR_PALETTE.length];
+// Wie in zeiterfassung/app.js: Farbe wird über einen String-Hash des
+// Projektnamens bestimmt, nicht über die (in der zentralen Liste ggf.
+// mehrfach vergebene, z.B. "000" für mehrere interne Kategorien) Nummer.
+function stringHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function projectColorFor(projectName) {
+  if (!projectName) return "#8C8171";
+  return PROJECT_COLOR_PALETTE[stringHash(projectName) % PROJECT_COLOR_PALETTE.length];
 }
 
 function renderAll() {
@@ -319,7 +321,7 @@ function renderBarChart(containerId, grouped, colorByProject) {
   container.innerHTML = grouped
     .map((g) => {
       const pct = Math.max(4, Math.round((g.minutes / max) * 100));
-      const color = colorByProject ? projectColorFor(g.projectId) : "#4F7089";
+      const color = colorByProject ? projectColorFor(g.name) : "#4F7089";
       return `<div class="bar-row">
         <div class="bar-row-label">
           <span class="bar-row-name">${escapeHtml(g.name)}</span>

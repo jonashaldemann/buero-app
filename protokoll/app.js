@@ -82,6 +82,16 @@ function projectLabel(id) {
   return p ? `${p.id} – ${p.name}` : id || "";
 }
 
+// Reiner Projektname (ohne Nummer) -- gebraucht für den Pendenzen-Sync
+// (siehe syncInternePendenzen() unten): Pendenzen/Zeiterfassung ordnen
+// Projekte über den Namen zu, nicht über die Nummer, weil dieselbe Nummer
+// in der zentralen Liste mehrfach vergeben sein kann (z.B. "000" für
+// mehrere interne Kategorien) und dann keine eindeutige ID mehr wäre.
+function projectNameOnly(id) {
+  const p = projectList.find((p) => p.id === id);
+  return p ? p.name : "";
+}
+
 function renderProjektSelect() {
   const select = document.getElementById("inputProjekt");
   if (!select) return;
@@ -577,13 +587,13 @@ async function syncInternePendenzen(protokoll, filename) {
     kandidaten.forEach((k) => {
       const existing = byId.get(k.id);
       if (existing) {
-        byId.set(k.id, { ...existing, text: k.text, projekt: protokoll.projekt || null, person: k.person, updatedAt: now, updatedBy: personName() });
+        byId.set(k.id, { ...existing, text: k.text, projekt: projectNameOnly(protokoll.projekt) || null, person: k.person, updatedAt: now, updatedBy: personName() });
       } else {
         const minOrder = serverList.filter((p) => !p.erledigt).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
         byId.set(k.id, {
           id: k.id,
           text: k.text,
-          projekt: protokoll.projekt || null,
+          projekt: projectNameOnly(protokoll.projekt) || null,
           person: k.person,
           erledigt: false,
           erledigtAt: null,
