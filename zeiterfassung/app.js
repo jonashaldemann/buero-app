@@ -33,22 +33,20 @@ const TARGET_FOLDER_PATH = "Buero/Admin/Zeiterfassung";
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 
 // Zentral verwaltete Projektliste: Array von { id, name }. Jede Zeile der
-// Textdatei ist entweas "NNN Projekttitel" (dreistellige Projektnummer,
-// Leerschlag, Titel -- die Nummer ist die stabile ID) oder, für noch nicht
-// umgestellte/alte Zeilen, einfach nur der Titel (bekommt dann wie bisher
-// eine positionsbasierte ID "P<Zeilennummer>", siehe parseProjectList()).
-// Fallback P1/P2/P3, falls noch nie erfolgreich geladen und keine zentrale
-// Verwaltung aktiv ist.
+// Textdatei ist entweder "NNN Projekttitel" (dreistellige Projektnummer,
+// Leerschlag, Titel) oder einfach nur der Titel. Die Nummer (id) wird hier
+// bewusst NUR zum Herausparsen des reinen Namens verwendet, nicht für
+// Zuordnung/Filterung/Farbe -- siehe Kommentar bei stringHash() unten: die
+// zentrale Liste erlaubt mehrfach dieselbe Nummer für verschiedene
+// interne/nicht-projektbezogene Kategorien, darüber liessen die sich nicht
+// mehr unterscheiden. Fallback P1/P2/P3 (als Platzhaltername), falls noch
+// nie erfolgreich geladen und keine zentrale Verwaltung aktiv ist.
 let projectList = loadJSON(LS_KEYS.projectsCache, [
   { id: "P1", name: "P1" },
   { id: "P2", name: "P2" },
   { id: "P3", name: "P3" }
 ]);
 
-// Erkennt pro Zeile eine optionale führende dreistellige Projektnummer
-// ("021 Neubau Werkhof") -- ohne diese bleibt die alte, rein
-// positionsbasierte ID "P<Zeilennummer>" bestehen (Rückwärtskompatibilität
-// für noch nicht umgestellte Zeilen bzw. bestehende Zeiterfassungsdaten).
 function parseProjectList(text) {
   return text
     .split(/\r?\n/)
@@ -60,20 +58,22 @@ function parseProjectList(text) {
     });
 }
 
-// Farbindex aus einer Projekt-ID: bei der alten ID-Form "P<n>" wie bisher
-// n-1 (damit P1/P2/P3 exakt dieselbe Farbe wie vor der Umstellung behalten),
-// bei einer neuen dreistelligen Projektnummer direkt deren Zahlenwert.
-function projectColorIndex(id) {
-  const legacy = /^P(\d+)$/.exec(id || "");
-  if (legacy) return parseInt(legacy[1], 10) - 1;
-  const numeric = /^(\d+)$/.exec(id || "");
-  return numeric ? parseInt(numeric[1], 10) : null;
+// Einfacher String-Hash für die Farbzuordnung (siehe projectColor()) --
+// deterministisch aus dem Projektnamen, unabhängig von einer eventuell
+// nicht eindeutigen Projektnummer (die zentrale Liste erlaubt z.B. mehrere
+// interne/nicht-projektbezogene Kategorien mit derselben Nummer "000", etwa
+// "000 Büro Allgemein" und "000 Akquisition" -- über die Nummer liessen die
+// sich dann nicht mehr unterscheiden).
+function stringHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-let current = loadJSON(LS_KEYS.current, null);       // { action: 'P1'|'P2'|..., start: ISOString }
+let current = loadJSON(LS_KEYS.current, null);       // { action: 'Neubau Werkhof'|'PAUSE'|'STOP', start: ISOString }
 let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, projectId }
-let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|P1", ...] -- projectId, nicht Name!
-let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|P1": "Kommentartext" }
+let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|Neubau Werkhof", ...] -- Projektname, siehe Kommentar bei projectColor()
+let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|Neubau Werkhof": "Kommentartext" }
 
 let timerHandle = null;
 
@@ -99,20 +99,20 @@ function formatHM(totalSec) {
   const m = Math.round((totalSec % 3600) / 60);
   return h > 0 ? `${h} h ${pad(m)} min` : `${m} min`;
 }
+// Aktionen ("Projekt-IDs" im weiteren Sinne) sind seit der Umstellung auf
+// namensbasierte Zuordnung schlicht der Projektname selbst (oder "PAUSE"/
+// "STOP") -- siehe Kommentar bei projectColor() oben für die Begründung.
 // Position in der aktuellen Projektliste (für die Sortierung von
-// Buttons/"Heute"-Liste in Dateireihenfolge) -- anders als die Farbe (siehe
-// projectColorIndex()) unabhängig vom ID-Format.
+// Buttons/"Heute"-Liste in Dateireihenfolge).
 function projectIndexFromAction(action) {
-  return projectList.findIndex((p) => p.id === action);
+  return projectList.findIndex((p) => p.name === action);
 }
 function projectLabel(action) {
-  const p = projectList.find((p) => p.id === action);
-  return p ? p.name : action;
+  return action || "";
 }
 function projectColor(action) {
-  const idx = projectColorIndex(action);
-  if (idx === null) return null;
-  return PROJECT_COLOR_PALETTE[((idx % PROJECT_COLOR_PALETTE.length) + PROJECT_COLOR_PALETTE.length) % PROJECT_COLOR_PALETTE.length];
+  if (!action) return null;
+  return PROJECT_COLOR_PALETTE[stringHash(action) % PROJECT_COLOR_PALETTE.length];
 }
 
 // ---------- Zustandsautomat ----------
@@ -146,7 +146,7 @@ function closeCurrentSession(now) {
   if (durationSec < 5) return; // Miniklicks (Versehen) nicht loggen
 
   const date = formatDate(start);
-  const projectId = current.action; // stabile ID, z.B. "P1" -- nicht der (änderbare) Anzeigename
+  const projectId = current.action; // Projektname, siehe Kommentar bei stringHash() oben
   const entry = { id: uid(), date, start: formatTime(start), end: formatTime(now), durationSec, projectId };
   entries.push(entry);
   markDirty(bucketKey(date, projectId));
@@ -158,8 +158,8 @@ function renderProjectButtons() {
   const container = document.getElementById("projectButtons");
   container.innerHTML = projectList
     .map((p) => {
-      const color = projectColor(p.id) || PROJECT_COLOR_PALETTE[0];
-      return `<button class="proj-btn" data-action="${escapeHtml(p.id)}" style="--accent:${color}">${escapeHtml(p.name)}</button>`;
+      const color = projectColor(p.name) || PROJECT_COLOR_PALETTE[0];
+      return `<button class="proj-btn" data-action="${escapeHtml(p.name)}" style="--accent:${color}">${escapeHtml(p.name)}</button>`;
     })
     .join("");
   container.querySelectorAll(".proj-btn").forEach((btn) => {
@@ -300,10 +300,12 @@ function renderSyncLine() {
 // ---------- CSV ----------
 // Format: eine Zeile pro (Datum, Projekt) statt pro Sitzung -- mehrere Wechsel
 // zum selben Projekt am selben Tag werden zu einer Summe zusammengefasst.
-// ProjektID ist die stabile interne ID (z.B. "P1") -- damit bleibt die Zeile
-// beim Sync auch dann korrekt wiedererkennbar, wenn der Projektname
-// zwischenzeitlich umbenannt wurde (die Spalte "Projekt" zeigt immer den
-// aktuellen Namen, "ProjektID" ist nur für die interne Zuordnung).
+// ProjektID enthält denselben Wert wie "Projekt" (den Projektnamen) --
+// Zuordnung/Filter/Farbe laufen namensbasiert, siehe Kommentar bei
+// stringHash() oben (eine Projektnummer kann in der zentralen Liste
+// mehrfach vergeben sein, z.B. für mehrere interne Kategorien, und wäre
+// deshalb keine eindeutige ID). Die Spalte bleibt trotzdem bestehen, um das
+// CSV-Format nicht zu ändern.
 const CSV_HEADER = "Datum,Projekt,Dauer_Min,Kommentar,Person,ProjektID";
 
 function csvField(v) {
@@ -390,7 +392,7 @@ function openManualEntry() {
 
   const projectSelect = document.getElementById("manualProject");
   projectSelect.innerHTML = projectList
-    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
+    .map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)
     .join("");
 
   document.getElementById("manualHours").value = "";
