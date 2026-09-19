@@ -442,18 +442,57 @@ function parseBananaBookings(text) {
   });
 }
 
-async function fetchRecentReceipts() {
+// Beträge -- wo vorhanden -- aus buchungen.txt, als Map Belegnummer -> Betrag
+// (String). Fehlt die Datei (z.B. weil sie nach einem Banana-Import bewusst
+// geleert/archiviert wurde) oder ein einzelner Beleg darin, bleibt die Map
+// dafür einfach leer -- kein Fehler, siehe fetchRecentReceiptRows().
+async function fetchBookingAmountsByBelegnummer() {
   const relPath = bananaTxtRelativePath();
   const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
-  if (res.status === 404) return [];
+  if (res.status === 404) return {};
   if (!res.ok) throw new Error(`Buchungsdatei lesen fehlgeschlagen (${res.status})`);
   const text = await res.text();
-  return text ? parseBananaBookings(text) : [];
+  const map = {};
+  (text ? parseBananaBookings(text) : []).forEach((b) => {
+    map[b.doc] = b.expenses || b.income || "";
+  });
+  return map;
+}
+
+// Erkennt Belegdateien im Zielordner am Namensschema
+// "[Belegnummer] [Bezeichnung].ext" (siehe saveReceiptEntry()), z.B.
+// "26-A003 KUARIO Quittung.pdf" -- andere Dateien (insbesondere
+// buchungen.txt) matchen nicht und werden dadurch automatisch ausgeschlossen.
+const BELEG_FILENAME_RE = /^(\d{2}-([AE])(\d{3})) (.+)\.[a-zA-Z0-9]+$/;
+
+function parseBelegFilename(filename) {
+  const m = BELEG_FILENAME_RE.exec(filename);
+  if (!m) return null;
+  return { belegnummer: m[1], typ: m[2] === "E" ? "Einnahme" : "Ausgabe", num: parseInt(m[3], 10), description: m[4] };
+}
+
+// Quelle der Wahrheit für "welche Belege gibt es" sind die tatsächlich im
+// Ordner liegenden Dateien (nicht buchungen.txt) -- die ist die
+// verlässlichere Quelle, weil buchungen.txt z.B. nach einem Banana-Import
+// geleert werden kann, während die Beleg-PDFs im Ordner bleiben. Die
+// Beträge dazu kommen ergänzend, wo vorhanden, aus buchungen.txt.
+async function fetchRecentReceiptRows() {
+  const [filenames, amounts] = await Promise.all([
+    listReceiptFolderFilenames(),
+    fetchBookingAmountsByBelegnummer().catch((err) => {
+      console.warn("Beträge aus buchungen.txt konnten nicht geladen werden:", err);
+      return {};
+    })
+  ]);
+  return filenames
+    .map(parseBelegFilename)
+    .filter(Boolean)
+    .map((f) => ({ ...f, amount: amounts[f.belegnummer] ? parseFloat(amounts[f.belegnummer]) : null }));
 }
 
 function receiptRowHtml(row) {
-  const amount = row.expenses ? row.expenses : row.income;
-  return `<tr><td>${escapeHtml(row.doc)}</td><td>${escapeHtml(row.description)}</td><td>${escapeHtml(formatChf(parseFloat(amount) || 0))}</td></tr>`;
+  const amountLabel = row.amount === null ? "–" : formatChf(row.amount);
+  return `<tr><td>${escapeHtml(row.belegnummer)}</td><td>${escapeHtml(row.description)}</td><td>${escapeHtml(amountLabel)}</td></tr>`;
 }
 
 function renderReceiptList(tbodyId, rows, emptyMessage) {
@@ -468,13 +507,16 @@ function renderReceiptList(tbodyId, rows, emptyMessage) {
 async function refreshRecentReceipts() {
   if (!isConfigured() || !navigator.onLine) return;
   try {
-    const bookings = await fetchRecentReceipts();
-    const ausgaben = bookings.filter((b) => b.expenses).slice(-5).reverse();
-    const einnahmen = bookings.filter((b) => b.income).slice(-2).reverse();
+    await ensureReceiptFolder();
+    const rows = await fetchRecentReceiptRows();
+    const ausgaben = rows.filter((r) => r.typ === "Ausgabe").sort((a, b) => b.num - a.num).slice(0, 5);
+    const einnahmen = rows.filter((r) => r.typ === "Einnahme").sort((a, b) => b.num - a.num).slice(0, 2);
     renderReceiptList("recentAusgabenBody", ausgaben, "Noch keine Ausgaben erfasst.");
     renderReceiptList("recentEinnahmenBody", einnahmen, "Noch keine Einnahmen erfasst.");
   } catch (err) {
     console.warn("Letzte Belege konnten nicht geladen werden:", err);
+    renderReceiptList("recentAusgabenBody", [], "Fehler beim Laden.");
+    renderReceiptList("recentEinnahmenBody", [], "Fehler beim Laden.");
   }
 }
 

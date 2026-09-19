@@ -259,11 +259,15 @@ function formatHM(totalMin) {
   return h > 0 ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
 }
 
+// Wie in zeiterfassung/app.js: die alte ID-Form "P<n>" behält per -1 exakt
+// ihre bisherige Farbe, eine neue dreistellige Projektnummer (siehe
+// "Projektnamen zentral verwalten" im README) nimmt ihren Zahlenwert direkt.
 function projectColorFor(projectId) {
-  const m = /^P(\d+)$/.exec(projectId || "");
-  if (!m) return "#8C8171";
-  const idx = parseInt(m[1], 10) - 1;
-  return PROJECT_COLOR_PALETTE[idx % PROJECT_COLOR_PALETTE.length];
+  const legacy = /^P(\d+)$/.exec(projectId || "");
+  if (legacy) return PROJECT_COLOR_PALETTE[(parseInt(legacy[1], 10) - 1) % PROJECT_COLOR_PALETTE.length];
+  const numeric = /^(\d+)$/.exec(projectId || "");
+  if (!numeric) return "#8C8171";
+  return PROJECT_COLOR_PALETTE[parseInt(numeric[1], 10) % PROJECT_COLOR_PALETTE.length];
 }
 
 function renderAll() {
