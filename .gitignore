@@ -5,3 +5,10 @@
 # Repo committen. Kontenplan/Kategorien/MwSt-Codes werden manuell (ohne Beträge)
 # in js/app.js gepflegt, siehe README.
 *.jcsv
+
+# Kontenplan/Kategorien enthalten Projekt-/Kundennamen -- liegen vertraulich
+# auf Nextcloud statt im (öffentlichen!) Repo, siehe README ("Beleg erfassen")
+# und Kommentar bei MASTERDATA_FOLDER_PATH in quittung/app.js. Lokal bleiben
+# sie als Arbeitskopie bestehen (nur von git ignoriert, nicht gelöscht).
+quittung/konten.txt
+quittung/kategorien.txt
