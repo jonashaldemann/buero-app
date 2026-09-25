@@ -859,7 +859,12 @@ automatisch mit.
     - **Aufgaben** — frei benannt (Klick auf "+ Aufgabe"/auf den Titel zum
       Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
       viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
-      als Raute dargestellt) enthalten, jeweils mit eigenem Titel.
+      als Raute dargestellt) enthalten, jeweils mit eigenem Titel. Jeder
+      Balken zeigt am rechten Rand zusätzlich zum Titel seine Länge (5D,
+      2W, 6M je nach Grössenordnung, `formatBarDuration()`), jede Raute den
+      Tag des Monats direkt in der Raute. Beides bleibt in der
+      halbtransparenten Projekt-Übersichtszeile ausgeblendet (reine
+      "Strichcode"-Ansicht).
 - **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
   zweite, feinere Zeile mit einer Spalte pro Woche (Montag als Wochenbeginn,
   beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
@@ -881,7 +886,10 @@ automatisch mit.
   legt einen neuen Balken an (Start/Ende = Anfang/Ende der Ziehbewegung), ein
   **Klick ohne Ziehen** einen neuen Meilenstein am angeklickten Tag. Beides
   öffnet danach den Bearbeiten-Dialog zur Titel-Eingabe/Kontrolle, statt
-  sofort zu speichern. Kein "+"-Knopf mehr nötig.
+  sofort zu speichern. Kein "+"-Knopf mehr nötig. Der Cursor steht dabei
+  direkt im Titelfeld (markiert vorausgewählt), damit man ohne Extra-Klick
+  lostippen kann — beim Bearbeiten eines bestehenden Eintrags nicht, um den
+  vorhandenen Titel nicht versehentlich zu überschreiben.
 - **Bearbeiten**: ein bestehender Balken/Meilenstein lässt sich direkt mit
   der Maus verschieben (ganzen Balken ziehen) bzw. an den Enden ziehen
   (Start/Ende einzeln anpassen, auf ganze Tage gerundet) — ein Klick **ohne**
