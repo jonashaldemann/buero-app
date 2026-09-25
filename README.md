@@ -306,23 +306,43 @@ Import: in Banana über **Datei → Import → Bewegungen importieren** einlesen
 ### Kontenplan, Kategorien und MwSt/USt-Codes pflegen
 
 Kontenplan, Kategorien und MwSt/USt-Codes werden **nicht** in `quittung/app.js`
-hart hinterlegt, sondern zur Laufzeit aus drei Textdateien im `quittung/`-
-Ordner geladen: `konten.txt`, `kategorien.txt`, `mwst.txt`. Da diese Dateien
-vom gleichen Origin wie die App selbst ausgeliefert werden (GitHub Pages),
-reicht ein einfacher `fetch()` — kein Nextcloud-Proxy nötig, kein CORS-Thema.
+hart hinterlegt, sondern zur Laufzeit aus drei Textdateien geladen —
+**unterschiedlich abgelegt**, je nachdem ob sie Projekt-/Kundennamen
+enthalten:
 
-**Format:** Tab-getrennte Zeilen `Code<TAB>Bezeichnung`, ein Eintrag pro
-Zeile — exakt der Export aus Banana (**Datei → Export → Daten für Excel/Open
-Office/…**, Tabellen "Accounts"/"Categories"/"VatCodes", dort die
-Beträge-Spalten weglassen/löschen). Zeilen ohne Code (Leerzeilen,
-Abschnittsüberschriften, Total-Zeilen) werden beim Einlesen automatisch
-übersprungen; bei `kategorien.txt` werden die Überschriften "ERLÖSE" und
-"AUFWÄNDE" als Gruppen erkannt.
+- **`mwst.txt`**: reine, nicht auftragsbezogene Banana-Referenzliste der
+  MwSt/USt-Codes — liegt im `quittung/`-Ordner im Repo, vom gleichen Origin
+  wie die App selbst ausgeliefert (GitHub Pages), reicht ein einfacher
+  `fetch()` (kein Nextcloud-Proxy nötig, kein CORS-Thema).
+- **`konten.txt`/`kategorien.txt`**: die Kategorien enthalten Kontonummern
+  mit Projekt-/Kundenbezug (z.B. Adressen laufender Aufträge als
+  Kategorie-Bezeichnung) — liegen deshalb **vertraulich auf Nextcloud** unter
+  `Buero/Admin/Finanzen/_buero-app/` statt im (öffentlichen!) Repo, per
+  Nextcloud-Proxy geladen (braucht deshalb ein Login, siehe unten). Lokal
+  bei dir bleiben sie trotzdem als Arbeitskopie in `quittung/konten.txt`/
+  `kategorien.txt` bestehen (in `.gitignore` eingetragen, damit sie nicht
+  versehentlich wieder committet werden).
 
-**Ändert sich der Kontenplan in Banana:** Datei in Banana neu exportieren,
-die Beträge-Spalten entfernen, die entsprechende `.txt`-Datei in `quittung/`
-ersetzen, committen und pushen — die App übernimmt die Änderung automatisch
-(alle 60s sowie beim Öffnen des Beleg-Formulars), **ohne Code-Update**.
+**Format** (beide Fälle gleich): Tab-getrennte Zeilen `Code<TAB>Bezeichnung`,
+ein Eintrag pro Zeile — exakt der Export aus Banana (**Datei → Export →
+Daten für Excel/Open Office/…**, Tabellen "Accounts"/"Categories"/
+"VatCodes", dort die Beträge-Spalten weglassen/löschen). Zeilen ohne Code
+(Leerzeilen, Abschnittsüberschriften, Total-Zeilen) werden beim Einlesen
+automatisch übersprungen; bei `kategorien.txt` werden die Überschriften
+"ERLÖSE" und "AUFWÄNDE" als Gruppen erkannt.
+
+**Ändert sich der Kontenplan in Banana:**
+- `mwst.txt`: Datei in Banana neu exportieren, Beträge-Spalten entfernen,
+  `quittung/mwst.txt` ersetzen, committen und pushen — die App übernimmt die
+  Änderung automatisch (alle 60s sowie beim Öffnen des Beleg-Formulars),
+  **ohne Code-Update**.
+- `konten.txt`/`kategorien.txt`: Datei in Banana neu exportieren,
+  Beträge-Spalten entfernen, die lokale `quittung/konten.txt`/
+  `kategorien.txt` ersetzen (nur als eigene Arbeitskopie/Referenz) und die
+  aktualisierte Datei direkt in Nextcloud unter
+  `Buero/Admin/Finanzen/_buero-app/` hochladen (ersetzen) — **kein
+  Commit/Push nötig**, die App lädt beim nächsten Öffnen/alle 60s die
+  Nextcloud-Version neu.
 
 `MWST_EINNAHME_CODES`/`MWST_AUSGABE_CODES` in `quittung/app.js` legen fest,
 welche Codes aus `mwst.txt` überhaupt zur Auswahl stehen (aktuell nur die
@@ -330,10 +350,12 @@ gültigen Sätze 0/2.6/3.8/8.1%) — das ändert sich praktisch nie und bleibt
 deshalb hart hinterlegt; nur die Beschreibungstexte kommen live aus
 `mwst.txt`.
 
-Für den allerersten Start ohne Internet gibt es zusätzlich
+Für den allerersten Start ohne Internet/Login gibt es zusätzlich
 `FALLBACK_KONTEN`/`FALLBACK_KATEGORIEN`/`FALLBACK_MWST_CODES` in
-`quittung/app.js` als Offline-Fallback (danach übernimmt der
-localStorage-Cache der zuletzt erfolgreich geladenen Dateien diese Rolle).
+`quittung/app.js` als Fallback (danach übernimmt der localStorage-Cache der
+zuletzt erfolgreich geladenen Dateien diese Rolle) — bewusst **ohne** die
+auftragsspezifischen Kategorien-Zeilen, da dieser Fallback im (öffentlichen)
+Quellcode steht.
 
 **Sicherheitshinweis:** Ein roher Banana-Export (mit Beträgen) enthält reale
 Umsatz-/Aufwandszahlen pro Konto — **so eine Datei niemals ins Repo

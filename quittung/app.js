@@ -21,14 +21,16 @@ const LS_KEYS = {
 // z.B. "Buero/Admin/Finanzen/2026".
 const RECEIPT_TARGET_FOLDER_PATH = "Buero/Admin/Finanzen";
 
-// Kontenplan/Kategorien/MwSt-Codes werden zur Laufzeit aus konten.txt,
-// kategorien.txt und mwst.txt geladen (gleicher Origin wie die App, also per
-// simplem fetch() -- kein Nextcloud-Proxy nötig). Diese Dateien exportierst
-// du bei Bedarf neu aus Banana (siehe README, Abschnitt "Beleg erfassen") und
-// committest/pushst sie -- dann übernimmt die App die Änderung automatisch,
-// ohne Code-Update. Die Konstanten hier sind nur der Offline-Fallback, falls
-// die Dateien beim allerersten Start (noch kein localStorage-Cache) nicht
-// erreichbar sind.
+// Kontenplan/Kategorien enthalten Projekt-/Kundennamen (z.B. Adressen
+// laufender Aufträge) und liegen deshalb NICHT im (öffentlichen) Repo,
+// sondern vertraulich auf Nextcloud unter MASTERDATA_FOLDER_PATH -- siehe
+// README, Abschnitt "Beleg erfassen". mwst.txt (reine, nicht
+// auftragsbezogene Banana-Referenzliste der MwSt/USt-Codes) bleibt dagegen
+// im Repo (gleicher Origin, simples fetch()), siehe refreshReceiptMasterData().
+// Die Konstanten hier sind nur der Offline-/Erst-Start-Fallback (bewusst
+// OHNE die auftragsspezifischen Zeilen aus der echten Liste), falls weder
+// localStorage-Cache noch Nextcloud-Zugriff verfügbar sind.
+const MASTERDATA_FOLDER_PATH = "Buero/Admin/Finanzen/_buero-app";
 const FALLBACK_KONTEN = [
   ["1000", "Kasse"],
   ["1010", "Postkonto"],
@@ -51,9 +53,6 @@ const FALLBACK_KONTEN = [
 const FALLBACK_KATEGORIEN = {
   "Erlöse": [
     ["3000", "Bruttoerlöse Verkäufe"],
-    ["3000.007", "007 Herrliberg Honorare"],
-    ["3000.015", "015 Studienauftrag Rothrist Honorare"],
-    ["3000.016", "016 Bürglenstrasse Honorare"],
     ["3090", "Aktive Skonti"],
     ["3400", "Bruttoerlöse Dienstleistungen"],
     ["3490", "Skonti auf Dienstleistungsertrag"],
@@ -62,7 +61,6 @@ const FALLBACK_KATEGORIEN = {
   "Aufwände": [
     ["4000", "Einkäufe"],
     ["4090", "Passive Skonti"],
-    ["4401.018", "018 Bönigen Nebenkosten nicht verrechenbar"],
     ["5000", "Löhne"],
     ["5700", "Sozialversicherungen"],
     ["5790", "Quellensteuer"],
@@ -84,10 +82,7 @@ const FALLBACK_KATEGORIEN = {
     ["6512", "Internet"],
     ["6513", "Porti (Brief- und Paketsendungen)"],
     ["6601", "Webesite & Online-Werbung"],
-    ["6650.000", "Akquisition: Präqualis und Werbeversand"],
-    ["6650.015", "Akquisition 015 Studienauftrag Rothrist"],
-    ["6650.019", "Akquisition 019 Wettbewerb Lausanne"],
-    ["6650.020", "Akquisition 020 Villars-sur-Glâne"],
+    ["6650", "Akquisition"],
     ["6651", "Abgeschriebene Modelldepots"],
     ["6700", "Buchführungs- und Beratungsaufwand"],
     ["6800", "Abschreibungen und Wertberichtigungen auf Positionen des Anlagevermögens"],
@@ -175,32 +170,56 @@ function buildMwstCodes(flatList) {
   return { Einnahme: pick(MWST_EINNAHME_CODES), Ausgabe: pick(MWST_AUSGABE_CODES) };
 }
 
-// Lädt konten.txt/kategorien.txt/mwst.txt vom eigenen Origin (gleiches Repo,
-// per GitHub Pages ausgeliefert) -- kein Nextcloud-Proxy nötig, da same-origin.
+function masterdataSegments() {
+  return ncSegments(MASTERDATA_FOLDER_PATH);
+}
+
+// Lädt eine Datei aus MASTERDATA_FOLDER_PATH auf Nextcloud (konten.txt/
+// kategorien.txt) -- der Ordner wird bewusst NICHT automatisch angelegt
+// (siehe ensureFolderPath-Aufrufe anderswo): das sind von Hand gepflegte,
+// von der Büroleitung einmalig hochgeladene Referenzdateien, kein von der
+// App verwalteter Speicherort.
+async function fetchMasterdataFile(filename) {
+  const relPath = davPath([...masterdataSegments(), filename].join("/"));
+  const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
+  if (!res.ok) throw new Error(`${filename}: Status ${res.status}`);
+  return await res.text();
+}
+
+// mwst.txt bleibt im Repo (gleicher Origin, simples fetch(), kein
+// Nextcloud-Proxy nötig) -- anders als Kontenplan/Kategorien enthält die
+// Banana-Referenzliste der MwSt/USt-Codes keine Projekt-/Kundennamen.
 // {cache:"no-cache"} erzwingt eine Revalidierung, damit frisch gepushte
 // Änderungen nicht durch den Browser-Cache verzögert werden.
-async function refreshReceiptMasterData() {
+async function refreshMwstCodes() {
   try {
-    const [kontenText, kategorienText, mwstText] = await Promise.all(
-      ["konten.txt", "kategorien.txt", "mwst.txt"].map((path) =>
-        fetch(path, { cache: "no-cache" }).then((res) => {
-          if (!res.ok) throw new Error(`${path}: Status ${res.status}`);
-          return res.text();
-        })
-      )
-    );
-
-    KONTEN = parseFlatCodeList(kontenText);
-    KATEGORIEN = parseGroupedCodeList(kategorienText, KATEGORIEN_GROUP_LABELS);
+    const res = await fetch("mwst.txt", { cache: "no-cache" });
+    if (!res.ok) throw new Error(`mwst.txt: Status ${res.status}`);
+    const mwstText = await res.text();
     MWST_CODES = buildMwstCodes(parseFlatCodeList(mwstText));
-
-    saveJSON(LS_KEYS.kontenCache, KONTEN);
-    saveJSON(LS_KEYS.kategorienCache, KATEGORIEN);
     saveJSON(LS_KEYS.mwstCache, MWST_CODES);
   } catch (err) {
-    // Offline oder Datei (noch) nicht erreichbar -> zuletzt bekannter Stand
-    // (aus localStorage bzw. Fallback-Konstanten) bleibt aktiv.
-    console.warn("Kontenplan/Kategorien/MwSt-Codes konnten nicht geladen werden:", err);
+    console.warn("MwSt/USt-Codes konnten nicht geladen werden:", err);
+  }
+}
+
+async function refreshReceiptMasterData() {
+  await refreshMwstCodes();
+
+  if (!isConfigured()) return; // Konten/Kategorien liegen auf Nextcloud -- ohne Login nicht erreichbar
+  try {
+    const [kontenText, kategorienText] = await Promise.all(
+      ["konten.txt", "kategorien.txt"].map(fetchMasterdataFile)
+    );
+    KONTEN = parseFlatCodeList(kontenText);
+    KATEGORIEN = parseGroupedCodeList(kategorienText, KATEGORIEN_GROUP_LABELS);
+    saveJSON(LS_KEYS.kontenCache, KONTEN);
+    saveJSON(LS_KEYS.kategorienCache, KATEGORIEN);
+  } catch (err) {
+    // Offline, noch nicht konfiguriert oder Datei (noch) nicht hochgeladen
+    // -> zuletzt bekannter Stand (aus localStorage bzw. Fallback-Konstanten)
+    // bleibt aktiv.
+    console.warn("Kontenplan/Kategorien konnten nicht geladen werden:", err);
   }
 }
 
@@ -657,7 +676,7 @@ function init() {
   initSettingsUI({
     checkRelPath: bananaTxtRelativePath,
     ensureFolderFn: ensureReceiptFolder,
-    onSaved: refreshRecentReceipts
+    onSaved: () => { refreshReceiptMasterData(); refreshRecentReceipts(); }
   });
 
   document.getElementById("receiptEntryBtn").addEventListener("click", openReceiptEntry);

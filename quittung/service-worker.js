@@ -1,4 +1,4 @@
-const CACHE_NAME = "quittung-v4";
+const CACHE_NAME = "quittung-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -26,9 +26,10 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. konten.txt/kategorien.txt/mwst.txt
-// bewusst NICHT hier gelistet -- die müssen immer frisch vom Netz kommen,
-// damit Änderungen ohne Code-Update ankommen (siehe app.js).
+// App-Shell: aus Cache, Fallback Netz. mwst.txt bewusst NICHT hier gelistet
+// -- muss immer frisch vom Netz kommen, damit Änderungen ohne Code-Update
+// ankommen (siehe app.js). konten.txt/kategorien.txt liegen inzwischen
+// ohnehin nicht mehr im Repo, sondern vertraulich auf Nextcloud.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
