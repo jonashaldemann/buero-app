@@ -45,7 +45,10 @@ const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8
 const VACATION_COLOR = "#B7AFA0";
 
 const DAY_MS = 86400000;
-const DAY_WIDTH = 8; // px pro Tag
+let DAY_WIDTH = 8; // px pro Tag -- veränderlich, siehe Zoom (onScrollWheel())
+const DAY_WIDTH_MIN = 3;
+const DAY_WIDTH_MAX = 32;
+const DAY_HEADER_MIN_WIDTH = 20; // ab dieser Tagesbreite lohnt sich eine eigene Tages-Kopfzeile
 const LABEL_WIDTH = 200; // px, sticky linke Spalte
 
 function stringHash(s) {
@@ -115,8 +118,14 @@ function clampDayIdx(idx) {
   return Math.max(0, Math.min(totalDays - 1, idx));
 }
 
+// Erkennt Abwesenheiten grosszügig als Teilstring irgendwo im Titel, nicht
+// nur bei exakt "Frei"/"Ferien" -- z.B. auch "Weihnachtsferien" (deutsche
+// Komposita haben keine Wortgrenze vor "ferien", ein \b-Wortgrenzen-Check
+// würde das verpassen), "Ferien Süden", "Weg" oder "Abwesend (Kurs)".
+// Bewusst ein einfacher Teilstring-Test wie gewünscht -- dass das auch bei
+// z.B. "Freitag" anspringt, ist in Kauf genommen.
 function isFreiTitle(titel) {
-  return /^(frei|ferien)$/i.test((titel || "").trim());
+  return /(ferien|frei|weg|abwesend)/i.test((titel || "").trim());
 }
 
 // ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
@@ -303,6 +312,26 @@ function renderWeekHeader() {
   return weeks;
 }
 
+// Dritte, feinste Kopfzeile mit dem Datum jedes einzelnen Tages -- lohnt
+// sich erst, wenn genug hineingezoomt wurde (siehe onScrollWheel()), sonst
+// wären die Zahlen ohnehin nicht lesbar; bleibt bis dahin leer/versteckt.
+function renderDayHeader() {
+  const track = document.getElementById("tpDayTrack");
+  const show = DAY_WIDTH >= DAY_HEADER_MIN_WIDTH;
+  track.style.display = show ? "" : "none";
+  if (!show) {
+    track.innerHTML = "";
+    return;
+  }
+  track.style.width = totalWidth + "px";
+  let html = "";
+  for (let d = 0; d < totalDays; d++) {
+    const date = addDays(rangeStartDate, d);
+    html += `<div class="tp-day-tick" style="left:${d * DAY_WIDTH}px; width:${DAY_WIDTH}px;">${date.getDate()}</div>`;
+  }
+  track.innerHTML = html;
+}
+
 // Dieselben Wochengrenzen wie renderWeekHeader() als durchgehende, dezente
 // vertikale Linien über alle Zeilen (nicht nur im Kopf) -- macht "Wochen als
 // Spalten" auch optisch im Zeitplan selbst sichtbar.
@@ -337,17 +366,32 @@ function renderWeekendOverlay() {
     .join("");
 }
 
+// Ein Balken, der schon vor "heute" beginnt (rollendes Fenster -- ein
+// älterer Start rutscht mit der Zeit vor den sichtbaren Bereich), würde
+// sonst mitsamt seinem Titel weit im nicht sichtbaren Minusbereich
+// beginnen. Die linke Kante wird deshalb an x=0 geklemmt (das rechte Ende
+// bleibt exakt beim echten Enddatum) -- der Titel steht dadurch immer am
+// linken Rand des sichtbaren Bereichs, nicht vor dessen Anfang.
+function visibleBarRect(entry) {
+  const x = dateToX(entry.start);
+  const w = Math.max(DAY_WIDTH, (daysBetween(parseISO(entry.start), parseISO(entry.ende)) + 1) * DAY_WIDTH);
+  const left = Math.max(0, x);
+  const width = Math.max(DAY_WIDTH, x + w - left);
+  return { left, width, offscreen: x + w <= 0 || x >= totalWidth };
+}
+
 function renderEntryHtml(entry, loc, color) {
   const locAttr = escapeHtml(JSON.stringify(loc));
   const titleAttr = escapeHtml(entry.titel || "");
   if (entry.typ === "meilenstein") {
     const x = dateToX(entry.start);
+    if (x < 0 || x > totalWidth) return ""; // ausserhalb des sichtbaren Fensters
     return `<div class="tp-milestone" style="left:${x - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}"></div>
       <div class="tp-milestone-label" style="left:${x + 9}px;">${titleAttr}</div>`;
   }
-  const x = dateToX(entry.start);
-  const w = Math.max(DAY_WIDTH, (daysBetween(parseISO(entry.start), parseISO(entry.ende)) + 1) * DAY_WIDTH);
-  return `<div class="tp-bar" style="left:${x}px; width:${w}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}'>
+  const { left, width, offscreen } = visibleBarRect(entry);
+  if (offscreen) return "";
+  return `<div class="tp-bar" style="left:${left}px; width:${width}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}'>
     <span class="tp-bar-handle" data-handle="left"></span>
     <span class="tp-bar-label">${titleAttr}</span>
     <span class="tp-bar-handle" data-handle="right"></span>
@@ -421,11 +465,15 @@ function renderRows() {
   const already = new Set(zeitplan.projekte.map((p) => p.titel));
   const remaining = projectNames.filter((name) => !already.has(name));
   html += `<div class="tp-row tp-add-row">
-    <div class="tp-label-cell">
+    <div class="tp-label-cell tp-add-projekt-cell">
       <select id="addProjektSelect">
-        <option value="">+ Projekt hinzufügen…</option>
+        <option value="">+ Projekt aus Liste…</option>
         ${remaining.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
       </select>
+      <div class="tp-add-freitext-row">
+        <input type="text" id="addProjektFreitext" placeholder="oder frei benennen…">
+        <button type="button" id="addProjektFreitextBtn" title="Projekt hinzufügen">+</button>
+      </div>
     </div>
     <div class="tp-track" style="width:${totalWidth}px"></div>
   </div>`;
@@ -477,6 +525,7 @@ function renderAll() {
   computeRange();
   renderHeader();
   const weeks = renderWeekHeader();
+  renderDayHeader();
   renderRows();
   renderWeekendOverlay();
   renderWeekGridOverlay(weeks);
@@ -650,12 +699,13 @@ function onRowsPointerDown(e) {
       entry.ende = toISO(clampToRange(newEnde));
     }
 
-    const x = dateToX(entry.start);
     if (entry.typ === "meilenstein") {
+      const x = dateToX(entry.start);
       bar.style.left = x - 7 + "px";
     } else {
-      bar.style.left = x + "px";
-      bar.style.width = Math.max(DAY_WIDTH, (daysBetween(parseISO(entry.start), parseISO(entry.ende)) + 1) * DAY_WIDTH) + "px";
+      const { left, width } = visibleBarRect(entry);
+      bar.style.left = left + "px";
+      bar.style.width = width + "px";
     }
   };
 
@@ -722,17 +772,69 @@ function onRowsClick(e) {
     scheduleSync();
     return;
   }
+  const freitextBtn = e.target.closest("#addProjektFreitextBtn");
+  if (freitextBtn) {
+    const input = document.getElementById("addProjektFreitext");
+    addProjekt(input.value);
+    return;
+  }
+}
+
+// Projekt hinzufügen -- entweder per Auswahl aus der zentralen Liste oder
+// frei benannt (z.B. für Vorhaben, die noch nicht in der offiziellen
+// Projektliste stehen). Beide Wege landen in derselben Struktur; ein frei
+// benanntes Projekt bekommt seine Farbe wie überall sonst per Namens-Hash
+// (siehe projectColor()), unabhängig davon, ob der Name in der zentralen
+// Liste vorkommt.
+function addProjekt(titel) {
+  const clean = (titel || "").trim();
+  if (!clean) return;
+  zeitplan.projekte.push({ id: uid(), titel: clean, aufgeklappt: true, aufgaben: [] });
+  renderAll();
+  scheduleSync();
 }
 
 function onRowsChange(e) {
   if (e.target.id === "addProjektSelect" && e.target.value) {
-    zeitplan.projekte.push({ id: uid(), titel: e.target.value, aufgeklappt: true, aufgaben: [] });
-    renderAll();
-    scheduleSync();
+    addProjekt(e.target.value);
+  }
+}
+
+function onRowsKeyDown(e) {
+  if (e.target.id === "addProjektFreitext" && e.key === "Enter") {
+    e.preventDefault();
+    addProjekt(e.target.value);
   }
 }
 
 // ---------- Init ----------
+
+// Zoom per Strg/Cmd+Scrollrad (bzw. Pinch-Geste am Trackpad -- die meldet
+// sich im "wheel"-Event ebenfalls mit ctrlKey=true) -- normales Scrollen
+// bzw. Umschalt+Scrollen bleibt dem Browser für das native seitliche
+// Verschieben von .tp-scroll überlassen. Zoomt um den Tag unter dem
+// Mauszeiger herum, statt immer um den linken Rand -- dafür wird
+// scrollLeft danach so nachgeführt, dass derselbe Tag unter dem Zeiger
+// bleibt.
+function onScrollWheel(e) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+
+  const scrollEl = document.getElementById("tpScroll");
+  const rect = scrollEl.getBoundingClientRect();
+  const cursorXInContent = e.clientX - rect.left + scrollEl.scrollLeft;
+  const dayUnderCursor = (cursorXInContent - LABEL_WIDTH) / DAY_WIDTH;
+
+  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  const oldDayWidth = DAY_WIDTH;
+  DAY_WIDTH = Math.max(DAY_WIDTH_MIN, Math.min(DAY_WIDTH_MAX, DAY_WIDTH * factor));
+  if (DAY_WIDTH === oldDayWidth) return;
+
+  renderAll();
+
+  const newCursorXInContent = LABEL_WIDTH + dayUnderCursor * DAY_WIDTH;
+  scrollEl.scrollLeft += newCursorXInContent - cursorXInContent;
+}
 
 function init() {
   initSettingsUI({
@@ -744,6 +846,8 @@ function init() {
   document.getElementById("tpRows").addEventListener("pointerdown", onRowsPointerDown);
   document.getElementById("tpRows").addEventListener("click", onRowsClick);
   document.getElementById("tpRows").addEventListener("change", onRowsChange);
+  document.getElementById("tpRows").addEventListener("keydown", onRowsKeyDown);
+  document.getElementById("tpScroll").addEventListener("wheel", onScrollWheel, { passive: false });
 
   document.getElementById("closeEntryDialog").addEventListener("click", closeEntryDialog);
   document.getElementById("cancelEntryBtn").addEventListener("click", closeEntryDialog);
