@@ -825,7 +825,14 @@ function onScrollWheel(e) {
   const cursorXInContent = e.clientX - rect.left + scrollEl.scrollLeft;
   const dayUnderCursor = (cursorXInContent - LABEL_WIDTH) / DAY_WIDTH;
 
-  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  // Faktor skaliert mit der tatsächlichen Scroll-Staerke (e.deltaY), nicht
+  // pauschal pro Event -- sonst loest ein Trackpad, das pro Wisch-Geste
+  // viele kleine Events (deltaY ~3-5) statt einem grossen Mausrad-Klick
+  // (deltaY ~100) feuert, bei jedem einzelnen davon den vollen Sprung aus
+  // und katapultiert so sofort bis ans Zoom-Limit statt sanft zu zoomen.
+  // 1.0014^100 ~= 1.15, das entspricht also einem klassischen
+  // Mausrad-Klick weiterhin ca. 15% Zoom pro Notch.
+  const factor = Math.pow(1.0014, -e.deltaY);
   const oldDayWidth = DAY_WIDTH;
   DAY_WIDTH = Math.max(DAY_WIDTH_MIN, Math.min(DAY_WIDTH_MAX, DAY_WIDTH * factor));
   if (DAY_WIDTH === oldDayWidth) return;

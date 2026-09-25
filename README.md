@@ -852,9 +852,10 @@ automatisch mit.
     Nummer) oder frei benannt über das Textfeld daneben — für Vorhaben, die
     (noch) nicht in der offiziellen Liste stehen. Auf-/zuklappbar; die
     Projektzeile selbst zeigt dabei immer (auch zugeklappt) alle Balken/
-    Meilensteine ihrer Aufgaben zusammen als **halbtransparente** Übersicht
-    — laufen mehrere Aufgaben gleichzeitig, zeichnet sich das durch die
-    Überlagerung als dunklere Fläche ab.
+    Meilensteine ihrer Aufgaben zusammen als **halbtransparente** Übersicht,
+    bewusst ohne Titeltext (reine "Strichcode"-Ansicht) — laufen mehrere
+    Aufgaben gleichzeitig, zeichnet sich das durch die Überlagerung als
+    dunklere Fläche ab.
     - **Aufgaben** — frei benannt (Klick auf "+ Aufgabe"/auf den Titel zum
       Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
       viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
