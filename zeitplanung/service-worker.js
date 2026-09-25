@@ -1,11 +1,13 @@
-const CACHE_NAME = "buero-startseite-v6";
+const CACHE_NAME = "zeitplanung-v1";
 const ASSETS = [
   "./",
   "./index.html",
+  "./app.js",
   "./manifest.json",
-  "./icons/home-192.png",
-  "./icons/home-512.png",
-  "./css/style.css"
+  "../shared/common.js",
+  "../css/style.css",
+  "../icons/zeitplanung-192.png",
+  "../icons/zeitplanung-512.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -24,10 +26,6 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Nur die Startseite selbst wird hier gecacht -- die Unterseiten
-// (zeiterfassung/, quittung/, wettbewerbsprogramme/, offerten/,
-// adressliste/, pendenzen/) haben je ihren eigenen, enger begrenzten
-// Service Worker mit eigenem Scope.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
