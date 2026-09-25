@@ -83,11 +83,16 @@
   }
   .tp-bar:active { cursor: grabbing; }
   .tp-bar-label { font-size: 11px; padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .tp-bar-duration { font-size: 10px; opacity: 0.85; padding: 0 7px 0 2px; white-space: nowrap; flex-shrink: 0; pointer-events: none; }
   .tp-bar-handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
   .tp-bar-handle[data-handle="left"] { left: 0; }
   .tp-bar-handle[data-handle="right"] { right: 0; }
 
   .tp-milestone { position: absolute; top: 10px; width: 14px; height: 14px; transform: rotate(45deg); border-radius: 3px; cursor: grab; touch-action: none; }
+  .tp-milestone-day {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    transform: rotate(-45deg); font-size: 7px; font-weight: 700; line-height: 1; color: #fff; pointer-events: none;
+  }
   .tp-milestone-label { position: absolute; top: 8px; font-size: 11px; white-space: nowrap; color: var(--text-muted); pointer-events: none; }
 
   /* Projekt-Übersichtszeile: alle Balken/Meilensteine der Aufgaben zusammen
@@ -95,7 +100,8 @@
      (mehrere gleichzeitig laufende Aufgaben) als dunklere Fläche abzeichnen,
      statt dass ein Balken den anderen einfach komplett verdeckt. */
   .tp-row-summary .tp-bar, .tp-row-summary .tp-milestone { opacity: 0.6; }
-  .tp-row-summary .tp-bar-label, .tp-row-summary .tp-milestone-label { display: none; }
+  .tp-row-summary .tp-bar-label, .tp-row-summary .tp-milestone-label,
+  .tp-row-summary .tp-bar-duration, .tp-row-summary .tp-milestone-day { display: none; }
 
   .tp-add-row .tp-label-cell { background: var(--surface); }
   .tp-add-projekt-cell { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 8px; }

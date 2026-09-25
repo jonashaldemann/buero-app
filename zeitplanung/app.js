@@ -380,13 +380,26 @@ function visibleBarRect(entry) {
   return { left, width, offscreen: x + w <= 0 || x >= totalWidth };
 }
 
+// Grobe, auf einen Blick lesbare Längenangabe eines Balkens -- Tage bei
+// kurzen, Wochen bei mittleren, Monate bei langen Balken (Schwellen an den
+// Beispielen aus dem Feedback orientiert: 5D, 2W, 6M).
+function formatBarDuration(entry) {
+  const days = daysBetween(parseISO(entry.start), parseISO(entry.ende)) + 1;
+  if (days < 7) return days + "D";
+  if (days < 60) return Math.max(1, Math.round(days / 7)) + "W";
+  return Math.max(1, Math.round(days / 30)) + "M";
+}
+
 function renderEntryHtml(entry, loc, color) {
   const locAttr = escapeHtml(JSON.stringify(loc));
   const titleAttr = escapeHtml(entry.titel || "");
   if (entry.typ === "meilenstein") {
     const x = dateToX(entry.start);
     if (x < 0 || x > totalWidth) return ""; // ausserhalb des sichtbaren Fensters
-    return `<div class="tp-milestone" style="left:${x - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}"></div>
+    const dayNum = parseISO(entry.start).getDate();
+    return `<div class="tp-milestone" style="left:${x - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}">
+        <span class="tp-milestone-day">${dayNum}</span>
+      </div>
       <div class="tp-milestone-label" style="left:${x + 9}px;">${titleAttr}</div>`;
   }
   const { left, width, offscreen } = visibleBarRect(entry);
@@ -394,6 +407,7 @@ function renderEntryHtml(entry, loc, color) {
   return `<div class="tp-bar" style="left:${left}px; width:${width}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}'>
     <span class="tp-bar-handle" data-handle="left"></span>
     <span class="tp-bar-label">${titleAttr}</span>
+    <span class="tp-bar-duration">${formatBarDuration(entry)}</span>
     <span class="tp-bar-handle" data-handle="right"></span>
   </div>`;
 }
@@ -558,6 +572,16 @@ function openEntryDialog(loc, entryId, prefill) {
   document.getElementById("deleteEntryBtn").style.display = entryId ? "" : "none";
   document.getElementById("entryResult").textContent = "";
   document.getElementById("entryOverlay").classList.remove("hidden");
+
+  // Bei neu angelegten Einträgen (gezeichneter Balken/Meilenstein) steht
+  // der Cursor direkt im Titelfeld, damit man ohne extra Klick lostippen
+  // kann -- bei bestehenden Einträgen nicht, um den vorhandenen Titel nicht
+  // ungewollt zu markieren, wenn man nur ein Datum ändern will.
+  if (!entryId) {
+    const titelInput = document.getElementById("entryTitel");
+    titelInput.focus();
+    titelInput.select();
+  }
 }
 
 function closeEntryDialog() {
