@@ -445,39 +445,6 @@ async function appendBananaBooking(entry) {
   if (!putRes.ok) throw new Error(`Buchung schreiben fehlgeschlagen (${putRes.status})`);
 }
 
-function formatChf(amount) {
-  return `${amount.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Fr.`;
-}
-
-// Parst buchungen.txt (Kopfzeile + tab-getrennte Zeilen, siehe BANANA_TXT_HEADER)
-// zurück in Objekte -- Reihenfolge entspricht der Schreibreihenfolge in
-// appendBananaBooking() (älteste zuerst, neueste am Ende).
-function parseBananaBookings(text) {
-  const lines = text.split("\n").filter((l) => l.trim());
-  lines.shift(); // Kopfzeile überspringen
-  return lines.map((line) => {
-    const [date, description, income, expenses, doc, category, account, vatCode] = line.split("\t");
-    return { date, description, income, expenses, doc, category, account, vatCode };
-  });
-}
-
-// Beträge -- wo vorhanden -- aus buchungen.txt, als Map Belegnummer -> Betrag
-// (String). Fehlt die Datei (z.B. weil sie nach einem Banana-Import bewusst
-// geleert/archiviert wurde) oder ein einzelner Beleg darin, bleibt die Map
-// dafür einfach leer -- kein Fehler, siehe fetchRecentReceiptRows().
-async function fetchBookingAmountsByBelegnummer() {
-  const relPath = bananaTxtRelativePath();
-  const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
-  if (res.status === 404) return {};
-  if (!res.ok) throw new Error(`Buchungsdatei lesen fehlgeschlagen (${res.status})`);
-  const text = await res.text();
-  const map = {};
-  (text ? parseBananaBookings(text) : []).forEach((b) => {
-    map[b.doc] = b.expenses || b.income || "";
-  });
-  return map;
-}
-
 // Erkennt Belegdateien im Zielordner am Namensschema
 // "[Belegnummer] [Bezeichnung].ext" (siehe saveReceiptEntry()), z.B.
 // "26-A003 KUARIO Quittung.pdf" -- andere Dateien (insbesondere
@@ -491,33 +458,26 @@ function parseBelegFilename(filename) {
 }
 
 // Quelle der Wahrheit für "welche Belege gibt es" sind die tatsächlich im
-// Ordner liegenden Dateien (nicht buchungen.txt) -- die ist die
-// verlässlichere Quelle, weil buchungen.txt z.B. nach einem Banana-Import
-// geleert werden kann, während die Beleg-PDFs im Ordner bleiben. Die
-// Beträge dazu kommen ergänzend, wo vorhanden, aus buchungen.txt.
+// Ordner liegenden Dateien -- kein Betrag hier: der stünde nur in
+// buchungen.txt, die aber z.B. nach einem Banana-Import geleert werden kann
+// und für ältere Belege oft gar nicht (mehr) den passenden Eintrag hat --
+// eine Betragsspalte wäre dadurch meist leer. Nummer + Bezeichnung reichen
+// als schneller Überblick.
 async function fetchRecentReceiptRows() {
-  const [filenames, amounts] = await Promise.all([
-    listReceiptFolderFilenames(),
-    fetchBookingAmountsByBelegnummer().catch((err) => {
-      console.warn("Beträge aus buchungen.txt konnten nicht geladen werden:", err);
-      return {};
-    })
-  ]);
+  const filenames = await listReceiptFolderFilenames();
   return filenames
     .map(parseBelegFilename)
-    .filter(Boolean)
-    .map((f) => ({ ...f, amount: amounts[f.belegnummer] ? parseFloat(amounts[f.belegnummer]) : null }));
+    .filter(Boolean);
 }
 
 function receiptRowHtml(row) {
-  const amountLabel = row.amount === null ? "–" : formatChf(row.amount);
-  return `<tr><td>${escapeHtml(row.belegnummer)}</td><td>${escapeHtml(row.description)}</td><td>${escapeHtml(amountLabel)}</td></tr>`;
+  return `<tr><td>${escapeHtml(row.belegnummer)}</td><td>${escapeHtml(row.description)}</td></tr>`;
 }
 
 function renderReceiptList(tbodyId, rows, emptyMessage) {
   const tbody = document.getElementById(tbodyId);
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="3">${emptyMessage}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2">${emptyMessage}</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(receiptRowHtml).join("");

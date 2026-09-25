@@ -106,6 +106,14 @@ function computeRange() {
   totalDays = 366;
   totalWidth = totalDays * DAY_WIDTH;
 }
+// Montag als Wochenbeginn (wie im Zeiterfassungs-Dashboard).
+function startOfWeek(d) {
+  const diff = (d.getDay() + 6) % 7;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+}
+function clampDayIdx(idx) {
+  return Math.max(0, Math.min(totalDays - 1, idx));
+}
 
 function isFreiTitle(titel) {
   return /^(frei|ferien)$/i.test((titel || "").trim());
@@ -270,6 +278,65 @@ function renderHeader() {
     .join("");
 }
 
+// Wochenspalten: eine dünne Kopfzeile mit dem Montagsdatum jeder Woche, plus
+// -- über renderWeekGridOverlay() -- durchgehende vertikale Trennlinien
+// über alle Zeilen. Die allererste (meist unvollständige) Woche ab "heute"
+// bekommt bewusst keine eigene Beschriftung/Linie, weil ihr Montag vor dem
+// sichtbaren Fenster läge.
+function renderWeekHeader() {
+  const track = document.getElementById("tpWeekTrack");
+  track.style.width = totalWidth + "px";
+  const weeks = [];
+  let w = startOfWeek(rangeStartDate);
+  if (w < rangeStartDate) w = addDays(w, 7);
+  while (w <= rangeEndDate) {
+    weeks.push(new Date(w));
+    w = addDays(w, 7);
+  }
+  track.innerHTML = weeks
+    .map((monday) => {
+      const x = daysBetween(rangeStartDate, monday) * DAY_WIDTH;
+      const label = `${String(monday.getDate()).padStart(2, "0")}.${String(monday.getMonth() + 1).padStart(2, "0")}.`;
+      return `<div class="tp-week-tick" style="left:${x}px"><span class="tp-week-label">${label}</span></div>`;
+    })
+    .join("");
+  return weeks;
+}
+
+// Dieselben Wochengrenzen wie renderWeekHeader() als durchgehende, dezente
+// vertikale Linien über alle Zeilen (nicht nur im Kopf) -- macht "Wochen als
+// Spalten" auch optisch im Zeitplan selbst sichtbar.
+function renderWeekGridOverlay(weeks) {
+  const layer = document.getElementById("tpWeekGridLayer");
+  layer.style.width = totalWidth + "px";
+  layer.innerHTML = weeks
+    .map((monday) => {
+      const x = daysBetween(rangeStartDate, monday) * DAY_WIDTH;
+      return `<div class="tp-week-gridline" style="left:${x}px;"></div>`;
+    })
+    .join("");
+}
+
+// Samstage/Sonntage im sichtbaren Fenster leicht abgesetzt hinterlegen
+// (deutlich dezenter als die Ferien-Streifen, siehe renderVacationOverlay()).
+function renderWeekendOverlay() {
+  const layer = document.getElementById("tpWeekendLayer");
+  layer.style.width = totalWidth + "px";
+  const runs = [];
+  let cur = null;
+  for (let d = 0; d < totalDays; d++) {
+    const dow = addDays(rangeStartDate, d).getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    if (!isWeekend) { if (cur) { runs.push(cur); cur = null; } continue; }
+    if (cur) cur.end = d;
+    else cur = { start: d, end: d };
+  }
+  if (cur) runs.push(cur);
+  layer.innerHTML = runs
+    .map((r) => `<div class="tp-weekend-stripe" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`)
+    .join("");
+}
+
 function renderEntryHtml(entry, loc, color) {
   const locAttr = escapeHtml(JSON.stringify(loc));
   const titleAttr = escapeHtml(entry.titel || "");
@@ -287,14 +354,16 @@ function renderEntryHtml(entry, loc, color) {
   </div>`;
 }
 
-function renderRowHtml({ labelHtml, addLoc, items, indent, summary }) {
+// trackLoc (nur bei Mitarbeiter-/Aufgabe-Zeilen, nicht bei der
+// Projekt-Übersichtszeile) macht die leere Fläche der Zeile selbst
+// interaktiv -- Klick erzeugt einen Meilenstein, Ziehen einen Balken, siehe
+// onRowsPointerDown(). Kein "+"-Knopf mehr nötig.
+function renderRowHtml({ labelHtml, trackLoc, items, indent, summary }) {
   const trackHtml = items.map(({ entry, loc, color }) => renderEntryHtml(entry, loc, color)).join("");
-  const addBtn = addLoc
-    ? `<button type="button" class="tp-add-entry-btn" data-loc='${escapeHtml(JSON.stringify(addLoc))}' title="Balken/Meilenstein hinzufügen">+</button>`
-    : "";
+  const locAttr = trackLoc ? ` data-loc='${escapeHtml(JSON.stringify(trackLoc))}'` : "";
   return `<div class="tp-row${indent ? " tp-row-indent" : ""}${summary ? " tp-row-summary" : ""}">
-    <div class="tp-label-cell">${labelHtml}${addBtn}</div>
-    <div class="tp-track" style="width:${totalWidth}px">${trackHtml}</div>
+    <div class="tp-label-cell">${labelHtml}</div>
+    <div class="tp-track"${locAttr} style="width:${totalWidth}px">${trackHtml}</div>
   </div>`;
 }
 
@@ -319,7 +388,7 @@ function renderRows() {
     const eintraege = zeitplan.mitarbeiterEintraege[p.key] || [];
     html += renderRowHtml({
       labelHtml: `<span class="tp-row-title">${escapeHtml(p.name)}</span>`,
-      addLoc: loc,
+      trackLoc: loc,
       items: eintraege.map((entry) => ({ entry, loc, color: VACATION_COLOR }))
     });
   });
@@ -337,7 +406,7 @@ function renderRows() {
         const loc = { type: "aufgabe", projektId: proj.id, aufgabeId: aufgabe.id };
         html += renderRowHtml({
           labelHtml: aufgabeRowLabelHtml(proj, aufgabe),
-          addLoc: loc,
+          trackLoc: loc,
           items: aufgabe.eintraege.map((entry) => ({ entry, loc, color })),
           indent: true
         });
@@ -407,7 +476,10 @@ function renderVacationOverlay() {
 function renderAll() {
   computeRange();
   renderHeader();
+  const weeks = renderWeekHeader();
   renderRows();
+  renderWeekendOverlay();
+  renderWeekGridOverlay(weeks);
   renderVacationOverlay();
 }
 
@@ -418,16 +490,21 @@ function applyEntryTypVisibility() {
   document.getElementById("entryEndeGroup").style.display = typ === "meilenstein" ? "none" : "";
 }
 
-function openEntryDialog(loc, entryId) {
+// prefill (nur relevant für neue Einträge, entryId=null): {typ, start, ende}
+// -- kommt vom Ziehen/Klicken auf der leeren Zeilenfläche, siehe
+// onRowsPointerDown().
+function openEntryDialog(loc, entryId, prefill) {
   editingEntryLocation = loc;
   editingEntryId = entryId || null;
   const entry = entryId ? resolveEintraegeArray(loc).find((e) => e.id === entryId) : null;
 
   document.getElementById("entryDialogTitle").textContent = entryId ? "Eintrag bearbeiten" : "Neuer Eintrag";
   document.getElementById("entryTitel").value = entry ? entry.titel : (loc.type === "mitarbeiter" ? "Ferien" : "");
-  document.getElementById("entryTyp").value = entry ? entry.typ : "balken";
-  document.getElementById("entryStart").value = entry ? entry.start : toISO(new Date());
-  document.getElementById("entryEnde").value = entry ? entry.ende || entry.start : toISO(addDays(new Date(), 6));
+  document.getElementById("entryTyp").value = entry ? entry.typ : (prefill && prefill.typ) || "balken";
+  document.getElementById("entryStart").value = entry ? entry.start : (prefill && prefill.start) || toISO(new Date());
+  document.getElementById("entryEnde").value = entry
+    ? entry.ende || entry.start
+    : (prefill && (prefill.ende || prefill.start)) || toISO(addDays(new Date(), 6));
   applyEntryTypVisibility();
   document.getElementById("deleteEntryBtn").style.display = entryId ? "" : "none";
   document.getElementById("entryResult").textContent = "";
@@ -474,9 +551,71 @@ function deleteEntryDialog() {
 
 // ---------- Verschieben/Grösse ändern per Maus/Touch ----------
 
+// Auf leerer Zeilenfläche (kein bestehender Balken/Meilenstein getroffen):
+// Ziehen legt einen neuen BALKEN an (Start/Ende = Anfang/Ende der
+// Ziehbewegung, auf Tage gerundet), ein einfacher Klick ohne Ziehen einen
+// neuen MEILENSTEIN am angeklickten Tag -- beides öffnet danach den
+// Bearbeiten-Dialog zur Titel-Eingabe/Kontrolle statt sofort zu speichern.
+// Nur auf Zeilen mit data-loc (Mitarbeiter/Aufgabe, nicht die
+// Projekt-Übersichtszeile).
+const TRACK_DRAG_THRESHOLD_PX = 4;
+
+function onRowsTrackPointerDown(e, track) {
+  e.preventDefault();
+  const loc = JSON.parse(track.dataset.loc);
+  const rect = track.getBoundingClientRect();
+  const startClientX = e.clientX;
+  const startDayIdx = clampDayIdx(Math.round((e.clientX - rect.left) / DAY_WIDTH));
+
+  let previewEl = null;
+  let dragged = false;
+
+  const onMove = (ev) => {
+    if (!dragged && Math.abs(ev.clientX - startClientX) < TRACK_DRAG_THRESHOLD_PX) return;
+    dragged = true;
+    const curDayIdx = clampDayIdx(Math.round((ev.clientX - rect.left) / DAY_WIDTH));
+    const lo = Math.min(startDayIdx, curDayIdx);
+    const hi = Math.max(startDayIdx, curDayIdx);
+    if (!previewEl) {
+      previewEl = document.createElement("div");
+      previewEl.className = "tp-bar tp-bar-preview";
+      track.appendChild(previewEl);
+    }
+    previewEl.style.left = lo * DAY_WIDTH + "px";
+    previewEl.style.width = (hi - lo + 1) * DAY_WIDTH + "px";
+  };
+
+  const onUp = (ev) => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    if (previewEl) previewEl.remove();
+
+    const curDayIdx = clampDayIdx(Math.round((ev.clientX - rect.left) / DAY_WIDTH));
+    const lo = Math.min(startDayIdx, curDayIdx);
+    const hi = Math.max(startDayIdx, curDayIdx);
+
+    if (dragged) {
+      openEntryDialog(loc, null, {
+        typ: "balken",
+        start: toISO(addDays(rangeStartDate, lo)),
+        ende: toISO(addDays(rangeStartDate, hi))
+      });
+    } else {
+      openEntryDialog(loc, null, { typ: "meilenstein", start: toISO(addDays(rangeStartDate, startDayIdx)) });
+    }
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
 function onRowsPointerDown(e) {
   const bar = e.target.closest(".tp-bar, .tp-milestone");
-  if (!bar) return;
+  if (!bar) {
+    const track = e.target.closest(".tp-track[data-loc]");
+    if (track) onRowsTrackPointerDown(e, track);
+    return;
+  }
   e.preventDefault();
 
   const loc = JSON.parse(bar.dataset.loc);
@@ -536,11 +675,6 @@ function onRowsPointerDown(e) {
 }
 
 function onRowsClick(e) {
-  const addBtn = e.target.closest(".tp-add-entry-btn");
-  if (addBtn) {
-    openEntryDialog(JSON.parse(addBtn.dataset.loc), null);
-    return;
-  }
   const toggleBtn = e.target.closest('[data-action="toggle-projekt"]');
   if (toggleBtn) {
     const proj = zeitplan.projekte.find((p) => p.id === toggleBtn.dataset.projekt);

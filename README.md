@@ -267,10 +267,15 @@ nächste Belegnummer wird live aus dem Ordnerinhalt ermittelt) — kein
 Offline-Modus.
 
 Unter dem Button zeigen zwei Listen ("Letzte Ausgaben"/"Letzte Einnahmen",
-je Nummer/Bezeichnung/Betrag) die letzten 5 bzw. 2 Buchungen — direkt aus
-`buchungen.txt` geparst (welche der beiden Spalten Income/Expenses gefüllt
-ist, entscheidet Ausgabe vs. Einnahme), neueste zuerst. Aktualisiert sich
-nach jedem gespeicherten Beleg sowie beim Zurückkehren in die App.
+je Nummer/Bezeichnung) die letzten 5 bzw. 2 Belege — anhand der
+tatsächlich im Zielordner liegenden Belegdateien ermittelt (Dateiname
+`[Belegnummer] [Bezeichnung].ext`), nicht aus `buchungen.txt` (die kann
+z.B. nach einem Banana-Import geleert werden, während die Beleg-PDFs
+bleiben), neueste zuerst. **Bewusst ohne Betragsspalte**: der Betrag steht
+nur in `buchungen.txt` und wäre gerade für ältere Belege oft nicht (mehr)
+auffindbar — Nummer und Bezeichnung reichen als schneller Überblick.
+Aktualisiert sich nach jedem gespeicherten Beleg sowie beim Zurückkehren in
+die App.
 
 ### Banana-Import-Format (buchungen.txt)
 
@@ -849,22 +854,32 @@ automatisch mit.
       Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
       viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
       als Raute dargestellt) enthalten, jeweils mit eigenem Titel.
-- **Bearbeiten**: ein Balken/Meilenstein lässt sich direkt mit der Maus
-  verschieben (ganzer Balken ziehen) bzw. an den Enden ziehen (Start/Ende
-  einzeln anpassen, auf ganze Tage gerundet) — ein Klick **ohne** Ziehen
-  öffnet stattdessen den Bearbeiten-Dialog mit Datumsfeldern (Titel, Typ,
-  Start, Ende). Neue Einträge nur über den Dialog (kein Aufziehen auf
-  leerer Fläche in dieser ersten Version). Balken lassen sich nicht über
-  das sichtbare Jahresfenster hinaus ziehen.
+- **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
+  zweite, feinere Zeile mit einer Spalte pro Woche (Montag als Wochenbeginn,
+  beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
+  über alle Zeilen. Samstage/Sonntage sind im ganzen Zeitplan leicht
+  abgesetzt hinterlegt (dezenter als die Ferien-Streifen).
+- **Neue Balken/Meilensteine anlegen**: direkt auf der leeren Fläche einer
+  Mitarbeiter-/Aufgabe-Zeile (nicht der Projekt-Übersichtszeile) — **ziehen**
+  legt einen neuen Balken an (Start/Ende = Anfang/Ende der Ziehbewegung), ein
+  **Klick ohne Ziehen** einen neuen Meilenstein am angeklickten Tag. Beides
+  öffnet danach den Bearbeiten-Dialog zur Titel-Eingabe/Kontrolle, statt
+  sofort zu speichern. Kein "+"-Knopf mehr nötig.
+- **Bearbeiten**: ein bestehender Balken/Meilenstein lässt sich direkt mit
+  der Maus verschieben (ganzen Balken ziehen) bzw. an den Enden ziehen
+  (Start/Ende einzeln anpassen, auf ganze Tage gerundet) — ein Klick **ohne**
+  Ziehen öffnet stattdessen den Bearbeiten-Dialog mit Datumsfeldern (Titel,
+  Typ, Start, Ende). Balken lassen sich nicht über das sichtbare
+  Jahresfenster hinaus ziehen.
 - **Speichern**: bewusst **kein** Feld-/Item-Merge wie bei Offerten/
   Pendenzen — letzter Speicherstand gewinnt (bei zwei Personen, die
   gleichzeitig arbeiten, könnte eine die Änderung der anderen überschreiben,
   siehe "Bekannte Grenzen" unten). Wird erst am Ende einer Aktion
   synchronisiert (z.B. beim Loslassen nach dem Ziehen), nicht bei jeder
   Zwischenposition.
-- **Erster Wurf**: Layout/Interaktion sind bewusst einfach gehalten (u.a.
-  "+ Aufgabe"/Aufgabe-umbenennen über ein simples `prompt()`-Fenster statt
-  eines eigenen Dialogs) — gedacht zum Ausprobieren, danach gezielt
+- **Erster Wurf**: Projekt-/Aufgaben-Verwaltung ist bewusst einfach gehalten
+  (u.a. "+ Aufgabe"/Aufgabe-umbenennen über ein simples `prompt()`-Fenster
+  statt eines eigenen Dialogs) — gedacht zum Ausprobieren, danach gezielt
   verfeinern.
 
 ## Bekannte Grenzen
