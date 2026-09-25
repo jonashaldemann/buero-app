@@ -820,6 +820,53 @@ Protokoll, wie bei den Offerten).
   Nutzt dieselbe pdf-lib-Infrastruktur wie die Offerten (`protokoll/pdf.js`,
   eigenständig gehalten).
 
+---
+
+## Zeitplanung
+
+Terminplanung als horizontaler Zeitbalken (Gantt-artig), rein browserbasiert
+(kein PDF-Export). Das Zeitfenster ist immer "heute bis in 1 Jahr" — rollend,
+kein festes Kalenderjahr; beim erneuten Öffnen verschiebt es sich also
+automatisch mit.
+
+- **Speicherort**: EINE gemeinsame Datei
+  `Buero/Admin/Zeitplanung/zeitplanung.json` (wie bei den Pendenzen) statt
+  einer Datei pro Projekt/Aufgabe.
+- **Zeilen von oben nach unten**:
+  - **Mitarbeitende** (aus `shared/personen.json`) — hier Ferien/Frei
+    eintragen (Balken immer grau). Jeder Tag, an dem mindestens eine Person
+    einen als **"Frei"** oder **"Ferien"** betitelten Balken hat, bekommt
+    einen hellgrauen Streifen über **alle** Zeilen hinweg — je mehr
+    Personen an diesem Tag frei haben, desto dunkler der Streifen
+    (`renderVacationOverlay()` in `zeitplanung/app.js`).
+  - **Projekte** — hinzufügen über das Dropdown unten in der Liste, aus
+    derselben zentral verwalteten Projektliste wie Zeiterfassung/Pendenzen
+    (siehe Abschnitt "Projektnamen zentral verwalten" oben; Zuordnung/Farbe
+    über den Namen, nicht die Nummer). Auf-/zuklappbar; die Projektzeile
+    selbst zeigt dabei immer (auch zugeklappt) alle Balken/Meilensteine
+    ihrer Aufgaben zusammen als Übersicht.
+    - **Aufgaben** — frei benannt (Klick auf "+ Aufgabe"/auf den Titel zum
+      Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
+      viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
+      als Raute dargestellt) enthalten, jeweils mit eigenem Titel.
+- **Bearbeiten**: ein Balken/Meilenstein lässt sich direkt mit der Maus
+  verschieben (ganzer Balken ziehen) bzw. an den Enden ziehen (Start/Ende
+  einzeln anpassen, auf ganze Tage gerundet) — ein Klick **ohne** Ziehen
+  öffnet stattdessen den Bearbeiten-Dialog mit Datumsfeldern (Titel, Typ,
+  Start, Ende). Neue Einträge nur über den Dialog (kein Aufziehen auf
+  leerer Fläche in dieser ersten Version). Balken lassen sich nicht über
+  das sichtbare Jahresfenster hinaus ziehen.
+- **Speichern**: bewusst **kein** Feld-/Item-Merge wie bei Offerten/
+  Pendenzen — letzter Speicherstand gewinnt (bei zwei Personen, die
+  gleichzeitig arbeiten, könnte eine die Änderung der anderen überschreiben,
+  siehe "Bekannte Grenzen" unten). Wird erst am Ende einer Aktion
+  synchronisiert (z.B. beim Loslassen nach dem Ziehen), nicht bei jeder
+  Zwischenposition.
+- **Erster Wurf**: Layout/Interaktion sind bewusst einfach gehalten (u.a.
+  "+ Aufgabe"/Aufgabe-umbenennen über ein simples `prompt()`-Fenster statt
+  eines eigenen Dialogs) — gedacht zum Ausprobieren, danach gezielt
+  verfeinern.
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
@@ -836,7 +883,8 @@ Protokoll, wie bei den Offerten).
   auf Stop zu klicken.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
-  `icons/adressliste-*.png`, `icons/pendenzen-*.png` (je 192px + 512px PNG).
+  `icons/adressliste-*.png`, `icons/pendenzen-*.png`, `icons/protokoll-*.png`,
+  `icons/zeitplanung-*.png` (je 192px + 512px PNG).
   Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
   Code-/Manifest-Änderung nötig.
 

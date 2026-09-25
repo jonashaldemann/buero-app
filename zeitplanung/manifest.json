@@ -1,0 +1,15 @@
+{
+  "name": "Zeitplanung",
+  "short_name": "Zeitplanung",
+  "description": "Terminplanung als horizontaler Zeitbalken (1 Jahr ab heute): Ferien, Projekte, Aufgaben, Meilensteine",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2EFEA",
+  "theme_color": "#F2EFEA",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "../icons/zeitplanung-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/zeitplanung-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
