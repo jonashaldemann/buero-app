@@ -840,16 +840,21 @@ automatisch mit.
 - **Zeilen von oben nach unten**:
   - **Mitarbeitende** (aus `shared/personen.json`) — hier Ferien/Frei
     eintragen (Balken immer grau). Jeder Tag, an dem mindestens eine Person
-    einen als **"Frei"** oder **"Ferien"** betitelten Balken hat, bekommt
-    einen hellgrauen Streifen über **alle** Zeilen hinweg — je mehr
-    Personen an diesem Tag frei haben, desto dunkler der Streifen
-    (`renderVacationOverlay()` in `zeitplanung/app.js`).
-  - **Projekte** — hinzufügen über das Dropdown unten in der Liste, aus
-    derselben zentral verwalteten Projektliste wie Zeiterfassung/Pendenzen
-    (siehe Abschnitt "Projektnamen zentral verwalten" oben; Zuordnung/Farbe
-    über den Namen, nicht die Nummer). Auf-/zuklappbar; die Projektzeile
-    selbst zeigt dabei immer (auch zugeklappt) alle Balken/Meilensteine
-    ihrer Aufgaben zusammen als Übersicht.
+    einen Balken hat, dessen Titel **"ferien"**, **"frei"**, **"weg"** oder
+    **"abwesend"** enthält (als Teilstring, nicht nur exakt — erkennt also
+    auch z.B. "Weihnachtsferien"), bekommt einen hellgrauen Streifen über
+    **alle** Zeilen hinweg — je mehr Personen an diesem Tag frei haben,
+    desto dunkler der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
+    `zeitplanung/app.js`).
+  - **Projekte** — entweder per Dropdown aus derselben zentral verwalteten
+    Projektliste wie Zeiterfassung/Pendenzen (siehe Abschnitt "Projektnamen
+    zentral verwalten" oben; Zuordnung/Farbe über den Namen, nicht die
+    Nummer) oder frei benannt über das Textfeld daneben — für Vorhaben, die
+    (noch) nicht in der offiziellen Liste stehen. Auf-/zuklappbar; die
+    Projektzeile selbst zeigt dabei immer (auch zugeklappt) alle Balken/
+    Meilensteine ihrer Aufgaben zusammen als **halbtransparente** Übersicht
+    — laufen mehrere Aufgaben gleichzeitig, zeichnet sich das durch die
+    Überlagerung als dunklere Fläche ab.
     - **Aufgaben** — frei benannt (Klick auf "+ Aufgabe"/auf den Titel zum
       Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
       viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
@@ -859,6 +864,17 @@ automatisch mit.
   beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
   über alle Zeilen. Samstage/Sonntage sind im ganzen Zeitplan leicht
   abgesetzt hinterlegt (dezenter als die Ferien-Streifen).
+- **Zoom**: **Strg/Cmd + Scrollrad** (bzw. Zwei-Finger-Pinch am Trackpad) auf
+  dem Zeitplan zoomt rein/raus, um den Tag unter dem Mauszeiger herum —
+  normales Scrollen bzw. Umschalt+Scrollen bleibt dem Browser fürs native
+  seitliche Verschieben überlassen. Weit genug hineingezoomt erscheint eine
+  dritte Kopfzeile mit dem Datum jedes einzelnen Tages
+  (`DAY_HEADER_MIN_WIDTH` in `zeitplanung/app.js`).
+- Beginnt ein Balken vor "heute" (im rollenden Fenster kann das mit der Zeit
+  passieren), bleibt sein Titel am linken Rand des sichtbaren Bereichs
+  stehen, statt vor dessen Anfang zu verschwinden — die linke Kante wird
+  dafür bei der Darstellung auf den Fensteranfang geklemmt, das rechte Ende
+  (echtes Enddatum) bleibt unverändert (`visibleBarRect()`).
 - **Neue Balken/Meilensteine anlegen**: direkt auf der leeren Fläche einer
   Mitarbeiter-/Aufgabe-Zeile (nicht der Projekt-Übersichtszeile) — **ziehen**
   legt einen neuen Balken an (Start/Ende = Anfang/Ende der Ziehbewegung), ein

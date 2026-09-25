@@ -32,6 +32,8 @@
   .tp-week-track { position: relative; height: 18px; border-top: 1px solid var(--border); }
   .tp-week-tick { position: absolute; top: 2px; bottom: 0; border-left: 1px solid var(--border); padding-left: 3px; }
   .tp-week-label { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+  .tp-day-track { position: relative; height: 16px; border-top: 1px solid var(--border); }
+  .tp-day-tick { position: absolute; top: 1px; font-size: 9px; color: var(--text-muted); text-align: center; }
 
   .tp-rows-wrap { position: relative; }
   .tp-weekend-layer, .tp-week-grid-layer, .tp-vacation-layer {
@@ -88,8 +90,22 @@
   .tp-milestone { position: absolute; top: 10px; width: 14px; height: 14px; transform: rotate(45deg); border-radius: 3px; cursor: grab; touch-action: none; }
   .tp-milestone-label { position: absolute; top: 8px; font-size: 11px; white-space: nowrap; color: var(--text-muted); pointer-events: none; }
 
+  /* Projekt-Übersichtszeile: alle Balken/Meilensteine der Aufgaben zusammen
+     an derselben Zeilenhöhe -- halbtransparent, damit sich Überlagerungen
+     (mehrere gleichzeitig laufende Aufgaben) als dunklere Fläche abzeichnen,
+     statt dass ein Balken den anderen einfach komplett verdeckt. */
+  .tp-row-summary .tp-bar, .tp-row-summary .tp-milestone { opacity: 0.6; }
+
   .tp-add-row .tp-label-cell { background: var(--surface); }
-  #addProjektSelect { font-size: 13px; border: none; background: none; color: var(--accent-primary); max-width: 190px; }
+  .tp-add-projekt-cell { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 8px; }
+  #addProjektSelect { font-size: 13px; border: none; background: none; color: var(--accent-primary); width: 100%; }
+  .tp-add-freitext-row { display: flex; gap: 4px; }
+  #addProjektFreitext { font-size: 12px; padding: 4px 6px; flex: 1; min-width: 0; }
+  #addProjektFreitextBtn {
+    background: var(--surface-2); border: none; border-radius: 6px; color: var(--text-muted);
+    cursor: pointer; flex: none; width: 24px; font-size: 14px; line-height: 1;
+  }
+  #addProjektFreitextBtn:active { color: var(--accent-primary); }
 
   #entryOverlay .sheet { max-width: 420px; }
   .entry-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -121,18 +137,21 @@
     einen neuen Balken an, klicken einen neuen Meilenstein — auf einen
     bestehenden Balken ziehen verschiebt ihn (an den Rändern ziehen passt nur
     Start/Ende an), anklicken ohne Ziehen öffnet den Bearbeiten-Dialog mit
-    Datumsfeldern. Bei Mitarbeitenden als "Frei" oder "Ferien" betitelte
-    Einträge werden über allen Zeilen grau hinterlegt (je mehr Personen frei
-    haben, desto dunkler).
+    Datumsfeldern. Bei Mitarbeitenden Einträge mit "frei"/"ferien"/"weg"/
+    "abwesend" im Titel (z.B. auch "Weihnachtsferien") werden über allen
+    Zeilen grau hinterlegt (je mehr Personen frei haben, desto dunkler).
+    Strg/Cmd + Scrollrad (oder Pinch-Geste) zoomt rein/raus, normales
+    Scrollen bzw. Umschalt+Scrollen bleibt seitliches Verschieben.
   </p>
 
-  <div class="tp-scroll">
+  <div class="tp-scroll" id="tpScroll">
     <div class="tp-inner">
       <div class="tp-header-row">
         <div class="tp-corner"></div>
         <div class="tp-header-tracks">
           <div class="tp-header-track" id="tpHeaderTrack"></div>
           <div class="tp-week-track" id="tpWeekTrack"></div>
+          <div class="tp-day-track" id="tpDayTrack" style="display:none;"></div>
         </div>
       </div>
       <div class="tp-rows-wrap">
