@@ -15,29 +15,21 @@
    ============================================================ */
 
 const LS_KEYS = {
-  cache: "protokoll_cache",
-  projectsCache: "protokoll_projects_cache"
+  cache: "protokoll_cache"
 };
 
-const PROTOKOLL_TARGET_FOLDER_PATH = "Buero/Admin/Protokolle";
-
-// Gleiche zentrale Projektliste + Farbpalette wie in Zeiterfassung/Pendenzen
-// (siehe zeiterfassung/app.js) -- bewusst dupliziert statt geteilt, damit
-// jedes Modul unabhängig ladbar bleibt (siehe Kommentar in pendenzen/app.js).
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
+const PROTOKOLL_TARGET_FOLDER_PATH = appModuleFolderPath("Protokolle");
 
 // Pendenzen-Speicherort -- Kopie aus pendenzen/app.js: für die automatische
 // Pendenz-Erfassung aus internen Bullet Points (siehe syncInternePendenzen()).
-const PENDENZEN_TARGET_FOLDER_PATH = "Buero/Admin/Pendenzen";
+const PENDENZEN_TARGET_FOLDER_PATH = appModuleFolderPath("Pendenzen");
 const PENDENZEN_FILENAME = "pendenzen.json";
 
 let protokolle = loadJSON(LS_KEYS.cache, []); // { filename, data }
-let projectList = loadJSON(LS_KEYS.projectsCache, [
-  { id: "P1", name: "P1" },
-  { id: "P2", name: "P2" },
-  { id: "P3", name: "P3" }
-]);
-let personen = []; // aus ../shared/personen.json -- Büro-Personen für Teilnehmende/Kürzel
+// Projekte + Mitarbeitende aus der zentralen config.json (siehe
+// shared/common.js, refreshAppConfig()).
+let projectList = appConfig.projekte;
+let personen = appConfig.mitarbeitende; // Büro-Personen für Teilnehmende/Kürzel
 
 let editingProtokoll = null;
 let editingFilename = null;
@@ -45,33 +37,13 @@ let editingBaselineUpdatedAt = null;
 
 let draggedRow = null; // beim Drag&Drop der Hauptteil-Zeilen (siehe renderAbschnitte())
 
-// ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
+// ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
 
-function parseProjectList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const m = /^(\d{3})\s+(.+)$/.exec(line);
-      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
-    });
-}
-
-async function refreshProjectNames() {
-  if (!PROJECTS_SHARE_TOKEN) return;
-  try {
-    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const text = await res.text();
-    const list = parseProjectList(text);
-    if (list.length === 0) return;
-    projectList = list;
-    saveJSON(LS_KEYS.projectsCache, list);
-    renderProjektSelect();
-  } catch (err) {
-    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
-  }
+async function refreshAppData() {
+  await refreshAppConfig();
+  projectList = appConfig.projekte;
+  personen = appConfig.mitarbeitende;
+  renderProjektSelect();
 }
 
 // Beim Protokoll gelten Projektnummer UND Projektname (anders als bei
@@ -120,15 +92,6 @@ function renderProjektSelect() {
 }
 
 // ---------- Personen (Büro-Personen für Teilnehmende/Kürzel) ----------
-
-async function loadPersonen() {
-  try {
-    const res = await fetch("../shared/personen.json");
-    personen = res.ok ? await res.json() : [];
-  } catch (e) {
-    personen = [];
-  }
-}
 
 // Kürzel für Büro-Personen: automatisch die Initialen (wie bei den
 // Personen-Kürzeln in Pendenzen) -- externe Teilnehmende bekommen ihr
@@ -724,7 +687,7 @@ function init() {
   initSettingsUI({
     checkRelPath: pingRelPath,
     ensureFolderFn: ensureProtokollFolder,
-    onSaved: refreshProtokolle
+    onSaved: () => { refreshProtokolle(); refreshAppData(); }
   });
 
   wireAbschnitteListEndDrop();
@@ -763,23 +726,18 @@ function init() {
   });
 
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshProjectNames();
+    if (document.visibilityState === "visible") refreshAppData();
   });
-  setInterval(refreshProjectNames, 60000);
+  setInterval(refreshAppData, 60000);
 
-  Promise.all([loadPersonen(), refreshProjectNames()]).then(() => {
-    if (editingProtokoll) {
-      renderTeilnehmende();
-      renderProjektSelect();
-    }
+  refreshAppData().then(() => {
+    if (editingProtokoll) renderTeilnehmende();
   });
 
   if (isConfigured()) refreshProtokolle();
   else renderList();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);

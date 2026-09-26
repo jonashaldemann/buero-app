@@ -542,7 +542,7 @@ function downloadPdfBytes(bytes, filename) {
 
 // ---------- Einstiegspunkt ----------
 
-// unterzeichnerConfig ([{key,name,datei}], aus ../shared/personen.json)
+// unterzeichnerConfig ([{key,name,datei}], aus der zentralen config.json)
 // wird von app.js übergeben statt hier selbst geladen, damit pdf.js von
 // nichts aus app.js abhängt (siehe Kommentar oben).
 async function exportOfferPdf(offer, absender, unterzeichnerConfig) {

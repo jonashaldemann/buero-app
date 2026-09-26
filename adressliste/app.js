@@ -62,8 +62,8 @@ const LS_KEYS = {
   optionsCache: "adressliste_options_cache"
 };
 
-const ADRESSEN_TARGET_FOLDER_PATH = "Buero/Admin/Adressen";
-const VIEWS_FOLDER_PATH = "Buero/Admin/Adressen/Ansichten";
+const ADRESSEN_TARGET_FOLDER_PATH = appModuleFolderPath("Adressen");
+const VIEWS_FOLDER_PATH = appModuleFolderPath("Adressen/Ansichten");
 const LEGACY_VIEWS_FILENAME = "_ansichten.json"; // vor der Umstellung auf ein File pro Ansicht
 const OPTIONS_FILENAME = "_optionen.json"; // Kategorie-/Status-Auswahllisten, siehe refreshOptionSets()
 
@@ -1097,6 +1097,8 @@ function init() {
 
   renderAll();
   refreshContacts();
+
+  registerServiceWorkerWithAutoUpdate();
 }
 
 init();
