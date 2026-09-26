@@ -103,7 +103,8 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
-| Zentrale Konfiguration (Mitarbeitende/Projekte) | `Buero/Admin/App/config.json` |
+| Zentrale Konfiguration: Mitarbeitende | `Buero/Admin/App/config.json` |
+| Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
 
 **Ausnahme:** die eigentlichen Quittungen/Rechnungsbelege (Fotos/PDFs) bleiben
 unter `Buero/Admin/Finanzen` (ausserhalb von `App/`) — nur die vertraulichen
@@ -112,8 +113,9 @@ Abschnitt "Quittung" unten. Die Unterschriften-Bilder für den PDF-Export
 bleiben ebenfalls an ihrem bisherigen Ort (`Buero/Admin/KLG und Rechtliches/
 Unterschriften`), da sie auch von anderen Workflows verwendet werden.
 
-Mitarbeitende und Projekte kommen zentral aus `Buero/Admin/App/config.json`,
-siehe Abschnitt "Zentrale Konfiguration" unter "Zeiterfassung" unten.
+Mitarbeitende kommen zentral aus `Buero/Admin/App/config.json`, Projekte aus
+`Buero/Admin/App/projekte.txt`, siehe Abschnitt "Zentrale Konfiguration"
+unter "Zeiterfassung" unten.
 
 ---
 
@@ -141,67 +143,79 @@ Zielordner: `TARGET_FOLDER_PATH` in `zeiterfassung/app.js` (Standard
 `Buero/Admin/App/Zeiterfassung`, siehe Abschnitt "Nextcloud-Ordnerstruktur"
 oben), wird bei Bedarf automatisch angelegt.
 
-### Zentrale Konfiguration (`config.json`)
+### Zentrale Konfiguration (`config.json` + `projekte.txt`)
 
-Mitarbeitende und Projekte werden zentral von der Büroleitung in **einer**
-JSON-Datei auf Nextcloud verwaltet: `Buero/Admin/App/config.json`. Alle
-Module laden sie über dieselbe Funktion (`refreshAppConfig()` in
-`shared/common.js`) — beim Start (nach dem Login), nach dem Speichern der
-Einstellungen sowie danach alle 60 Sekunden/beim Zurückkehren in den Tab.
-Ein Login (Benutzer + App-Passwort) ist dafür zwingend nötig — anders als
-früher gibt es keinen öffentlichen, zugangsdatenfreien Lesezugriff mehr.
+Mitarbeitende und Projekte werden zentral von der Büroleitung verwaltet, in
+**zwei getrennten** Dateien auf Nextcloud — bewusst nicht in einer
+gemeinsamen JSON-Datei, weil die Projektliste von beiden Personen oft
+bearbeitet wird und eine reine Textdatei dafür praktischer ist (kein
+JSON-Syntaxrisiko durch Kommas/Anführungszeichen). Alle Module laden beide
+über dieselbe Funktion (`refreshAppConfig()` in `shared/common.js`) — beim
+Start (nach dem Login), nach dem Speichern der Einstellungen sowie danach
+alle 60 Sekunden/beim Zurückkehren in den Tab. Ein Login (Benutzer +
+App-Passwort) ist dafür zwingend nötig — es gibt keinen öffentlichen,
+zugangsdatenfreien Lesezugriff mehr. Beide Dateien werden unabhängig
+voneinander geladen: ist eine (noch) nicht erreichbar, bleibt für die
+jeweils andere trotzdem der letzte bekannte Stand erhalten.
 
-Format:
+**`Buero/Admin/App/config.json`** — Mitarbeitende:
 ```json
 {
   "mitarbeitende": [
     { "key": "jonas", "name": "Jonas Haldemann", "datei": "Unterschrift_Jonas_Haldemann.png" },
     { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
-  ],
-  "projekte": [
-    { "id": "021", "name": "Neubau Werkhof" },
-    { "id": "014", "name": "Umbau Altstetten" }
   ]
 }
 ```
-- **`mitarbeitende`**: `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung),
-  `name` (Anzeigename), `datei` (Dateiname der Unterschrift auf Nextcloud,
-  siehe Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht,
-  kann bei anderen Einträgen weggelassen werden).
-- **`projekte`**: `id` (optional, z.B. eine dreistellige Projektnummer — rein
-  kosmetisch, siehe unten) und `name` (Projekttitel).
+`key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name` (Anzeigename),
+`datei` (Dateiname der Unterschrift auf Nextcloud, siehe Abschnitt
+"Unterschriften" bei den Offerten — nur dort gebraucht, kann bei anderen
+Einträgen weggelassen werden).
+
+**`Buero/Admin/App/projekte.txt`** — Projekte, ein Eintrag pro Zeile,
+optional mit **dreistelliger Projektnummer, Leerschlag, Projekttitel** (der
+Titel darf selbst Leerschläge enthalten; eine Zeile ohne führende Nummer ist
+ebenso gültig und besteht dann nur aus dem Titel):
+```
+021 Neubau Werkhof
+014 Umbau Altstetten
+003 Verwaltung
+```
 
 **Zeiterfassung, Pendenzen und Timeline** ordnen Einträge, filtern und
-weisen Farben **über den Projektnamen** zu, nicht über die `id` — eine `id`
-ist dort rein kosmetisch und darf durchaus mehrfach vergeben sein, z.B. für
-mehrere interne/nicht-projektbezogene Kategorien:
-```json
-{ "id": "000", "name": "Büro Allgemein" },
-{ "id": "000", "name": "Akquisition" }
+weisen Farben **über den Projektnamen** zu, nicht über die Nummer — eine
+Nummer ist dort rein kosmetisch (wird beim Anzeigen aus der Zeile
+herausgeparst, taucht aber nirgends in der App auf) und darf durchaus
+mehrfach vergeben sein, z.B. für mehrere interne/nicht-projektbezogene
+Kategorien:
 ```
-"Büro Allgemein" und "Akquisition" bekommen hier trotz identischer `id`
+000 Büro Allgemein
+000 Akquisition
+```
+"Büro Allgemein" und "Akquisition" bekommen hier trotz identischer Nummer
 "000" unterschiedliche Farben und werden beim Filtern korrekt auseinander-
 gehalten (Farbe = String-Hash des Namens, siehe `stringHash()` in
 `zeiterfassung/app.js`/`pendenzen/app.js`/`zeiterfassung/dashboard/js/
 dashboard.js`). Einzige Einschränkung: der **Name** muss eindeutig sein — zwei
-Einträge mit demselben Namen wären für Zeiterfassung/Pendenzen/Timeline nicht
+Zeilen mit demselben Namen wären für Zeiterfassung/Pendenzen/Timeline nicht
 unterscheidbar. Ein Projekt umzubenennen trennt bestehende Einträge vom
-"neuen" Namen (kein stabiler ID-Bezug) — dafür sind `id`-Dopplungen (s.o.)
-unproblematisch, was in der Praxis öfter vorkommt als eine Umbenennung.
+"neuen" Namen (kein stabiler ID-Bezug wie bei einer reinen Nummer) — dafür
+sind Nummern-Dopplungen (s.o.) unproblematisch, was in der Praxis öfter
+vorkommt als eine Umbenennung.
 
 **Protokoll und Rechnungen** (bei den Offerten) hingegen wählen ein Projekt
-über ein Dropdown mit **`id` UND Name gemeinsam** (siehe jeweiliger Abschnitt
-unten). Auch hier ist eine mehrfach vergebene `id` unproblematisch: die
-Dropdown-Optionen selbst sind intern über ihre Position in der Liste (nicht
-über die `id`) eindeutig identifizierbar, sodass sich zwei gleichnummerierte
-Projekte trotzdem sauber auseinanderhalten lassen — sowohl beim Auswählen als
-auch beim späteren Wiederöffnen eines gespeicherten Protokolls/einer
-Rechnung (die richtige Option bleibt vorausgewählt, nicht z.B. die erste mit
-derselben `id`).
+über ein Dropdown mit **Nummer UND Name gemeinsam** (siehe jeweiliger
+Abschnitt unten). Auch hier ist eine mehrfach vergebene Nummer unproblematisch:
+die Dropdown-Optionen selbst sind intern über ihre Position in der Liste
+(nicht über die Nummer) eindeutig identifizierbar, sodass sich zwei
+gleichnummerierte Projekte trotzdem sauber auseinanderhalten lassen —
+sowohl beim Auswählen als auch beim späteren Wiederöffnen eines
+gespeicherten Protokolls/einer Rechnung (die richtige Option bleibt
+vorausgewählt, nicht z.B. die erste mit derselben Nummer).
 
-Später ändern: einfach `config.json` in Nextcloud bearbeiten und speichern —
-alle Geräte übernehmen die neuen Namen automatisch (spätestens nach 60s bzw.
-beim nächsten Tab-Wechsel), kein Code-Update nötig.
+Später ändern: einfach die jeweilige Datei in Nextcloud bearbeiten und
+speichern — alle Geräte übernehmen die Änderung automatisch (spätestens
+nach 60s bzw. beim nächsten Tab-Wechsel), kein Code-Update nötig.
 
 ### Datenformat
 
@@ -730,7 +744,7 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   lokal oder nur serverseitig bekannte Pendenzen bleiben in jedem Fall
   erhalten. Anders als bei den Offerten (Feld-Merge) ist das ein Merge auf
   Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog.
-- **Projekte & Farben**: kommen aus derselben zentralen `config.json` wie die
+- **Projekte & Farben**: kommen aus derselben zentralen `projekte.txt` wie die
   Zeiterfassung, damit ein Projekt überall gleich heisst und gleich aussieht
   — Zuordnung/Filter/Farbe erfolgen dabei über den **Projektnamen** (siehe
   Abschnitt "Zentrale Konfiguration" oben), eine Pendenz speichert im Feld
@@ -803,7 +817,7 @@ bei den Offerten), PDF-Export, auf Nextcloud gesichert (ein File pro
 Protokoll, wie bei den Offerten).
 
 - **Speicherort**: `Buero/Admin/App/Protokolle`, ein JSON pro Protokoll.
-- **Projekt**: Dropdown aus derselben zentralen `config.json` wie
+- **Projekt**: Dropdown aus derselben zentralen `projekte.txt` wie
   Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration" oben).
   Anders als bei Zeiterfassung/Pendenzen (nur der Name) zeigen Auswahl,
   Liste und PDF hier **Projektnummer UND Name** ("021 – Neubau Werkhof").
@@ -873,7 +887,7 @@ also automatisch mit.
     **alle** Zeilen hinweg — je mehr Personen an diesem Tag frei haben,
     desto dunkler der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
     `timeline/app.js`).
-  - **Projekte** — entweder per Dropdown aus derselben zentralen `config.json`
+  - **Projekte** — entweder per Dropdown aus derselben zentralen `projekte.txt`
     wie Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration"
     oben; Zuordnung/Farbe über den Namen, nicht die Nummer) oder frei benannt
     über das Textfeld daneben — für Vorhaben, die

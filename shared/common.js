@@ -114,29 +114,71 @@ function appModuleFolderPath(name) {
 
 // ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
 
-// Eine gemeinsame Datei für alle Module (ersetzt das frühere, im Repo
-// liegende shared/personen.json sowie den früheren öffentlichen
-// Freigabelink für die Projektliste, PROJECTS_SHARE_TOKEN). Erfordert Login
-// wie jede andere bürospezifische Datei -- bewusst KEIN Vor-Login-Fallback
-// mit Platzhalterdaten mehr.
+// Mitarbeitende kommen aus config.json (ersetzt das frühere, im Repo
+// liegende shared/personen.json). Projekte kommen bewusst NICHT aus
+// config.json, sondern -- wie schon vor der Nextcloud-Reorg -- aus einer
+// einfachen Textdatei (ein Projekt pro Zeile, optional "NNN Titel"): die
+// Projektliste wird von beiden Personen oft bearbeitet, dafür ist eine
+// Textdatei ohne JSON-Syntaxrisiko (Kommas/Anführungszeichen) praktischer.
+// Beide Dateien erfordern Login wie jede andere bürospezifische Datei --
+// bewusst KEIN Vor-Login-Fallback mit Platzhalterdaten mehr.
 const LS_APP_CONFIG_CACHE = "app_config_cache";
 let appConfig = loadJSON(LS_APP_CONFIG_CACHE, { mitarbeitende: [], projekte: [] });
 
 function appConfigDavPath() {
   return davPath([...ncSegments(APP_DATA_ROOT), "config.json"].join("/"));
 }
+function appProjectsDavPath() {
+  return davPath([...ncSegments(APP_DATA_ROOT), "projekte.txt"].join("/"));
+}
 
-async function refreshAppConfig() {
-  if (!isConfigured()) return appConfig;
+// Jede Zeile ist entweder "NNN Projekttitel" (dreistellige Projektnummer,
+// Leerschlag, Titel -- die Nummer ist rein kosmetisch, siehe README) oder
+// einfach nur der Titel.
+function parseProjectList(text) {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line, i) => {
+      const m = /^(\d{3})\s+(.+)$/.exec(line);
+      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
+    });
+}
+
+async function fetchAppMitarbeitende() {
   try {
     const res = await proxyFetch(appConfigDavPath(), { method: "GET", headers: authHeader() });
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
-    appConfig = { mitarbeitende: data.mitarbeitende || [], projekte: data.projekte || [] };
-    saveJSON(LS_APP_CONFIG_CACHE, appConfig);
+    return data.mitarbeitende || [];
   } catch (err) {
-    console.warn("Zentrale Konfiguration (Mitarbeitende/Projekte) konnte nicht geladen werden:", err);
+    console.warn("Mitarbeitende (config.json) konnten nicht geladen werden:", err);
+    return null;
   }
+}
+async function fetchAppProjekte() {
+  try {
+    const res = await proxyFetch(appProjectsDavPath(), { method: "GET", headers: authHeader() });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    return parseProjectList(await res.text());
+  } catch (err) {
+    console.warn("Projektliste (projekte.txt) konnte nicht geladen werden:", err);
+    return null;
+  }
+}
+
+// Beide Dateien unabhängig voneinander laden -- schlägt eine fehl (z.B.
+// Datei noch nicht angelegt), bleibt für DIESE Hälfte der letzte bekannte
+// Stand erhalten, statt die ganze Konfiguration zu verwerfen.
+async function refreshAppConfig() {
+  if (!isConfigured()) return appConfig;
+  const [mitarbeitende, projekte] = await Promise.all([fetchAppMitarbeitende(), fetchAppProjekte()]);
+  appConfig = {
+    mitarbeitende: mitarbeitende !== null ? mitarbeitende : appConfig.mitarbeitende,
+    projekte: projekte !== null ? projekte : appConfig.projekte
+  };
+  saveJSON(LS_APP_CONFIG_CACHE, appConfig);
   return appConfig;
 }
 
