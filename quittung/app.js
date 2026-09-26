@@ -30,7 +30,7 @@ const RECEIPT_TARGET_FOLDER_PATH = "Buero/Admin/Finanzen";
 // Die Konstanten hier sind nur der Offline-/Erst-Start-Fallback (bewusst
 // OHNE die auftragsspezifischen Zeilen aus der echten Liste), falls weder
 // localStorage-Cache noch Nextcloud-Zugriff verfügbar sind.
-const MASTERDATA_FOLDER_PATH = "Buero/Admin/Finanzen/_buero-app";
+const MASTERDATA_FOLDER_PATH = appModuleFolderPath("Finanzen");
 const FALLBACK_KONTEN = [
   ["1000", "Kasse"],
   ["1010", "Postkonto"],
@@ -657,9 +657,7 @@ function init() {
   refreshReceiptMasterData();
   refreshRecentReceipts();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);

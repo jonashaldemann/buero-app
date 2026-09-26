@@ -1,11 +1,12 @@
-const CACHE_NAME = "buero-startseite-v6";
+const CACHE_NAME = "buero-startseite-v8";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icons/home-192.png",
   "./icons/home-512.png",
-  "./css/style.css"
+  "./css/style.css",
+  "./shared/common.js"
 ];
 
 self.addEventListener("install", (event) => {

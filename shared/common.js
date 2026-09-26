@@ -102,6 +102,44 @@ function ncSegments(folderPath) {
   return [settings.username, ...folderPath.split("/").filter(Boolean)];
 }
 
+// Alle Modul-Daten liegen zentral gebündelt unter diesem Ordner (Ausnahme:
+// die eigentlichen Quittungen bleiben unter Buero/Admin/Finanzen, siehe
+// README "Nextcloud-Ordnerstruktur"). appModuleFolderPath(name) baut daraus
+// den vollen Pfad -- reine Konsolidierung, damit der gemeinsame Prefix nicht
+// in jedem Modul einzeln ausgeschrieben werden muss.
+const APP_DATA_ROOT = "Buero/Admin/App";
+function appModuleFolderPath(name) {
+  return `${APP_DATA_ROOT}/${name}`;
+}
+
+// ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
+
+// Eine gemeinsame Datei für alle Module (ersetzt das frühere, im Repo
+// liegende shared/personen.json sowie den früheren öffentlichen
+// Freigabelink für die Projektliste, PROJECTS_SHARE_TOKEN). Erfordert Login
+// wie jede andere bürospezifische Datei -- bewusst KEIN Vor-Login-Fallback
+// mit Platzhalterdaten mehr.
+const LS_APP_CONFIG_CACHE = "app_config_cache";
+let appConfig = loadJSON(LS_APP_CONFIG_CACHE, { mitarbeitende: [], projekte: [] });
+
+function appConfigDavPath() {
+  return davPath([...ncSegments(APP_DATA_ROOT), "config.json"].join("/"));
+}
+
+async function refreshAppConfig() {
+  if (!isConfigured()) return appConfig;
+  try {
+    const res = await proxyFetch(appConfigDavPath(), { method: "GET", headers: authHeader() });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    appConfig = { mitarbeitende: data.mitarbeitende || [], projekte: data.projekte || [] };
+    saveJSON(LS_APP_CONFIG_CACHE, appConfig);
+  } catch (err) {
+    console.warn("Zentrale Konfiguration (Mitarbeitende/Projekte) konnte nicht geladen werden:", err);
+  }
+  return appConfig;
+}
+
 // MKCOL legt jeweils nur eine Ebene an -> Pfad Stück für Stück aufbauen.
 async function ensureFolderPath(segments) {
   let pathSoFar = segments[0]; // persönlicher Wurzelordner existiert immer schon
@@ -113,6 +151,26 @@ async function ensureFolderPath(segments) {
       throw new Error(`Ordner anlegen fehlgeschlagen bei "${segments[i]}" (${res.status})`);
     }
   }
+}
+
+// ---------- Service Worker ----------
+
+// Jeder Service Worker hier ruft bereits self.skipWaiting()/self.clients.claim()
+// auf (übernimmt serverseitig also sofort) -- es fehlte nur die Client-Seite:
+// ohne Reload merkt ein bereits offener Tab nichts davon. controllerchange
+// feuert genau dann, wenn der neue Worker die Kontrolle übernimmt -> einmalig
+// neu laden, damit z.B. beim Geschäftspartner garantiert die neuste Version
+// läuft (wichtig bei Nextcloud-Pfad-Änderungen, sonst schreibt eine alte,
+// weiterlaufende Version an inzwischen verschobene Ordner).
+function registerServiceWorkerWithAutoUpdate() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
 }
 
 // ---------- Einstellungen UI (Nextcloud-Login) ----------

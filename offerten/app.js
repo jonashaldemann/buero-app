@@ -44,49 +44,21 @@ const DEFAULT_MWST_PROZENT = 8.1;
 
 // Zielordner auf Nextcloud -- kein Jahresordner, Offerten sind über die
 // gesamte Akquise-Ablage hinweg relevant, nicht an ein Jahr gebunden.
-const OFFERTEN_TARGET_FOLDER_PATH = "Buero/Admin/Offerten und Rechnungen";
+const OFFERTEN_TARGET_FOLDER_PATH = appModuleFolderPath("Offerten und Rechnungen");
 
 // { filename, data } -- data ist das geparste JSON.
 let offers = loadJSON(LS_KEYS.cache, []);
 
-// Zentral verwaltete Projektliste (Kopie aus zeiterfassung/app.js, siehe
-// dort für die Begründung der Dopplung) -- bei Rechnungen (typ "rechnung")
+// Zentral verwaltete Projektliste (aus der config.json, siehe
+// shared/common.js, refreshAppConfig()) -- bei Rechnungen (typ "rechnung")
 // wird Projektnummer+Projekt daraus ausgewählt statt frei eingegeben, weil
 // eine Rechnung praktisch immer ein bereits laufendes, nummeriertes Projekt
 // betrifft. Bei Offerten (typ "offerte") bleiben beide Felder frei eingebbar
 // -- aus einer Offerte entsteht nicht immer ein Projekt mit eigener Nummer.
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
-let projectList = loadJSON("offerten_projects_cache", []);
-
-function parseProjectList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const m = /^(\d{3})\s+(.+)$/.exec(line);
-      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
-    });
-}
-
-async function refreshProjectNames() {
-  if (!PROJECTS_SHARE_TOKEN) return;
-  try {
-    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const text = await res.text();
-    const list = parseProjectList(text);
-    if (list.length === 0) return;
-    projectList = list;
-    saveJSON("offerten_projects_cache", list);
-    renderProjektAuswahl();
-  } catch (err) {
-    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
-  }
-}
+let projectList = appConfig.projekte;
 
 // Dropdown für Rechnungen: "021 – Neubau Werkhof" -- Nummer UND Name in
-// einem Feld, siehe Kommentar bei PROJECTS_SHARE_TOKEN oben.
+// einem Feld, siehe Kommentar bei projectList oben.
 // Optionen-Werte sind der Array-Index in projectList, NICHT die Nummer --
 // die zentrale Liste erlaubt dieselbe Nummer mehrfach (siehe README,
 // "Projektnamen zentral verwalten"), z.B. "000 Büro Allgemein" und
@@ -155,21 +127,18 @@ async function loadAbsender() {
 }
 
 // Liste möglicher Unterzeichner (Name + Dateiname der Unterschrift auf
-// Nextcloud) -- ändert sich praktisch nie, deshalb zentral in einer Datei
-// statt pro Offerte erfasst. Zentral in ../shared/personen.json (nicht hier
-// in offerten/), weil dieselbe Personenliste auch bei den Pendenzen fürs
-// Zuordnen/Filtern verwendet wird -- eine Person einmal pflegen statt in
-// mehreren Modulen duplizieren. Die Unterschrift-PNGs selbst liegen auf
-// Nextcloud (siehe SIGNATURE_FOLDER_PATH in pdf.js) und werden erst beim
-// PDF-Export nachgeladen, nicht hier.
-let unterzeichnerConfig = [];
-async function loadUnterzeichnerConfig() {
-  try {
-    const res = await fetch("../shared/personen.json");
-    unterzeichnerConfig = res.ok ? await res.json() : [];
-  } catch (e) {
-    unterzeichnerConfig = [];
-  }
+// Nextcloud) -- ändert sich praktisch nie, deshalb zentral in der
+// config.json erfasst (siehe shared/common.js, refreshAppConfig()), nicht
+// pro Offerte. Die Unterschrift-PNGs selbst liegen auf Nextcloud (siehe
+// SIGNATURE_FOLDER_PATH in pdf.js) und werden erst beim PDF-Export
+// nachgeladen, nicht hier.
+let unterzeichnerConfig = appConfig.mitarbeitende;
+
+async function refreshAppData() {
+  await refreshAppConfig();
+  projectList = appConfig.projekte;
+  unterzeichnerConfig = appConfig.mitarbeitende;
+  renderProjektAuswahl();
 }
 
 function offerSegments() {
@@ -639,7 +608,7 @@ function applyTypVisibility(typ) {
   document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
   // Rechnung: Projekt aus der zentralen Liste wählen (Nummer+Name daraus
   // übernehmen). Offerte: beide Felder frei eingeben (siehe Kommentar bei
-  // PROJECTS_SHARE_TOKEN oben).
+  // projectList oben).
   document.getElementById("projektFreitextGroup").style.display = isRechnung ? "none" : "";
   document.getElementById("projektAuswahlGroup").style.display = isRechnung ? "" : "none";
   if (isRechnung) renderProjektAuswahl();
@@ -699,7 +668,7 @@ function openEditor(offer, filename, newTyp) {
 function renderUnterzeichnerCheckboxes() {
   const list = document.getElementById("unterzeichnerList");
   if (!unterzeichnerConfig.length) {
-    list.innerHTML = '<p class="hint" style="margin:0;">Keine Unterzeichner konfiguriert (../shared/personen.json).</p>';
+    list.innerHTML = '<p class="hint" style="margin:0;">Keine Unterzeichner konfiguriert (Buero/Admin/App/config.json).</p>';
     return;
   }
   const selected = new Set(editingOffer.unterzeichner || []);
@@ -1054,7 +1023,7 @@ function init() {
   initSettingsUI({
     checkRelPath: pingRelPath,
     ensureFolderFn: ensureOfferFolder,
-    onSaved: refreshOffers
+    onSaved: () => { refreshOffers(); refreshAppData(); }
   });
 
   wireModListEndDrop();
@@ -1128,19 +1097,16 @@ function init() {
 
   window.addEventListener("online", refreshOffers);
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { refreshOffers(); refreshProjectNames(); }
+    if (document.visibilityState === "visible") { refreshOffers(); refreshAppData(); }
   });
-  setInterval(refreshProjectNames, 60000);
+  setInterval(refreshAppData, 60000);
 
   loadAbsender();
-  loadUnterzeichnerConfig();
-  refreshProjectNames();
+  refreshAppData();
   renderList();
   if (isConfigured()) refreshOffers();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);

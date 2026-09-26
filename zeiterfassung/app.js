@@ -12,51 +12,26 @@ const LS_KEYS = {
   current: "zeit_current",
   entries: "zeit_entries",              // alle lokal bekannten Einträge (für "Heute")
   dirtyBuckets: "zeit_dirty_buckets",   // "Datum|Projekt"-Kombis, die noch synchronisiert werden müssen
-  comments: "zeit_comments",            // Kommentare pro "Datum|Projekt"
-  projectsCache: "zeit_projects_cache"  // letzte erfolgreich geladene Projektnamen (Offline-Fallback)
+  comments: "zeit_comments"             // Kommentare pro "Datum|Projekt"
 };
-
-// Öffentlicher Nextcloud-Freigabelink für die zentral verwaltete
-// Projektnamen-Datei (3 Zeilen Text: Name P1, Name P2, Name P3).
-// Token aus dem Freigabelink eintragen, z.B. bei
-// https://.../s/AbCdEfGh123 wäre der Token "AbCdEfGh123".
-// Leer lassen ("") um die zentrale Verwaltung zu deaktivieren.
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 
 // Zielordner innerhalb der persönlichen Nextcloud-Dateien, mit "/" getrennt.
 // Wird bei Bedarf komplett angelegt (Ebene für Ebene).
-const TARGET_FOLDER_PATH = "Buero/Admin/Zeiterfassung";
+const TARGET_FOLDER_PATH = appModuleFolderPath("Zeiterfassung");
 
 // Farbpalette für dynamisch erzeugte Projekt-Buttons (zyklisch, falls mehr
 // Projekte als Farben vorhanden sind) -- abgeleitet vom Referenzbild
 // (gedeckte Erdtöne: Taubenblau, Salbeigrün, Terrakotta, Schiefergrün, Greige).
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 
-// Zentral verwaltete Projektliste: Array von { id, name }. Jede Zeile der
-// Textdatei ist entweder "NNN Projekttitel" (dreistellige Projektnummer,
-// Leerschlag, Titel) oder einfach nur der Titel. Die Nummer (id) wird hier
+// Zentral verwaltete Projektliste aus der config.json (Array von { id, name },
+// siehe shared/common.js, refreshAppConfig()) -- die Nummer (id) wird hier
 // bewusst NUR zum Herausparsen des reinen Namens verwendet, nicht für
 // Zuordnung/Filterung/Farbe -- siehe Kommentar bei stringHash() unten: die
 // zentrale Liste erlaubt mehrfach dieselbe Nummer für verschiedene
 // interne/nicht-projektbezogene Kategorien, darüber liessen die sich nicht
-// mehr unterscheiden. Fallback P1/P2/P3 (als Platzhaltername), falls noch
-// nie erfolgreich geladen und keine zentrale Verwaltung aktiv ist.
-let projectList = loadJSON(LS_KEYS.projectsCache, [
-  { id: "P1", name: "P1" },
-  { id: "P2", name: "P2" },
-  { id: "P3", name: "P3" }
-]);
-
-function parseProjectList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const m = /^(\d{3})\s+(.+)$/.exec(line);
-      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
-    });
-}
+// mehr unterscheiden.
+let projectList = appConfig.projekte;
 
 // Einfacher String-Hash für die Farbzuordnung (siehe projectColor()) --
 // deterministisch aus dem Projektnamen, unabhängig von einer eventuell
@@ -359,26 +334,20 @@ function sumDurationSec(date, projectId) {
     .reduce((sum, e) => sum + e.durationSec, 0);
 }
 
-// ---------- Zentral verwaltete Projektnamen ----------
+// ---------- Zentrale Konfiguration (Projekte) ----------
 
-async function refreshProjectNames() {
-  if (!PROJECTS_SHARE_TOKEN) return; // Feature nicht aktiviert
+async function refreshAppData() {
   try {
-    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const text = await res.text();
-    const list = parseProjectList(text);
-    if (list.length === 0) return; // leere Datei -> alten Stand behalten
-
+    await refreshAppConfig();
+    const list = appConfig.projekte;
     const changed = JSON.stringify(list) !== JSON.stringify(projectList);
     projectList = list;
-    saveJSON(LS_KEYS.projectsCache, list);
     if (changed) renderProjectButtons();
     render();
   } catch (err) {
     // Offline oder Datei (noch) nicht erreichbar -> letzten bekannten Stand
     // weiterverwenden, kein harter Fehler für die Zeiterfassung selbst.
-    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
+    console.warn("Zentrale Konfiguration (Projekte) konnte nicht geladen werden:", err);
   }
 }
 
@@ -534,7 +503,7 @@ function init() {
   initSettingsUI({
     checkRelPath: davFileRelativePath,
     ensureFolderFn: ensureFolder,
-    onSaved: () => { render(); trySync(); }
+    onSaved: () => { render(); trySync(); refreshAppData(); }
   });
 
   document.getElementById("manualEntryBtn").addEventListener("click", openManualEntry);
@@ -544,20 +513,18 @@ function init() {
 
   window.addEventListener("online", trySync);
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { trySync(); refreshProjectNames(); }
+    if (document.visibilityState === "visible") { trySync(); refreshAppData(); }
   });
 
   render();
   timerHandle = setInterval(() => { tickTimer(); updateTodayTimes(); }, 1000);
   setInterval(trySync, 30000); // periodischer Retry, falls offline verpasst
-  setInterval(refreshProjectNames, 60000); // zentrale Projektnamen alle 60s neu laden
+  setInterval(refreshAppData, 60000); // zentrale Konfiguration alle 60s neu laden
 
-  refreshProjectNames();
+  refreshAppData();
   if (isConfigured()) trySync();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);
