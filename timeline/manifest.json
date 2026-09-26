@@ -1,7 +1,7 @@
 {
   "name": "Timeline",
   "short_name": "Timeline",
-  "description": "Umgezogen nach ../timeline/",
+  "description": "Terminplanung als horizontaler Zeitbalken (1 Jahr ab heute): Ferien, Projekte, Aufgaben, Meilensteine",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

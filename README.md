@@ -1,6 +1,6 @@
 # Büro-Apps
 
-Sechs kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Acht kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
@@ -9,33 +9,33 @@ App auf dem Homescreen installierbar:
 - **[Offerten](offerten/)** — Offerten aus Modulen zusammenstellen, Kosten berechnen, auf Nextcloud sichern.
 - **[Adressliste](adressliste/)** — Adressen filtern, Ansichten speichern, auf Nextcloud sichern.
 - **[Pendenzen](pendenzen/)** — To-do-Liste nach Projekt und Person filterbar, auf Nextcloud sichern.
+- **[Protokoll](protokoll/)** — Sitzungsprotokolle erfassen, PDF-Export, automatische Pendenzen.
+- **[Timeline](timeline/)** — Terminplanung als horizontaler Zeitbalken (Gantt-artig).
 
 Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher: ein
-App-Icon-Raster wie auf dem Smartphone-Homescreen (3 Spalten, Icon + kurzes
-Label, Beschreibung nur noch als Tooltip) statt einer langen Liste mit
-Beschreibungstext — mit sieben Kacheln (sechs Apps plus die Zeiterfassungs-
-Auswertung als eigenes Icon) passte Letzteres auf dem Handy nicht mehr ohne
-Scrollen auf eine Seite. Jede der sechs Apps hat ihr eigenes `manifest.json`
-und ihren eigenen `service-worker.js` — man kann also entweder die
-Startseite installieren (Icon-Raster) **oder** direkt auf einer Unterseite
-"Zum Home-Bildschirm hinzufügen" tippen, dann landet nur diese eine App als
-eigenes Icon auf dem Homescreen.
+App-Icon-Raster wie auf dem Smartphone-Homescreen (Icon + kurzes Label,
+Beschreibung nur noch als Tooltip) statt einer langen Liste mit
+Beschreibungstext. Jede App hat ihr eigenes `manifest.json` und ihren eigenen
+`service-worker.js` — man kann also entweder die Startseite installieren
+(Icon-Raster) **oder** direkt auf einer Unterseite "Zum Home-Bildschirm
+hinzufügen" tippen, dann landet nur diese eine App als eigenes Icon auf dem
+Homescreen.
 
-Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog) liegt
-in `shared/common.js` und wird von allen sechs Apps eingebunden.
-`localStorage` ist pro Domain (nicht pro Unterordner) gültig — einmal in
-**irgendeiner** der sechs Apps unter dem Zahnrad-Symbol eingerichtet, gelten
-Benutzername/App-Passwort automatisch auch in den anderen fünfen.
+Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog,
+zentrale Konfiguration) liegt in `shared/common.js` und wird von allen Apps
+eingebunden. `localStorage` ist pro Domain (nicht pro Unterordner) gültig —
+einmal in **irgendeiner** App unter dem Zahnrad-Symbol eingerichtet, gelten
+Benutzername/App-Passwort automatisch auch in den anderen.
 
-## Ersteinrichtung (einmalig, für alle sechs Apps zusammen)
+## Ersteinrichtung (einmalig, für alle Apps zusammen)
 
 1. In Nextcloud: **Einstellungen → Sicherheit → App-Passwörter** → neues
    App-Passwort erstellen (z.B. Name "Büro-App").
-2. In einer der sechs Apps (egal welche) auf das Zahnrad-Symbol tippen:
+2. In einer der Apps (egal welche) auf das Zahnrad-Symbol tippen:
    - **Benutzername**: euer Nextcloud-Login
    - **App-Passwort**: das eben erstellte
 3. "Verbindung testen" klicken, bei Erfolg "Speichern". Ab jetzt sind die
-   Zugangsdaten in allen sechs Apps auf diesem Gerät nutzbar.
+   Zugangsdaten in allen Apps auf diesem Gerät nutzbar.
 
 Kein eigenes Anzeigename-Feld (mehr) — der Name, der z.B. in der
 Zeiterfassungs-CSV als "Person" erscheint, wird automatisch aus dem
@@ -54,9 +54,9 @@ Account hat seinen eigenen, komplett getrennten Nextcloud-Dateibereich.
 Die Managed Nextcloud bei hosting.de schickt bei Cross-Origin-Requests
 (Browser → Nextcloud von einer anderen Domain aus) keine
 `Access-Control-Allow-Origin`-Header — der Browser blockiert deshalb den
-direkten Zugriff. Deshalb sprechen alle sechs Apps nicht direkt mit Nextcloud,
+direkten Zugriff. Deshalb sprechen alle Apps nicht direkt mit Nextcloud,
 sondern über einen kleinen **Cloudflare Worker** als Proxy (`worker.js`,
-gemeinsam für alle sechs Apps). Der Worker läuft server-seitig, hat also kein
+gemeinsam für alle Apps). Der Worker läuft server-seitig, hat also kein
 CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die fehlenden
 Header. Er speichert nichts — die Daten liegen weiterhin ausschliesslich auf
 eurer eigenen Nextcloud.
@@ -73,7 +73,7 @@ eurer eigenen Nextcloud.
 5. Cloudflare zeigt euch jetzt eure Worker-URL, z.B.
    `https://zeit-proxy.euer-name.workers.dev`.
 6. Diese URL bei `PROXY_URL` in `shared/common.js` eintragen (eine einzige
-   Stelle, gilt für alle sechs Apps), committen, pushen.
+   Stelle, gilt für alle Apps), committen, pushen.
 
 **Falls der Worker schon läuft:** Bei jeder Erweiterung der App (neue
 HTTP-Methode, neuer Header) muss der Code in `worker.js` erneut im
@@ -87,6 +87,33 @@ Falls der Support meldet, dass CORS-Header für die Nextcloud-Instanz
 aktiviert wurden, könnten die Apps auch direkt gegen Nextcloud laufen (ohne
 Worker) — das wäre ein kleiner Rückbau in `shared/common.js`. Bis dahin ist
 der Worker die zuverlässigere Lösung.
+
+## Nextcloud-Ordnerstruktur
+
+Alle App-Daten liegen zentral gebündelt unter `Buero/Admin/App/`, ein
+Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
+
+| Modul | Ordner |
+|---|---|
+| Adressliste | `Buero/Admin/App/Adressen` (Ansichten in `.../Adressen/Ansichten`) |
+| Offerten | `Buero/Admin/App/Offerten und Rechnungen` |
+| Pendenzen | `Buero/Admin/App/Pendenzen` |
+| Protokoll | `Buero/Admin/App/Protokolle` |
+| Zeiterfassung | `Buero/Admin/App/Zeiterfassung` |
+| Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
+| Timeline | `Buero/Admin/App/Timeline` |
+| Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
+| Zentrale Konfiguration (Mitarbeitende/Projekte) | `Buero/Admin/App/config.json` |
+
+**Ausnahme:** die eigentlichen Quittungen/Rechnungsbelege (Fotos/PDFs) bleiben
+unter `Buero/Admin/Finanzen` (ausserhalb von `App/`) — nur die vertraulichen
+Stammdaten (Kontenplan/Kategorien/MwSt-Codes) liegen in `App/Finanzen`, siehe
+Abschnitt "Quittung" unten. Die Unterschriften-Bilder für den PDF-Export
+bleiben ebenfalls an ihrem bisherigen Ort (`Buero/Admin/KLG und Rechtliches/
+Unterschriften`), da sie auch von anderen Workflows verwendet werden.
+
+Mitarbeitende und Projekte kommen zentral aus `Buero/Admin/App/config.json`,
+siehe Abschnitt "Zentrale Konfiguration" unter "Zeiterfassung" unten.
 
 ---
 
@@ -111,72 +138,70 @@ synchronisiert, sobald wieder Netz da ist.
   verfügbar ist (Retry alle 30s + sofort bei "online"-Event).
 
 Zielordner: `TARGET_FOLDER_PATH` in `zeiterfassung/app.js` (Standard
-`Buero/Admin/Zeiterfassung`), wird bei Bedarf automatisch angelegt.
+`Buero/Admin/App/Zeiterfassung`, siehe Abschnitt "Nextcloud-Ordnerstruktur"
+oben), wird bei Bedarf automatisch angelegt.
 
-### Projektnamen zentral verwalten
+### Zentrale Konfiguration (`config.json`)
 
-Die Projekte werden zentral von der Büroleitung in einer einfachen
-Textdatei auf Nextcloud verwaltet (ein Projekt pro Zeile, optional mit
-**dreistelliger Projektnummer, Leerschlag, Projekttitel** — der Titel darf
-selbst Leerschläge enthalten; eine Zeile ohne führende Nummer ist ebenso
-gültig und besteht dann nur aus dem Titel). Alle Geräte laden die Datei
-automatisch (beim Start, danach alle 60 Sekunden sowie beim Zurückkehren in
-den Tab).
+Mitarbeitende und Projekte werden zentral von der Büroleitung in **einer**
+JSON-Datei auf Nextcloud verwaltet: `Buero/Admin/App/config.json`. Alle
+Module laden sie über dieselbe Funktion (`refreshAppConfig()` in
+`shared/common.js`) — beim Start (nach dem Login), nach dem Speichern der
+Einstellungen sowie danach alle 60 Sekunden/beim Zurückkehren in den Tab.
+Ein Login (Benutzer + App-Passwort) ist dafür zwingend nötig — anders als
+früher gibt es keinen öffentlichen, zugangsdatenfreien Lesezugriff mehr.
 
-**Zeiterfassung und Pendenzen** ordnen Einträge, filtern und weisen Farben
-**über den Projektnamen** zu, nicht über die Nummer — eine Nummer ist dort
-also rein kosmetisch (wird beim Anzeigen aus der Zeile herausgeparst, taucht
-aber nirgends in der App auf) und darf durchaus mehrfach vergeben sein, z.B.
-für mehrere interne/nicht-projektbezogene Kategorien:
+Format:
+```json
+{
+  "mitarbeitende": [
+    { "key": "jonas", "name": "Jonas Haldemann", "datei": "Unterschrift_Jonas_Haldemann.png" },
+    { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
+  ],
+  "projekte": [
+    { "id": "021", "name": "Neubau Werkhof" },
+    { "id": "014", "name": "Umbau Altstetten" }
+  ]
+}
 ```
-000 Büro Allgemein
-000 Akquisition
-021 Neubau Werkhof
-014 Umbau Altstetten
+- **`mitarbeitende`**: `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung),
+  `name` (Anzeigename), `datei` (Dateiname der Unterschrift auf Nextcloud,
+  siehe Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht,
+  kann bei anderen Einträgen weggelassen werden).
+- **`projekte`**: `id` (optional, z.B. eine dreistellige Projektnummer — rein
+  kosmetisch, siehe unten) und `name` (Projekttitel).
+
+**Zeiterfassung, Pendenzen und Timeline** ordnen Einträge, filtern und
+weisen Farben **über den Projektnamen** zu, nicht über die `id` — eine `id`
+ist dort rein kosmetisch und darf durchaus mehrfach vergeben sein, z.B. für
+mehrere interne/nicht-projektbezogene Kategorien:
+```json
+{ "id": "000", "name": "Büro Allgemein" },
+{ "id": "000", "name": "Akquisition" }
 ```
-"Büro Allgemein" und "Akquisition" bekommen hier trotz identischer Nummer
+"Büro Allgemein" und "Akquisition" bekommen hier trotz identischer `id`
 "000" unterschiedliche Farben und werden beim Filtern korrekt auseinander-
 gehalten (Farbe = String-Hash des Namens, siehe `stringHash()` in
 `zeiterfassung/app.js`/`pendenzen/app.js`/`zeiterfassung/dashboard/js/
 dashboard.js`). Einzige Einschränkung: der **Name** muss eindeutig sein — zwei
-Zeilen mit demselben Namen wären für Zeiterfassung/Pendenzen nicht
+Einträge mit demselben Namen wären für Zeiterfassung/Pendenzen/Timeline nicht
 unterscheidbar. Ein Projekt umzubenennen trennt bestehende Einträge vom
-"neuen" Namen (kein stabiler ID-Bezug wie bei einer reinen Nummer) — dafür
-sind Nummern-Dopplungen (s.o.) unproblematisch, was in der Praxis öfter
-vorkommt als eine Umbenennung.
+"neuen" Namen (kein stabiler ID-Bezug) — dafür sind `id`-Dopplungen (s.o.)
+unproblematisch, was in der Praxis öfter vorkommt als eine Umbenennung.
 
 **Protokoll und Rechnungen** (bei den Offerten) hingegen wählen ein Projekt
-über ein Dropdown mit **Nummer UND Name gemeinsam** (siehe jeweiliger
-Abschnitt unten). Auch hier ist eine mehrfach vergebene Nummer unproblematisch:
-die Dropdown-Optionen selbst sind intern über ihre Position in der Liste
-(nicht über die Nummer) eindeutig identifizierbar, sodass sich zwei
-gleichnummerierte Projekte trotzdem sauber auseinanderhalten lassen —
-sowohl beim Auswählen als auch beim späteren Wiederöffnen eines
-gespeicherten Protokolls/einer Rechnung (die richtige Option bleibt
-vorausgewählt, nicht z.B. die erste mit derselben Nummer).
+über ein Dropdown mit **`id` UND Name gemeinsam** (siehe jeweiliger Abschnitt
+unten). Auch hier ist eine mehrfach vergebene `id` unproblematisch: die
+Dropdown-Optionen selbst sind intern über ihre Position in der Liste (nicht
+über die `id`) eindeutig identifizierbar, sodass sich zwei gleichnummerierte
+Projekte trotzdem sauber auseinanderhalten lassen — sowohl beim Auswählen als
+auch beim späteren Wiederöffnen eines gespeicherten Protokolls/einer
+Rechnung (die richtige Option bleibt vorausgewählt, nicht z.B. die erste mit
+derselben `id`).
 
-1. In Nextcloud eine Textdatei anlegen, z.B.
-   `Buero/Admin/Zeiterfassung/projekte.txt`:
-   ```
-   021 Neubau Werkhof
-   014 Umbau Altstetten
-   003 Verwaltung
-   ```
-2. Datei in Nextcloud anklicken → **Teilen** → **Link erstellen** (öffentlicher
-   Freigabelink, keine Zugangsdaten nötig zum Lesen). Nextcloud zeigt einen
-   Link wie `https://.../s/AbCdEfGh123`.
-
-   **Sicherheitshinweis:** Wer diesen Link kennt, kann die Projektnamen
-   lesen (nicht aber eure Zeiterfassungsdaten). Der Link lässt sich jederzeit
-   in Nextcloud widerrufen.
-3. Den Teil nach `/s/` (den Token) in `zeiterfassung/app.js`, `pendenzen/
-   app.js`, `protokoll/app.js` **und** `offerten/app.js` bei
-   `PROJECTS_SHARE_TOKEN` eintragen, committen, pushen (jedes Modul führt
-   bewusst eine eigene Kopie der Projektliste — siehe Kommentar in
-   `pendenzen/app.js`).
-4. Später ändern: einfach die Textdatei in Nextcloud bearbeiten und
-   speichern — alle Geräte übernehmen die neuen Namen automatisch, kein
-   Code-Update nötig.
+Später ändern: einfach `config.json` in Nextcloud bearbeiten und speichern —
+alle Geräte übernehmen die neuen Namen automatisch (spätestens nach 60s bzw.
+beim nächsten Tab-Wechsel), kein Code-Update nötig.
 
 ### Datenformat
 
@@ -322,7 +347,7 @@ enthalten:
 - **`konten.txt`/`kategorien.txt`**: die Kategorien enthalten Kontonummern
   mit Projekt-/Kundenbezug (z.B. Adressen laufender Aufträge als
   Kategorie-Bezeichnung) — liegen deshalb **vertraulich auf Nextcloud** unter
-  `Buero/Admin/Finanzen/_buero-app/` statt im (öffentlichen!) Repo, per
+  `Buero/Admin/App/Finanzen/` statt im (öffentlichen!) Repo, per
   Nextcloud-Proxy geladen (braucht deshalb ein Login, siehe unten). Lokal
   bei dir bleiben sie trotzdem als Arbeitskopie in `quittung/konten.txt`/
   `kategorien.txt` bestehen (in `.gitignore` eingetragen, damit sie nicht
@@ -345,7 +370,7 @@ automatisch übersprungen; bei `kategorien.txt` werden die Überschriften
   Beträge-Spalten entfernen, die lokale `quittung/konten.txt`/
   `kategorien.txt` ersetzen (nur als eigene Arbeitskopie/Referenz) und die
   aktualisierte Datei direkt in Nextcloud unter
-  `Buero/Admin/Finanzen/_buero-app/` hochladen (ersetzen) — **kein
+  `Buero/Admin/App/Finanzen/` hochladen (ersetzen) — **kein
   Commit/Push nötig**, die App lädt beim nächsten Öffnen/alle 60s die
   Nextcloud-Version neu.
 
@@ -388,7 +413,7 @@ Architekturwettbewerbs-Ausschreibungen hochladen, auf Nextcloud sichern
   die Detailansicht mit allen weiteren Feldern (Jury, Verfahrenssekretariat,
   Aufgabe, Experten) sowie einem Löschen-Button.
 - **Speicherort**: Zielordner `WETTBEWERB_TARGET_FOLDER_PATH` (Standard
-  `Buero/Akquise/Neue Wettbewerbe` in `wettbewerbsprogramme/app.js`), kein
+  `Buero/Admin/App/Wettbewerbe` in `wettbewerbsprogramme/app.js`), kein
   Jahresordner (Wettbewerbe sind nicht zwingend jahresgebunden). Jede Datei
   wird unter ihrem (bereinigten) Originaldateinamen abgelegt; erneutes
   Hochladen derselben Datei überschreibt die bestehende Version.
@@ -444,7 +469,7 @@ alles neu erfassen zu müssen.
   verwalteten Projektliste, weil aus einer Offerte nicht immer ein Projekt
   mit eigener Nummer entsteht. Bei **Rechnungen** stattdessen ein Dropdown
   mit derselben zentral verwalteten Projektliste wie Zeiterfassung/
-  Pendenzen/Protokoll (siehe Abschnitt "Projektnamen zentral verwalten"
+  Pendenzen/Protokoll (siehe Abschnitt "Zentrale Konfiguration"
   oben) — eine Rechnung betrifft praktisch immer ein bereits laufendes,
   nummeriertes Projekt; Auswahl übernimmt Nummer und Name automatisch in
   dieselben (bei Rechnungen nur versteckten) Felder. Liste und PDF zeigen
@@ -514,7 +539,7 @@ alles neu erfassen zu müssen.
   Offerte mitgespeichert — ändert sich später die Vorgabe, bleiben bereits
   gespeicherte Offerten unverändert (keine rückwirkende Neuberechnung).
 - **Speicherort**: Zielordner `OFFERTEN_TARGET_FOLDER_PATH` (Standard
-  `Buero/Admin/Offerten und Rechnungen` in `offerten/app.js`), kein
+  `Buero/Admin/App/Offerten und Rechnungen` in `offerten/app.js`), kein
   Jahresordner. Neue Offerten werden als `[Datum] [Projekt].json` abgelegt;
   beim Bearbeiten einer bestehenden Offerte bleibt der Dateiname unverändert
   (Überschreiben statt Duplikat), auch wenn sich Datum/Projekt ändern.
@@ -537,20 +562,13 @@ für den PDF-Briefkopf verwendet (`absender` in `offerten/app.js`, siehe
 ### Unterschriften
 
 Wählbare Unterzeichner (Checkboxen im Editor, nach dem Brieftext, Mehrfach-
-auswahl möglich) kommen aus `shared/personen.json` — zentral im `shared/`-
-Ordner statt in `offerten/` selbst, weil dieselbe Personenliste auch bei den
-Pendenzen fürs Zuordnen/Filtern verwendet wird (eine Person einmal pflegen
-statt pro Modul zu duplizieren):
+auswahl möglich) kommen aus `mitarbeitende` in der zentralen
+`Buero/Admin/App/config.json` (siehe Abschnitt "Zentrale Konfiguration" oben)
+— dieselbe Liste, die auch bei den Pendenzen fürs Zuordnen/Filtern verwendet
+wird (eine Person einmal pflegen statt pro Modul zu duplizieren).
 
-```json
-[
-  { "key": "jonas", "name": "Jonas Haldemann", "datei": "Unterschrift_Jonas_Haldemann.png" },
-  { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
-]
-```
-
-`datei` (die Unterschrift-PNG) wird nur von den Offerten verwendet, die
-Pendenzen ignorieren dieses Feld einfach.
+`datei` (die Unterschrift-PNG) wird nur von den Offerten verwendet, alle
+anderen Module ignorieren dieses Feld einfach.
 
 Beim PDF-Export werden die PNGs der ausgewählten Personen live von Nextcloud
 geladen (Ordner `SIGNATURE_FOLDER_PATH` in `offerten/pdf.js`, Standard
@@ -638,7 +656,7 @@ Breitenbeschränkung wie bei den anderen Apps) — die Tabelle ist so breit wie
 das Browserfenster.
 
 - **Speicherort**: jeder Kontakt ist eine eigene JSON-Datei im
-  Nextcloud-Ordner `Buero/Admin/Adressen` (wie bei den Offerten: ein File pro
+  Nextcloud-Ordner `Buero/Admin/App/Adressen` (wie bei den Offerten: ein File pro
   Datensatz statt einer grossen Liste). Diese Funktion braucht deshalb PUT,
   GET, PROPFIND, MKCOL und DELETE — siehe `ALLOWED_METHODS` in `worker.js`.
 - **Filtern**: jede Spalte hat ihr eigenes Filterfeld direkt unter dem
@@ -670,7 +688,7 @@ das Browserfenster.
   Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
   (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
   auf Weihnachtskarte = Ja). Jede Ansicht ist — wie die Kontakte selbst —
-  eine eigene JSON-Datei, im Unterordner `Buero/Admin/Adressen/Ansichten`,
+  eine eigene JSON-Datei, im Unterordner `Buero/Admin/App/Adressen/Ansichten`,
   also für alle Personen mit Zugriff auf diesen Ordner gleich sichtbar.
 - **Gleichzeitige Bearbeitung**: weil jeder Kontakt eine eigene Datei ist,
   können zwei Personen problemlos gleichzeitig verschiedene Einträge
@@ -703,7 +721,7 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
 
 - **Speicherort**: anders als Offerten/Adressliste (eine Datei pro
   Datensatz) liegen alle Pendenzen in **einer** gemeinsamen Datei
-  `Buero/Admin/Pendenzen/pendenzen.json` — bei kurzen, oft schnell
+  `Buero/Admin/App/Pendenzen/pendenzen.json` — bei kurzen, oft schnell
   angehakten/ergänzten Texten wäre eine Datei pro Pendenz nur Overhead.
 - **Gleichzeitige Bearbeitung**: da alle Pendenzen eine Datei teilen, würde
   ein einfaches Überschreiben Änderungen einer anderen Person verlieren.
@@ -712,11 +730,11 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   lokal oder nur serverseitig bekannte Pendenzen bleiben in jedem Fall
   erhalten. Anders als bei den Offerten (Feld-Merge) ist das ein Merge auf
   Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog.
-- **Projekte & Farben**: kommen aus derselben zentral verwalteten Liste wie
-  die Zeiterfassung (`PROJECTS_SHARE_TOKEN`), damit ein Projekt überall
-  gleich heisst und gleich aussieht — Zuordnung/Filter/Farbe erfolgen dabei
-  über den **Projektnamen** (siehe Abschnitt "Projektnamen zentral
-  verwalten" oben), eine Pendenz speichert im Feld `projekt` also den Namen,
+- **Projekte & Farben**: kommen aus derselben zentralen `config.json` wie die
+  Zeiterfassung, damit ein Projekt überall gleich heisst und gleich aussieht
+  — Zuordnung/Filter/Farbe erfolgen dabei über den **Projektnamen** (siehe
+  Abschnitt "Zentrale Konfiguration" oben), eine Pendenz speichert im Feld
+  `projekt` also den Namen,
   nicht eine Nummer. Ein Klick auf einen Projekt-Button
   filtert die Liste; eine neue Pendenz wird automatisch dem gerade
   ausgewählten Projekt zugeordnet ("Alle" → Pendenz ohne Projekt). Die ganze
@@ -727,9 +745,10 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   Textfarbe (`isDarkColor()` in `pendenzen/app.js`, grobe Luma-Schwelle,
   keine volle WCAG-Kontrastprüfung).
 - **Personen**: die (aktuell 2) Personen für die Personen-Filterknöpfe
-  kommen aus `shared/personen.json` (gemeinsam mit den Offerten, siehe
-  Abschnitt "Unterschriften" dort — eine Person einmal pflegen statt pro
-  Modul zu duplizieren). Ein eigenes Personen-Dropdown beim Erfassen gibt es
+  kommen aus `mitarbeitende` in derselben `config.json` (gemeinsam mit den
+  Offerten, siehe Abschnitt "Unterschriften" dort — eine Person einmal
+  pflegen statt pro Modul zu duplizieren). Ein eigenes Personen-Dropdown beim
+  Erfassen gibt es
   bewusst nicht (mehr): wie beim Projekt kommt die Person rein aus dem
   aktiven Personen-Filter, das deckt den Bedarf schon ab. In der Zeile
   selbst erscheint nur das Kürzel (Initialen), der volle Name als Tooltip
@@ -783,14 +802,13 @@ Liste aus Zwischentiteln und Stichpunkten (Struktur analog zu Phasen/Modulen
 bei den Offerten), PDF-Export, auf Nextcloud gesichert (ein File pro
 Protokoll, wie bei den Offerten).
 
-- **Speicherort**: `Buero/Admin/Protokolle`, ein JSON pro Protokoll.
-- **Projekt**: Dropdown aus derselben zentral verwalteten Liste wie
-  Zeiterfassung/Pendenzen (siehe Abschnitt "Projektnamen zentral verwalten"
-  oben) — eigene Kopie in `protokoll/app.js` (`PROJECTS_SHARE_TOKEN`).
+- **Speicherort**: `Buero/Admin/App/Protokolle`, ein JSON pro Protokoll.
+- **Projekt**: Dropdown aus derselben zentralen `config.json` wie
+  Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration" oben).
   Anders als bei Zeiterfassung/Pendenzen (nur der Name) zeigen Auswahl,
   Liste und PDF hier **Projektnummer UND Name** ("021 – Neubau Werkhof").
-- **Teilnehmende & Kürzel**: Büro-Personen (aus `shared/personen.json`)
-  lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
+- **Teilnehmende & Kürzel**: Büro-Personen (aus `mitarbeitende` in derselben
+  `config.json`) lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
   automatisch (Initialen, nicht änderbar); externe Teilnehmende werden frei
   eingetragen, inkl. einem optional frei wählbaren Kürzel.
 - **Hauptteil**: Zwischentitel und Stichpunkte lassen sich wie die
@@ -800,11 +818,11 @@ Protokoll, wie bei den Offerten).
   nötig).
 - **Automatische Pendenzen**: ist das zugewiesene Kürzel das einer
   **Büro**-Person (externe Teilnehmende lösen nichts aus), wird beim
-  Speichern automatisch ein Eintrag in `Buero/Admin/Pendenzen/pendenzen.json`
-  angelegt/aktualisiert (Person und Text aus dem Protokoll; als Projekt wird
-  der reine **Name** des im Protokoll gewählten Projekts übernommen, nicht
-  die Nummer — Pendenzen ordnet Projekte namensbasiert zu, siehe Abschnitt
-  "Projektnamen zentral verwalten" oben). Die
+  Speichern automatisch ein Eintrag in
+  `Buero/Admin/App/Pendenzen/pendenzen.json` angelegt/aktualisiert (Person und
+  Text aus dem Protokoll; als Projekt wird der reine **Name** des im Protokoll
+  gewählten Projekts übernommen, nicht die Nummer — Pendenzen ordnet Projekte
+  namensbasiert zu, siehe Abschnitt "Zentrale Konfiguration" oben). Die
   Pendenz-ID ist über Protokoll- und Stichpunkt-ID stabil: ein erneutes
   Speichern aktualisiert denselben Eintrag (Textänderungen werden
   übernommen), statt zu duplizieren, und ein in der Pendenzen-App bereits
@@ -827,29 +845,38 @@ Protokoll, wie bei den Offerten).
 
 ---
 
-## Zeitplanung
+## Timeline
 
 Terminplanung als horizontaler Zeitbalken (Gantt-artig), rein browserbasiert
-(kein PDF-Export). Das Zeitfenster ist immer "heute bis in 1 Jahr" — rollend,
-kein festes Kalenderjahr; beim erneuten Öffnen verschiebt es sich also
-automatisch mit.
+(kein PDF-Export). Der Ordner heisst `timeline/` (das Modul hiess früher
+"Zeitplanung"/`zeitplanung/`). Unter der alten Adresse `.../zeitplanung/`
+liegt bewusst ein minimaler Redirect-Stub (`zeitplanung/index.html` +
+eigener `service-worker.js`), damit bestehende Lesezeichen/Home-Bildschirm-
+Icons nicht ins Leere laufen, sondern automatisch nach `../timeline/`
+weitergeleitet werden — inkl. eigener Service-Worker-Aktualisierung, damit
+das auch für bereits offene alte Tabs zuverlässig funktioniert (siehe
+Abschnitt "Bekannte Grenzen"/`registerServiceWorkerWithAutoUpdate()` in
+`shared/common.js`). Das Zeitfenster ist immer "heute bis in 1 Jahr" —
+rollend, kein festes Kalenderjahr; beim erneuten Öffnen verschiebt es sich
+also automatisch mit.
 
 - **Speicherort**: EINE gemeinsame Datei
-  `Buero/Admin/Zeitplanung/zeitplanung.json` (wie bei den Pendenzen) statt
+  `Buero/Admin/App/Timeline/zeitplanung.json` (wie bei den Pendenzen) statt
   einer Datei pro Projekt/Aufgabe.
 - **Zeilen von oben nach unten**:
-  - **Mitarbeitende** (aus `shared/personen.json`) — hier Ferien/Frei
+  - **Mitarbeitende** (aus `mitarbeitende` in der zentralen `config.json`,
+    siehe Abschnitt "Zentrale Konfiguration" oben) — hier Ferien/Frei
     eintragen (Balken immer grau). Jeder Tag, an dem mindestens eine Person
     einen Balken hat, dessen Titel **"ferien"**, **"frei"**, **"weg"** oder
     **"abwesend"** enthält (als Teilstring, nicht nur exakt — erkennt also
     auch z.B. "Weihnachtsferien"), bekommt einen hellgrauen Streifen über
     **alle** Zeilen hinweg — je mehr Personen an diesem Tag frei haben,
     desto dunkler der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
-    `zeitplanung/app.js`).
-  - **Projekte** — entweder per Dropdown aus derselben zentral verwalteten
-    Projektliste wie Zeiterfassung/Pendenzen (siehe Abschnitt "Projektnamen
-    zentral verwalten" oben; Zuordnung/Farbe über den Namen, nicht die
-    Nummer) oder frei benannt über das Textfeld daneben — für Vorhaben, die
+    `timeline/app.js`).
+  - **Projekte** — entweder per Dropdown aus derselben zentralen `config.json`
+    wie Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration"
+    oben; Zuordnung/Farbe über den Namen, nicht die Nummer) oder frei benannt
+    über das Textfeld daneben — für Vorhaben, die
     (noch) nicht in der offiziellen Liste stehen. Auf-/zuklappbar; die
     Projektzeile selbst zeigt dabei immer (auch zugeklappt) alle Balken/
     Meilensteine ihrer Aufgaben zusammen als **halbtransparente** Übersicht,
@@ -875,7 +902,7 @@ automatisch mit.
   normales Scrollen bzw. Umschalt+Scrollen bleibt dem Browser fürs native
   seitliche Verschieben überlassen. Weit genug hineingezoomt erscheint eine
   dritte Kopfzeile mit dem Datum jedes einzelnen Tages
-  (`DAY_HEADER_MIN_WIDTH` in `zeitplanung/app.js`).
+  (`DAY_HEADER_MIN_WIDTH` in `timeline/app.js`).
 - Beginnt ein Balken vor "heute" (im rollenden Fenster kann das mit der Zeit
   passieren), bleibt sein Titel am linken Rand des sichtbaren Bereichs
   stehen, statt vor dessen Anfang zu verschwinden — die linke Kante wird
@@ -924,7 +951,7 @@ automatisch mit.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
   `icons/adressliste-*.png`, `icons/pendenzen-*.png`, `icons/protokoll-*.png`,
-  `icons/zeitplanung-*.png` (je 192px + 512px PNG).
+  `icons/timeline-*.png` (je 192px + 512px PNG).
   Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
   Code-/Manifest-Änderung nötig.
 
@@ -934,7 +961,7 @@ automatisch mit.
 python3 -m http.server 8080
 # im Browser: http://localhost:8080 (Startseite)
 # bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/,
-# /offerten/, /adressliste/, /pendenzen/
+# /offerten/, /adressliste/, /pendenzen/, /protokoll/, /timeline/
 ```
 
 ## Auf GitHub veröffentlichen (GitHub Pages)

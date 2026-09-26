@@ -3,14 +3,14 @@
    "heute .. heute + 1 Jahr" (rollend, nicht ein festes Kalenderjahr).
 
    Zeilen von oben nach unten:
-   - Mitarbeitende (aus ../shared/personen.json) -- hier werden Ferien/Frei
-     eingetragen (immer grau dargestellt). Jeder Tag, an dem mindestens eine
-     Person "Frei"/"Ferien" hat, wird als heller grauer Streifen über ALLE
-     Zeilen gelegt (siehe renderVacationOverlay()) -- je mehr Personen frei
-     haben, desto dunkler der Streifen.
-   - Projekte (aus der zentral verwalteten Projektliste, siehe
-     zeiterfassung/app.js) -- aufklappbar, die Projektzeile selbst zeigt als
-     Übersicht alle Balken/Meilensteine ihrer Aufgaben zusammen.
+   - Mitarbeitende (aus der zentralen config.json, siehe shared/common.js) --
+     hier werden Ferien/Frei eingetragen (immer grau dargestellt). Jeder Tag,
+     an dem mindestens eine Person "Frei"/"Ferien" hat, wird als heller
+     grauer Streifen über ALLE Zeilen gelegt (siehe renderVacationOverlay())
+     -- je mehr Personen frei haben, desto dunkler der Streifen.
+   - Projekte (aus derselben zentralen config.json) -- aufklappbar, die
+     Projektzeile selbst zeigt als Übersicht alle Balken/Meilensteine ihrer
+     Aufgaben zusammen.
      - Aufgaben (frei benannt) -- je Aufgabe eine eigene Zeile, darin
        beliebig viele Balken (Start+Ende) und/oder Meilensteine (ein Datum,
        als dicker Punkt) hintereinander.
@@ -29,18 +29,16 @@
    ============================================================ */
 
 const LS_KEYS = {
-  cache: "zeitplanung_cache",
-  projectsCache: "zeitplanung_projects_cache"
+  cache: "zeitplanung_cache"
 };
 
-const ZEITPLANUNG_TARGET_FOLDER_PATH = "Buero/Admin/Zeitplanung";
+const ZEITPLANUNG_TARGET_FOLDER_PATH = appModuleFolderPath("Timeline");
 const ZEITPLANUNG_FILENAME = "zeitplanung.json";
 
-// Gleiche zentrale Projektliste wie Zeiterfassung/Pendenzen (siehe dort für
-// die Begründung der Dopplung) -- Projekte werden hier wie dort über den
-// NAMEN identifiziert/eingefärbt, nicht über die Nummer (siehe README,
-// "Projektnamen zentral verwalten").
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
+// Projekte/Mitarbeitende kommen aus der zentralen config.json (siehe
+// shared/common.js, refreshAppConfig()) -- Projekte werden hier wie in
+// Zeiterfassung/Pendenzen über den NAMEN identifiziert/eingefärbt, nicht
+// über die Nummer (siehe README, "Zentrale Konfiguration").
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 const VACATION_COLOR = "#B7AFA0";
 
@@ -71,8 +69,8 @@ function blankZeitplan() {
 }
 
 let zeitplan = loadJSON(LS_KEYS.cache, blankZeitplan());
-let personen = [];
-let projectNames = loadJSON(LS_KEYS.projectsCache, []); // Namen aus der zentralen Liste, für "+ Projekt"
+let personen = appConfig.mitarbeitende;
+let projectNames = [...new Set(appConfig.projekte.map((p) => p.name))]; // für "+ Projekt"
 
 let rangeStartDate, rangeEndDate, totalDays, totalWidth;
 
@@ -128,42 +126,13 @@ function isFreiTitle(titel) {
   return /(ferien|frei|weg|abwesend)/i.test((titel || "").trim());
 }
 
-// ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
+// ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
 
-function parseProjectList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const m = /^(\d{3})\s+(.+)$/.exec(line);
-      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
-    });
-}
-
-async function refreshProjectNames() {
-  if (!PROJECTS_SHARE_TOKEN) return;
-  try {
-    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const text = await res.text();
-    const list = parseProjectList(text);
-    if (list.length === 0) return;
-    projectNames = [...new Set(list.map((p) => p.name))];
-    saveJSON(LS_KEYS.projectsCache, projectNames);
-    renderAll();
-  } catch (err) {
-    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
-  }
-}
-
-async function loadPersonen() {
-  try {
-    const res = await fetch("../shared/personen.json");
-    personen = res.ok ? await res.json() : [];
-  } catch (e) {
-    personen = [];
-  }
+async function refreshAppData() {
+  await refreshAppConfig();
+  personen = appConfig.mitarbeitende;
+  projectNames = [...new Set(appConfig.projekte.map((p) => p.name))];
+  renderAll();
 }
 
 // ---------- Nextcloud ----------
@@ -871,7 +840,7 @@ function init() {
   initSettingsUI({
     checkRelPath: pingRelPath,
     ensureFolderFn: ensureZeitplanungFolder,
-    onSaved: refreshZeitplan
+    onSaved: () => { refreshZeitplan(); refreshAppData(); }
   });
 
   document.getElementById("tpRows").addEventListener("pointerdown", onRowsPointerDown);
@@ -889,17 +858,15 @@ function init() {
 
   window.addEventListener("online", refreshZeitplan);
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { refreshZeitplan(); refreshProjectNames(); }
+    if (document.visibilityState === "visible") { refreshZeitplan(); refreshAppData(); }
   });
-  setInterval(refreshProjectNames, 60000);
+  setInterval(refreshAppData, 60000);
 
-  Promise.all([loadPersonen(), refreshProjectNames()]).then(renderAll);
+  refreshAppData();
   if (isConfigured()) refreshZeitplan();
   else renderAll();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);

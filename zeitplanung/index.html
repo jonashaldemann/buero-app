@@ -2,251 +2,26 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F2EFEA">
-<title>Zeitplanung</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="0; url=../timeline/">
+<title>Timeline</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="../icons/zeitplanung-192.png">
-<link rel="apple-touch-icon" href="../icons/zeitplanung-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="../css/style.css">
-<style>
-  /* Zeitplanung ist ein reines Desktop-/Breitbild-Werkzeug (horizontaler
-     Zeitbalken über ein Jahr) -- deutlich breiter als die sonst
-     mobile-first begrenzten 480px. */
-  main { max-width: 100%; padding: 0 16px 24px; }
-
-  .tp-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .tp-toolbar .sync-line { margin-top: 0; }
-
-  .tp-scroll { overflow-x: auto; background: var(--surface); border-radius: 14px; padding-bottom: 6px; }
-  .tp-inner { position: relative; min-width: max-content; }
-
-  .tp-header-row { display: flex; border-bottom: 1px solid var(--border); }
-  .tp-corner { flex: 0 0 200px; position: sticky; left: 0; background: var(--surface); z-index: 4; }
-  .tp-header-tracks { display: flex; flex-direction: column; }
-  .tp-header-track { position: relative; height: 22px; }
-  .tp-month-tick { position: absolute; top: 4px; bottom: 0; border-left: 1px solid var(--border); padding-left: 4px; }
-  .tp-month-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-  .tp-week-track { position: relative; height: 18px; border-top: 1px solid var(--border); }
-  .tp-week-tick { position: absolute; top: 2px; bottom: 0; border-left: 1px solid var(--border); padding-left: 3px; }
-  .tp-week-label { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
-  .tp-day-track { position: relative; height: 16px; border-top: 1px solid var(--border); }
-  .tp-day-tick { position: absolute; top: 1px; font-size: 9px; color: var(--text-muted); text-align: center; }
-
-  .tp-rows-wrap { position: relative; }
-  .tp-weekend-layer, .tp-week-grid-layer, .tp-vacation-layer {
-    position: absolute; top: 0; left: 200px; right: 0; bottom: 0; pointer-events: none; z-index: 0;
-  }
-  .tp-weekend-stripe { position: absolute; top: 0; bottom: 0; background: rgba(60, 50, 40, 0.05); }
-  .tp-week-gridline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--border); opacity: 0.6; }
-  .tp-vacation-stripe { position: absolute; top: 0; bottom: 0; }
-
-  .tp-section-label {
-    position: relative; z-index: 1;
-    padding: 10px 12px 4px; font-family: var(--font-medium); font-size: 12px; color: var(--text-muted);
-    background: var(--surface);
-  }
-  .tp-row {
-    position: relative; z-index: 1;
-    display: flex; align-items: center; min-height: 34px;
-    border-bottom: 1px solid var(--border);
-  }
-  .tp-row-indent .tp-label-cell { padding-left: 30px; }
-  .tp-label-cell {
-    flex: 0 0 200px; position: sticky; left: 0; background: var(--surface); z-index: 2;
-    display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 13px;
-  }
-  .tp-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tp-row-title-strong { font-family: var(--font-medium); }
-  .tp-row-title[data-action="rename-aufgabe"] { cursor: pointer; }
-  .tp-toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; flex: none; font-size: 12px; }
-  .tp-delete-btn {
-    background: none; border: none; color: var(--text-muted); cursor: pointer; flex: none;
-    opacity: 0; transition: opacity 0.1s; font-size: 15px; line-height: 1; padding: 2px 4px;
-  }
-  .tp-label-cell:hover .tp-delete-btn { opacity: 1; }
-  .tp-delete-btn:active { color: #B5654C; }
-  .tp-link-btn { background: none; border: none; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 6px 0; }
-
-  /* Zeilen mit data-loc (Mitarbeiter/Aufgabe) sind auf leerer Fläche
-     interaktiv -- klicken erzeugt einen Meilenstein, ziehen einen Balken,
-     siehe onRowsPointerDown() in app.js. */
-  .tp-track { position: relative; height: 34px; }
-  .tp-track[data-loc] { cursor: crosshair; }
-  .tp-bar-preview { opacity: 0.45; background: var(--text-muted) !important; pointer-events: none; }
-
-  .tp-bar {
-    position: absolute; top: 6px; height: 22px; border-radius: 5px;
-    display: flex; align-items: center; overflow: hidden; cursor: grab; color: #fff; touch-action: none;
-  }
-  .tp-bar:active { cursor: grabbing; }
-  .tp-bar-label { font-size: 11px; padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-  .tp-bar-duration { font-size: 10px; opacity: 0.85; padding: 0 7px 0 2px; white-space: nowrap; flex-shrink: 0; pointer-events: none; }
-  .tp-bar-handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
-  .tp-bar-handle[data-handle="left"] { left: 0; }
-  .tp-bar-handle[data-handle="right"] { right: 0; }
-
-  .tp-milestone { position: absolute; top: 10px; width: 14px; height: 14px; transform: rotate(45deg); border-radius: 3px; cursor: grab; touch-action: none; }
-  .tp-milestone-day {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    transform: rotate(-45deg); font-size: 7px; font-weight: 700; line-height: 1; color: #fff; pointer-events: none;
-  }
-  .tp-milestone-label { position: absolute; top: 8px; font-size: 11px; white-space: nowrap; color: var(--text-muted); pointer-events: none; }
-
-  /* Projekt-Übersichtszeile: alle Balken/Meilensteine der Aufgaben zusammen
-     an derselben Zeilenhöhe -- halbtransparent, damit sich Überlagerungen
-     (mehrere gleichzeitig laufende Aufgaben) als dunklere Fläche abzeichnen,
-     statt dass ein Balken den anderen einfach komplett verdeckt. */
-  .tp-row-summary .tp-bar, .tp-row-summary .tp-milestone { opacity: 0.6; }
-  .tp-row-summary .tp-bar-label, .tp-row-summary .tp-milestone-label,
-  .tp-row-summary .tp-bar-duration, .tp-row-summary .tp-milestone-day { display: none; }
-
-  .tp-add-row .tp-label-cell { background: var(--surface); }
-  .tp-add-projekt-cell { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 8px; }
-  #addProjektSelect { font-size: 13px; border: none; background: none; color: var(--accent-primary); width: 100%; }
-  .tp-add-freitext-row { display: flex; gap: 4px; }
-  #addProjektFreitext { font-size: 12px; padding: 4px 6px; flex: 1; min-width: 0; }
-  #addProjektFreitextBtn {
-    background: var(--surface-2); border: none; border-radius: 6px; color: var(--text-muted);
-    cursor: pointer; flex: none; width: 24px; font-size: 14px; line-height: 1;
-  }
-  #addProjektFreitextBtn:active { color: var(--accent-primary); }
-
-  #entryOverlay .sheet { max-width: 420px; }
-  .entry-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-</style>
+<link rel="icon" href="../icons/timeline-192.png">
+<link rel="apple-touch-icon" href="../icons/timeline-192.png">
 </head>
 <body>
-
-<header class="topbar">
-  <h1>Zeitplanung</h1>
-  <div class="topbar-actions">
-    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
-    </a>
-    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
-    </button>
-  </div>
-</header>
-
-<main>
-  <div class="tp-toolbar">
-    <button id="refreshBtn" class="btn-secondary">Aktualisieren</button>
-    <span class="sync-line" id="syncLine">&nbsp;</span>
-  </div>
-
-  <p class="hint" style="margin-top:0;">
-    Zeitfenster: heute bis in 1 Jahr, Spalten nach Wochen (Montagsdatum im
-    Kopf, Wochenenden leicht hinterlegt). Auf leerer Zeilenfläche ziehen legt
-    einen neuen Balken an, klicken einen neuen Meilenstein — auf einen
-    bestehenden Balken ziehen verschiebt ihn (an den Rändern ziehen passt nur
-    Start/Ende an), anklicken ohne Ziehen öffnet den Bearbeiten-Dialog mit
-    Datumsfeldern. Bei Mitarbeitenden Einträge mit "frei"/"ferien"/"weg"/
-    "abwesend" im Titel (z.B. auch "Weihnachtsferien") werden über allen
-    Zeilen grau hinterlegt (je mehr Personen frei haben, desto dunkler).
-    Strg/Cmd + Scrollrad (oder Pinch-Geste) zoomt rein/raus, normales
-    Scrollen bzw. Umschalt+Scrollen bleibt seitliches Verschieben.
-  </p>
-
-  <div class="tp-scroll" id="tpScroll">
-    <div class="tp-inner">
-      <div class="tp-header-row">
-        <div class="tp-corner"></div>
-        <div class="tp-header-tracks">
-          <div class="tp-header-track" id="tpHeaderTrack"></div>
-          <div class="tp-week-track" id="tpWeekTrack"></div>
-          <div class="tp-day-track" id="tpDayTrack" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="tp-rows-wrap">
-        <div class="tp-weekend-layer" id="tpWeekendLayer"></div>
-        <div class="tp-week-grid-layer" id="tpWeekGridLayer"></div>
-        <div class="tp-vacation-layer" id="tpVacationLayer"></div>
-        <div id="tpRows"></div>
-      </div>
-    </div>
-  </div>
-</main>
-
-<!-- Einstellungen -->
-<div id="settingsOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h2>Einstellungen</h2>
-      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
-    </div>
-
-    <div class="form-group">
-      <label>Benutzername</label>
-      <input type="text" id="inputUser" placeholder="jonas">
-      <label>App-Passwort</label>
-      <div class="password-field">
-        <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
-        <button type="button" id="togglePassBtn" class="password-toggle" aria-label="Passwort anzeigen" title="Passwort anzeigen">
-          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="form-actions">
-      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
-      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
-    </div>
-    <div id="testResult" class="test-result"></div>
-
-    <p class="hint">
-      Das App-Passwort erstellst du in Nextcloud unter
-      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
-      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
-      für die anderen Module (einmal einrichten, überall nutzbar).
-    </p>
-  </div>
-</div>
-
-<!-- Balken/Meilenstein bearbeiten -->
-<div id="entryOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h2 id="entryDialogTitle">Neuer Eintrag</h2>
-      <button id="closeEntryDialog" class="icon-btn" aria-label="Schliessen">&times;</button>
-    </div>
-
-    <div class="form-group">
-      <label>Titel</label>
-      <input type="text" id="entryTitel" placeholder="z.B. Vorprojekt, Abgabe, Ferien">
-
-      <label>Typ</label>
-      <select id="entryTyp">
-        <option value="balken">Balken (Start–Ende)</option>
-        <option value="meilenstein">Meilenstein (einzelnes Datum)</option>
-      </select>
-
-      <div class="entry-two-col">
-        <div>
-          <label>Start</label>
-          <input type="date" id="entryStart">
-        </div>
-        <div id="entryEndeGroup">
-          <label>Ende</label>
-          <input type="date" id="entryEnde">
-        </div>
-      </div>
-    </div>
-
-    <div id="entryResult" class="test-result"></div>
-
-    <div class="form-actions" style="margin-top:14px;">
-      <button id="deleteEntryBtn" class="btn-secondary">Löschen</button>
-      <button id="cancelEntryBtn" class="btn-secondary">Abbrechen</button>
-      <button id="saveEntryBtn" class="btn-primary">Speichern</button>
-    </div>
-  </div>
-</div>
-
+<!-- Dieses Modul heisst jetzt "Timeline" und liegt unter ../timeline/ --
+     dieser Stub bleibt hier stehen, damit bestehende Lesezeichen/
+     Home-Bildschirm-Icons auf .../zeitplanung/ nicht ins Leere laufen,
+     sondern automatisch dorthin weitergeleitet werden. Registriert
+     ausserdem einen eigenen (neuen) Service Worker an diesem Scope, der den
+     alten ersetzt und dadurch auch bereits offene, alte Tabs zuverlässig
+     auf die neue Version stösst (siehe registerServiceWorkerWithAutoUpdate()
+     in ../shared/common.js). -->
 <script src="../shared/common.js"></script>
-<script src="app.js"></script>
+<script>
+  registerServiceWorkerWithAutoUpdate();
+  window.location.replace("../timeline/");
+</script>
 </body>
 </html>

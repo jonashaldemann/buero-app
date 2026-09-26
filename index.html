@@ -116,19 +116,18 @@
       <span class="tile-label">Protokoll</span>
     </a>
 
-    <a class="tile" href="zeitplanung/" title="Terminplanung als horizontaler Zeitbalken: Ferien, Projekte, Aufgaben, Meilensteine">
+    <a class="tile" href="timeline/" title="Terminplanung als horizontaler Zeitbalken: Ferien, Projekte, Aufgaben, Meilensteine">
       <span class="tile-icon" style="background:#7A95A6">
         <svg viewBox="0 0 24 24" width="28" height="28"><rect x="3" y="4.5" width="11" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="10.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="16.5" width="7" height="3" rx="1.5" fill="currentColor"/></svg>
       </span>
-      <span class="tile-label">Zeitplanung</span>
+      <span class="tile-label">Timeline</span>
     </a>
   </div>
 </main>
 
+<script src="shared/common.js"></script>
 <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 </script>
 </body>
 </html>

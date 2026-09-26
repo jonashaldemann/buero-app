@@ -13,58 +13,37 @@
    sondern ein Merge auf Ebene ganzer Listeneinträge -- für eine Pendenz
    (kurzer Text, an/abgehakt) reicht das.
 
-   Projekte + Farben kommen aus derselben zentral verwalteten Liste wie in
-   der Zeiterfassung (PROJECTS_SHARE_TOKEN, PROJECT_COLOR_PALETTE) -- damit
-   ein Projekt überall dieselbe Farbe hat. Bewusst dupliziert statt geteilt
-   (siehe Kommentar in pdf.js/app.js der Offerten): jedes Modul bleibt so
-   unabhängig ladbar, ohne Reihenfolge-Abhängigkeiten zwischen den Apps.
+   Projekte + Farben kommen aus derselben zentralen config.json wie in der
+   Zeiterfassung (siehe shared/common.js, refreshAppConfig();
+   PROJECT_COLOR_PALETTE bleibt pro Modul dupliziert) -- damit ein Projekt
+   überall dieselbe Farbe hat.
 
-   Personen (aktuell 2, siehe ../shared/personen.json) sind KEINE
+   Personen (aktuell 2, aus derselben config.json) sind KEINE
    Nextcloud-Logins -- das ist eine reine Auswahlliste für das optionale
-   "Person"-Feld einer Pendenz und die Personen-Filterknöpfe. Zentral in
-   shared/ (nicht hier in pendenzen/) abgelegt, weil dieselbe Liste auch von
-   den Offerten (dort als Unterzeichner-Auswahl) verwendet wird -- eine
-   Person einmal pflegen statt pro Modul zu duplizieren.
+   "Person"-Feld einer Pendenz und die Personen-Filterknöpfe. Zentral erfasst
+   (nicht hier in pendenzen/), weil dieselbe Liste auch von den Offerten
+   (dort als Unterzeichner-Auswahl) verwendet wird -- eine Person einmal
+   pflegen statt pro Modul zu duplizieren.
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, Einstellungen-UI usw.
    kommen aus ../shared/common.js.
    ============================================================ */
 
 const LS_KEYS = {
-  cache: "pendenzen_cache",
-  projectsCache: "pendenzen_projects_cache"
+  cache: "pendenzen_cache"
 };
 
-const PENDENZEN_TARGET_FOLDER_PATH = "Buero/Admin/Pendenzen";
+const PENDENZEN_TARGET_FOLDER_PATH = appModuleFolderPath("Pendenzen");
 const PENDENZEN_FILENAME = "pendenzen.json";
 
 // Gleiche zentrale Projektliste + Farbpalette wie in der Zeiterfassung
 // (siehe zeiterfassung/app.js) -- ein Projekt soll überall gleich heissen
 // und gleich aussehen.
-const PROJECTS_SHARE_TOKEN = "cRyoZG6fzBQYDeH";
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
 const FALLBACK_COLOR = "#B7AFA0";
 
-let projectList = loadJSON(LS_KEYS.projectsCache, [
-  { id: "P1", name: "P1" },
-  { id: "P2", name: "P2" },
-  { id: "P3", name: "P3" }
-]);
-
-// Kopie aus zeiterfassung/app.js -- siehe dort für die Begründung
-// (dreistellige Projektnummer optional führend pro Zeile, sonst
-// Rückwärtskompatibilität über die alte positionsbasierte ID "P<n>").
-function parseProjectList(text) {
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line, i) => {
-      const m = /^(\d{3})\s+(.+)$/.exec(line);
-      return m ? { id: m[1], name: m[2] } : { id: `P${i + 1}`, name: line };
-    });
-}
-let personen = [];
+let projectList = appConfig.projekte;
+let personen = appConfig.mitarbeitende;
 
 // { id, text, projekt (Projektname oder null), person (key oder null),
 //   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy }
@@ -85,21 +64,12 @@ let draggedRow = null;
 const DRAG_HANDLE_SVG =
   '<svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="10.8" width="12" height="2.4" rx="1.2" fill="currentColor"/><rect x="6" y="15.6" width="12" height="2.4" rx="1.2" fill="currentColor"/></svg>';
 
-// ---------- Zentral verwaltete Projektnamen (Kopie aus zeiterfassung/app.js) ----------
+// ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
 
-async function refreshProjectNames() {
-  if (!PROJECTS_SHARE_TOKEN) return;
-  try {
-    const res = await proxyFetch(`s/${PROJECTS_SHARE_TOKEN}/download`, { method: "GET" });
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    const text = await res.text();
-    const list = parseProjectList(text);
-    if (list.length === 0) return; // leere Datei -> alten Stand behalten
-    projectList = list;
-    saveJSON(LS_KEYS.projectsCache, list);
-  } catch (err) {
-    console.warn("Zentrale Projektnamen konnten nicht geladen werden:", err);
-  }
+async function refreshAppData() {
+  await refreshAppConfig();
+  projectList = appConfig.projekte;
+  personen = appConfig.mitarbeitende;
 }
 
 // Eine Pendenz speichert im Feld "projekt" seit der Umstellung auf
@@ -141,14 +111,6 @@ function isDarkColor(hex) {
   return brightness < 150;
 }
 
-async function loadPersonen() {
-  try {
-    const res = await fetch("../shared/personen.json");
-    personen = res.ok ? await res.json() : [];
-  } catch (e) {
-    personen = [];
-  }
-}
 function personLabel(key) {
   const p = personen.find((x) => x.key === key);
   return p ? p.name : "";
@@ -572,7 +534,7 @@ function init() {
   initSettingsUI({
     checkRelPath: pingRelPath,
     ensureFolderFn: ensurePendenzenFolder,
-    onSaved: () => syncPendenzen()
+    onSaved: () => { syncPendenzen(); refreshAppData().then(() => { renderPersonFilterRow(); renderProjectFilterRow(); }); }
   });
 
   // <form> mit submit-Event (deckt Klick auf "+" ab) PLUS zusätzlich ein
@@ -605,16 +567,14 @@ function init() {
   renderProjectFilterRow();
   render();
 
-  Promise.all([loadPersonen(), refreshProjectNames()]).then(() => {
+  refreshAppData().then(() => {
     renderPersonFilterRow();
     renderProjectFilterRow();
   });
 
   if (isConfigured()) syncPendenzen();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
-  }
+  registerServiceWorkerWithAutoUpdate();
 }
 
 document.addEventListener("DOMContentLoaded", init);

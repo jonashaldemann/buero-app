@@ -1,4 +1,4 @@
-const CACHE_NAME = "pendenzen-v6";
+const CACHE_NAME = "timeline-v1";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,8 +6,8 @@ const ASSETS = [
   "./manifest.json",
   "../shared/common.js",
   "../css/style.css",
-  "../icons/pendenzen-192.png",
-  "../icons/pendenzen-512.png"
+  "../icons/timeline-192.png",
+  "../icons/timeline-512.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,10 +26,6 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. Pendenzen sowie die zentrale
-// config.json liegen auf Nextcloud (siehe app.js), nicht hier -- die kommen
-// sowieso nie aus dem Service-Worker-Cache, sondern immer frisch, damit eine
-// neue/geänderte Person/Projektliste ohne Code-Update ankommt.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
