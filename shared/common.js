@@ -123,7 +123,8 @@ function appModuleFolderPath(name) {
 // Beide Dateien erfordern Login wie jede andere bürospezifische Datei --
 // bewusst KEIN Vor-Login-Fallback mit Platzhalterdaten mehr.
 const LS_APP_CONFIG_CACHE = "app_config_cache";
-let appConfig = loadJSON(LS_APP_CONFIG_CACHE, { mitarbeitende: [], projekte: [] });
+const DEFAULT_BUERO_NAME = "Büro";
+let appConfig = loadJSON(LS_APP_CONFIG_CACHE, { mitarbeitende: [], projekte: [], bueroName: DEFAULT_BUERO_NAME });
 
 function appConfigDavPath() {
   return davPath([...ncSegments(APP_DATA_ROOT), "config.json"].join("/"));
@@ -146,14 +147,16 @@ function parseProjectList(text) {
     });
 }
 
-async function fetchAppMitarbeitende() {
+// Liest config.json einmal komplett -- neben mitarbeitende steht dort auch
+// bueroName (Anzeigename fürs Dashboard/Browser-Tab, siehe index.html im
+// Repo-Root; ersetzt dort das fest hinterlegte "Büro").
+async function fetchAppConfigFile() {
   try {
     const res = await proxyFetch(appConfigDavPath(), { method: "GET", headers: authHeader() });
     if (!res.ok) throw new Error(`Status ${res.status}`);
-    const data = await res.json();
-    return data.mitarbeitende || [];
+    return await res.json();
   } catch (err) {
-    console.warn("Mitarbeitende (config.json) konnten nicht geladen werden:", err);
+    console.warn("config.json konnte nicht geladen werden:", err);
     return null;
   }
 }
@@ -168,14 +171,15 @@ async function fetchAppProjekte() {
   }
 }
 
-// Beide Dateien unabhängig voneinander laden -- schlägt eine fehl (z.B.
-// Datei noch nicht angelegt), bleibt für DIESE Hälfte der letzte bekannte
-// Stand erhalten, statt die ganze Konfiguration zu verwerfen.
+// config.json und projekte.txt unabhängig voneinander laden -- schlägt eine
+// fehl (z.B. Datei noch nicht angelegt), bleibt für DIESEN Teil der letzte
+// bekannte Stand erhalten, statt die ganze Konfiguration zu verwerfen.
 async function refreshAppConfig() {
   if (!isConfigured()) return appConfig;
-  const [mitarbeitende, projekte] = await Promise.all([fetchAppMitarbeitende(), fetchAppProjekte()]);
+  const [configFile, projekte] = await Promise.all([fetchAppConfigFile(), fetchAppProjekte()]);
   appConfig = {
-    mitarbeitende: mitarbeitende !== null ? mitarbeitende : appConfig.mitarbeitende,
+    mitarbeitende: configFile ? configFile.mitarbeitende || [] : appConfig.mitarbeitende,
+    bueroName: configFile ? configFile.bueroName || DEFAULT_BUERO_NAME : appConfig.bueroName,
     projekte: projekte !== null ? projekte : appConfig.projekte
   };
   saveJSON(LS_APP_CONFIG_CACHE, appConfig);

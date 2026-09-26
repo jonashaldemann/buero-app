@@ -103,7 +103,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
-| Zentrale Konfiguration: Mitarbeitende | `Buero/Admin/App/config.json` |
+| Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
 
 **Ausnahme:** die eigentlichen Quittungen/Rechnungsbelege (Fotos/PDFs) bleiben
@@ -158,19 +158,23 @@ zugangsdatenfreien Lesezugriff mehr. Beide Dateien werden unabhängig
 voneinander geladen: ist eine (noch) nicht erreichbar, bleibt für die
 jeweils andere trotzdem der letzte bekannte Stand erhalten.
 
-**`Buero/Admin/App/config.json`** — Mitarbeitende:
+**`Buero/Admin/App/config.json`** — Mitarbeitende + Büro-Name:
 ```json
 {
+  "bueroName": "Haldemann Viecelli Architekten",
   "mitarbeitende": [
     { "key": "jonas", "name": "Jonas Haldemann", "datei": "Unterschrift_Jonas_Haldemann.png" },
     { "key": "manuel", "name": "Manuel Viecelli", "datei": "Unterschrift_Manuel_Viecelli.png" }
   ]
 }
 ```
-`key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name` (Anzeigename),
-`datei` (Dateiname der Unterschrift auf Nextcloud, siehe Abschnitt
-"Unterschriften" bei den Offerten — nur dort gebraucht, kann bei anderen
-Einträgen weggelassen werden).
+`bueroName` erscheint als Titel auf der Startseite (Dashboard) sowie im
+Browser-Tab, anstelle des sonst fest hinterlegten "Büro" — fehlt das Feld
+(oder ist noch nicht eingeloggt), bleibt es beim generischen "Büro" als
+Fallback. `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name`
+(Anzeigename), `datei` (Dateiname der Unterschrift auf Nextcloud, siehe
+Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht, kann bei
+anderen Einträgen weggelassen werden).
 
 **`Buero/Admin/App/projekte.txt`** — Projekte, ein Eintrag pro Zeile,
 optional mit **dreistelliger Projektnummer, Leerschlag, Projekttitel** (der

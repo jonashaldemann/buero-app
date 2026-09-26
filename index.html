@@ -12,6 +12,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/style.css">
 <style>
+  /* .topbar ist sonst (siehe css/style.css) auf space-between ausgelegt --
+     Titel links, Aktionen (Zahnrad etc.) rechts. Die Startseite hat keine
+     Aktionen im Header, hier soll der Büro-Name stattdessen mittig stehen. */
+  .topbar-center h1 { flex: 1; text-align: center; }
+
   /* App-Icon-Raster wie auf dem Smartphone-Homescreen (statt einer langen
      Liste mit Beschreibungstext) -- mit inzwischen sieben Kacheln passte
      die Liste auf dem Handy nicht mehr ohne Scrollen auf eine Seite.
@@ -54,8 +59,8 @@
 </head>
 <body>
 
-<header class="topbar">
-  <h1>Büro</h1>
+<header class="topbar topbar-center">
+  <h1 id="bueroTitel">Büro</h1>
 </header>
 
 <main>
@@ -127,6 +132,19 @@
 
 <script src="shared/common.js"></script>
 <script>
+  // Zeigt den Büro-Namen aus der zentralen config.json (bueroName) als
+  // Dashboard-Titel/Browser-Tab statt des fest hinterlegten "Büro" --
+  // appConfig ist schon beim Laden mit dem letzten bekannten Stand aus
+  // localStorage befüllt, zeigt also bei wiederkehrenden Besuchen sofort
+  // den richtigen Namen, noch bevor refreshAppConfig() fertig ist.
+  function applyBueroName() {
+    const name = appConfig.bueroName || "Büro";
+    document.title = name;
+    document.getElementById("bueroTitel").textContent = name;
+  }
+  applyBueroName();
+  refreshAppConfig().then(applyBueroName);
+
   registerServiceWorkerWithAutoUpdate();
 </script>
 </body>
