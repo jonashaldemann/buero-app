@@ -354,12 +354,17 @@ function renderTeilnehmende() {
       const kuerzelField = t.personKey
         ? `<input type="text" value="${escapeHtml(t.kuerzel)}" disabled title="Automatisch aus dem Namen">`
         : `<input type="text" data-field="kuerzel" data-index="${i}" placeholder="Kürzel" value="${escapeHtml(t.kuerzel || "")}" maxlength="6">`;
+      // Freitext-Name steckt in einem eigenen Wrapper, damit die
+      // Vorschlagsliste darunter (position:absolute) verankert ist, ohne
+      // die Grid-Zeile selbst höher zu machen -- siehe renderNameSuggestions().
+      const nameField = t.personKey
+        ? `<span class="teilnehmer-name">${escapeHtml(t.name)}</span>`
+        : `<div class="teilnehmer-name-wrap">
+            <input type="text" class="teilnehmer-name-input" data-field="name" data-index="${i}" placeholder="Name (Vorschläge aus früheren Protokollen)" value="${escapeHtml(t.name || "")}" autocomplete="off">
+            <div class="mod-search-results hidden" data-suggest="${i}"></div>
+          </div>`;
       return `<div class="teilnehmer-row" data-index="${i}">
-        ${
-          t.personKey
-            ? `<span class="teilnehmer-name">${escapeHtml(t.name)}</span>`
-            : `<input type="text" class="teilnehmer-name-input" data-field="name" data-index="${i}" placeholder="Name" value="${escapeHtml(t.name || "")}">`
-        }
+        ${nameField}
         ${kuerzelField}
         <button type="button" class="mod-delete" data-action="delete-teilnehmer" data-index="${i}" aria-label="Entfernen">${TRASH_SVG}</button>
       </div>`;
@@ -367,8 +372,25 @@ function renderTeilnehmende() {
     .join("");
 
   list.querySelectorAll('[data-field="name"]').forEach((el) => {
+    const idx = parseInt(el.dataset.index, 10);
     el.addEventListener("input", () => {
-      teilnehmende[parseInt(el.dataset.index, 10)].name = el.value;
+      teilnehmende[idx].name = el.value;
+      renderNameSuggestions(idx, el.value);
+    });
+    // Enter/Tab übernimmt den ersten (bestpassenden) Vorschlag samt Kürzel --
+    // gibt es keinen Treffer, bleibt der eingetippte Name als neue, freie
+    // Person stehen und Tab/Enter verhalten sich normal.
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== "Tab") return;
+      const results = searchExterneTeilnehmende(el.value, idx);
+      if (results.length === 0) return;
+      e.preventDefault();
+      applySuggestionToRow(idx, results[0]);
+    });
+    el.addEventListener("blur", () => {
+      // Kurze Verzögerung, damit ein Klick auf einen Vorschlag (der sonst
+      // vor dem Click-Event schon ausgeblendet würde) noch ankommt.
+      setTimeout(() => renderNameSuggestions(idx, ""), 150);
     });
   });
   list.querySelectorAll('[data-field="kuerzel"]').forEach((el) => {
@@ -411,13 +433,14 @@ function addFreierTeilnehmer() {
   renderTeilnehmende();
 }
 
-// ---------- Externe Teilnehmende aus früheren Protokollen suchen ----------
+// ---------- Externe Teilnehmende aus früheren Protokollen vorschlagen ----------
 //
 // Analog zur Modul-Suche bei den Offerten (siehe dort, allKnownModules()):
 // bewusst keine separate Personen-Library -- durchsucht einfach die schon
-// geladenen Protokolle live. Nur EXTERNE Teilnehmende (personKey null),
-// Büro-Personen haben ja bereits ihre eigenen "+ Name"-Knöpfe oben
-// (renderPersonQuickAdd()).
+// geladenen Protokolle live, direkt im Namensfeld einer neuen Person (kein
+// separates Suchfeld -- Eingeben und Auswählen ist derselbe Schritt). Nur
+// EXTERNE Teilnehmende (personKey null), Büro-Personen haben ja bereits
+// ihre eigenen "+ Name"-Knöpfe oben (renderPersonQuickAdd()).
 function allKnownExterneTeilnehmende() {
   const byName = new Map(); // Name (lowercase) -> {name, kuerzel, datum}
   protokolle.forEach((p) => {
@@ -434,28 +457,39 @@ function allKnownExterneTeilnehmende() {
   return [...byName.values()];
 }
 
-function searchExterneTeilnehmende(query) {
+// excludeIndex: die gerade bearbeitete Zeile selbst nicht als "schon
+// hinzugefügt" zählen -- sonst würde ein exakter Treffer (eingetippter
+// Name entspricht bereits einem früheren Namen) durch die eigene, live
+// mitgeschriebene Zeile fälschlich herausgefiltert.
+function searchExterneTeilnehmende(query, excludeIndex) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const already = new Set(editingProtokoll.teilnehmende.map((t) => (t.name || "").trim().toLowerCase()));
+  const already = new Set(
+    editingProtokoll.teilnehmende
+      .filter((_, i) => i !== excludeIndex)
+      .map((t) => (t.name || "").trim().toLowerCase())
+  );
   return allKnownExterneTeilnehmende()
     .filter((t) => t.name.toLowerCase().includes(q) && !already.has(t.name.toLowerCase()))
     .sort((a, b) => String(b.datum).localeCompare(String(a.datum)))
     .slice(0, 8);
 }
 
-function renderTeilnehmerSearchResults(results, query) {
-  const box = document.getElementById("teilnehmerSearchResults");
+function renderNameSuggestions(index, query) {
+  const box = document.querySelector(`[data-suggest="${index}"]`);
+  if (!box) return;
   if (!query.trim()) {
     box.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
-  box.classList.remove("hidden");
+  const results = searchExterneTeilnehmende(query, index);
   if (results.length === 0) {
-    box.innerHTML = '<div class="mod-search-empty">Keine passenden Personen gefunden.</div>';
+    box.classList.add("hidden");
+    box.innerHTML = "";
     return;
   }
+  box.classList.remove("hidden");
   box.innerHTML = results
     .map(
       (t, i) => `<div class="mod-search-result" data-index="${i}">
@@ -465,15 +499,22 @@ function renderTeilnehmerSearchResults(results, query) {
     )
     .join("");
   box.querySelectorAll(".mod-search-result").forEach((el) => {
-    el.addEventListener("click", () => importExterneTeilnehmerin(results[parseInt(el.dataset.index, 10)]));
+    el.addEventListener("mousedown", (e) => {
+      // mousedown statt click, damit das vorherige blur-Ausblenden des
+      // Feldes den Klick nicht schon wegschnappt (siehe renderTeilnehmende()).
+      e.preventDefault();
+      applySuggestionToRow(index, results[parseInt(el.dataset.index, 10)]);
+    });
   });
 }
 
-function importExterneTeilnehmerin(t) {
-  editingProtokoll.teilnehmende.push({ name: t.name, kuerzel: t.kuerzel || "", personKey: null });
-  document.getElementById("teilnehmerSearchInput").value = "";
-  renderTeilnehmerSearchResults([], "");
+function applySuggestionToRow(index, t) {
+  editingProtokoll.teilnehmende[index] = { name: t.name, kuerzel: t.kuerzel || "", personKey: null };
   renderTeilnehmende();
+  // Fokus aufs (neu gerenderte) Kürzel-Feld derselben Zeile -- direkt
+  // nachkontrollierbar/anpassbar, ohne extra Klick.
+  const kuerzelInput = document.querySelector(`[data-field="kuerzel"][data-index="${index}"]`);
+  if (kuerzelInput) kuerzelInput.focus();
 }
 
 // ---------- Editor: Hauptteil (Zwischentitel + Bullet Points) ----------
@@ -774,9 +815,6 @@ function init() {
   document.getElementById("saveProtokollBtn").addEventListener("click", saveCurrentProtokoll);
   document.getElementById("deleteProtokollBtn").addEventListener("click", deleteCurrentProtokoll);
   document.getElementById("addTeilnehmerBtn").addEventListener("click", addFreierTeilnehmer);
-  document.getElementById("teilnehmerSearchInput").addEventListener("input", (e) => {
-    renderTeilnehmerSearchResults(searchExterneTeilnehmende(e.target.value), e.target.value);
-  });
   document.getElementById("addBulletBtn").addEventListener("click", () => {
     editingProtokoll.abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: "" });
     renderAbschnitte();
