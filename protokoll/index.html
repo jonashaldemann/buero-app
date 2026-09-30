@@ -103,6 +103,33 @@
   .person-quick-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
   .person-quick-add .add-mod-btn { flex: none; padding: 8px 14px; }
 
+  /* Suche nach früher schon erfassten externen Teilnehmenden (analog zur
+     Modul-Suche bei den Offerten). */
+  .mod-search { margin: 8px 0; }
+  .mod-search-results {
+    margin-top: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .mod-search-results.hidden { display: none; }
+  .mod-search-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .mod-search-result:last-child { border-bottom: none; }
+  .mod-search-result:active { background: var(--surface-2); }
+  .mod-search-result .msr-title { font-family: var(--font-medium); }
+  .mod-search-result .msr-meta { color: var(--text-muted); font-size: 12px; white-space: nowrap; flex: none; }
+  .mod-search-empty { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
   .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 14px; }
 </style>
@@ -230,6 +257,10 @@
       <label>Teilnehmende</label>
       <div class="teilnehmende-list" id="teilnehmendeList"></div>
       <div class="person-quick-add" id="personQuickAdd"></div>
+      <div class="mod-search">
+        <input type="text" id="teilnehmerSearchInput" placeholder="Person aus früheren Protokollen suchen…">
+        <div class="mod-search-results hidden" id="teilnehmerSearchResults"></div>
+      </div>
       <div class="form-actions">
         <button type="button" class="add-mod-btn" id="addTeilnehmerBtn">+ Teilnehmer/in</button>
       </div>
