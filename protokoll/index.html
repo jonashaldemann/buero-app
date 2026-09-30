@@ -97,21 +97,28 @@
     padding: 8px 12px;
   }
   .teilnehmer-name { font-size: 14px; }
+  .teilnehmer-name-wrap { position: relative; }
   .teilnehmer-name-input, .teilnehmer-row input[type="text"] { background: var(--surface); font-size: 13px; }
   .teilnehmer-row input[disabled] { color: var(--text-muted); background: none; border-color: transparent; }
 
   .person-quick-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
   .person-quick-add .add-mod-btn { flex: none; padding: 8px 14px; }
 
-  /* Suche nach früher schon erfassten externen Teilnehmenden (analog zur
-     Modul-Suche bei den Offerten). */
-  .mod-search { margin: 8px 0; }
+  /* Vorschläge aus früheren Protokollen, direkt unter dem Namensfeld einer
+     neuen Person (analog zur Modul-Suche bei den Offerten) -- absolut
+     positioniert, damit die Zeile selbst nicht höher wird. */
   .mod-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 5;
     margin-top: 6px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   }
   .mod-search-results.hidden { display: none; }
   .mod-search-result {
@@ -257,14 +264,12 @@
       <label>Teilnehmende</label>
       <div class="teilnehmende-list" id="teilnehmendeList"></div>
       <div class="person-quick-add" id="personQuickAdd"></div>
-      <div class="mod-search">
-        <input type="text" id="teilnehmerSearchInput" placeholder="Person aus früheren Protokollen suchen…">
-        <div class="mod-search-results hidden" id="teilnehmerSearchResults"></div>
-      </div>
       <div class="form-actions">
         <button type="button" class="add-mod-btn" id="addTeilnehmerBtn">+ Teilnehmer/in</button>
       </div>
       <p class="hint">
+        Beim Namen einer neu hinzugefügten Person erscheinen live Vorschläge
+        aus früheren Protokollen — mit Enter/Tab übernehmen (samt Kürzel).
         Büro-Personen bekommen ihr Kürzel automatisch (Initialen); bei
         externen Teilnehmenden lässt es sich frei eintragen. Das Kürzel
         wird bei den Stichpunkten unten verwendet, um einen Punkt als
