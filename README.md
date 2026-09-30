@@ -831,15 +831,17 @@ Protokoll, wie bei den Offerten).
   Liste und PDF hier **Projektnummer UND Name** ("021 – Neubau Werkhof").
 - **Teilnehmende & Kürzel**: Büro-Personen (aus `mitarbeitende` in derselben
   `config.json`) lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
-  automatisch (Initialen, nicht änderbar); externe Teilnehmende werden frei
-  eingetragen, inkl. einem optional frei wählbaren Kürzel.
-- **Externe Teilnehmende suchen**: ein Suchfeld unter den Teilnehmenden
-  durchsucht live die schon geladenen, früheren Protokolle nach bereits
-  erfassten externen Personen (analog zur Modul-Suche bei den Offerten,
-  bewusst keine separate Personen-Liste) — Klick auf einen Treffer übernimmt
-  Name und zuletzt verwendetes Kürzel. Bereits im aktuellen Protokoll
-  vorhandene sowie Büro-Personen (die eigene "+ Name"-Knöpfe haben)
-  erscheinen nicht in den Treffern.
+  automatisch (Initialen, nicht änderbar); externe Teilnehmende werden über
+  "+ Teilnehmer/in" als freie Zeile angelegt.
+- **Vorschläge beim Eintippen**: im Namensfeld einer neu angelegten externen
+  Person erscheinen live Vorschläge aus den schon geladenen, früheren
+  Protokollen (analog zur Modul-Suche bei den Offerten, bewusst keine
+  separate Personen-Liste oder ein zusätzliches Suchfeld — Eintippen und
+  Auswählen sind derselbe Schritt). **Enter** oder **Tab** übernimmt direkt
+  den bestpassenden Vorschlag samt zuletzt verwendetem Kürzel; ohne Treffer
+  bleibt der eingetippte Name einfach als neue, freie Person stehen. Bereits
+  im aktuellen Protokoll vorhandene sowie Büro-Personen (die eigene
+  "+ Name"-Knöpfe haben) erscheinen nicht als Vorschlag.
 - **Hauptteil**: Zwischentitel und Stichpunkte lassen sich wie die
   Phasen/Module bei den Offerten per Ziehgriff neu anordnen. Ein Stichpunkt
   kann optional ein Kürzel einer Teilnehmerin/eines Teilnehmers zugewiesen
