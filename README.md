@@ -821,6 +821,10 @@ bei den Offerten), PDF-Export, auf Nextcloud gesichert (ein File pro
 Protokoll, wie bei den Offerten).
 
 - **Speicherort**: `Buero/Admin/App/Protokolle`, ein JSON pro Protokoll.
+- **Datum/Zeit vorausgefüllt**: ein neues Protokoll schlägt automatisch das
+  heutige Datum sowie "Zeit von" als aktuelle Uhrzeit vor, auf die
+  nächstgelegenen 15 Minuten gerundet (`roundedTimeNow()` in
+  `protokoll/app.js`) — beides lässt sich wie gewohnt anpassen.
 - **Projekt**: Dropdown aus derselben zentralen `projekte.txt` wie
   Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration" oben).
   Anders als bei Zeiterfassung/Pendenzen (nur der Name) zeigen Auswahl,
@@ -829,6 +833,13 @@ Protokoll, wie bei den Offerten).
   `config.json`) lassen sich per "+ Name"-Knopf hinzufügen und bekommen ihr Kürzel
   automatisch (Initialen, nicht änderbar); externe Teilnehmende werden frei
   eingetragen, inkl. einem optional frei wählbaren Kürzel.
+- **Externe Teilnehmende suchen**: ein Suchfeld unter den Teilnehmenden
+  durchsucht live die schon geladenen, früheren Protokolle nach bereits
+  erfassten externen Personen (analog zur Modul-Suche bei den Offerten,
+  bewusst keine separate Personen-Liste) — Klick auf einen Treffer übernimmt
+  Name und zuletzt verwendetes Kürzel. Bereits im aktuellen Protokoll
+  vorhandene sowie Büro-Personen (die eigene "+ Name"-Knöpfe haben)
+  erscheinen nicht in den Treffern.
 - **Hauptteil**: Zwischentitel und Stichpunkte lassen sich wie die
   Phasen/Module bei den Offerten per Ziehgriff neu anordnen. Ein Stichpunkt
   kann optional ein Kürzel einer Teilnehmerin/eines Teilnehmers zugewiesen
