@@ -272,13 +272,24 @@ function renderList() {
 
 // ---------- Editor: Grunddaten ----------
 
+// Aktuelle Uhrzeit, auf die nächstgelegenen 15 Minuten gerundet (auf- oder
+// abgerundet, je nachdem was näher liegt) -- wie beim Datum ein sinnvoller
+// Vorschlag für ein neues Protokoll statt einer leeren Zeit. setMinutes()
+// rollt bei 60 automatisch auf die nächste Stunde über.
+function roundedTimeNow() {
+  const d = new Date();
+  const rounded = Math.round(d.getMinutes() / 15) * 15;
+  d.setMinutes(rounded, 0, 0);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 function blankProtokoll() {
   return {
     titel: "",
     projekt: "",
     projektName: "", // siehe renderProjektSelect() -- zur Disambiguierung, falls dieselbe Nummer mehrfach vergeben ist
     datum: formatDate(new Date()),
-    zeitVon: "",
+    zeitVon: roundedTimeNow(),
     zeitBis: "",
     ort: "",
     teilnehmende: [],
@@ -397,6 +408,71 @@ function renderPersonQuickAdd() {
 
 function addFreierTeilnehmer() {
   editingProtokoll.teilnehmende.push({ name: "", kuerzel: "", personKey: null });
+  renderTeilnehmende();
+}
+
+// ---------- Externe Teilnehmende aus früheren Protokollen suchen ----------
+//
+// Analog zur Modul-Suche bei den Offerten (siehe dort, allKnownModules()):
+// bewusst keine separate Personen-Library -- durchsucht einfach die schon
+// geladenen Protokolle live. Nur EXTERNE Teilnehmende (personKey null),
+// Büro-Personen haben ja bereits ihre eigenen "+ Name"-Knöpfe oben
+// (renderPersonQuickAdd()).
+function allKnownExterneTeilnehmende() {
+  const byName = new Map(); // Name (lowercase) -> {name, kuerzel, datum}
+  protokolle.forEach((p) => {
+    (p.data.teilnehmende || []).forEach((t) => {
+      if (t.personKey || !t.name || !t.name.trim()) return;
+      const key = t.name.trim().toLowerCase();
+      const bestehend = byName.get(key);
+      // Neuestes Protokoll gewinnt, falls sich das Kürzel mal geändert hat.
+      if (!bestehend || String(p.data.datum || "") > String(bestehend.datum)) {
+        byName.set(key, { name: t.name.trim(), kuerzel: t.kuerzel || "", datum: p.data.datum || "" });
+      }
+    });
+  });
+  return [...byName.values()];
+}
+
+function searchExterneTeilnehmende(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const already = new Set(editingProtokoll.teilnehmende.map((t) => (t.name || "").trim().toLowerCase()));
+  return allKnownExterneTeilnehmende()
+    .filter((t) => t.name.toLowerCase().includes(q) && !already.has(t.name.toLowerCase()))
+    .sort((a, b) => String(b.datum).localeCompare(String(a.datum)))
+    .slice(0, 8);
+}
+
+function renderTeilnehmerSearchResults(results, query) {
+  const box = document.getElementById("teilnehmerSearchResults");
+  if (!query.trim()) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  box.classList.remove("hidden");
+  if (results.length === 0) {
+    box.innerHTML = '<div class="mod-search-empty">Keine passenden Personen gefunden.</div>';
+    return;
+  }
+  box.innerHTML = results
+    .map(
+      (t, i) => `<div class="mod-search-result" data-index="${i}">
+        <span class="msr-title">${escapeHtml(t.name)}</span>
+        <span class="msr-meta">${t.kuerzel ? escapeHtml(t.kuerzel) : "kein Kürzel"}</span>
+      </div>`
+    )
+    .join("");
+  box.querySelectorAll(".mod-search-result").forEach((el) => {
+    el.addEventListener("click", () => importExterneTeilnehmerin(results[parseInt(el.dataset.index, 10)]));
+  });
+}
+
+function importExterneTeilnehmerin(t) {
+  editingProtokoll.teilnehmende.push({ name: t.name, kuerzel: t.kuerzel || "", personKey: null });
+  document.getElementById("teilnehmerSearchInput").value = "";
+  renderTeilnehmerSearchResults([], "");
   renderTeilnehmende();
 }
 
@@ -698,6 +774,9 @@ function init() {
   document.getElementById("saveProtokollBtn").addEventListener("click", saveCurrentProtokoll);
   document.getElementById("deleteProtokollBtn").addEventListener("click", deleteCurrentProtokoll);
   document.getElementById("addTeilnehmerBtn").addEventListener("click", addFreierTeilnehmer);
+  document.getElementById("teilnehmerSearchInput").addEventListener("input", (e) => {
+    renderTeilnehmerSearchResults(searchExterneTeilnehmende(e.target.value), e.target.value);
+  });
   document.getElementById("addBulletBtn").addEventListener("click", () => {
     editingProtokoll.abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: "" });
     renderAbschnitte();
