@@ -1,8 +1,7 @@
 # Hinweise für Claude Code in diesem Repo
 
-Büro-Apps für ein Architekturbüro (Jonas Haldemann, jonasha@ethz.ch, und
-Manuel Viecelli) — acht kleine statische PWAs ohne Build-Schritt, gehostet
-auf GitHub Pages (Repo `jonashaldemann/buero-app`, Branch `main`). Was die
+Büro-Apps für ein Architekturbüro — acht kleine statische PWAs ohne
+Build-Schritt, gehostet auf GitHub Pages (Branch `main`). Was die
 Apps jeweils tun, steht ausführlich in `README.md` — diese Datei hier ist
 bewusst kein Duplikat davon, sondern hält fest, **wie** wir zusammenarbeiten
 und ein paar Architektur-Eckpunkte, die man sonst erst mühsam zusammensuchen
@@ -84,9 +83,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   öffentlicher Freigabelink mehr.
 - **Auto-Update**: `registerServiceWorkerWithAutoUpdate()` in
   `shared/common.js` lädt die Seite automatisch neu, sobald im Hintergrund
-  eine neue Service-Worker-Version aktiv wird (wichtig, damit z.B. Manuel
-  nach einem Nextcloud-Pfad-Umzug nicht versehentlich mit einer alten,
-  gegen nicht mehr existierende Pfade laufenden Version weiterarbeitet).
+  eine neue Service-Worker-Version aktiv wird (wichtig, damit niemand
+  nach einem Nextcloud-Pfad-Umzug versehentlich mit einer alten, gegen
+  nicht mehr existierende Pfade laufenden Version weiterarbeitet).
 
 ## Bekannte offene Ideen (noch nicht umgesetzt)
 
