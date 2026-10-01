@@ -8,6 +8,11 @@ bewusst kein Duplikat davon, sondern hält fest, **wie** wir zusammenarbeiten
 und ein paar Architektur-Eckpunkte, die man sonst erst mühsam zusammensuchen
 müsste.
 
+**Diese Datei aktuell halten**: Sobald sich etwas Wichtiges ändert (neue
+Architektur-Entscheidung, neue/geänderte Konvention im Arbeitsablauf, ein
+Punkt aus "Bekannte offene Ideen" wird umgesetzt oder verworfen o.Ä.), diese
+Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
+
 ## Arbeitsablauf mit dem Nutzer
 
 - Der Nutzer sammelt Wünsche/Bugs auf Deutsch in einer **untracked**
