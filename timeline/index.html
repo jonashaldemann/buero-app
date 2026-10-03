@@ -42,10 +42,18 @@
   .tp-week-gridline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--border); opacity: 0.6; }
   .tp-vacation-stripe { position: absolute; top: 0; bottom: 0; }
   /* Wochenend-Tage ohne Anwesenheit (grau) bzw. Anwesenheitstage laut
-     Wochenschema (grün) -- pro Mitarbeiter-Zeile, siehe attendanceStripesHtml()
-     in app.js. Ein Tag ist immer nur eines von beiden, nie überlagert. */
+     Wochenschema (grün, abgestuft nach Restpensum) -- pro Mitarbeiter-Zeile,
+     siehe attendanceStripesHtml() in app.js. Ein Tag ist immer nur eines
+     von beiden, nie überlagert. */
   .tp-weekend-stripe { position: absolute; top: 0; bottom: 0; background: rgba(60, 50, 40, 0.08); pointer-events: none; }
   .tp-attendance-stripe { position: absolute; top: 0; bottom: 0; background: rgba(90, 140, 95, 0.22); pointer-events: none; }
+  .tp-attendance-partial { background: rgba(70, 120, 80, 0.36); }
+  .tp-attendance-full { background: rgba(55, 95, 65, 0.52); }
+  .tp-attendance-over { background: rgba(196, 92, 70, 0.4); }
+  .tp-restpensum-label {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    font-size: 9px; font-weight: 600; color: #33302b; white-space: nowrap; pointer-events: none;
+  }
 
   .tp-section-label {
     position: relative; z-index: 1;
@@ -168,9 +176,14 @@
     zusätzlicher Einsatz an einem sonst freien Sonntag). Frei/Ferien-Balken
     (Titel enthält "frei"/"ferien"/"weg"/"abwesend", z.B. auch
     "Weihnachtsferien") werden zusätzlich über allen Zeilen grau hinterlegt
-    (je mehr Personen frei haben, desto dunkler). Strg/Cmd + Scrollrad (oder
-    Pinch-Geste) zoomt rein/raus, normales Scrollen bzw. Umschalt+Scrollen
-    bleibt seitliches Verschieben.
+    (je mehr Personen frei haben, desto dunkler). Bei Aufgaben-Balken lässt
+    sich zusätzlich pro Person ein Pensum in % eintragen — das daraus
+    errechnete Restpensum (100% minus bereits verplantem Pensum) färbt den
+    jeweiligen Anwesenheitstag in der Mitarbeiter-Zeile dunkler ein (rötlich
+    bei Überbuchung), mit der genauen Zahl als Tooltip und, weit genug
+    gezoomt, direkt eingeblendet. Strg/Cmd + Scrollrad (oder Pinch-Geste)
+    zoomt rein/raus, normales Scrollen bzw. Umschalt+Scrollen bleibt
+    seitliches Verschieben.
   </p>
 
   <div class="tp-scroll" id="tpScroll">

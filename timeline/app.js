@@ -242,6 +242,31 @@ function totalEntryHours(entry) {
   return Math.round(sum);
 }
 
+// Summe aller einer Person an einem Tag zugewiesenen Pensum-Prozente, über
+// alle Projekte/Aufgaben hinweg (mehrere sich überschneidende Balken zählen
+// zusammen).
+function bookedPensumPercent(personKey, iso) {
+  let sum = 0;
+  zeitplan.projekte.forEach((proj) => {
+    proj.aufgaben.forEach((aufgabe) => {
+      aufgabe.eintraege.forEach((entry) => {
+        const pct = entry.pensum && entry.pensum[personKey];
+        if (!pct) return;
+        const ende = entry.ende || entry.start;
+        if (iso >= entry.start && iso <= ende) sum += pct;
+      });
+    });
+  });
+  return sum;
+}
+
+// Restpensum = 100% minus bereits verplantes Pensum an diesem Tag -- nur an
+// Anwesenheitstagen sinnvoll (sonst null), negativ bei Überbuchung.
+function restpensumPercent(personKey, iso) {
+  if (!isAttendanceDay(personKey, iso)) return null;
+  return Math.round(100 - bookedPensumPercent(personKey, iso));
+}
+
 // ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
 
 async function refreshAppData() {
@@ -486,27 +511,51 @@ function renderRowHtml({ labelHtml, trackLoc, items, indent, summary, bgHtml }) 
   </div>`;
 }
 
+// Ab dieser Tagesbreite lohnt sich eine eingeblendete Restpensum-Zahl im
+// Streifen -- darunter wäre der Text ohnehin nicht lesbar (wie bei
+// DAY_HEADER_MIN_WIDTH).
+const RESTPENSUM_LABEL_MIN_WIDTH = 28;
+
 // Anwesenheitstage aus dem Wochenschema als dezente Streifen HINTER den
 // Balken/Meilensteinen derselben Zeile (daher als bgHtml vor den Einträgen
-// eingefügt, siehe renderRowHtml()): grünlich bei Anwesenheit, grau bei
-// Wochenende OHNE Anwesenheit (ersetzt das frühere, zeilenübergreifende
-// Wochenend-Overlay -- pro Mitarbeiter ist so auf einen Blick klar, ob ein
-// Samstag/Sonntag für diese Person ein Arbeitstag ist oder nicht).
+// eingefügt, siehe renderRowHtml()): grau bei Wochenende OHNE Anwesenheit
+// (ersetzt das frühere, zeilenübergreifende Wochenend-Overlay), sonst
+// grünlich gemäss Restpensum -- heller/Standardgrün ohne jede Buchung,
+// dunkler mit zunehmender Buchung, rötlich bei Überbuchung (Restpensum <0).
+// Ab RESTPENSUM_LABEL_MIN_WIDTH erscheint zusätzlich die Restpensum-Zahl im
+// Streifen (nur wenn tatsächlich etwas gebucht ist -- ein unverplanter Tag
+// bleibt bewusst zahlenfrei, siehe Todo "kompakt und grafisch clever").
 function attendanceStripesHtml(personKey) {
   const runs = [];
   let cur = null;
   for (let d = 0; d < totalDays; d++) {
     const date = addDays(rangeStartDate, d);
-    const state = isAttendanceDay(personKey, toISO(date)) ? "present" : isWeekendDate(date) ? "weekend" : null;
-    if (!state) { if (cur) { runs.push(cur); cur = null; } continue; }
-    if (cur && cur.state === state) cur.end = d;
-    else { if (cur) runs.push(cur); cur = { start: d, end: d, state }; }
+    const iso = toISO(date);
+    let kind = null;
+    let value = null;
+    if (isAttendanceDay(personKey, iso)) {
+      value = restpensumPercent(personKey, iso);
+      kind = value < 0 ? "over" : value === 0 ? "full" : value < 100 ? "partial" : "free";
+    } else if (isWeekendDate(date)) {
+      kind = "weekend";
+    }
+    if (!kind) { if (cur) { runs.push(cur); cur = null; } continue; }
+    const runKey = kind + ":" + value;
+    if (cur && cur.runKey === runKey) cur.end = d;
+    else { if (cur) runs.push(cur); cur = { start: d, end: d, kind, value, runKey }; }
   }
   if (cur) runs.push(cur);
+
+  const KIND_CLASS = { partial: " tp-attendance-partial", full: " tp-attendance-full", over: " tp-attendance-over" };
   return runs
     .map((r) => {
-      const cls = r.state === "present" ? "tp-attendance-stripe" : "tp-weekend-stripe";
-      return `<div class="${cls}" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`;
+      const left = r.start * DAY_WIDTH;
+      const width = (r.end - r.start + 1) * DAY_WIDTH;
+      if (r.kind === "weekend") return `<div class="tp-weekend-stripe" style="left:${left}px; width:${width}px;"></div>`;
+      const cls = "tp-attendance-stripe" + (KIND_CLASS[r.kind] || "");
+      const showLabel = r.kind !== "free" && DAY_WIDTH >= RESTPENSUM_LABEL_MIN_WIDTH;
+      const label = showLabel ? `<span class="tp-restpensum-label" style="left:${width / 2}px;">${r.value}%</span>` : "";
+      return `<div class="${cls}" style="left:${left}px; width:${width}px;" title="Restpensum: ${r.value}%">${label}</div>`;
     })
     .join("");
 }
