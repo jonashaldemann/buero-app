@@ -944,8 +944,8 @@ also automatisch mit.
       × 8h × Pensum, auf ganze Stunden gerundet) und direkt am Balken bzw.
       neben der Raute angezeigt. Eine Live-Vorschau der Stunden erscheint
       schon im Dialog, während Daten/Pensum angepasst werden. Zusätzlich
-      steht die **Gesamtstundenzahl** zuvorderst beim Zeilentitel: pro
-      Aufgabe die Summe all ihrer Balken/Meilensteine, pro Projekt die
+      steht die **Gesamtstundenzahl** rechtsbündig neben dem Zeilentitel:
+      pro Aufgabe die Summe all ihrer Balken/Meilensteine, pro Projekt die
       Summe über alle Aufgaben — bleibt weg, wo nirgends ein Pensum
       zugewiesen ist.
 
