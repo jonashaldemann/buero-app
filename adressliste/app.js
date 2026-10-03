@@ -84,8 +84,8 @@ const COLUMNS = [
   { key: "kategorie", label: "Kategorie" },
   { key: "status", label: "Status" },
   { key: "kontaktperson", label: "Kontaktperson" },
-  { key: "name", label: "Name" },
   { key: "vorname", label: "Vorname" },
+  { key: "name", label: "Name" },
   { key: "firma", label: "Firma" },
   { key: "strasse", label: "Strasse" },
   { key: "ort", label: "Ort" },
@@ -97,7 +97,7 @@ const COLUMNS = [
   { key: "weihnachtskarte", label: "Weihnachtskarte" },
   { key: "updatedInfo", label: "Zuletzt geändert" }
 ];
-const DEFAULT_COLUMNS = ["kategorie", "name", "vorname", "firma", "ort", "status", "weihnachtskarte"];
+const DEFAULT_COLUMNS = ["kategorie", "vorname", "name", "firma", "ort", "status", "weihnachtskarte"];
 
 function columnDef(key) {
   return COLUMNS.find((c) => c.key === key);
