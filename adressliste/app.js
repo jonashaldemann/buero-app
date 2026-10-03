@@ -41,15 +41,21 @@
    angezeigt) statt eines fixen Formats -- Gegenstück zum CSV-Import, der
    dagegen ein festes Spaltenset erwartet (siehe CSV_FIELD_MAP).
 
-   Kategorie, Status und Kontaktperson kommen aus einem gemeinsam
-   verwalteten, auf Nextcloud gespeicherten Optionen-Set (_optionen.json,
-   siehe OPTIONS_FILENAME/refreshOptionSets()) statt aus freiem Text -- neue
-   Werte lassen sich sowohl über "+ neu…" in jedem Dropdown als auch über den
+   Kategorie und Status kommen aus einem gemeinsam verwalteten, auf
+   Nextcloud gespeicherten Optionen-Set (_optionen.json, siehe
+   OPTIONS_FILENAME/refreshOptionSets()) statt aus freiem Text -- neue Werte
+   lassen sich sowohl über "+ neu…" in jedem Dropdown als auch über den
    Button "Optionen" (renderOptionChips()) hinzufügen/entfernen. Entfernen
    löscht nur den Eintrag aus der Auswahlliste, nicht aus bereits
    gespeicherten Kontakten mit diesem Wert. FIELD_TO_OPTIONSET ordnet
    Kontaktfeld -> Optionen-Set-Schlüssel zu, damit Editor, Tabellen-Dropdowns
-   und die "+ neu…"-Logik nicht dreifach dieselbe Fallunterscheidung brauchen.
+   und die "+ neu…"-Logik nicht zweifach dieselbe Fallunterscheidung brauchen.
+
+   Kontaktperson ist dagegen KEIN frei verwaltetes Optionen-Set, sondern
+   kommt direkt aus den Mitarbeitenden der zentralen config.json
+   (appConfig.mitarbeitende, siehe refreshAppData()/personen) -- dafür gibt
+   es kein "+ neu…" und keine Verwaltung im "Optionen"-Dialog (siehe
+   personSelectHtml()/renderEditorOptionSelects()).
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, chNumber usw. kommen
    aus ../shared/common.js (gemeinsam mit Zeiterfassung, Quittung,
@@ -70,8 +76,9 @@ const OPTIONS_FILENAME = "_optionen.json"; // Kategorie-/Status-Auswahllisten, s
 // Kontaktfelder, die aus einem gemeinsam verwalteten Optionen-Set kommen
 // (siehe refreshOptionSets()) statt aus freiem Text -- Wert -> Optionen-Set-
 // Schlüssel in _optionen.json, plus Beschriftung für den "+ neu…"-Prompt.
-const FIELD_TO_OPTIONSET = { kategorie: "kategorien", status: "status", kontaktperson: "kontaktpersonen" };
-const OPTION_FIELD_LABELS = { kategorie: "Neue Kategorie:", status: "Neuer Status:", kontaktperson: "Neue Kontaktperson:" };
+// Kontaktperson ist bewusst NICHT dabei, siehe Kommentar oben.
+const FIELD_TO_OPTIONSET = { kategorie: "kategorien", status: "status" };
+const OPTION_FIELD_LABELS = { kategorie: "Neue Kategorie:", status: "Neuer Status:" };
 
 const COLUMNS = [
   { key: "kategorie", label: "Kategorie" },
@@ -110,11 +117,21 @@ function blankView() {
 let contacts = loadJSON(LS_KEYS.contactsCache, []);
 // Ansichten: { filename, id, name, columns, filters, sort }
 let views = loadJSON(LS_KEYS.viewsCache, []);
-// Auswahllisten für Kategorie/Status/Kontaktperson-Dropdowns (Editor + Tabelle).
-let optionSets = loadJSON(LS_KEYS.optionsCache, { kategorien: [], status: [], kontaktpersonen: [] });
+// Auswahllisten für Kategorie-/Status-Dropdowns (Editor + Tabelle).
+let optionSets = loadJSON(LS_KEYS.optionsCache, { kategorien: [], status: [] });
+// Kontaktperson-Auswahl -- kommt aus der zentralen config.json, nicht aus
+// optionSets (siehe Kommentar oben).
+let personen = appConfig.mitarbeitende;
 
 let currentView = blankView();
 let activeViewId = null; // null = nicht gespeicherte/angepasste Ansicht
+
+// ---------- Zentrale Konfiguration (Mitarbeitende für Kontaktperson) ----------
+
+async function refreshAppData() {
+  await refreshAppConfig();
+  personen = appConfig.mitarbeitende;
+}
 
 // Beim Drag&Drop eines Spaltenkopfs (siehe renderTableHead()) der Key der
 // gerade gezogenen Spalte, sonst null.
@@ -281,7 +298,7 @@ function distinctFieldValues(key) {
 }
 
 function blankOptionSets() {
-  return { kategorien: [], status: [], kontaktpersonen: [] };
+  return { kategorien: [], status: [] };
 }
 
 async function refreshOptionSets() {
@@ -289,19 +306,17 @@ async function refreshOptionSets() {
   if (!data) {
     // Erster Aufruf nach der Umstellung von freiem Text auf ein Optionen-Set:
     // aus den schon vorhandenen Kontakten sinnvolle Startwerte ableiten,
-    // damit bisher erfasste Kategorien/Status/Kontaktpersonen nicht verschwinden.
+    // damit bisher erfasste Kategorien/Status nicht verschwinden.
     data = {
       kategorien: distinctFieldValues("kategorie"),
-      status: distinctFieldValues("status"),
-      kontaktpersonen: distinctFieldValues("kontaktperson")
+      status: distinctFieldValues("status")
     };
     await putJsonFile(adressenSegments(), OPTIONS_FILENAME, data);
   }
   const blank = blankOptionSets();
   optionSets = {
     kategorien: Array.isArray(data.kategorien) ? data.kategorien : blank.kategorien,
-    status: Array.isArray(data.status) ? data.status : blank.status,
-    kontaktpersonen: Array.isArray(data.kontaktpersonen) ? data.kontaktpersonen : blank.kontaktpersonen
+    status: Array.isArray(data.status) ? data.status : blank.status
   };
   saveJSON(LS_KEYS.optionsCache, optionSets);
 }
@@ -338,8 +353,7 @@ async function removeOptionValue(type, value) {
 // Eingabefelder -- siehe init()). chipsElId/type/removeLabel je Feld.
 const OPTION_CHIP_SECTIONS = [
   { chipsElId: "kategorieChips", type: "kategorien", removeLabel: "Kategorie" },
-  { chipsElId: "statusChips", type: "status", removeLabel: "Status" },
-  { chipsElId: "kontaktpersonChips", type: "kontaktpersonen", removeLabel: "Kontaktperson" }
+  { chipsElId: "statusChips", type: "status", removeLabel: "Status" }
 ];
 
 function chipHtml(value) {
@@ -573,10 +587,31 @@ function optionSelectHtml(field, current, options) {
   return `<select class="cell-edit" data-quickfield="${field}">${optionListHtml(current, options)}</select>`;
 }
 
+// <option>-Liste für Kontaktperson -- kommt aus der zentralen config.json
+// (personen), kein "+ neu…" (nicht hier verwaltet, siehe Kommentar oben).
+// Ein gespeicherter Wert, der zu niemandem in der aktuellen Mitarbeitenden-
+// Liste mehr passt (z.B. nach einem Namenswechsel), bleibt trotzdem als
+// Option erhalten statt stillschweigend zu verschwinden.
+function personOptionListHtml(current) {
+  const names = personen.map((p) => p.name);
+  if (current && !names.includes(current)) names.push(current);
+  return (
+    `<option value="" ${current === "" ? "selected" : ""}>–</option>` +
+    names.map((n) => `<option value="${escapeHtml(n)}" ${n === current ? "selected" : ""}>${escapeHtml(n)}</option>`).join("")
+  );
+}
+
+function personSelectHtml(current) {
+  return `<select class="cell-edit" data-quickfield="kontaktperson">${personOptionListHtml(current)}</select>`;
+}
+
 // Kategorie, Status, Kontaktperson und Weihnachtskarte lassen sich direkt in
 // der Liste ändern (ohne den Editor zu öffnen) -- alle anderen Spalten nur
 // über "Bearbeiten".
 function bodyCellHtml(col, data) {
+  if (col.key === "kontaktperson") {
+    return personSelectHtml(data.kontaktperson || "");
+  }
   if (FIELD_TO_OPTIONSET[col.key]) {
     return optionSelectHtml(col.key, data[col.key] || "", optionSets[FIELD_TO_OPTIONSET[col.key]]);
   }
@@ -792,13 +827,14 @@ function closeEditor() {
 }
 
 // id des <select> im Editor je Optionen-Set-Feld.
-const OPTION_FIELD_SELECT_ID = { kategorie: "inputKategorie", status: "inputStatus", kontaktperson: "inputKontaktperson" };
+const OPTION_FIELD_SELECT_ID = { kategorie: "inputKategorie", status: "inputStatus" };
 
 function renderEditorOptionSelects(currentValues) {
   Object.keys(FIELD_TO_OPTIONSET).forEach((field) => {
     document.getElementById(OPTION_FIELD_SELECT_ID[field]).innerHTML =
       optionListHtml(currentValues[field] || "", optionSets[FIELD_TO_OPTIONSET[field]]);
   });
+  document.getElementById("inputKontaktperson").innerHTML = personOptionListHtml(currentValues.kontaktperson || "");
 }
 
 function fillEditorFields(data) {
@@ -1034,7 +1070,7 @@ function init() {
   initSettingsUI({
     checkRelPath: pingRelPath,
     ensureFolderFn: ensureAdressenFolder,
-    onSaved: refreshContacts
+    onSaved: () => { refreshContacts(); refreshAppData().then(renderTableBody); }
   });
 
   document.getElementById("refreshBtn").addEventListener("click", refreshContacts);
@@ -1047,16 +1083,16 @@ function init() {
   document.getElementById("saveViewBtn").addEventListener("click", saveCurrentView);
   document.getElementById("deleteViewBtn").addEventListener("click", deleteCurrentView);
 
-  // Editor: Kategorie/Status/Kontaktperson sind Dropdowns aus dem
-  // Optionen-Set -- "+ neu…" fragt einen neuen Wert ab, trägt ihn ins
-  // Optionen-Set ein und wählt ihn an (die jeweils anderen beiden Felder
-  // bleiben dabei unverändert).
+  // Editor: Kategorie/Status sind Dropdowns aus dem Optionen-Set -- "+ neu…"
+  // fragt einen neuen Wert ab, trägt ihn ins Optionen-Set ein und wählt ihn
+  // an (das jeweils andere Feld sowie Kontaktperson bleiben dabei
+  // unverändert).
   Object.keys(FIELD_TO_OPTIONSET).forEach((field) => {
     document.getElementById(OPTION_FIELD_SELECT_ID[field]).addEventListener("change", async (e) => {
       if (e.target.value !== "__neu__") return;
       const typed = (prompt(OPTION_FIELD_LABELS[field]) || "").trim();
       if (typed) await addOptionValue(FIELD_TO_OPTIONSET[field], typed);
-      const currentValues = {};
+      const currentValues = { kontaktperson: document.getElementById("inputKontaktperson").value };
       Object.keys(FIELD_TO_OPTIONSET).forEach((f) => {
         const v = document.getElementById(OPTION_FIELD_SELECT_ID[f]).value;
         currentValues[f] = f === field ? typed : v === "__neu__" ? "" : v;
@@ -1075,8 +1111,7 @@ function init() {
   });
   const OPTION_ADD_BUTTONS = [
     { btnId: "addKategorieBtn", inputId: "newKategorieInput", type: "kategorien" },
-    { btnId: "addStatusBtn", inputId: "newStatusInput", type: "status" },
-    { btnId: "addKontaktpersonBtn", inputId: "newKontaktpersonInput", type: "kontaktpersonen" }
+    { btnId: "addStatusBtn", inputId: "newStatusInput", type: "status" }
   ];
   OPTION_ADD_BUTTONS.forEach(({ btnId, inputId, type }) => {
     document.getElementById(btnId).addEventListener("click", async () => {
@@ -1094,9 +1129,25 @@ function init() {
     e.target.value = "";
   });
   document.getElementById("csvExportBtn").addEventListener("click", exportCurrentViewAsCsv);
+  document.getElementById("labelsExportBtn").addEventListener("click", async () => {
+    const rows = visibleContacts();
+    if (!rows.length) { alert("Keine Einträge in der aktuellen Ansicht -- nichts zu drucken."); return; }
+    const btn = document.getElementById("labelsExportBtn");
+    btn.disabled = true;
+    try {
+      const { printedCount, skippedCount } = await exportLabelsPdf(rows);
+      if (skippedCount) alert(`${skippedCount} von ${rows.length} Kontakten ohne jede druckbare Angabe (Firma/Name/Strasse/Ort) übersprungen.`);
+      if (!printedCount) alert("Kein Kontakt in der aktuellen Ansicht hatte druckbare Angaben.");
+    } catch (err) {
+      alert("Fehler beim PDF-Erstellen: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   renderAll();
   refreshContacts();
+  refreshAppData().then(renderTableBody);
 
   registerServiceWorkerWithAutoUpdate();
 }
