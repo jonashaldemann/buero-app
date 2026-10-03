@@ -710,7 +710,7 @@ das Browserfenster.
   bleibt trotzdem als Option erhalten statt zu verschwinden.
 - **Ansichten speichern**: die aktuelle Kombination aus Spalten (inkl.
   Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
-  (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
+  (z.B. "Weihnachtskarten" = nur Firma/Vorname/Name/Weihnachtskarte, gefiltert
   auf Weihnachtskarte = Ja). Jede Ansicht ist — wie die Kontakte selbst —
   eine eigene JSON-Datei, im Unterordner `Buero/Admin/App/Adressen/Ansichten`,
   also für alle Personen mit Zugriff auf diesen Ordner gleich sichtbar.
