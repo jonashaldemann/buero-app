@@ -24,7 +24,11 @@
   .tp-inner { position: relative; min-width: max-content; }
 
   .tp-header-row { display: flex; border-bottom: 1px solid var(--border); }
-  .tp-corner { flex: 0 0 200px; position: sticky; left: 0; background: var(--surface); z-index: 4; }
+  /* will-change zwingt die sticky Spalte auf eine eigene Compositing-Ebene
+     -- ohne das kann beim Scrollen kurz ein Haarriss entstehen, durch den
+     die darunter liegenden Balken/Streifen durchscheinen (bekannter
+     Browser-Effekt bei position:sticky + schnellem Scrollen). */
+  .tp-corner { flex: 0 0 200px; position: sticky; left: 0; background: var(--surface); z-index: 4; will-change: transform; }
   .tp-header-tracks { display: flex; flex-direction: column; }
   .tp-header-track { position: relative; height: 22px; }
   .tp-month-tick { position: absolute; top: 4px; bottom: 0; border-left: 1px solid var(--border); padding-left: 4px; }
@@ -69,6 +73,12 @@
   .tp-label-cell {
     flex: 0 0 200px; position: sticky; left: 0; background: var(--surface); z-index: 2;
     display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 13px;
+    will-change: transform;
+  }
+  /* Deckt den Haarriss am rechten Rand der sticky Spalte zusätzlich ab, für
+     den Fall, dass will-change allein (siehe oben) nicht überall reicht. */
+  .tp-label-cell::after {
+    content: ""; position: absolute; top: 0; bottom: 0; right: -1px; width: 1px; background: var(--surface);
   }
   .tp-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tp-row-title-strong { font-family: var(--font-medium); }
