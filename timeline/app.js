@@ -66,7 +66,9 @@ function blankZeitplan() {
     //                  ausnahmen:[isoDate,...] (Schema-Tage, die NICHT gelten),
     //                  zusatz:[isoDate,...] (einzelne Tage AUSSERHALB des Schemas, die zusätzlich gelten)} }
     mitarbeiterSchema: {},
-    projekte: [], // [{id,titel,aufgeklappt,aufgaben:[{id,titel,eintraege:[{id,typ,titel,start,ende}]}]}]
+    // [{id,titel,aufgeklappt,aufgaben:[{id,titel,eintraege:[{id,typ,titel,start,ende,pensum?:{personKey:prozent}}]}]}]
+    // pensum nur bei Aufgaben-Einträgen (nicht bei Mitarbeiter-/Ferien-Balken), siehe totalEntryHours().
+    projekte: [],
     updatedAt: null,
     updatedBy: null
   };
@@ -205,6 +207,39 @@ function nextOccurrenceIso(wochentag, fromDate) {
   let d = new Date(fromDate);
   while (weekdayIndexMonday(d) !== wochentag) d = addDays(d, 1);
   return toISO(d);
+}
+
+// ---------- Pensum / Stunden pro Balken ----------
+
+const STUNDEN_PRO_TAG = 8;
+
+// Anwesenheitstage einer Person innerhalb eines Zeitraums (inkl. beider
+// Enden) -- Grundlage für die Stundenberechnung pro Balken.
+function attendanceDaysInRange(personKey, startIso, endeIso) {
+  let count = 0;
+  let d = parseISO(startIso);
+  const end = parseISO(endeIso);
+  while (d <= end) {
+    if (isAttendanceDay(personKey, toISO(d))) count++;
+    d = addDays(d, 1);
+  }
+  return count;
+}
+
+// Stunden einer Person auf einem Balken/Meilenstein: Anwesenheitstage im
+// Zeitraum × 8h × Pensum-%. Ein Meilenstein zählt dabei als eintägiger
+// Balken (Start = Ende).
+function personHoursForEntry(entry, personKey, pct) {
+  if (!pct) return 0;
+  return attendanceDaysInRange(personKey, entry.start, entry.ende || entry.start) * STUNDEN_PRO_TAG * (pct / 100);
+}
+
+// Gesamtstunden eines Balkens/Meilensteins über alle zugewiesenen Personen,
+// auf ganze Stunden gerundet (siehe Todo: "+/-1h gerundet").
+function totalEntryHours(entry) {
+  const pensum = entry.pensum || {};
+  const sum = Object.entries(pensum).reduce((acc, [key, pct]) => acc + personHoursForEntry(entry, key, pct), 0);
+  return Math.round(sum);
 }
 
 // ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
@@ -418,6 +453,7 @@ function visibleBarRect(entry) {
 function renderEntryHtml(entry, loc, color) {
   const locAttr = escapeHtml(JSON.stringify(loc));
   const titleAttr = escapeHtml(entry.titel || "");
+  const hours = totalEntryHours(entry);
   if (entry.typ === "meilenstein") {
     const x = dateToX(entry.start);
     if (x < 0 || x > totalWidth) return ""; // ausserhalb des sichtbaren Fensters
@@ -425,13 +461,14 @@ function renderEntryHtml(entry, loc, color) {
     return `<div class="tp-milestone" style="left:${x - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}">
         <span class="tp-milestone-day">${dayNum}</span>
       </div>
-      <div class="tp-milestone-label" style="left:${x + 9}px;">${titleAttr}</div>`;
+      <div class="tp-milestone-label" style="left:${x + 9}px;">${titleAttr}${hours ? ` · ${hours}h` : ""}</div>`;
   }
   const { left, width, offscreen } = visibleBarRect(entry);
   if (offscreen) return "";
   return `<div class="tp-bar" style="left:${left}px; width:${width}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}'>
     <span class="tp-bar-handle" data-handle="left"></span>
     <span class="tp-bar-label">${titleAttr}</span>
+    ${hours ? `<span class="tp-bar-hours">${hours}h</span>` : ""}
     <span class="tp-bar-handle" data-handle="right"></span>
   </div>`;
 }
@@ -603,6 +640,39 @@ function applyEntryTypVisibility() {
   document.getElementById("entryEndeGroup").style.display = typ === "meilenstein" ? "none" : "";
 }
 
+function pensumRowsHtml(pensum) {
+  return personen
+    .map((p) => {
+      const pct = (pensum && pensum[p.key]) || "";
+      return `<div class="pensum-row" data-person="${p.key}">
+        <span class="pensum-name">${escapeHtml(p.name)}</span>
+        <input type="number" class="pensum-pct" min="0" max="100" step="5" value="${pct}" placeholder="0">
+        <span class="pensum-unit">%</span>
+      </div>`;
+    })
+    .join("");
+}
+
+// Live-Vorschau der Gesamtstunden im Dialog, basierend auf den aktuellen
+// (noch nicht gespeicherten) Formularwerten -- nicht auf dem Eintrag selbst,
+// damit sich die Vorschau beim Tippen sofort aktualisiert.
+function updateEntryHoursPreview() {
+  const previewEl = document.getElementById("entryHoursPreview");
+  if (!editingEntryLocation || editingEntryLocation.type !== "aufgabe") { previewEl.textContent = ""; return; }
+  const typ = document.getElementById("entryTyp").value;
+  const start = document.getElementById("entryStart").value;
+  const ende = typ === "meilenstein" ? start : document.getElementById("entryEnde").value || start;
+  if (!start || !ende) { previewEl.textContent = ""; return; }
+
+  let total = 0;
+  document.querySelectorAll("#entryPensumRows .pensum-row").forEach((row) => {
+    const pct = Number(row.querySelector(".pensum-pct").value) || 0;
+    if (pct > 0) total += attendanceDaysInRange(row.dataset.person, start, ende) * STUNDEN_PRO_TAG * (pct / 100);
+  });
+  const rounded = Math.round(total);
+  previewEl.textContent = rounded ? `≈ ${rounded}h gesamt (Anwesenheitstage × 8h × Pensum)` : "";
+}
+
 // prefill (nur relevant für neue Einträge, entryId=null): {typ, start, ende}
 // -- kommt vom Ziehen/Klicken auf der leeren Zeilenfläche, siehe
 // onRowsPointerDown().
@@ -619,6 +689,14 @@ function openEntryDialog(loc, entryId, prefill) {
     ? entry.ende || entry.start
     : (prefill && (prefill.ende || prefill.start)) || toISO(addDays(new Date(), 6));
   applyEntryTypVisibility();
+
+  // Pensum nur bei Aufgaben-Einträgen -- Ferien/Frei-Balken der
+  // Mitarbeiter-Zeile sind keine Projektarbeit.
+  const isAufgabe = loc.type === "aufgabe";
+  document.getElementById("entryPensumGroup").style.display = isAufgabe ? "" : "none";
+  document.getElementById("entryPensumRows").innerHTML = isAufgabe ? pensumRowsHtml(entry && entry.pensum) : "";
+  updateEntryHoursPreview();
+
   document.getElementById("deleteEntryBtn").style.display = entryId ? "" : "none";
   document.getElementById("entryResult").textContent = "";
   document.getElementById("entryOverlay").classList.remove("hidden");
@@ -651,12 +729,24 @@ function saveEntryDialog() {
   if (!start) { resultEl.textContent = "Bitte ein Startdatum angeben."; resultEl.className = "test-result err"; return; }
   if (typ === "balken" && ende < start) { resultEl.textContent = "Ende darf nicht vor Start liegen."; resultEl.className = "test-result err"; return; }
 
+  let pensum = null;
+  if (editingEntryLocation.type === "aufgabe") {
+    pensum = {};
+    document.querySelectorAll("#entryPensumRows .pensum-row").forEach((row) => {
+      const pct = Number(row.querySelector(".pensum-pct").value) || 0;
+      if (pct > 0) pensum[row.dataset.person] = pct;
+    });
+  }
+
   const arr = resolveEintraegeArray(editingEntryLocation);
   if (editingEntryId) {
     const e = arr.find((x) => x.id === editingEntryId);
     Object.assign(e, { titel, typ, start, ende });
+    if (pensum) e.pensum = pensum; else delete e.pensum;
   } else {
-    arr.push({ id: uid(), titel, typ, start, ende });
+    const neu = { id: uid(), titel, typ, start, ende };
+    if (pensum) neu.pensum = pensum;
+    arr.push(neu);
   }
   closeEntryDialog();
   renderAll();
@@ -1004,7 +1094,10 @@ function init() {
   document.getElementById("cancelEntryBtn").addEventListener("click", closeEntryDialog);
   document.getElementById("saveEntryBtn").addEventListener("click", saveEntryDialog);
   document.getElementById("deleteEntryBtn").addEventListener("click", deleteEntryDialog);
-  document.getElementById("entryTyp").addEventListener("change", applyEntryTypVisibility);
+  document.getElementById("entryTyp").addEventListener("change", () => { applyEntryTypVisibility(); updateEntryHoursPreview(); });
+  document.getElementById("entryStart").addEventListener("input", updateEntryHoursPreview);
+  document.getElementById("entryEnde").addEventListener("input", updateEntryHoursPreview);
+  document.getElementById("entryPensumRows").addEventListener("input", updateEntryHoursPreview);
   document.getElementById("refreshBtn").addEventListener("click", refreshZeitplan);
 
   document.getElementById("closeSchemaDialog").addEventListener("click", closeSchemaDialog);

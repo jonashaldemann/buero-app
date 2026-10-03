@@ -937,7 +937,13 @@ also automatisch mit.
       als Raute dargestellt) enthalten, jeweils mit eigenem Titel. Jede
       Raute zeigt den Tag des Monats direkt in der Raute, in der
       halbtransparenten Projekt-Übersichtszeile ausgeblendet (reine
-      "Strichcode"-Ansicht).
+      "Strichcode"-Ansicht). Im Bearbeiten-Dialog lässt sich zusätzlich pro
+      Person ein **Pensum in %** eintragen (ein Meilenstein zählt dabei als
+      eintägiger Balken) — daraus wird automatisch die Gesamtstundenzahl
+      errechnet (Anwesenheitstage der Person im Zeitraum laut Wochenschema
+      × 8h × Pensum, auf ganze Stunden gerundet) und direkt am Balken bzw.
+      neben der Raute angezeigt. Eine Live-Vorschau der Stunden erscheint
+      schon im Dialog, während Daten/Pensum angepasst werden.
 - **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
   zweite, feinere Zeile mit einer Spalte pro Woche (Montag als Wochenbeginn,
   beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
