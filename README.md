@@ -944,6 +944,15 @@ also automatisch mit.
       × 8h × Pensum, auf ganze Stunden gerundet) und direkt am Balken bzw.
       neben der Raute angezeigt. Eine Live-Vorschau der Stunden erscheint
       schon im Dialog, während Daten/Pensum angepasst werden.
+
+      Das **Restpensum** (100% minus die Summe aller an diesem Tag über
+      alle Projekte/Aufgaben hinweg zugewiesenen Pensen) zeigt sich direkt
+      in der Mitarbeiter-Zeile: ein unverplanter Anwesenheitstag bleibt im
+      normalen Grün, mit zunehmender Buchung wird der Tag dunkler eingefärbt
+      und bei Überbuchung (Restpensum <0) rötlich. Die genaue Zahl steht
+      immer als Tooltip zur Verfügung, ab einer gewissen Zoomstufe auch
+      direkt sichtbar im Streifen (`restpensumPercent()`/
+      `attendanceStripesHtml()` in `timeline/app.js`).
 - **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
   zweite, feinere Zeile mit einer Spalte pro Woche (Montag als Wochenbeginn,
   beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
