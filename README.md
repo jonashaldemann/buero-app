@@ -917,10 +917,8 @@ also automatisch mit.
     - **Aufgaben** — frei benannt (Klick auf "+ Aufgabe"/auf den Titel zum
       Umbenennen), je Aufgabe eine eigene Zeile. Eine Aufgabe kann beliebig
       viele Balken (Start–Ende) und/oder Meilensteine (ein einzelnes Datum,
-      als Raute dargestellt) enthalten, jeweils mit eigenem Titel. Jeder
-      Balken zeigt am rechten Rand zusätzlich zum Titel seine Länge (5D,
-      2W, 6M je nach Grössenordnung, `formatBarDuration()`), jede Raute den
-      Tag des Monats direkt in der Raute. Beides bleibt in der
+      als Raute dargestellt) enthalten, jeweils mit eigenem Titel. Jede
+      Raute zeigt den Tag des Monats direkt in der Raute, in der
       halbtransparenten Projekt-Übersichtszeile ausgeblendet (reine
       "Strichcode"-Ansicht).
 - **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
