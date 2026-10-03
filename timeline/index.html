@@ -42,6 +42,7 @@
   .tp-weekend-stripe { position: absolute; top: 0; bottom: 0; background: rgba(60, 50, 40, 0.05); }
   .tp-week-gridline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--border); opacity: 0.6; }
   .tp-vacation-stripe { position: absolute; top: 0; bottom: 0; }
+  .tp-attendance-stripe { position: absolute; top: 0; bottom: 0; background: rgba(79, 112, 137, 0.16); pointer-events: none; }
 
   .tp-section-label {
     position: relative; z-index: 1;
@@ -69,6 +70,8 @@
   .tp-label-cell:hover .tp-delete-btn { opacity: 1; }
   .tp-delete-btn:active { color: #B5654C; }
   .tp-link-btn { background: none; border: none; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 6px 0; }
+  .tp-schema-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; flex: none; font-size: 13px; padding: 2px 4px; opacity: 0.55; }
+  .tp-schema-btn:hover { opacity: 1; }
 
   /* Zeilen mit data-loc (Mitarbeiter/Aufgabe) sind auf leerer Fläche
      interaktiv -- klicken erzeugt einen Meilenstein, ziehen einen Balken,
@@ -115,6 +118,11 @@
 
   #entryOverlay .sheet { max-width: 420px; }
   .entry-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .schema-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .schema-day { display: flex; align-items: center; gap: 4px; flex: 0 0 56px; font-size: 13px; }
+  .schema-intervall { font-size: 12px; }
+  .schema-anker { font-size: 12px; }
 </style>
 </head>
 <body>
@@ -145,9 +153,12 @@
     Start/Ende an), anklicken ohne Ziehen öffnet den Bearbeiten-Dialog mit
     Datumsfeldern. Bei Mitarbeitenden Einträge mit "frei"/"ferien"/"weg"/
     "abwesend" im Titel (z.B. auch "Weihnachtsferien") werden über allen
-    Zeilen grau hinterlegt (je mehr Personen frei haben, desto dunkler).
-    Strg/Cmd + Scrollrad (oder Pinch-Geste) zoomt rein/raus, normales
-    Scrollen bzw. Umschalt+Scrollen bleibt seitliches Verschieben.
+    Zeilen grau hinterlegt (je mehr Personen frei haben, desto dunkler). Über
+    das 🗓-Symbol bei einer Person lässt sich ein Wochenschema hinterlegen
+    (bläulich markiert) — ein Klick auf einen markierten Tag nimmt ihn
+    einzeln aus (nochmals anklicken macht das rückgängig). Strg/Cmd +
+    Scrollrad (oder Pinch-Geste) zoomt rein/raus, normales Scrollen bzw.
+    Umschalt+Scrollen bleibt seitliches Verschieben.
   </p>
 
   <div class="tp-scroll" id="tpScroll">
@@ -241,6 +252,30 @@
       <button id="deleteEntryBtn" class="btn-secondary">Löschen</button>
       <button id="cancelEntryBtn" class="btn-secondary">Abbrechen</button>
       <button id="saveEntryBtn" class="btn-primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Wochenschema -->
+<div id="schemaOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="schemaDialogTitle">Wochenschema</h2>
+      <button id="closeSchemaDialog" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <p class="hint" style="margin-top:0;">
+      An welchen Wochentagen ist diese Person regulär da? Bei "jede 2.
+      Woche" bestimmt das Datum, in welcher der beiden Wochen es losgeht.
+      Einzelne Tage danach direkt im Zeitplan anklicken, um sie auszunehmen
+      (nochmals anklicken macht das rückgängig).
+    </p>
+
+    <div id="schemaRows"></div>
+
+    <div class="form-actions" style="margin-top:14px;">
+      <button id="cancelSchemaBtn" class="btn-secondary">Abbrechen</button>
+      <button id="saveSchemaBtn" class="btn-primary">Speichern</button>
     </div>
   </div>
 </div>

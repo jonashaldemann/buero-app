@@ -62,6 +62,8 @@ function projectColor(name) {
 function blankZeitplan() {
   return {
     mitarbeiterEintraege: {}, // { [personKey]: [{id,titel,start,ende}] }
+    // { [personKey]: {regeln:[{wochentag(0=Mo..6=So),intervall(1|2),anker?}], ausnahmen:[isoDate,...]} }
+    mitarbeiterSchema: {},
     projekte: [], // [{id,titel,aufgeklappt,aufgaben:[{id,titel,eintraege:[{id,typ,titel,start,ende}]}]}]
     updatedAt: null,
     updatedBy: null
@@ -112,6 +114,11 @@ function startOfWeek(d) {
   const diff = (d.getDay() + 6) % 7;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
 }
+// 0=Montag..6=Sonntag (dieselbe Zählweise wie startOfWeek()), passend zu
+// den Wochenschema-Regeln (mitarbeiterSchema).
+function weekdayIndexMonday(d) {
+  return (d.getDay() + 6) % 7;
+}
 function clampDayIdx(idx) {
   return Math.max(0, Math.min(totalDays - 1, idx));
 }
@@ -124,6 +131,68 @@ function clampDayIdx(idx) {
 // z.B. "Freitag" anspringt, ist in Kauf genommen.
 function isFreiTitle(titel) {
   return /(ferien|frei|weg|abwesend)/i.test((titel || "").trim());
+}
+
+// ---------- Wochenschema (Anwesenheitstage) ----------
+
+const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+function getSchema(personKey) {
+  return (zeitplan.mitarbeiterSchema && zeitplan.mitarbeiterSchema[personKey]) || { regeln: [], ausnahmen: [] };
+}
+function ensureSchema(personKey) {
+  if (!zeitplan.mitarbeiterSchema) zeitplan.mitarbeiterSchema = {};
+  if (!zeitplan.mitarbeiterSchema[personKey]) zeitplan.mitarbeiterSchema[personKey] = { regeln: [], ausnahmen: [] };
+  return zeitplan.mitarbeiterSchema[personKey];
+}
+
+// "jede 2. Woche" braucht einen Referenzpunkt (anker), da sonst unklar wäre,
+// welche der beiden Wochen gemeint ist -- die Parität wird relativ zur
+// Wochenstartdatum des Ankers gezählt, nicht global fix, damit der Nutzer
+// frei wählen kann, in welcher Woche es losgeht.
+function matchesRegel(regel, date) {
+  if (regel.wochentag !== weekdayIndexMonday(date)) return false;
+  const intervall = regel.intervall || 1;
+  if (intervall === 2 && regel.anker) {
+    const weeksDiff = Math.round(daysBetween(startOfWeek(parseISO(regel.anker)), startOfWeek(date)) / 7);
+    return ((weeksDiff % 2) + 2) % 2 === 0;
+  }
+  return true;
+}
+
+function isVacationCovered(personKey, iso) {
+  return (zeitplan.mitarbeiterEintraege[personKey] || []).some(
+    (e) => isFreiTitle(e.titel) && iso >= e.start && iso <= (e.ende || e.start)
+  );
+}
+
+// Anwesenheitstag = Wochenschema trifft zu UND kein manuell ausgenommener
+// Tag UND nicht bereits durch einen Ferien/Frei-Eintrag abgedeckt (der wird
+// schon als eigener Balken + grauem Streifen dargestellt, siehe
+// renderVacationOverlay() -- Doppelmarkierung wäre verwirrend).
+function isAttendanceDay(personKey, iso) {
+  const schema = getSchema(personKey);
+  const date = parseISO(iso);
+  if (!schema.regeln.some((r) => matchesRegel(r, date))) return false;
+  if ((schema.ausnahmen || []).includes(iso)) return false;
+  if (isVacationCovered(personKey, iso)) return false;
+  return true;
+}
+
+function toggleAusnahme(personKey, iso) {
+  const schema = ensureSchema(personKey);
+  if (!schema.ausnahmen) schema.ausnahmen = [];
+  const idx = schema.ausnahmen.indexOf(iso);
+  if (idx >= 0) schema.ausnahmen.splice(idx, 1);
+  else schema.ausnahmen.push(iso);
+  renderAll();
+  scheduleSync();
+}
+
+function nextOccurrenceIso(wochentag, fromDate) {
+  let d = new Date(fromDate);
+  while (weekdayIndexMonday(d) !== wochentag) d = addDays(d, 1);
+  return toISO(d);
 }
 
 // ---------- Zentrale Konfiguration (Mitarbeitende + Projekte) ----------
@@ -374,13 +443,33 @@ function renderEntryHtml(entry, loc, color) {
 // Projekt-Übersichtszeile) macht die leere Fläche der Zeile selbst
 // interaktiv -- Klick erzeugt einen Meilenstein, Ziehen einen Balken, siehe
 // onRowsPointerDown(). Kein "+"-Knopf mehr nötig.
-function renderRowHtml({ labelHtml, trackLoc, items, indent, summary }) {
-  const trackHtml = items.map(({ entry, loc, color }) => renderEntryHtml(entry, loc, color)).join("");
+function renderRowHtml({ labelHtml, trackLoc, items, indent, summary, bgHtml }) {
+  const trackHtml = (bgHtml || "") + items.map(({ entry, loc, color }) => renderEntryHtml(entry, loc, color)).join("");
   const locAttr = trackLoc ? ` data-loc='${escapeHtml(JSON.stringify(trackLoc))}'` : "";
   return `<div class="tp-row${indent ? " tp-row-indent" : ""}${summary ? " tp-row-summary" : ""}">
     <div class="tp-label-cell">${labelHtml}</div>
     <div class="tp-track"${locAttr} style="width:${totalWidth}px">${trackHtml}</div>
   </div>`;
+}
+
+// Anwesenheitstage aus dem Wochenschema als dezente Streifen HINTER den
+// Balken/Meilensteinen derselben Zeile (daher als bgHtml vor den Einträgen
+// eingefügt, siehe renderRowHtml()).
+function attendanceStripesHtml(personKey) {
+  const schema = getSchema(personKey);
+  if (!schema.regeln || !schema.regeln.length) return "";
+  const runs = [];
+  let cur = null;
+  for (let d = 0; d < totalDays; d++) {
+    const present = isAttendanceDay(personKey, toISO(addDays(rangeStartDate, d)));
+    if (!present) { if (cur) { runs.push(cur); cur = null; } continue; }
+    if (cur) cur.end = d;
+    else cur = { start: d, end: d };
+  }
+  if (cur) runs.push(cur);
+  return runs
+    .map((r) => `<div class="tp-attendance-stripe" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`)
+    .join("");
 }
 
 function projectRowLabelHtml(proj) {
@@ -403,9 +492,11 @@ function renderRows() {
     const loc = { type: "mitarbeiter", key: p.key };
     const eintraege = zeitplan.mitarbeiterEintraege[p.key] || [];
     html += renderRowHtml({
-      labelHtml: `<span class="tp-row-title">${escapeHtml(p.name)}</span>`,
+      labelHtml: `<span class="tp-row-title">${escapeHtml(p.name)}</span>
+        <button type="button" class="tp-schema-btn" data-action="edit-schema" data-person="${p.key}" title="Wochenschema bearbeiten">🗓</button>`,
       trackLoc: loc,
-      items: eintraege.map((entry) => ({ entry, loc, color: VACATION_COLOR }))
+      items: eintraege.map((entry) => ({ entry, loc, color: VACATION_COLOR })),
+      bgHtml: attendanceStripesHtml(p.key)
     });
   });
 
@@ -580,6 +671,62 @@ function deleteEntryDialog() {
   scheduleSync();
 }
 
+// ---------- Wochenschema-Dialog ----------
+
+let editingSchemaPersonKey = null;
+
+function openSchemaDialog(personKey) {
+  editingSchemaPersonKey = personKey;
+  const person = personen.find((p) => p.key === personKey);
+  document.getElementById("schemaDialogTitle").textContent = `Wochenschema: ${person ? person.name : ""}`;
+
+  const schema = getSchema(personKey);
+  const rowsEl = document.getElementById("schemaRows");
+  rowsEl.innerHTML = WEEKDAY_LABELS.map((label, wd) => {
+    const regel = schema.regeln.find((r) => r.wochentag === wd);
+    const intervall = regel ? regel.intervall || 1 : 1;
+    const anker = (regel && regel.anker) || nextOccurrenceIso(wd, new Date());
+    return `<div class="schema-row" data-wd="${wd}">
+      <label class="schema-day"><input type="checkbox" class="schema-check" ${regel ? "checked" : ""}> ${label}</label>
+      <select class="schema-intervall">
+        <option value="1" ${intervall === 1 ? "selected" : ""}>jede Woche</option>
+        <option value="2" ${intervall === 2 ? "selected" : ""}>jede 2. Woche</option>
+      </select>
+      <input type="date" class="schema-anker" value="${anker}" style="display:${intervall === 2 ? "" : "none"}">
+    </div>`;
+  }).join("");
+
+  // Anker-Datumsfeld nur einblenden, solange "jede 2. Woche" gewählt ist.
+  rowsEl.querySelectorAll(".schema-row").forEach((row) => {
+    const sel = row.querySelector(".schema-intervall");
+    const anker = row.querySelector(".schema-anker");
+    sel.addEventListener("change", () => { anker.style.display = sel.value === "2" ? "" : "none"; });
+  });
+
+  document.getElementById("schemaOverlay").classList.remove("hidden");
+}
+
+function closeSchemaDialog() {
+  document.getElementById("schemaOverlay").classList.add("hidden");
+  editingSchemaPersonKey = null;
+}
+
+function saveSchemaDialog() {
+  const regeln = [];
+  document.querySelectorAll("#schemaRows .schema-row").forEach((row) => {
+    if (!row.querySelector(".schema-check").checked) return;
+    const intervall = Number(row.querySelector(".schema-intervall").value);
+    const anker = row.querySelector(".schema-anker").value;
+    const regel = { wochentag: Number(row.dataset.wd), intervall };
+    if (intervall === 2 && anker) regel.anker = anker;
+    regeln.push(regel);
+  });
+  ensureSchema(editingSchemaPersonKey).regeln = regeln;
+  closeSchemaDialog();
+  renderAll();
+  scheduleSync();
+}
+
 // ---------- Verschieben/Grösse ändern per Maus/Touch ----------
 
 // Auf leerer Zeilenfläche (kein bestehender Balken/Meilenstein getroffen):
@@ -631,9 +778,19 @@ function onRowsTrackPointerDown(e, track) {
         start: toISO(addDays(rangeStartDate, lo)),
         ende: toISO(addDays(rangeStartDate, hi))
       });
-    } else {
-      openEntryDialog(loc, null, { typ: "meilenstein", start: toISO(addDays(rangeStartDate, startDayIdx)) });
+      return;
     }
+
+    const clickIso = toISO(addDays(rangeStartDate, startDayIdx));
+    // Klick auf einen Tag, der laut Wochenschema ein Anwesenheitstag wäre
+    // (unabhängig von bereits bestehenden Ausnahmen): macht ihn zur
+    // Ausnahme bzw. nimmt eine bestehende Ausnahme wieder zurück, statt
+    // einen neuen Meilenstein anzulegen -- siehe "Ausnahmen" im Todo.
+    if (loc.type === "mitarbeiter" && getSchema(loc.key).regeln.some((r) => matchesRegel(r, parseISO(clickIso)))) {
+      toggleAusnahme(loc.key, clickIso);
+      return;
+    }
+    openEntryDialog(loc, null, { typ: "meilenstein", start: clickIso });
   };
 
   window.addEventListener("pointermove", onMove);
@@ -707,6 +864,11 @@ function onRowsPointerDown(e) {
 }
 
 function onRowsClick(e) {
+  const schemaBtn = e.target.closest('[data-action="edit-schema"]');
+  if (schemaBtn) {
+    openSchemaDialog(schemaBtn.dataset.person);
+    return;
+  }
   const toggleBtn = e.target.closest('[data-action="toggle-projekt"]');
   if (toggleBtn) {
     const proj = zeitplan.projekte.find((p) => p.id === toggleBtn.dataset.projekt);
@@ -844,6 +1006,10 @@ function init() {
   document.getElementById("deleteEntryBtn").addEventListener("click", deleteEntryDialog);
   document.getElementById("entryTyp").addEventListener("change", applyEntryTypVisibility);
   document.getElementById("refreshBtn").addEventListener("click", refreshZeitplan);
+
+  document.getElementById("closeSchemaDialog").addEventListener("click", closeSchemaDialog);
+  document.getElementById("cancelSchemaBtn").addEventListener("click", closeSchemaDialog);
+  document.getElementById("saveSchemaBtn").addEventListener("click", saveSchemaDialog);
 
   window.addEventListener("online", refreshZeitplan);
   window.addEventListener("visibilitychange", () => {

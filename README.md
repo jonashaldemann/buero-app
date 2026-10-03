@@ -903,7 +903,15 @@ also automatisch mit.
     auch z.B. "Weihnachtsferien"), bekommt einen hellgrauen Streifen über
     **alle** Zeilen hinweg — je mehr Personen an diesem Tag frei haben,
     desto dunkler der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
-    `timeline/app.js`).
+    `timeline/app.js`). Über das 🗓-Symbol neben dem Namen lässt sich pro
+    Person ein **Wochenschema** hinterlegen (an welchen Wochentagen sie
+    regulär da ist, wahlweise "jede Woche" oder "jede 2. Woche" ab einem
+    gewählten Ankerdatum) — die zutreffenden Tage werden bläulich markiert,
+    gelten automatisch fürs ganze (rollende) Jahr und blenden sich an Tagen
+    mit einem Ferien/Frei-Balken von selbst aus. Ein Klick auf einen so
+    markierten Tag trägt ihn als einzelne **Ausnahme** ein (z.B. ein
+    einzelner freier Montag ohne eigenen Ferien-Eintrag) — nochmaliges
+    Anklicken macht das rückgängig.
   - **Projekte** — entweder per Dropdown aus derselben zentralen `projekte.txt`
     wie Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration"
     oben; Zuordnung/Farbe über den Namen, nicht die Nummer) oder frei benannt
