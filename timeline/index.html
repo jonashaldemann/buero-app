@@ -152,7 +152,11 @@
 
   .pensum-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
   .pensum-name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pensum-row input.pensum-pct { flex: none; width: 60px; font-size: 13px; }
+  /* Eigene, knappere Innenabstände statt der globalen 12px/14px (siehe
+     css/style.css) -- bei denen bliebe für die Zahl selbst kaum Platz,
+     "100" (inkl. der nativen Auf/Ab-Pfeile des Zahlenfelds) würde sonst
+     abgeschnitten. */
+  .pensum-row input.pensum-pct { flex: none; width: 70px; padding: 6px 4px 6px 8px; font-size: 13px; text-align: right; }
   .pensum-unit { flex: none; font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
