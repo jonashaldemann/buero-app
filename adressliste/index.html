@@ -211,6 +211,7 @@
       <label for="csvImportInput" style="font-size:13px;color:var(--text-muted);">Adressen aus CSV importieren</label>
       <input type="file" id="csvImportInput" accept=".csv,text/csv">
       <button id="csvExportBtn" class="btn-secondary">Aktuelle Ansicht als CSV exportieren</button>
+      <button id="labelsExportBtn" class="btn-secondary">Aktuelle Ansicht als Etiketten-PDF</button>
     </div>
     <div id="importResult" class="test-result"></div>
     <p class="hint">
@@ -220,7 +221,13 @@
       (kein Abgleich mit bestehenden Einträgen) -- am besten einmalig für den
       Start verwenden. Export exportiert dagegen genau das, was die Tabelle
       gerade zeigt: sichtbare Spalten in ihrer Reihenfolge, gefiltert und
-      sortiert wie die aktuelle Ansicht.
+      sortiert wie die aktuelle Ansicht -- genauso wie das Etiketten-PDF, das
+      pro sichtbarem Kontakt ein Adressetikett (Firma, Vorname/Name, Strasse,
+      Ort -- jeweils nur falls vorhanden) auf einem A4-Bogen mit Etiketten
+      von ca. 6.3×3.7cm anlegt (3 Spalten × 7 Zeilen, 21 pro Bogen). Das ist
+      ein generisches, selbst berechnetes Raster -- kein konkretes
+      Etiketten-Produkt; bei bereits vorgeschnittenen Bögen vorher einen
+      Probedruck mit den eigenen Etiketten abgleichen.
     </p>
   </section>
 
@@ -233,9 +240,10 @@
     Ansichten liegen genauso als einzelne Dateien im Unterordner
     "Ansichten". Spalten lassen sich per Drag &amp; Drop am Spaltentitel
     umsortieren, jede Spalte hat ihr eigenes Filterfeld direkt darunter.
-    Kategorie, Status und Kontaktperson kommen aus einer gemeinsamen
-    Auswahlliste (Button "⚙ Optionen"), die für alle mit Zugriff auf den
-    Ordner gleich ist.
+    Kategorie und Status kommen aus einer gemeinsamen Auswahlliste (Button
+    "⚙ Optionen"), die für alle mit Zugriff auf den Ordner gleich ist.
+    Kontaktperson kommt stattdessen direkt aus den Mitarbeitenden der
+    zentralen Konfiguration.
   </p>
 </main>
 
@@ -279,7 +287,7 @@
 <div id="optionsOverlay" class="overlay hidden">
   <div class="sheet">
     <div class="sheet-head">
-      <h2>Kategorien, Status &amp; Kontaktpersonen</h2>
+      <h2>Kategorien &amp; Status</h2>
       <button id="closeOptions" class="icon-btn" aria-label="Schliessen">&times;</button>
     </div>
 
@@ -297,21 +305,16 @@
         <input type="text" id="newStatusInput" placeholder="Neuer Status…">
         <button id="addStatusBtn" class="btn-secondary">+</button>
       </div>
-
-      <label>Kontaktpersonen</label>
-      <div class="chip-list" id="kontaktpersonChips"></div>
-      <div class="chip-add-row">
-        <input type="text" id="newKontaktpersonInput" placeholder="Neue Kontaktperson…">
-        <button id="addKontaktpersonBtn" class="btn-secondary">+</button>
-      </div>
     </div>
 
     <p class="hint">
-      Diese Listen füllen die Kategorie-/Status-/Kontaktperson-Dropdowns im
-      Editor und in der Tabelle. Ein Wert entfernen ändert nichts an bereits
-      gespeicherten Kontakten mit diesem Wert -- er verschwindet nur aus der
-      Auswahl. Neue Werte lassen sich auch direkt in jedem Dropdown über
-      "+ neu…" erfassen.
+      Diese Listen füllen die Kategorie-/Status-Dropdowns im Editor und in
+      der Tabelle. Ein Wert entfernen ändert nichts an bereits gespeicherten
+      Kontakten mit diesem Wert -- er verschwindet nur aus der Auswahl. Neue
+      Werte lassen sich auch direkt in jedem Dropdown über "+ neu…"
+      erfassen. Die Kontaktperson-Auswahl kommt dagegen direkt aus den
+      Mitarbeitenden der zentralen Konfiguration und lässt sich hier nicht
+      bearbeiten.
     </p>
   </div>
 </div>
@@ -402,6 +405,9 @@
 </div>
 
 <script src="../shared/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="etiketten.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

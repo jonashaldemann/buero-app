@@ -1,8 +1,9 @@
-const CACHE_NAME = "adressliste-v5";
+const CACHE_NAME = "adressliste-v6";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
+  "./etiketten.js",
   "./manifest.json",
   "../shared/common.js",
   "../css/style.css",
@@ -28,7 +29,13 @@ self.addEventListener("activate", (event) => {
 
 // App-Shell: aus Cache, Fallback Netz. Adressen und Ansichten liegen auf
 // Nextcloud (siehe app.js), nicht hier -- die kommen sowieso nie aus dem
-// Service-Worker-Cache.
+// Service-Worker-Cache. Die PDF-Bibliothek (CDN) und die Nudica-.otf-
+// Schriftdateien für den Etiketten-Export sind bewusst nicht vorab gecacht
+// -- ein fehlgeschlagener Cross-Origin-Fetch würde sonst das ganze
+// cache.addAll() beim Install scheitern lassen (siehe offerten/
+// service-worker.js für dieselbe Begründung). Der Etiketten-Export braucht
+// deshalb (zumindest beim ersten Mal pro Browser-Cache) eine
+// Internetverbindung.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
