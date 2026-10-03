@@ -21,8 +21,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   erledigt gilt (siehe Testvorgehen unten).
 - Nach erfolgreicher Umsetzung: `README.md` aktualisieren (es ist die
   einzige Quelle der Wahrheit für Nutzerverhalten, immer aktuell halten),
-  `claude_todos.txt` leeren (einen eventuell vorhandenen "Später:"-Abschnitt
-  dabei unverändert stehen lassen), dann committen.
+  in `claude_todos.txt` die erledigten Zeilen entfernen (bei einem
+  mehrzeiligen Todo reicht es, Zeile für Zeile zu streichen sobald sie
+  erledigt ist — nicht erst am Schluss die ganze Datei leeren; ein
+  "Später:"-Abschnitt sowie noch offene Zeilen bleiben dabei unverändert
+  stehen), dann committen.
 - **Nie pushen ohne frisches, explizites "ja"/"push mal" in genau dieser
   Runde** — eine frühere Zustimmung gilt nicht automatisch für die nächste.
   Nach dem Commit immer aktiv nachfragen.
