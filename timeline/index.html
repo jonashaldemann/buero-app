@@ -89,6 +89,7 @@
   }
   .tp-bar:active { cursor: grabbing; }
   .tp-bar-label { font-size: 11px; padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .tp-bar-hours { font-size: 10px; opacity: 0.85; padding: 0 7px 0 2px; white-space: nowrap; flex-shrink: 0; pointer-events: none; }
   .tp-bar-handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
   .tp-bar-handle[data-handle="left"] { left: 0; }
   .tp-bar-handle[data-handle="right"] { right: 0; }
@@ -105,7 +106,7 @@
      (mehrere gleichzeitig laufende Aufgaben) als dunklere Fläche abzeichnen,
      statt dass ein Balken den anderen einfach komplett verdeckt. */
   .tp-row-summary .tp-bar, .tp-row-summary .tp-milestone { opacity: 0.6; }
-  .tp-row-summary .tp-bar-label, .tp-row-summary .tp-milestone-label,
+  .tp-row-summary .tp-bar-label, .tp-row-summary .tp-bar-hours, .tp-row-summary .tp-milestone-label,
   .tp-row-summary .tp-milestone-day { display: none; }
 
   .tp-add-row .tp-label-cell { background: var(--surface); }
@@ -126,6 +127,11 @@
   .schema-day { display: flex; align-items: center; gap: 4px; flex: 0 0 56px; font-size: 13px; }
   .schema-intervall { font-size: 12px; }
   .schema-anker { font-size: 12px; }
+
+  .pensum-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .pensum-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pensum-pct { width: 60px; font-size: 13px; }
+  .pensum-unit { font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -249,6 +255,12 @@
           <input type="date" id="entryEnde">
         </div>
       </div>
+    </div>
+
+    <div id="entryPensumGroup" class="form-group">
+      <label>Pensum pro Person</label>
+      <div id="entryPensumRows"></div>
+      <p class="hint" id="entryHoursPreview" style="margin-top:4px;"></p>
     </div>
 
     <div id="entryResult" class="test-result"></div>
