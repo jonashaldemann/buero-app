@@ -688,10 +688,10 @@ das Browserfenster.
 - **Spalten**: welche Spalten sichtbar sind, lässt sich über die Checkboxen
   oberhalb der Tabelle einstellen. Die Reihenfolge der sichtbaren Spalten
   lässt sich direkt in der Tabelle per Drag & Drop am Spaltentitel ändern.
-- **Kategorie, Status, Kontaktperson**: kommen aus einem gemeinsam
-  verwalteten Optionen-Set (`_optionen.json`, im selben Nextcloud-Ordner)
-  statt aus freiem Text — Dropdowns statt Textfelder, sowohl im Editor als
-  auch direkt in der Tabelle (zusammen mit Weihnachtskarte lassen sich diese
+- **Kategorie, Status**: kommen aus einem gemeinsam verwalteten Optionen-Set
+  (`_optionen.json`, im selben Nextcloud-Ordner) statt aus freiem Text —
+  Dropdowns statt Textfelder, sowohl im Editor als auch direkt in der
+  Tabelle (zusammen mit Kontaktperson und Weihnachtskarte lassen sich diese
   vier Felder ändern, ohne den Editor zu öffnen). Neue Werte lassen sich
   über "+ neu…" in jedem Dropdown oder über den Button "⚙ Optionen"
   hinzufügen; Entfernen über "⚙ Optionen" löscht nur aus der Auswahlliste,
@@ -702,6 +702,12 @@ das Browserfenster.
   ausgeschlossen (`OPTIONS_FILENAME`-Filter in `refreshContacts()`) — sonst
   würde sie selbst als leerer Phantom-Kontakt mit allen Status-Werten
   angezeigt.
+- **Kontaktperson**: dagegen KEIN frei verwaltetes Optionen-Set, sondern ein
+  Dropdown direkt aus den Mitarbeitenden der zentralen `config.json` (siehe
+  Abschnitt "Zentrale Konfiguration" oben) — kein "+ neu…", keine Verwaltung
+  über "⚙ Optionen". Ein gespeicherter Wert, der zu niemandem in der
+  aktuellen Mitarbeitenden-Liste mehr passt (z.B. nach einem Namenswechsel),
+  bleibt trotzdem als Option erhalten statt zu verschwinden.
 - **Ansichten speichern**: die aktuelle Kombination aus Spalten (inkl.
   Reihenfolge), Filtern und Sortierung lässt sich unter einem Namen speichern
   (z.B. "Weihnachtskarten" = nur Firma/Name/Vorname/Weihnachtskarte, gefiltert
@@ -730,6 +736,15 @@ das Browserfenster.
   sichtbare Spalten in ihrer aktuellen Reihenfolge, gefiltert und sortiert
   wie die aktuelle Ansicht (z.B. nur die Weihnachtskarten-Liste, oder nur
   Landschaftsarchitekten sortiert nach Status).
+- **Etiketten-PDF**: "Aktuelle Ansicht als Etiketten-PDF" legt genau wie der
+  CSV-Export für jeden gerade sichtbaren (gefilterten) Kontakt ein
+  Adressetikett an (`adressliste/etiketten.js`, nutzt pdf-lib wie die
+  PDF-Exporte bei Offerten/Protokoll) — pro Etikett Firma, Vorname/Name,
+  Strasse, Ort, jeweils nur falls vorhanden; Kontakte ganz ohne eine dieser
+  Angaben werden übersprungen (Hinweis danach, wie viele). A4-Bogen mit 3
+  Spalten × 7 Zeilen (21 Etiketten, je ca. 6.3×3.7cm) — ein generisches,
+  selbst berechnetes Raster statt eines bestimmten Etiketten-Produkts; bei
+  bereits vorgeschnittenen Bögen vorher einen Probedruck gegenprüfen.
 
 ---
 
