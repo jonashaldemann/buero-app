@@ -483,10 +483,13 @@ function renderEntryHtml(entry, loc, color) {
     const x = dateToX(entry.start);
     if (x < 0 || x > totalWidth) return ""; // ausserhalb des sichtbaren Fensters
     const dayNum = parseISO(entry.start).getDate();
-    return `<div class="tp-milestone" style="left:${x - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}">
+    // dateToX() liefert die LINKE Kante der Tagesspalte -- die Raute soll
+    // aber in deren Mitte sitzen, nicht an der Kante kleben.
+    const center = x + DAY_WIDTH / 2;
+    return `<div class="tp-milestone" style="left:${center - 7}px; background:${color};" data-entry-id="${entry.id}" data-loc='${locAttr}' title="${titleAttr}">
         <span class="tp-milestone-day">${dayNum}</span>
       </div>
-      <div class="tp-milestone-label" style="left:${x + 9}px;">${titleAttr}${hours ? ` · ${hours}h` : ""}</div>`;
+      <div class="tp-milestone-label" style="left:${center + 9}px;">${titleAttr}${hours ? ` · ${hours}h` : ""}</div>`;
   }
   const { left, width, offscreen } = visibleBarRect(entry);
   if (offscreen) return "";
@@ -901,7 +904,10 @@ function onRowsTrackPointerDown(e, track) {
   const loc = JSON.parse(track.dataset.loc);
   const rect = track.getBoundingClientRect();
   const startClientX = e.clientX;
-  const startDayIdx = clampDayIdx(Math.round((e.clientX - rect.left) / DAY_WIDTH));
+  // Math.floor (nicht .round!): Tagesspalte d umfasst [d*DAY_WIDTH,
+  // (d+1)*DAY_WIDTH) -- ein Klick irgendwo in dieser Spalte, auch in ihrer
+  // Mitte, muss auf d landen, nicht erst ab deren rechter Hälfte auf d+1.
+  const startDayIdx = clampDayIdx(Math.floor((e.clientX - rect.left) / DAY_WIDTH));
 
   let previewEl = null;
   let dragged = false;
@@ -909,7 +915,7 @@ function onRowsTrackPointerDown(e, track) {
   const onMove = (ev) => {
     if (!dragged && Math.abs(ev.clientX - startClientX) < TRACK_DRAG_THRESHOLD_PX) return;
     dragged = true;
-    const curDayIdx = clampDayIdx(Math.round((ev.clientX - rect.left) / DAY_WIDTH));
+    const curDayIdx = clampDayIdx(Math.floor((ev.clientX - rect.left) / DAY_WIDTH));
     const lo = Math.min(startDayIdx, curDayIdx);
     const hi = Math.max(startDayIdx, curDayIdx);
     if (!previewEl) {
@@ -926,7 +932,7 @@ function onRowsTrackPointerDown(e, track) {
     window.removeEventListener("pointerup", onUp);
     if (previewEl) previewEl.remove();
 
-    const curDayIdx = clampDayIdx(Math.round((ev.clientX - rect.left) / DAY_WIDTH));
+    const curDayIdx = clampDayIdx(Math.floor((ev.clientX - rect.left) / DAY_WIDTH));
     const lo = Math.min(startDayIdx, curDayIdx);
     const hi = Math.max(startDayIdx, curDayIdx);
 
@@ -993,7 +999,7 @@ function onRowsPointerDown(e) {
     }
 
     if (entry.typ === "meilenstein") {
-      const x = dateToX(entry.start);
+      const x = dateToX(entry.start) + DAY_WIDTH / 2;
       bar.style.left = x - 7 + "px";
     } else {
       const { left, width } = visibleBarRect(entry);

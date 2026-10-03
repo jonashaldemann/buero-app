@@ -132,15 +132,18 @@
   #entryOverlay .sheet { max-width: 420px; }
   .entry-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+  /* flex:none + feste Breite nötig, weil die globalen Regeln für
+     input/select (siehe css/style.css) sonst width:100% erzwingen und
+     damit in diesen flex-Zeilen die Geschwister-Elemente verdrängen. */
   .schema-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   .schema-day { display: flex; align-items: center; gap: 4px; flex: 0 0 56px; font-size: 13px; }
-  .schema-intervall { font-size: 12px; }
-  .schema-anker { font-size: 12px; }
+  .schema-row select.schema-intervall { flex: none; width: 110px; font-size: 12px; }
+  .schema-row input.schema-anker { flex: none; width: 130px; font-size: 12px; }
 
   .pensum-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-  .pensum-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pensum-pct { width: 60px; font-size: 13px; }
-  .pensum-unit { font-size: 12px; color: var(--text-muted); }
+  .pensum-name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pensum-row input.pensum-pct { flex: none; width: 60px; font-size: 13px; }
+  .pensum-unit { flex: none; font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
