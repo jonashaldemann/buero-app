@@ -897,21 +897,30 @@ also automatisch mit.
 - **Zeilen von oben nach unten**:
   - **Mitarbeitende** (aus `mitarbeitende` in der zentralen `config.json`,
     siehe Abschnitt "Zentrale Konfiguration" oben) — hier Ferien/Frei
-    eintragen (Balken immer grau). Jeder Tag, an dem mindestens eine Person
-    einen Balken hat, dessen Titel **"ferien"**, **"frei"**, **"weg"** oder
-    **"abwesend"** enthält (als Teilstring, nicht nur exakt — erkennt also
-    auch z.B. "Weihnachtsferien"), bekommt einen hellgrauen Streifen über
-    **alle** Zeilen hinweg — je mehr Personen an diesem Tag frei haben,
-    desto dunkler der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
-    `timeline/app.js`). Über das 🗓-Symbol neben dem Namen lässt sich pro
-    Person ein **Wochenschema** hinterlegen (an welchen Wochentagen sie
-    regulär da ist, wahlweise "jede Woche" oder "jede 2. Woche" ab einem
-    gewählten Ankerdatum) — die zutreffenden Tage werden bläulich markiert,
-    gelten automatisch fürs ganze (rollende) Jahr und blenden sich an Tagen
-    mit einem Ferien/Frei-Balken von selbst aus. Ein Klick auf einen so
-    markierten Tag trägt ihn als einzelne **Ausnahme** ein (z.B. ein
-    einzelner freier Montag ohne eigenen Ferien-Eintrag) — nochmaliges
-    Anklicken macht das rückgängig.
+    eintragen (Balken immer grau). Frei/Ferien-Balken entstehen bewusst nur
+    durch **Ziehen** (immer mehrtägig, kein Meilenstein per Klick wie bei
+    Aufgaben). Jeder Tag, an dem mindestens eine Person einen Balken hat,
+    dessen Titel **"ferien"**, **"frei"**, **"weg"** oder **"abwesend"**
+    enthält (als Teilstring, nicht nur exakt — erkennt also auch z.B.
+    "Weihnachtsferien"), bekommt einen hellgrauen Streifen über **alle**
+    Zeilen hinweg — je mehr Personen an diesem Tag frei haben, desto dunkler
+    der Streifen (`isFreiTitle()`/`renderVacationOverlay()` in
+    `timeline/app.js`).
+
+    Über das 🗓-Symbol neben dem Namen lässt sich pro Person ein
+    **Wochenschema** hinterlegen (an welchen Wochentagen sie regulär da ist,
+    wahlweise "jede Woche" oder "jede 2. Woche" ab einem gewählten
+    Ankerdatum) — die zutreffenden Tage werden in der jeweiligen Zeile
+    grünlich markiert, gelten automatisch fürs ganze (rollende) Jahr und
+    blenden sich an Tagen mit einem Ferien/Frei-Balken von selbst aus.
+    Samstage/Sonntage ohne Anwesenheit sind stattdessen grau hinterlegt (ein
+    Tag ist also immer entweder grünlich oder grau, nie beides). Ein
+    einfacher Klick auf einen Tag in der Mitarbeiter-Zeile schaltet dessen
+    Anwesenheit einzeln um: ein grünlich markierter Tag wird zur
+    **Ausnahme** (z.B. ein einzelner freier Montag ohne eigenen
+    Ferien-Eintrag), ein nicht markierter Tag (z.B. ein Sonntag) wird zum
+    einzelnen **Zusatztag** (ein ausserordentlicher Einsatz ausserhalb des
+    Schemas) — nochmaliges Anklicken macht das jeweils rückgängig.
   - **Projekte** — entweder per Dropdown aus derselben zentralen `projekte.txt`
     wie Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration"
     oben; Zuordnung/Farbe über den Namen, nicht die Nummer) oder frei benannt
@@ -932,8 +941,9 @@ also automatisch mit.
 - **Wochenspalten**: der Kopfbereich zeigt zusätzlich zu den Monaten eine
   zweite, feinere Zeile mit einer Spalte pro Woche (Montag als Wochenbeginn,
   beschriftet mit dessen Datum), samt durchgehenden vertikalen Trennlinien
-  über alle Zeilen. Samstage/Sonntage sind im ganzen Zeitplan leicht
-  abgesetzt hinterlegt (dezenter als die Ferien-Streifen).
+  über alle Zeilen. Samstage/Sonntage sind nur in den Mitarbeiter-Zeilen
+  markiert (grau ohne, grünlich mit Anwesenheit laut Wochenschema — siehe
+  oben), nicht mehr pauschal über alle Zeilen hinweg.
 - **Zoom**: **Strg/Cmd + Scrollrad** (bzw. Zwei-Finger-Pinch am Trackpad) auf
   dem Zeitplan zoomt rein/raus, um den Tag unter dem Mauszeiger herum —
   normales Scrollen bzw. Umschalt+Scrollen bleibt dem Browser fürs native

@@ -62,7 +62,9 @@ function projectColor(name) {
 function blankZeitplan() {
   return {
     mitarbeiterEintraege: {}, // { [personKey]: [{id,titel,start,ende}] }
-    // { [personKey]: {regeln:[{wochentag(0=Mo..6=So),intervall(1|2),anker?}], ausnahmen:[isoDate,...]} }
+    // { [personKey]: {regeln:[{wochentag(0=Mo..6=So),intervall(1|2),anker?}],
+    //                  ausnahmen:[isoDate,...] (Schema-Tage, die NICHT gelten),
+    //                  zusatz:[isoDate,...] (einzelne Tage AUSSERHALB des Schemas, die zusätzlich gelten)} }
     mitarbeiterSchema: {},
     projekte: [], // [{id,titel,aufgeklappt,aufgaben:[{id,titel,eintraege:[{id,typ,titel,start,ende}]}]}]
     updatedAt: null,
@@ -138,11 +140,11 @@ function isFreiTitle(titel) {
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
 function getSchema(personKey) {
-  return (zeitplan.mitarbeiterSchema && zeitplan.mitarbeiterSchema[personKey]) || { regeln: [], ausnahmen: [] };
+  return (zeitplan.mitarbeiterSchema && zeitplan.mitarbeiterSchema[personKey]) || { regeln: [], ausnahmen: [], zusatz: [] };
 }
 function ensureSchema(personKey) {
   if (!zeitplan.mitarbeiterSchema) zeitplan.mitarbeiterSchema = {};
-  if (!zeitplan.mitarbeiterSchema[personKey]) zeitplan.mitarbeiterSchema[personKey] = { regeln: [], ausnahmen: [] };
+  if (!zeitplan.mitarbeiterSchema[personKey]) zeitplan.mitarbeiterSchema[personKey] = { regeln: [], ausnahmen: [], zusatz: [] };
   return zeitplan.mitarbeiterSchema[personKey];
 }
 
@@ -166,25 +168,35 @@ function isVacationCovered(personKey, iso) {
   );
 }
 
-// Anwesenheitstag = Wochenschema trifft zu UND kein manuell ausgenommener
-// Tag UND nicht bereits durch einen Ferien/Frei-Eintrag abgedeckt (der wird
-// schon als eigener Balken + grauem Streifen dargestellt, siehe
-// renderVacationOverlay() -- Doppelmarkierung wäre verwirrend).
+// Anwesenheitstag = (Wochenschema trifft zu UND kein manuell ausgenommener
+// Tag) ODER einzeln zusätzlich eingeschalteter Tag (ausserhalb des Schemas,
+// z.B. ein einzelner Sonntag) -- UND in beiden Fällen nicht bereits durch
+// einen Ferien/Frei-Eintrag abgedeckt (der wird schon als eigener Balken +
+// grauem Streifen dargestellt -- Doppelmarkierung wäre verwirrend).
 function isAttendanceDay(personKey, iso) {
   const schema = getSchema(personKey);
   const date = parseISO(iso);
-  if (!schema.regeln.some((r) => matchesRegel(r, date))) return false;
-  if ((schema.ausnahmen || []).includes(iso)) return false;
+  const patternMatch = schema.regeln.some((r) => matchesRegel(r, date));
+  const isZusatz = (schema.zusatz || []).includes(iso);
+  if (!patternMatch && !isZusatz) return false;
+  if (patternMatch && (schema.ausnahmen || []).includes(iso)) return false;
   if (isVacationCovered(personKey, iso)) return false;
   return true;
 }
 
-function toggleAusnahme(personKey, iso) {
+// Klick auf einen Tag in der Mitarbeiter-Zeile: ein Plan-Tag wird zur
+// Ausnahme (bzw. zurück), ein Nicht-Plan-Tag wird zum einzelnen Zusatz-Tag
+// (bzw. zurück) -- je nachdem, ob er laut Wochenschema ohnehin ein
+// Anwesenheitstag wäre.
+function toggleAttendance(personKey, iso) {
   const schema = ensureSchema(personKey);
   if (!schema.ausnahmen) schema.ausnahmen = [];
-  const idx = schema.ausnahmen.indexOf(iso);
-  if (idx >= 0) schema.ausnahmen.splice(idx, 1);
-  else schema.ausnahmen.push(iso);
+  if (!schema.zusatz) schema.zusatz = [];
+  const patternMatch = schema.regeln.some((r) => matchesRegel(r, parseISO(iso)));
+  const list = patternMatch ? schema.ausnahmen : schema.zusatz;
+  const idx = list.indexOf(iso);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push(iso);
   renderAll();
   scheduleSync();
 }
@@ -384,24 +396,9 @@ function renderWeekGridOverlay(weeks) {
     .join("");
 }
 
-// Samstage/Sonntage im sichtbaren Fenster leicht abgesetzt hinterlegen
-// (deutlich dezenter als die Ferien-Streifen, siehe renderVacationOverlay()).
-function renderWeekendOverlay() {
-  const layer = document.getElementById("tpWeekendLayer");
-  layer.style.width = totalWidth + "px";
-  const runs = [];
-  let cur = null;
-  for (let d = 0; d < totalDays; d++) {
-    const dow = addDays(rangeStartDate, d).getDay();
-    const isWeekend = dow === 0 || dow === 6;
-    if (!isWeekend) { if (cur) { runs.push(cur); cur = null; } continue; }
-    if (cur) cur.end = d;
-    else cur = { start: d, end: d };
-  }
-  if (cur) runs.push(cur);
-  layer.innerHTML = runs
-    .map((r) => `<div class="tp-weekend-stripe" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`)
-    .join("");
+function isWeekendDate(date) {
+  const dow = date.getDay();
+  return dow === 0 || dow === 6;
 }
 
 // Ein Balken, der schon vor "heute" beginnt (rollendes Fenster -- ein
@@ -454,21 +451,26 @@ function renderRowHtml({ labelHtml, trackLoc, items, indent, summary, bgHtml }) 
 
 // Anwesenheitstage aus dem Wochenschema als dezente Streifen HINTER den
 // Balken/Meilensteinen derselben Zeile (daher als bgHtml vor den Einträgen
-// eingefügt, siehe renderRowHtml()).
+// eingefügt, siehe renderRowHtml()): grünlich bei Anwesenheit, grau bei
+// Wochenende OHNE Anwesenheit (ersetzt das frühere, zeilenübergreifende
+// Wochenend-Overlay -- pro Mitarbeiter ist so auf einen Blick klar, ob ein
+// Samstag/Sonntag für diese Person ein Arbeitstag ist oder nicht).
 function attendanceStripesHtml(personKey) {
-  const schema = getSchema(personKey);
-  if (!schema.regeln || !schema.regeln.length) return "";
   const runs = [];
   let cur = null;
   for (let d = 0; d < totalDays; d++) {
-    const present = isAttendanceDay(personKey, toISO(addDays(rangeStartDate, d)));
-    if (!present) { if (cur) { runs.push(cur); cur = null; } continue; }
-    if (cur) cur.end = d;
-    else cur = { start: d, end: d };
+    const date = addDays(rangeStartDate, d);
+    const state = isAttendanceDay(personKey, toISO(date)) ? "present" : isWeekendDate(date) ? "weekend" : null;
+    if (!state) { if (cur) { runs.push(cur); cur = null; } continue; }
+    if (cur && cur.state === state) cur.end = d;
+    else { if (cur) runs.push(cur); cur = { start: d, end: d, state }; }
   }
   if (cur) runs.push(cur);
   return runs
-    .map((r) => `<div class="tp-attendance-stripe" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`)
+    .map((r) => {
+      const cls = r.state === "present" ? "tp-attendance-stripe" : "tp-weekend-stripe";
+      return `<div class="${cls}" style="left:${r.start * DAY_WIDTH}px; width:${(r.end - r.start + 1) * DAY_WIDTH}px;"></div>`;
+    })
     .join("");
 }
 
@@ -590,7 +592,6 @@ function renderAll() {
   const weeks = renderWeekHeader();
   renderDayHeader();
   renderRows();
-  renderWeekendOverlay();
   renderWeekGridOverlay(weeks);
   renderVacationOverlay();
 }
@@ -735,7 +736,10 @@ function saveSchemaDialog() {
 // neuen MEILENSTEIN am angeklickten Tag -- beides öffnet danach den
 // Bearbeiten-Dialog zur Titel-Eingabe/Kontrolle statt sofort zu speichern.
 // Nur auf Zeilen mit data-loc (Mitarbeiter/Aufgabe, nicht die
-// Projekt-Übersichtszeile).
+// Projekt-Übersichtszeile). Ausnahme Mitarbeiter-Zeile: dort gibt es keine
+// Meilensteine per Klick -- Ferien/Frei-Balken entstehen bewusst nur per
+// Ziehen (siehe Hinweistext), ein einfacher Klick schaltet stattdessen die
+// Anwesenheit für den angeklickten Tag um (toggleAttendance()).
 const TRACK_DRAG_THRESHOLD_PX = 4;
 
 function onRowsTrackPointerDown(e, track) {
@@ -782,12 +786,8 @@ function onRowsTrackPointerDown(e, track) {
     }
 
     const clickIso = toISO(addDays(rangeStartDate, startDayIdx));
-    // Klick auf einen Tag, der laut Wochenschema ein Anwesenheitstag wäre
-    // (unabhängig von bereits bestehenden Ausnahmen): macht ihn zur
-    // Ausnahme bzw. nimmt eine bestehende Ausnahme wieder zurück, statt
-    // einen neuen Meilenstein anzulegen -- siehe "Ausnahmen" im Todo.
-    if (loc.type === "mitarbeiter" && getSchema(loc.key).regeln.some((r) => matchesRegel(r, parseISO(clickIso)))) {
-      toggleAusnahme(loc.key, clickIso);
+    if (loc.type === "mitarbeiter") {
+      toggleAttendance(loc.key, clickIso);
       return;
     }
     openEntryDialog(loc, null, { typ: "meilenstein", start: clickIso });

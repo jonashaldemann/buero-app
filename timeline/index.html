@@ -36,13 +36,16 @@
   .tp-day-tick { position: absolute; top: 1px; font-size: 9px; color: var(--text-muted); text-align: center; }
 
   .tp-rows-wrap { position: relative; }
-  .tp-weekend-layer, .tp-week-grid-layer, .tp-vacation-layer {
+  .tp-week-grid-layer, .tp-vacation-layer {
     position: absolute; top: 0; left: 200px; right: 0; bottom: 0; pointer-events: none; z-index: 0;
   }
-  .tp-weekend-stripe { position: absolute; top: 0; bottom: 0; background: rgba(60, 50, 40, 0.05); }
   .tp-week-gridline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid var(--border); opacity: 0.6; }
   .tp-vacation-stripe { position: absolute; top: 0; bottom: 0; }
-  .tp-attendance-stripe { position: absolute; top: 0; bottom: 0; background: rgba(79, 112, 137, 0.16); pointer-events: none; }
+  /* Wochenend-Tage ohne Anwesenheit (grau) bzw. Anwesenheitstage laut
+     Wochenschema (grün) -- pro Mitarbeiter-Zeile, siehe attendanceStripesHtml()
+     in app.js. Ein Tag ist immer nur eines von beiden, nie überlagert. */
+  .tp-weekend-stripe { position: absolute; top: 0; bottom: 0; background: rgba(60, 50, 40, 0.08); pointer-events: none; }
+  .tp-attendance-stripe { position: absolute; top: 0; bottom: 0; background: rgba(90, 140, 95, 0.22); pointer-events: none; }
 
   .tp-section-label {
     position: relative; z-index: 1;
@@ -147,18 +150,21 @@
 
   <p class="hint" style="margin-top:0;">
     Zeitfenster: heute bis in 1 Jahr, Spalten nach Wochen (Montagsdatum im
-    Kopf, Wochenenden leicht hinterlegt). Auf leerer Zeilenfläche ziehen legt
-    einen neuen Balken an, klicken einen neuen Meilenstein — auf einen
-    bestehenden Balken ziehen verschiebt ihn (an den Rändern ziehen passt nur
-    Start/Ende an), anklicken ohne Ziehen öffnet den Bearbeiten-Dialog mit
-    Datumsfeldern. Bei Mitarbeitenden Einträge mit "frei"/"ferien"/"weg"/
-    "abwesend" im Titel (z.B. auch "Weihnachtsferien") werden über allen
-    Zeilen grau hinterlegt (je mehr Personen frei haben, desto dunkler). Über
-    das 🗓-Symbol bei einer Person lässt sich ein Wochenschema hinterlegen
-    (bläulich markiert) — ein Klick auf einen markierten Tag nimmt ihn
-    einzeln aus (nochmals anklicken macht das rückgängig). Strg/Cmd +
-    Scrollrad (oder Pinch-Geste) zoomt rein/raus, normales Scrollen bzw.
-    Umschalt+Scrollen bleibt seitliches Verschieben.
+    Kopf). Bei Aufgaben legt Ziehen auf leerer Fläche einen neuen Balken an,
+    Klicken einen neuen Meilenstein — auf einen bestehenden Balken ziehen
+    verschiebt ihn (an den Rändern ziehen passt nur Start/Ende an), anklicken
+    ohne Ziehen öffnet den Bearbeiten-Dialog mit Datumsfeldern. Bei
+    Mitarbeitenden entstehen Frei/Ferien-Balken bewusst nur durch Ziehen
+    (immer mehrtägig) — ein einfacher Klick auf einen Tag schaltet stattdessen
+    dessen Anwesenheit um: grünlich markierte Tage (laut Wochenschema, über
+    das 🗓-Symbol beim Namen einstellbar) oder graue Wochenend-Tage lassen
+    sich so einzeln aus- bzw. einschalten (z.B. ein freier Montag oder ein
+    zusätzlicher Einsatz an einem sonst freien Sonntag). Frei/Ferien-Balken
+    (Titel enthält "frei"/"ferien"/"weg"/"abwesend", z.B. auch
+    "Weihnachtsferien") werden zusätzlich über allen Zeilen grau hinterlegt
+    (je mehr Personen frei haben, desto dunkler). Strg/Cmd + Scrollrad (oder
+    Pinch-Geste) zoomt rein/raus, normales Scrollen bzw. Umschalt+Scrollen
+    bleibt seitliches Verschieben.
   </p>
 
   <div class="tp-scroll" id="tpScroll">
@@ -172,7 +178,6 @@
         </div>
       </div>
       <div class="tp-rows-wrap">
-        <div class="tp-weekend-layer" id="tpWeekendLayer"></div>
         <div class="tp-week-grid-layer" id="tpWeekGridLayer"></div>
         <div class="tp-vacation-layer" id="tpVacationLayer"></div>
         <div id="tpRows"></div>
@@ -267,8 +272,10 @@
     <p class="hint" style="margin-top:0;">
       An welchen Wochentagen ist diese Person regulär da? Bei "jede 2.
       Woche" bestimmt das Datum, in welcher der beiden Wochen es losgeht.
-      Einzelne Tage danach direkt im Zeitplan anklicken, um sie auszunehmen
-      (nochmals anklicken macht das rückgängig).
+      Einzelne Tage danach direkt im Zeitplan anklicken: ein markierter Tag
+      wird damit ausgenommen, ein nicht markierter Tag (z.B. ein Sonntag)
+      wird zum einzelnen Zusatztag (nochmals anklicken macht das jeweils
+      rückgängig).
     </p>
 
     <div id="schemaRows"></div>
