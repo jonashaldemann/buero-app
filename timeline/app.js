@@ -560,14 +560,29 @@ function attendanceStripesHtml(personKey) {
     .join("");
 }
 
+function aufgabeTotalHours(aufgabe) {
+  return aufgabe.eintraege.reduce((sum, entry) => sum + totalEntryHours(entry), 0);
+}
+function projektTotalHours(proj) {
+  return proj.aufgaben.reduce((sum, aufgabe) => sum + aufgabeTotalHours(aufgabe), 0);
+}
+// Nur anzeigen, wenn tatsächlich irgendwo ein Pensum zugewiesen ist --
+// sonst stünde bei jeder Aufgabe/jedem Projekt ohne Pensum eine
+// bedeutungslose "0h".
+function hoursBadgeHtml(hours) {
+  return hours ? `<span class="tp-row-hours">${hours}h</span>` : "";
+}
+
 function projectRowLabelHtml(proj) {
   const arrow = proj.aufgeklappt ? "▾" : "▸";
   return `<button type="button" class="tp-toggle-btn" data-action="toggle-projekt" data-projekt="${proj.id}" title="${proj.aufgeklappt ? "Zuklappen" : "Aufklappen"}">${arrow}</button>
+    ${hoursBadgeHtml(projektTotalHours(proj))}
     <span class="tp-row-title tp-row-title-strong">${escapeHtml(proj.titel)}</span>
     <button type="button" class="tp-delete-btn" data-action="delete-projekt" data-projekt="${proj.id}" title="Projekt aus der Zeitplanung entfernen">×</button>`;
 }
 function aufgabeRowLabelHtml(proj, aufgabe) {
-  return `<span class="tp-row-title" data-action="rename-aufgabe" data-projekt="${proj.id}" data-aufgabe="${aufgabe.id}" title="Klicken zum Umbenennen">${escapeHtml(aufgabe.titel)}</span>
+  return `${hoursBadgeHtml(aufgabeTotalHours(aufgabe))}
+    <span class="tp-row-title" data-action="rename-aufgabe" data-projekt="${proj.id}" data-aufgabe="${aufgabe.id}" title="Klicken zum Umbenennen">${escapeHtml(aufgabe.titel)}</span>
     <button type="button" class="tp-delete-btn" data-action="delete-aufgabe" data-projekt="${proj.id}" data-aufgabe="${aufgabe.id}" title="Aufgabe entfernen">×</button>`;
 }
 

@@ -943,7 +943,11 @@ also automatisch mit.
       errechnet (Anwesenheitstage der Person im Zeitraum laut Wochenschema
       × 8h × Pensum, auf ganze Stunden gerundet) und direkt am Balken bzw.
       neben der Raute angezeigt. Eine Live-Vorschau der Stunden erscheint
-      schon im Dialog, während Daten/Pensum angepasst werden.
+      schon im Dialog, während Daten/Pensum angepasst werden. Zusätzlich
+      steht die **Gesamtstundenzahl** zuvorderst beim Zeilentitel: pro
+      Aufgabe die Summe all ihrer Balken/Meilensteine, pro Projekt die
+      Summe über alle Aufgaben — bleibt weg, wo nirgends ein Pensum
+      zugewiesen ist.
 
       Das **Restpensum** (100% minus die Summe aller an diesem Tag über
       alle Projekte/Aufgaben hinweg zugewiesenen Pensen) zeigt sich direkt
