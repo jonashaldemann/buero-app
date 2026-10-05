@@ -10,15 +10,18 @@
 
    Drei Abschnitte (SECTIONS): Ausgaben, Einnahmen, Auszahlungen. Jede
    Zeile trägt ihren eigenen Typ (row.typ):
-   - "monatlich": EIN Betrag pro Zeile, gilt für alle 12 Monate gleich --
-     Klick auf irgendeine Monatszelle ändert ihn (für die ganze Zeile auf
-     einmal). Nur bei Ausgaben wählbar (+ monatlich) -- Einnahmen/
-     Auszahlungen sind bei einem Architekturbüro erfahrungsgemäss immer
-     einmalig, siehe Todo-Wortlaut.
-   - "einmalig": Betrag pro einzelnem Monat. Klick auf eine Monatszelle
-     markiert sie (Toggle); bei mindestens einer markierten Zelle
-     erscheint darunter eine Eingabezeile ("Übernehmen"), die den
-     eingegebenen Betrag auf alle markierten Monate dieser Zeile schreibt.
+   - "monatlich": EIN Betrag pro Zeile, gilt für alle 12 Monate gleich.
+     Nur bei Ausgaben wählbar (+ monatlich) -- Einnahmen/Auszahlungen sind
+     bei einem Architekturbüro erfahrungsgemäss immer einmalig, siehe
+     Todo-Wortlaut.
+   - "einmalig": Betrag pro einzelnem Monat.
+   In beiden Fällen dasselbe simple Muster: Klick auf eine Monatszelle
+   öffnet direkt ein Eingabefenster (prompt()) für den Betrag -- bei
+   "monatlich" gilt er danach für alle 12 Monate, bei "einmalig" nur für
+   den angeklickten Monat. (Eine frühere Version liess sich mehrere Monate
+   markieren und den Betrag dann gesammelt übernehmen -- laut Feedback
+   unintuitiv, deshalb wieder auf diesen einfachen Klick-pro-Monat
+   zurückgebaut.)
    Die Ausgaben-Zeilen beider Typen stehen bewusst GEMEINSAM in einer
    Liste mit einer einzigen Summe (übersichtlicher als zwei getrennte
    Abschnitte) -- ein kleines Icon pro Zeile zeigt den Typ.
@@ -86,10 +89,6 @@ let yearData = loadJSON(cacheKey(currentJahr), null) || blankYear(currentJahr, 0
 // Anfangssaldo-Vorschlag (aus dem berechneten Endsaldo des Vorjahres), falls
 // für currentJahr noch keine Datei existiert -- siehe refreshYear()/persist().
 let carryOverVorschlag = 0;
-// { [rowId]: Set<monatsNummer> } -- rein lokaler UI-Zustand (welche
-// Monatszellen einer Zeile gerade markiert sind), nicht Teil der
-// gespeicherten Daten. Wird beim Jahreswechsel geleert.
-let selections = {};
 
 // ---------- Nextcloud ----------
 
@@ -127,7 +126,6 @@ async function putYearFile(jahr, data) {
 
 async function refreshYear(jahr) {
   currentJahr = jahr;
-  selections = {};
   document.getElementById("yearLabel").textContent = String(jahr);
 
   const cached = loadJSON(cacheKey(jahr), null);
@@ -251,30 +249,15 @@ function findRow(data, sectionKey, rowId) {
   return (data[sectionKey] || []).find((r) => r.id === rowId);
 }
 
-function rowSelectionSet(rowId) {
-  if (!selections[rowId]) selections[rowId] = new Set();
-  return selections[rowId];
-}
-
-// Vorbefüllung der "Übernehmen"-Eingabe: bei genau einer markierten Zelle
-// deren bisheriger Wert, sonst leer (bei mehreren markierten Zellen mit
-// unterschiedlichen Werten wäre eine Vorbefüllung ohnehin uneindeutig).
-function selectionPrefill(row, selSet) {
-  if (selSet.size !== 1) return "";
-  const m = [...selSet][0];
-  const v = row.monate && row.monate[m];
-  return v ? v : "";
-}
-
+// Klick auf eine Monatszelle öffnet IMMER direkt ein Eingabefenster für
+// genau diesen einen Klick (siehe onTableClick()) -- bei "monatlich" wirkt
+// sich das auf alle 12 Monate der Zeile aus, bei "einmalig" nur auf den
+// angeklickten. Keine Mehrfachauswahl mehr (frühere Version mit
+// markierbaren Zellen + separater "Übernehmen"-Leiste war laut Feedback
+// unintuitiv).
 function monthCellHtml(sec, row, monat) {
-  if (row.typ === "monatlich") {
-    const val = Number(row.betrag) || 0;
-    return `<td class="fp-month-cell" data-action="edit-monthly" data-section="${sec.key}" data-row="${row.id}">${val ? chNumber(val) : ""}</td>`;
-  }
-  const selSet = selections[row.id];
-  const selected = selSet && selSet.has(monat);
-  const val = row.monate && row.monate[monat];
-  return `<td class="fp-month-cell${selected ? " selected" : ""}" data-action="toggle-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}">${val ? chNumber(val) : ""}</td>`;
+  const val = row.typ === "monatlich" ? Number(row.betrag) || 0 : Number(row.monate && row.monate[monat]) || 0;
+  return `<td class="fp-month-cell" data-action="edit-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}">${val ? chNumber(val) : ""}</td>`;
 }
 
 function rowHtml(sec, row, index, count) {
@@ -283,7 +266,7 @@ function rowHtml(sec, row, index, count) {
   const icon = sec.mixed ? `<span class="fp-typ-icon" title="${TYP_LABEL[row.typ]}">${TYP_ICON[row.typ]}</span>` : "";
   const canUp = index > 0;
   const canDown = index < count - 1;
-  let html = `<tr class="fp-row" data-row-id="${row.id}">
+  return `<tr class="fp-row" data-row-id="${row.id}">
     <td class="fp-bezeichnung">${icon}<span class="fp-row-title" data-action="rename-row" data-section="${sec.key}" data-row="${row.id}" title="Klicken zum Umbenennen">${escapeHtml(row.bezeichnung)}</span></td>
     ${cells}
     <td class="fp-total">${total ? chNumber(total) : ""}</td>
@@ -293,22 +276,6 @@ function rowHtml(sec, row, index, count) {
       <button type="button" class="row-action" data-action="delete-row" data-section="${sec.key}" data-row="${row.id}" title="Zeile löschen">×</button>
     </td>
   </tr>`;
-
-  const selSet = selections[row.id];
-  if (row.typ !== "monatlich" && selSet && selSet.size) {
-    const monthNames = [...selSet].sort((a, b) => a - b).map((m) => MONTH_LABELS[m - 1]).join(", ");
-    html += `<tr class="fp-apply-row">
-      <td colspan="${TABLE_COLSPAN}">
-        <div class="fp-apply-bar">
-          <span>Betrag für ${escapeHtml(monthNames)}:</span>
-          <input type="number" class="fp-apply-input" id="applyInput-${row.id}" value="${selectionPrefill(row, selSet)}" placeholder="0">
-          <button type="button" class="btn-secondary" data-action="apply-selection" data-section="${sec.key}" data-row="${row.id}">Übernehmen</button>
-          <button type="button" class="btn-secondary" data-action="cancel-selection" data-row="${row.id}">Abbrechen</button>
-        </div>
-      </td>
-    </tr>`;
-  }
-  return html;
 }
 
 // "+ Zeile" (bzw. bei gemischten Abschnitten "+ monatlich"/"+ einmalig")
@@ -389,57 +356,35 @@ function onTableClick(e) {
     return;
   }
 
-  const editMonthly = e.target.closest('[data-action="edit-monthly"]');
-  if (editMonthly) {
-    const { section, row: rowId } = editMonthly.dataset;
+  const editMonth = e.target.closest('[data-action="edit-month"]');
+  if (editMonth) {
+    const { section, row: rowId, month } = editMonth.dataset;
     const row = findRow(yearData, section, rowId);
     if (!row) return;
-    const typed = prompt(`Betrag für "${row.bezeichnung}" (gilt für alle 12 Monate):`, row.betrag || 0);
-    if (typed === null) return;
-    const betrag = parseAmount(typed);
-    mutate((data) => {
-      const r = findRow(data, section, rowId);
-      if (r) r.betrag = betrag;
-      return data;
-    });
-    return;
-  }
-
-  const toggleMonth = e.target.closest('[data-action="toggle-month"]');
-  if (toggleMonth) {
-    const { row: rowId, month } = toggleMonth.dataset;
-    const m = Number(month);
-    const set = rowSelectionSet(rowId);
-    if (set.has(m)) set.delete(m);
-    else set.add(m);
-    render();
-    return;
-  }
-
-  const applyBtn = e.target.closest('[data-action="apply-selection"]');
-  if (applyBtn) {
-    const { section, row: rowId } = applyBtn.dataset;
-    const input = document.getElementById(`applyInput-${rowId}`);
-    const betrag = parseAmount(input.value);
-    const months = [...(selections[rowId] || [])];
-    delete selections[rowId];
-    mutate((data) => {
-      const r = findRow(data, section, rowId);
-      if (!r) return data;
-      if (!r.monate) r.monate = {};
-      months.forEach((m) => {
+    if (row.typ === "monatlich") {
+      const typed = prompt(`Betrag für "${row.bezeichnung}" (gilt für alle 12 Monate):`, row.betrag || 0);
+      if (typed === null) return;
+      const betrag = parseAmount(typed);
+      mutate((data) => {
+        const r = findRow(data, section, rowId);
+        if (r) r.betrag = betrag;
+        return data;
+      });
+    } else {
+      const m = Number(month);
+      const bisher = (row.monate && row.monate[m]) || 0;
+      const typed = prompt(`Betrag für "${row.bezeichnung}" im ${MONTH_LABELS[m - 1]}:`, bisher);
+      if (typed === null) return;
+      const betrag = parseAmount(typed);
+      mutate((data) => {
+        const r = findRow(data, section, rowId);
+        if (!r) return data;
+        if (!r.monate) r.monate = {};
         if (betrag) r.monate[m] = betrag;
         else delete r.monate[m];
+        return data;
       });
-      return data;
-    });
-    return;
-  }
-
-  const cancelBtn = e.target.closest('[data-action="cancel-selection"]');
-  if (cancelBtn) {
-    delete selections[cancelBtn.dataset.row];
-    render();
+    }
     return;
   }
 
@@ -478,7 +423,6 @@ function onTableClick(e) {
     const row = findRow(yearData, section, rowId);
     if (!row) return;
     if (!confirm(`Zeile "${row.bezeichnung}" wirklich löschen?`)) return;
-    delete selections[rowId];
     mutate((data) => {
       data[section] = (data[section] || []).filter((r) => r.id !== rowId);
       return data;

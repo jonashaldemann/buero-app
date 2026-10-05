@@ -1065,11 +1065,9 @@ berechnet der Saldo pro Monat.
       12 Monate gleich — Klick auf eine beliebige Monatszelle öffnet ein
       Eingabefeld, das den Betrag für die ganze Zeile ändert.
     - 📌 **einmalig** ("+ einmalig"): Betrag an einzelnen Monaten. Klick
-      auf eine Monatszelle markiert sie (Toggle, nochmals anklicken hebt
-      die Markierung wieder auf); sobald mindestens eine Zelle markiert
-      ist, erscheint darunter ein Eingabefeld — der eingegebene Betrag wird
-      auf alle markierten Monate dieser Zeile geschrieben (0 oder leer
-      entfernt den Eintrag).
+      auf eine Monatszelle öffnet direkt ein Eingabefeld für genau diesen
+      einen Monat (0 oder leer entfernt den Eintrag) — kein Markieren
+      mehrerer Zellen nötig.
   - **Einnahmen**/**Auszahlungen** sind immer vom Typ "einmalig" (bei einem
     Architekturbüro erfahrungsgemäss nie monatlich wiederkehrend) — eigener
     "+ Zeile"-Knopf statt der beiden Ausgaben-Knöpfe.
