@@ -963,8 +963,11 @@ also automatisch mit.
     wie Zeiterfassung/Pendenzen (siehe Abschnitt "Zentrale Konfiguration"
     oben; Zuordnung/Farbe über den Namen, nicht die Nummer) oder frei benannt
     über das Textfeld daneben — für Vorhaben, die
-    (noch) nicht in der offiziellen Liste stehen. Auf-/zuklappbar; die
-    Projektzeile selbst zeigt dabei immer (auch zugeklappt) alle Balken/
+    (noch) nicht in der offiziellen Liste stehen. Auf Klick auf den
+    Projekttitel lässt er sich frei umbenennen (unabhängig davon, ob der neue
+    Name in der zentralen Liste vorkommt); die Pfeile ▲▼ (erscheinen beim
+    Überfahren der Zeile) verschieben ein Projekt in der Liste nach oben/
+    unten. Auf-/zuklappbar; die Projektzeile selbst zeigt dabei immer (auch zugeklappt) alle Balken/
     Meilensteine ihrer Aufgaben zusammen als **halbtransparente** Übersicht,
     bewusst ohne Titeltext (reine "Strichcode"-Ansicht) — laufen mehrere
     Aufgaben gleichzeitig, zeichnet sich das durch die Überlagerung als
@@ -1070,7 +1073,13 @@ berechnet der Saldo pro Monat.
       mehrerer Zellen nötig.
   - **Einnahmen** sind immer vom Typ "einmalig" (bei einem Architekturbüro
     erfahrungsgemäss nie monatlich wiederkehrend) — eigener "+ Zeile"-Knopf
-    statt der beiden Knöpfe bei Ausgaben/Auszahlungen.
+    statt der beiden Knöpfe bei Ausgaben/Auszahlungen. Zusätzlich lässt sich
+    zu jedem Monatsbetrag eine kurze Info hinterlegen (z.B. "Bauprojekt",
+    "Vorprojekt", um z.B. mehrere Phasen desselben Projekts auseinanderzuhalten)
+    — nach Eingabe des Betrags fragt ein zweites `prompt()`-Fenster danach
+    (leer lassen = keine Info). Erscheint als Tooltip beim Überfahren der
+    Zahl, zusätzlich per gepunkteter Unterstreichung auch ohne Hover
+    erkennbar.
   - Titel UND Summe (Monats-Subtotale sowie "Total"-Spalte mit der
     Jahressumme) stehen gemeinsam in der OBERSTEN Zeile jedes Abschnitts —
     keine separate Summen-Zeile am Ende, man sieht die Zahlen sofort ohne

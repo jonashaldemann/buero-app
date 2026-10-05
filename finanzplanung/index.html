@@ -44,6 +44,7 @@
   }
   .fp-month-cell:hover { background: var(--surface-2); }
   .fp-month-cell.negative { color: #B5654C; }
+  .fp-month-cell.fp-has-note { text-decoration: underline dotted var(--text-muted); text-underline-offset: 2px; }
   .fp-total { text-align: right; font-family: var(--font-medium); white-space: nowrap; }
   .fp-total.negative { color: #B5654C; }
   .fp-row-actions { white-space: nowrap; }
@@ -149,16 +150,24 @@
       tatsächlichen Finanzen weichen von der Prognose manchmal leicht ab).
     </p>
     <p class="hint">
-      Bei "Ausgaben" gibt es zwei Zeilentypen nebeneinander ("+ monatlich"/
-      "+ einmalig", am Icon 🔁/📌 vor der Bezeichnung erkennbar). Die
-      Eingabe ist bei beiden gleich einfach: auf eine Monatszelle klicken
-      öffnet ein kleines Eingabefenster für einen Betrag. 🔁 Bei monatlich
-      wiederkehrenden Zeilen gilt der eingegebene Betrag danach für alle 12
-      Monate gleich. 📌 Einmalige Zeilen (auch bei "Einnahmen" und
-      "Auszahlungen" immer dieser Typ) tragen den Betrag nur in den
+      Bei "Ausgaben" und "Auszahlungen" gibt es zwei Zeilentypen
+      nebeneinander ("+ monatlich"/"+ einmalig", am Icon 🔁/📌 vor der
+      Bezeichnung erkennbar). Die Eingabe ist bei beiden gleich einfach: auf
+      eine Monatszelle klicken öffnet ein kleines Eingabefenster für einen
+      Betrag. 🔁 Bei monatlich wiederkehrenden Zeilen gilt der eingegebene
+      Betrag danach für alle 12 Monate gleich. 📌 Einmalige Zeilen (bei
+      "Einnahmen" immer dieser Typ) tragen den Betrag nur in den
       angeklickten Monat ein -- jeder Monat einzeln. 0 oder leer entfernt
       den Eintrag. Beträge immer positiv eingeben, das Vorzeichen in der
       Saldo-Berechnung ergibt sich automatisch aus der Kategorie.
+    </p>
+    <p class="hint">
+      Bei "Einnahmen" lässt sich zu jedem Monatsbetrag zusätzlich eine kurze
+      Info hinterlegen (z.B. "Bauprojekt", "Vorprojekt") -- nach Eingabe des
+      Betrags fragt ein zweites Eingabefenster danach (leer lassen = keine
+      Info). Die Info erscheint dann als Tooltip beim Überfahren der Zahl
+      mit der Maus; eine gepunktete Unterstreichung zeigt auch ohne Hover,
+      dass dort eine Info hinterlegt ist.
     </p>
     <p class="hint">
       Auf die Bezeichnung einer Zeile klicken benennt sie um. Die Pfeile ▲▼
