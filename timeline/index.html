@@ -83,7 +83,7 @@
   .tp-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tp-row-title-strong { font-family: var(--font-medium); }
   .tp-row-hours { flex: none; font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
-  .tp-row-title[data-action="rename-aufgabe"] { cursor: pointer; }
+  .tp-row-title[data-action="rename-aufgabe"], .tp-row-title[data-action="rename-projekt"] { cursor: pointer; }
   .tp-toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; flex: none; font-size: 12px; }
   .tp-delete-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer; flex: none;
@@ -91,6 +91,13 @@
   }
   .tp-label-cell:hover .tp-delete-btn { opacity: 1; }
   .tp-delete-btn:active { color: #B5654C; }
+  .tp-move-btn {
+    background: none; border: none; color: var(--text-muted); cursor: pointer; flex: none;
+    opacity: 0; transition: opacity 0.1s; font-size: 10px; line-height: 1; padding: 2px 3px;
+  }
+  .tp-label-cell:hover .tp-move-btn { opacity: 1; }
+  .tp-move-btn:active { color: var(--accent-primary); }
+  .tp-move-btn[disabled] { opacity: 0.25 !important; cursor: default; }
   .tp-link-btn { background: none; border: none; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 6px 0; }
   .tp-schema-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; flex: none; font-size: 13px; padding: 2px 4px; opacity: 0.55; }
   .tp-schema-btn:hover { opacity: 1; }
