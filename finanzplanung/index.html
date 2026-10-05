@@ -43,7 +43,6 @@
     text-align: right; cursor: pointer; min-width: 56px;
   }
   .fp-month-cell:hover { background: var(--surface-2); }
-  .fp-month-cell.selected { background: var(--accent-primary); color: #fff; }
   .fp-month-cell.negative { color: #B5654C; }
   .fp-total { text-align: right; font-family: var(--font-medium); white-space: nowrap; }
   .fp-total.negative { color: #B5654C; }
@@ -74,20 +73,6 @@
     background: var(--surface-2); border-bottom: none;
   }
   .fp-saldo-row { border-top: 2px solid var(--border); }
-
-  .fp-apply-row td { background: var(--surface-2); padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  /* flex:none nötig, weil .btn-secondary global flex:1 setzt (gedacht für
-     volle-Breite-Formularzeilen) -- hier soll der Knopf nur so breit wie
-     sein Text sein, sonst zieht's ihn über die ganze (sehr breite,
-     colspan=15) Zelle auseinander. */
-  .fp-apply-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .fp-apply-bar span { font-size: 12.5px; color: var(--text-muted); flex: none; }
-  /* Spezifischerer Selektor nötig: die globale Regel für
-     input[type="number"] (siehe css/style.css) setzt width:100%, das
-     schlägt eine einfache Einzelklasse -- sonst nimmt das Feld die ganze,
-     sehr breite Zelle ein und wirft Label/Knöpfe auf eigene Zeilen. */
-  .fp-apply-bar input.fp-apply-input { width: 110px; flex: none; padding: 6px 8px; font-size: 13px; }
-  .fp-apply-bar .btn-secondary { flex: none; padding: 6px 12px; font-size: 12.5px; }
 
   #helpOverlay .sheet { max-width: 560px; }
 </style>
@@ -165,17 +150,15 @@
     </p>
     <p class="hint">
       Bei "Ausgaben" gibt es zwei Zeilentypen nebeneinander ("+ monatlich"/
-      "+ einmalig", am Icon 🔁/📌 vor der Bezeichnung erkennbar): 🔁
-      monatlich wiederkehrende Zeilen gelten mit demselben Betrag für alle
-      12 Monate -- auf eine beliebige Monatszelle klicken ändert ihn für die
-      ganze Zeile auf einmal. 📌 Einmalige Zeilen (auch bei "Einnahmen" und
-      "Auszahlungen" immer dieser Typ) haben einen Betrag pro einzelnem
-      Monat: ein Klick auf eine Monatszelle markiert sie (nochmals anklicken
-      hebt die Markierung wieder auf); sobald mindestens eine Zelle markiert
-      ist, erscheint darunter ein Eingabefeld -- der eingegebene Betrag wird
-      auf alle markierten Monate dieser Zeile geschrieben (0 oder leer
-      entfernt den Eintrag). Beträge immer positiv eingeben, das Vorzeichen
-      in der Saldo-Berechnung ergibt sich automatisch aus der Kategorie.
+      "+ einmalig", am Icon 🔁/📌 vor der Bezeichnung erkennbar). Die
+      Eingabe ist bei beiden gleich einfach: auf eine Monatszelle klicken
+      öffnet ein kleines Eingabefenster für einen Betrag. 🔁 Bei monatlich
+      wiederkehrenden Zeilen gilt der eingegebene Betrag danach für alle 12
+      Monate gleich. 📌 Einmalige Zeilen (auch bei "Einnahmen" und
+      "Auszahlungen" immer dieser Typ) tragen den Betrag nur in den
+      angeklickten Monat ein -- jeder Monat einzeln. 0 oder leer entfernt
+      den Eintrag. Beträge immer positiv eingeben, das Vorzeichen in der
+      Saldo-Berechnung ergibt sich automatisch aus der Kategorie.
     </p>
     <p class="hint">
       Auf die Bezeichnung einer Zeile klicken benennt sie um. Die Pfeile ▲▼
