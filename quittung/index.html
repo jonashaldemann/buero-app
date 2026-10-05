@@ -20,6 +20,9 @@
     <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
     </a>
+    <button id="helpBtn" class="icon-btn" aria-label="Hilfe" title="Hilfe">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2zm0-3.6V14h-2v-1.4c0-.3.1-.5.4-.8l1.4-1.4c.3-.3.5-.6.5-1a1.5 1.5 0 00-3-.1H8.4a3.5 3.5 0 017-.3c0 .9-.4 1.5-1.1 2.2l-1 1z" fill="currentColor"/></svg>
+    </button>
     <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
     </button>
@@ -29,11 +32,6 @@
 <main>
   <section class="today">
     <h2>Beleg erfassen</h2>
-    <p class="hint">
-      Foto einer Quittung aufnehmen (wird automatisch als PDF gespeichert) oder
-      eine PDF-Rechnung hochladen. Der Beleg wird nach Nextcloud übertragen und
-      als Buchung für Banana vorbereitet.
-    </p>
     <div class="form-actions">
       <button id="receiptEntryBtn" class="btn-primary">Beleg erfassen</button>
     </div>
@@ -71,6 +69,21 @@
     </div>
   </section>
 </main>
+
+<!-- Hilfe -->
+<div id="helpOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Hilfe</h2>
+      <button id="closeHelp" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <p class="hint" style="margin-top:0;">
+      Foto einer Quittung aufnehmen (wird automatisch als PDF gespeichert) oder
+      eine PDF-Rechnung hochladen. Der Beleg wird nach Nextcloud übertragen und
+      als Buchung für Banana vorbereitet.
+    </p>
+  </div>
+</div>
 
 <!-- Einstellungen -->
 <div id="settingsOverlay" class="overlay hidden">

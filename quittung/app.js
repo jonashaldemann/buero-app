@@ -639,6 +639,9 @@ function init() {
     onSaved: () => { refreshReceiptMasterData(); refreshRecentReceipts(); }
   });
 
+  document.getElementById("helpBtn").addEventListener("click", () => document.getElementById("helpOverlay").classList.remove("hidden"));
+  document.getElementById("closeHelp").addEventListener("click", () => document.getElementById("helpOverlay").classList.add("hidden"));
+
   document.getElementById("receiptEntryBtn").addEventListener("click", openReceiptEntry);
   document.getElementById("closeReceipt").addEventListener("click", closeReceiptEntry);
   document.getElementById("cancelReceiptBtn").addEventListener("click", closeReceiptEntry);
