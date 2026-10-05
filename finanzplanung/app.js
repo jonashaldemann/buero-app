@@ -11,8 +11,8 @@
    Drei Abschnitte (SECTIONS): Ausgaben, Einnahmen, Auszahlungen. Jede
    Zeile trägt ihren eigenen Typ (row.typ):
    - "monatlich": EIN Betrag pro Zeile, gilt für alle 12 Monate gleich.
-     Nur bei Ausgaben wählbar (+ monatlich) -- Einnahmen/Auszahlungen sind
-     bei einem Architekturbüro erfahrungsgemäss immer einmalig, siehe
+     Bei Ausgaben und Auszahlungen wählbar (+ monatlich) -- nur Einnahmen
+     sind bei einem Architekturbüro erfahrungsgemäss immer einmalig, siehe
      Todo-Wortlaut.
    - "einmalig": Betrag pro einzelnem Monat.
    In beiden Fällen dasselbe simple Muster: Klick auf eine Monatszelle
@@ -55,12 +55,12 @@ const MONTH_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "
 // Tabelle. vorzeichen: wie sich ein Betrag dieser Kategorie auf den Saldo
 // auswirkt (Ausgaben/Auszahlungen verringern ihn, Einnahmen erhöhen ihn).
 // mixed: ob die Zeilen dieses Abschnitts beide typ-Werte mischen dürfen
-// (Ausgaben) oder immer "einmalig" sind (Einnahmen/Auszahlungen) -- nur
+// (Ausgaben, Auszahlungen) oder immer "einmalig" sind (Einnahmen) -- nur
 // mixed-Abschnitte zeigen das Typ-Icon pro Zeile und zwei "+"-Knöpfe.
 const SECTIONS = [
   { key: "ausgaben", label: "Ausgaben", vorzeichen: -1, mixed: true },
   { key: "einnahmen", label: "Einnahmen", vorzeichen: 1, mixed: false },
-  { key: "auszahlungen", label: "Auszahlungen (Gewinnausschüttungen)", vorzeichen: -1, mixed: false }
+  { key: "auszahlungen", label: "Auszahlungen (Gewinnausschüttungen)", vorzeichen: -1, mixed: true }
 ];
 // Gesamtzahl Spalten der Tabelle (Bezeichnung + 12 Monate + Total + Aktion) --
 // für colspan bei Abschnitts-/Subtotal-/"+ Zeile"-Zeilen.
@@ -291,22 +291,25 @@ function addRowButtonsHtml(sec) {
   return `<tr class="fp-add-row"><td colspan="${TABLE_COLSPAN}"><button type="button" class="fp-link-btn" data-action="add-row" data-section="${sec.key}" data-typ="einmalig">+ Zeile</button></td></tr>`;
 }
 
+// Titel UND Summe stehen bewusst in derselben, obersten Zeile des
+// Abschnitts (statt Titel oben, Summe erst unten nach allen Zeilen) --
+// so sieht man die Monats-/Jahrestotale sofort, ohne an den Zeilen
+// vorbeizuscrollen.
 function sectionHtml(sec, data) {
   const rows = data[sec.key] || [];
-  let html = `<tr class="fp-section-row"><td colspan="${TABLE_COLSPAN}">${escapeHtml(sec.label)}</td></tr>`;
-  rows.forEach((row, idx) => { html += rowHtml(sec, row, idx, rows.length); });
-  html += addRowButtonsHtml(sec);
   const subtotalCells = MONTH_LABELS.map((_, idx) => {
     const v = sectionSubtotal(sec, data, idx + 1);
-    return `<td class="fp-month-cell">${v ? chNumber(v) : ""}</td>`;
+    return `<td class="fp-section-amount">${v ? chNumber(v) : ""}</td>`;
   }).join("");
   const subtotalTotal = rows.reduce((sum, row) => sum + rowJahresTotal(row), 0);
-  html += `<tr class="fp-subtotal-row">
-    <td>Total ${escapeHtml(sec.label)}</td>
+  let html = `<tr class="fp-section-row">
+    <td>${escapeHtml(sec.label)}</td>
     ${subtotalCells}
-    <td class="fp-total">${subtotalTotal ? chNumber(subtotalTotal) : ""}</td>
+    <td class="fp-section-amount fp-total">${subtotalTotal ? chNumber(subtotalTotal) : ""}</td>
     <td></td>
   </tr>`;
+  rows.forEach((row, idx) => { html += rowHtml(sec, row, idx, rows.length); });
+  html += addRowButtonsHtml(sec);
   return html;
 }
 
