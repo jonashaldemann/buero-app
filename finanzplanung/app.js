@@ -84,8 +84,35 @@ function blankYear(jahr, anfangssaldo) {
   };
 }
 
+// Migriert ältere, bereits auf Nextcloud gespeicherte Jahres-Dateien auf das
+// aktuelle Format -- wichtig, damit schon eingegebene echte Daten nach einer
+// UI-Umstellung nicht plötzlich leer erscheinen:
+// - vor der Zusammenlegung der Ausgaben (siehe Kopf-Kommentar) gab es
+//   getrennte Listen "ausgabenMonatlich"/"ausgabenEinmalig" statt der
+//   gemeinsamen "ausgaben"-Liste mit typ pro Zeile.
+// - noch früher hatten Zeilen in einnahmen/auszahlungen/ausgabenEinmalig gar
+//   kein "typ"-Feld (das gab es erst seit der Zusammenlegung) -- ohne
+//   nachträglich gesetztes typ bliebe z.B. das Typ-Icon bei den (seit
+//   Kurzem ebenfalls gemischten) Auszahlungen leer/"undefined".
+// Legacy-Felder werden nach der Migration entfernt, damit die Datei beim
+// nächsten Speichern dauerhaft im neuen Format landet (selbstheilend).
+function migrateYearData(data) {
+  if (!data) return data;
+  if (!data.ausgaben) {
+    const monatlich = (data.ausgabenMonatlich || []).map((r) => ({ id: r.id, bezeichnung: r.bezeichnung, typ: "monatlich", betrag: r.betrag || 0 }));
+    const einmalig = (data.ausgabenEinmalig || []).map((r) => ({ id: r.id, bezeichnung: r.bezeichnung, typ: "einmalig", monate: r.monate || {} }));
+    data.ausgaben = [...monatlich, ...einmalig];
+  }
+  delete data.ausgabenMonatlich;
+  delete data.ausgabenEinmalig;
+  ["ausgaben", "einnahmen", "auszahlungen"].forEach((key) => {
+    (data[key] || []).forEach((r) => { if (!r.typ) r.typ = "betrag" in r ? "monatlich" : "einmalig"; });
+  });
+  return data;
+}
+
 let currentJahr = new Date().getFullYear();
-let yearData = loadJSON(cacheKey(currentJahr), null) || blankYear(currentJahr, 0);
+let yearData = migrateYearData(loadJSON(cacheKey(currentJahr), null)) || blankYear(currentJahr, 0);
 // Anfangssaldo-Vorschlag (aus dem berechneten Endsaldo des Vorjahres), falls
 // für currentJahr noch keine Datei existiert -- siehe refreshYear()/persist().
 let carryOverVorschlag = 0;
@@ -128,7 +155,7 @@ async function refreshYear(jahr) {
   currentJahr = jahr;
   document.getElementById("yearLabel").textContent = String(jahr);
 
-  const cached = loadJSON(cacheKey(jahr), null);
+  const cached = migrateYearData(loadJSON(cacheKey(jahr), null));
   yearData = cached || blankYear(jahr, 0);
   render();
 
@@ -144,7 +171,7 @@ async function refreshYear(jahr) {
   line.textContent = "Lädt…";
   try {
     await ensureFinanzplanungFolder();
-    const serverData = await fetchYearFile(jahr);
+    const serverData = migrateYearData(await fetchYearFile(jahr));
     if (serverData) {
       yearData = serverData;
       line.textContent = "Synchronisiert";
@@ -152,7 +179,7 @@ async function refreshYear(jahr) {
       // Kein Jahr angelegt -- Anfangssaldo-Vorschlag aus dem berechneten
       // Endsaldo des Vorjahres (falls dessen Datei existiert), bleibt ein
       // ganz normales editierbares Feld.
-      const prevData = await fetchYearFile(jahr - 1).catch(() => null);
+      const prevData = migrateYearData(await fetchYearFile(jahr - 1).catch(() => null));
       carryOverVorschlag = prevData ? berechneSalden(prevData)[12] : 0;
       yearData = blankYear(jahr, carryOverVorschlag);
       line.textContent = "Neues Jahr (noch nicht gespeichert)";
@@ -202,7 +229,7 @@ async function persist(jahr, vorschlag, mutateFn) {
   if (isCurrent()) line.textContent = "Speichert…";
   try {
     await ensureFinanzplanungFolder();
-    const serverData = (await fetchYearFile(jahr)) || blankYear(jahr, vorschlag);
+    const serverData = migrateYearData(await fetchYearFile(jahr)) || blankYear(jahr, vorschlag);
     const merged = mutateFn(serverData) || serverData;
     merged.jahr = jahr;
     merged.updatedAt = new Date().toISOString();
