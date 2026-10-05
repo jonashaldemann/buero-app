@@ -762,7 +762,17 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   pro Pendenz (per id) gemergt — die jeweils neuere `updatedAt` gewinnt, nur
   lokal oder nur serverseitig bekannte Pendenzen bleiben in jedem Fall
   erhalten. Anders als bei den Offerten (Feld-Merge) ist das ein Merge auf
-  Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog.
+  Ebene ganzer Listeneinträge, ohne Nachfrage-Dialog. Endgültiges Löschen
+  (siehe unten) markiert deshalb nur `geloescht:true` statt den Eintrag
+  sofort aus der Liste zu entfernen — ein Gerät mit veraltetem lokalem Stand
+  (z.B. ein lange nicht geöffneter Tab) kennt eine echte Entfernung sonst
+  nicht und würde die längst gelöschte Pendenz beim nächsten Speichern über
+  die "nur lokal bekannt bleibt erhalten"-Regel wieder zurückschreiben —
+  genau das sorgte vor der Umstellung auf Tombstones gelegentlich dafür,
+  dass alte erledigte Pendenzen plötzlich wieder auftauchten. Als
+  `geloescht` markierte Pendenzen werden überall ausgeblendet und nach 30
+  Tagen beim nächsten Sync endgültig aus der Datei entfernt, damit sie nicht
+  für immer Spuren hinterlassen.
 - **Projekte & Farben**: kommen aus derselben zentralen `projekte.txt` wie die
   Zeiterfassung, damit ein Projekt überall gleich heisst und gleich aussieht
   — Zuordnung/Filter/Farbe erfolgen dabei über den **Projektnamen** (siehe
