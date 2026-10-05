@@ -1,6 +1,6 @@
 /* ============================================================
    Zeitplanung — horizontaler Zeitbalken (Gantt-artig), Fenster immer
-   "heute .. heute + 1 Jahr" (rollend, nicht ein festes Kalenderjahr).
+   "heute .. heute + 2 Jahre" (rollend, nicht ein festes Kalenderjahr).
 
    Zeilen von oben nach unten:
    - Mitarbeitende (aus der zentralen config.json, siehe shared/common.js) --
@@ -109,8 +109,8 @@ function dateToX(iso) {
 function computeRange() {
   const now = new Date();
   rangeStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  rangeEndDate = addDays(rangeStartDate, 365);
-  totalDays = 366;
+  rangeEndDate = addDays(rangeStartDate, 730);
+  totalDays = 731;
   totalWidth = totalDays * DAY_WIDTH;
 }
 // Montag als Wochenbeginn (wie im Zeiterfassungs-Dashboard).
