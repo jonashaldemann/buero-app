@@ -282,9 +282,18 @@ function findRow(data, sectionKey, rowId) {
 // angeklickten. Keine Mehrfachauswahl mehr (frühere Version mit
 // markierbaren Zellen + separater "Übernehmen"-Leiste war laut Feedback
 // unintuitiv).
+// Bei Einnahmen kann zusätzlich pro Monat eine kurze Info (z.B. "Bauprojekt",
+// "Vorprojekt") hinterlegt werden -- row.notizen ist eine zu row.monate
+// parallele, ebenso sparse Map. Erscheint als native Tooltip (title-Attribut)
+// beim Überfahren der Zelle, zusätzlich optisch per gepunkteter Unterstreichung
+// markiert (fp-has-note), damit man auch ohne Hover sieht, dass es dort eine
+// Notiz gibt.
 function monthCellHtml(sec, row, monat) {
   const val = row.typ === "monatlich" ? Number(row.betrag) || 0 : Number(row.monate && row.monate[monat]) || 0;
-  return `<td class="fp-month-cell" data-action="edit-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}">${val ? chNumber(val) : ""}</td>`;
+  const notiz = row.notizen && row.notizen[monat];
+  const titleAttr = notiz ? ` title="${escapeHtml(notiz)}"` : "";
+  const noteClass = notiz ? " fp-has-note" : "";
+  return `<td class="fp-month-cell${noteClass}" data-action="edit-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}"${titleAttr}>${val ? chNumber(val) : ""}</td>`;
 }
 
 function rowHtml(sec, row, index, count) {
@@ -406,12 +415,33 @@ function onTableClick(e) {
       const typed = prompt(`Betrag für "${row.bezeichnung}" im ${MONTH_LABELS[m - 1]}:`, bisher);
       if (typed === null) return;
       const betrag = parseAmount(typed);
+
+      // Bei Einnahmen kann zusätzlich eine kurze Info pro Monat vermerkt
+      // werden (z.B. "Bauprojekt", "Vorprojekt") -- erscheint als Tooltip
+      // über der Zahl. Nur relevant, wenn danach überhaupt noch ein Betrag
+      // steht; beim Leeren der Zelle macht eine Notiz keinen Sinn mehr.
+      let notiz;
+      let notizCancelled = false;
+      if (section === "einnahmen" && betrag) {
+        const bisherigeNotiz = (row.notizen && row.notizen[m]) || "";
+        const typedNotiz = prompt(`Info zu diesem Betrag (optional, z.B. "Bauprojekt"):`, bisherigeNotiz);
+        if (typedNotiz === null) notizCancelled = true;
+        else notiz = typedNotiz.trim();
+      }
+
       mutate((data) => {
         const r = findRow(data, section, rowId);
         if (!r) return data;
         if (!r.monate) r.monate = {};
         if (betrag) r.monate[m] = betrag;
         else delete r.monate[m];
+        if (!betrag) {
+          if (r.notizen) delete r.notizen[m];
+        } else if (!notizCancelled) {
+          if (!r.notizen) r.notizen = {};
+          if (notiz) r.notizen[m] = notiz;
+          else delete r.notizen[m];
+        }
         return data;
       });
     }

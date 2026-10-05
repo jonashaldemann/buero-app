@@ -580,11 +580,15 @@ function hoursBadgeHtml(hours) {
 // hat flex:1 und nimmt dadurch immer den ganzen verfügbaren Platz ein --
 // die Stunden landen so automatisch rechtsbündig am Ende der Zeile, egal
 // wie kurz der Titeltext ist.
-function projectRowLabelHtml(proj) {
+function projectRowLabelHtml(proj, index, count) {
   const arrow = proj.aufgeklappt ? "▾" : "▸";
+  const canUp = index > 0;
+  const canDown = index < count - 1;
   return `<button type="button" class="tp-toggle-btn" data-action="toggle-projekt" data-projekt="${proj.id}" title="${proj.aufgeklappt ? "Zuklappen" : "Aufklappen"}">${arrow}</button>
-    <span class="tp-row-title tp-row-title-strong">${escapeHtml(proj.titel)}</span>
+    <span class="tp-row-title tp-row-title-strong" data-action="rename-projekt" data-projekt="${proj.id}" title="Klicken zum Umbenennen">${escapeHtml(proj.titel)}</span>
     ${hoursBadgeHtml(projektTotalHours(proj))}
+    <button type="button" class="tp-move-btn" data-action="move-projekt" data-projekt="${proj.id}" data-direction="-1" title="Nach oben verschieben"${canUp ? "" : " disabled"}>▲</button>
+    <button type="button" class="tp-move-btn" data-action="move-projekt" data-projekt="${proj.id}" data-direction="1" title="Nach unten verschieben"${canDown ? "" : " disabled"}>▼</button>
     <button type="button" class="tp-delete-btn" data-action="delete-projekt" data-projekt="${proj.id}" title="Projekt aus der Zeitplanung entfernen">×</button>`;
 }
 function aufgabeRowLabelHtml(proj, aufgabe) {
@@ -611,12 +615,12 @@ function renderRows() {
   });
 
   html += `<div class="tp-section-label">Projekte</div>`;
-  zeitplan.projekte.forEach((proj) => {
+  zeitplan.projekte.forEach((proj, projIdx) => {
     const color = projectColor(proj.titel);
     const summaryItems = proj.aufgaben.flatMap((a) =>
       a.eintraege.map((entry) => ({ entry, loc: { type: "aufgabe", projektId: proj.id, aufgabeId: a.id }, color }))
     );
-    html += renderRowHtml({ labelHtml: projectRowLabelHtml(proj), items: summaryItems, summary: true });
+    html += renderRowHtml({ labelHtml: projectRowLabelHtml(proj, projIdx, zeitplan.projekte.length), items: summaryItems, summary: true });
 
     if (proj.aufgeklappt) {
       proj.aufgaben.forEach((aufgabe) => {
@@ -1076,6 +1080,28 @@ function onRowsClick(e) {
   if (deleteProjektBtn) {
     if (!confirm("Projekt wirklich aus der Zeitplanung entfernen (inkl. aller Aufgaben)?")) return;
     zeitplan.projekte = zeitplan.projekte.filter((p) => p.id !== deleteProjektBtn.dataset.projekt);
+    renderAll();
+    scheduleSync();
+    return;
+  }
+  const renameProjektBtn = e.target.closest('[data-action="rename-projekt"]');
+  if (renameProjektBtn) {
+    const proj = zeitplan.projekte.find((p) => p.id === renameProjektBtn.dataset.projekt);
+    const neu = prompt("Projektname:", proj.titel);
+    if (neu && neu.trim()) {
+      proj.titel = neu.trim();
+      renderAll();
+      scheduleSync();
+    }
+    return;
+  }
+  const moveProjektBtn = e.target.closest('[data-action="move-projekt"]');
+  if (moveProjektBtn) {
+    const idx = zeitplan.projekte.findIndex((p) => p.id === moveProjektBtn.dataset.projekt);
+    const dir = Number(moveProjektBtn.dataset.direction);
+    const swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= zeitplan.projekte.length) return;
+    [zeitplan.projekte[idx], zeitplan.projekte[swapIdx]] = [zeitplan.projekte[swapIdx], zeitplan.projekte[idx]];
     renderAll();
     scheduleSync();
     return;
