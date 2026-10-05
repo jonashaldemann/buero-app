@@ -924,7 +924,7 @@ das auch für bereits offene alte Tabs zuverlässig funktioniert (siehe
 Abschnitt "Bekannte Grenzen"/`registerServiceWorkerWithAutoUpdate()` in
 `shared/common.js`). Die ausführliche Bedienungsanleitung steht nicht mehr
 fest auf der Seite, sondern hinter dem ?-Symbol ("Hilfe") neben Startseite/
-Einstellungen oben rechts. Das Zeitfenster ist immer "heute bis in 1 Jahr" —
+Einstellungen oben rechts. Das Zeitfenster ist immer "heute bis in 2 Jahre" —
 rollend, kein festes Kalenderjahr; beim erneuten Öffnen verschiebt es sich
 also automatisch mit.
 
