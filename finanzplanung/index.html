@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Finanzplanung</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/finanzplanung-192.png">
+<link rel="apple-touch-icon" href="../icons/finanzplanung-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Finanzplanung ist wie Timeline/Adressliste ein reines Desktop-Werkzeug
+     (breite Monats-Tabelle) -- kein mobile-first 480px-Limit. */
+  main { max-width: 100%; padding: 0 16px 24px; }
+
+  .fp-year-nav {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    margin: 4px 0 14px;
+  }
+  .fp-year-nav button {
+    background: var(--surface-2); border: none; border-radius: 10px;
+    width: 36px; height: 36px; font-size: 18px; color: var(--text); cursor: pointer;
+  }
+  .fp-year-nav button:active { color: var(--accent-primary); }
+  #yearLabel { font-family: var(--font-medium); font-size: 20px; min-width: 64px; text-align: center; }
+
+  .fp-anfangssaldo {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+    background: var(--surface); border-radius: 14px; padding: 12px 16px;
+  }
+  .fp-anfangssaldo label { font-family: var(--font-medium); font-size: 13px; flex: none; }
+  .fp-anfangssaldo input { width: 160px; flex: none; }
+
+  .table-scroll { max-height: 70vh; overflow: auto; }
+  table.fp-table { font-size: 12.5px; }
+  .fp-table th, .fp-table td { padding: 6px 10px; }
+  .fp-table th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .fp-table .fp-bezeichnung { min-width: 170px; white-space: normal; }
+  .fp-month-cell {
+    text-align: right; cursor: pointer; min-width: 56px;
+  }
+  .fp-month-cell:hover { background: var(--surface-2); }
+  .fp-month-cell.selected { background: var(--accent-primary); color: #fff; }
+  .fp-month-cell.negative { color: #B5654C; }
+  .fp-total { text-align: right; font-family: var(--font-medium); white-space: nowrap; }
+  .fp-total.negative { color: #B5654C; }
+  .fp-row-actions { white-space: nowrap; }
+  .row-action {
+    background: none; border: none; color: var(--text-muted); font-size: 14px;
+    cursor: pointer; padding: 4px 6px;
+  }
+  .row-action:active { color: #B5654C; }
+
+  .fp-section-row td {
+    font-family: var(--font-medium); font-size: 12px; color: var(--text-muted);
+    background: var(--surface); padding-top: 14px; border-bottom: none;
+  }
+  .fp-subtotal-row td { color: var(--text-muted); font-family: var(--font-medium); border-bottom: 1px solid var(--border); }
+  .fp-add-row td { border-bottom: 1px solid var(--border); padding-top: 2px; padding-bottom: 10px; }
+  .fp-link-btn { background: none; border: none; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 4px 0; }
+
+  .fp-saldo-row td {
+    font-family: var(--font-medium); font-size: 13px;
+    background: var(--surface-2); border-bottom: none;
+  }
+  .fp-saldo-row { border-top: 2px solid var(--border); }
+
+  .fp-apply-row td { background: var(--surface-2); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  /* flex:none nötig, weil .btn-secondary global flex:1 setzt (gedacht für
+     volle-Breite-Formularzeilen) -- hier soll der Knopf nur so breit wie
+     sein Text sein, sonst zieht's ihn über die ganze (sehr breite,
+     colspan=15) Zelle auseinander. */
+  .fp-apply-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fp-apply-bar span { font-size: 12.5px; color: var(--text-muted); flex: none; }
+  /* Spezifischerer Selektor nötig: die globale Regel für
+     input[type="number"] (siehe css/style.css) setzt width:100%, das
+     schlägt eine einfache Einzelklasse -- sonst nimmt das Feld die ganze,
+     sehr breite Zelle ein und wirft Label/Knöpfe auf eigene Zeilen. */
+  .fp-apply-bar input.fp-apply-input { width: 110px; flex: none; padding: 6px 8px; font-size: 13px; }
+  .fp-apply-bar .btn-secondary { flex: none; padding: 6px 12px; font-size: 12.5px; }
+
+  #helpOverlay .sheet { max-width: 560px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Finanzplanung</h1>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="helpBtn" class="icon-btn" aria-label="Hilfe" title="Hilfe">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2zm0-3.6V14h-2v-1.4c0-.3.1-.5.4-.8l1.4-1.4c.3-.3.5-.6.5-1a1.5 1.5 0 00-3-.1H8.4a3.5 3.5 0 017-.3c0 .9-.4 1.5-1.1 2.2l-1 1z" fill="currentColor"/></svg>
+    </button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="fp-year-nav">
+    <button type="button" id="prevYearBtn" aria-label="Vorjahr">‹</button>
+    <span id="yearLabel">2026</span>
+    <button type="button" id="nextYearBtn" aria-label="Nächstes Jahr">›</button>
+  </div>
+
+  <div class="sync-line" id="syncLine" style="text-align:center;">&nbsp;</div>
+
+  <div class="fp-anfangssaldo">
+    <label for="inputAnfangssaldo">Anfangssaldo</label>
+    <input type="number" id="inputAnfangssaldo" placeholder="0">
+  </div>
+
+  <div class="table-wrap table-scroll">
+    <table class="fp-table">
+      <thead>
+        <tr>
+          <th>Bezeichnung</th>
+          <th class="fp-month-cell" style="cursor:default;">Jan</th>
+          <th class="fp-month-cell" style="cursor:default;">Feb</th>
+          <th class="fp-month-cell" style="cursor:default;">Mär</th>
+          <th class="fp-month-cell" style="cursor:default;">Apr</th>
+          <th class="fp-month-cell" style="cursor:default;">Mai</th>
+          <th class="fp-month-cell" style="cursor:default;">Jun</th>
+          <th class="fp-month-cell" style="cursor:default;">Jul</th>
+          <th class="fp-month-cell" style="cursor:default;">Aug</th>
+          <th class="fp-month-cell" style="cursor:default;">Sep</th>
+          <th class="fp-month-cell" style="cursor:default;">Okt</th>
+          <th class="fp-month-cell" style="cursor:default;">Nov</th>
+          <th class="fp-month-cell" style="cursor:default;">Dez</th>
+          <th class="fp-total" style="cursor:default;">Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="fpBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Hilfe -->
+<div id="helpOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Hilfe</h2>
+      <button id="closeHelp" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <p class="hint" style="margin-top:0;">
+      Ein Jahr nach dem anderen (‹ › oben) statt eines rollenden Fensters wie
+      bei der Timeline. Der Anfangssaldo steht ganz oben als eigenes Feld --
+      beim ersten Öffnen eines neuen Jahres mit dem berechneten Endsaldo des
+      Vorjahres vorbefüllt, lässt sich aber frei korrigieren (die
+      tatsächlichen Finanzen weichen von der Prognose manchmal leicht ab).
+    </p>
+    <p class="hint">
+      "Ausgaben (monatlich)" gelten mit demselben Betrag für alle 12 Monate
+      -- auf eine beliebige Monatszelle klicken ändert ihn für die ganze
+      Zeile auf einmal. Bei "Ausgaben (einmalig)", "Einnahmen" und
+      "Auszahlungen" markiert ein Klick auf eine Monatszelle sie (nochmals
+      anklicken hebt die Markierung wieder auf); sobald mindestens eine
+      Zelle markiert ist, erscheint darunter ein Eingabefeld -- der
+      eingegebene Betrag wird auf alle markierten Monate dieser Zeile
+      geschrieben (0 oder leer entfernt den Eintrag). Beträge immer positiv
+      eingeben, das Vorzeichen in der Saldo-Berechnung ergibt sich automatisch
+      aus der Kategorie. Der Saldo ganz unten wird laufend für jeden Monat
+      berechnet, bei Minus rötlich eingefärbt.
+    </p>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="jonas">
+      <label>App-Passwort</label>
+      <div class="password-field">
+        <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+        <button type="button" id="togglePassBtn" class="password-toggle" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für die anderen Büro-Apps (einmal einrichten, überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<script src="../shared/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
