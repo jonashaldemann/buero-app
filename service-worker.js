@@ -1,4 +1,4 @@
-const CACHE_NAME = "buero-startseite-v10";
+const CACHE_NAME = "buero-startseite-v11";
 const ASSETS = [
   "./",
   "./index.html",
