@@ -1178,6 +1178,9 @@ function init() {
   document.getElementById("cancelSchemaBtn").addEventListener("click", closeSchemaDialog);
   document.getElementById("saveSchemaBtn").addEventListener("click", saveSchemaDialog);
 
+  document.getElementById("helpBtn").addEventListener("click", () => document.getElementById("helpOverlay").classList.remove("hidden"));
+  document.getElementById("closeHelp").addEventListener("click", () => document.getElementById("helpOverlay").classList.add("hidden"));
+
   window.addEventListener("online", refreshZeitplan);
   window.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") { refreshZeitplan(); refreshAppData(); }
