@@ -328,7 +328,7 @@ function renderList() {
       const { stundenTotal, total } = calcTotals(d);
       const isRechnung = d.typ === "rechnung";
       const status = d.status || "in_bearbeitung";
-      const statusOptions = Object.keys(STATUS_LABELS)
+      const statusOptions = statusKeysForTyp(d.typ)
         .map((key) => `<option value="${key}" ${key === status ? "selected" : ""}>${STATUS_LABELS[key]}</option>`)
         .join("");
       return `<tr data-clickable data-index="${i}">
@@ -344,7 +344,7 @@ function renderList() {
           <button type="button" class="row-action" data-action="duplicate" data-index="${i}" title="Duplizieren">⧉</button>
         </td>
         <td>
-          <select class="status-select" data-action="status" data-index="${i}" data-status="${status}">${statusOptions}</select>
+          <select class="status-select" data-action="status" data-index="${i}" data-status="${status}" data-typ="${escapeHtml(d.typ || "offerte")}">${statusOptions}</select>
         </td>
       </tr>`;
     })
@@ -599,6 +599,12 @@ const STATUS_LABELS = {
 function statusLabel(status) {
   return STATUS_LABELS[status] || STATUS_LABELS.in_bearbeitung;
 }
+// Offerten kennen "Bezahlt" nicht (man "bezahlt" kein Angebot, nur eine
+// Rechnung) -- bei Offerten ist "Versendet" bereits der Endzustand (siehe
+// dazu auch die grüne Einfärbung in index.html, .status-select[data-typ="offerte"]).
+function statusKeysForTyp(typ) {
+  return typ === "rechnung" ? Object.keys(STATUS_LABELS) : ["in_bearbeitung", "versendet"];
+}
 
 // Blendet die rechnungsspezifischen Felder ein/aus und passt Titel/Labels an
 // -- Offerte und Rechnung teilen sich sonst dasselbe Formular/Datenmodell.
@@ -612,6 +618,17 @@ function applyTypVisibility(typ) {
   document.getElementById("projektFreitextGroup").style.display = isRechnung ? "none" : "";
   document.getElementById("projektAuswahlGroup").style.display = isRechnung ? "" : "none";
   if (isRechnung) renderProjektAuswahl();
+
+  // Status-Dropdown auf die beim Typ gültigen Werte beschränken (siehe
+  // statusKeysForTyp()) -- bisherige Auswahl nur übernehmen, wenn sie beim
+  // neuen Typ noch gültig ist, sonst Fallback auf den ersten Wert.
+  const statusSelect = document.getElementById("inputStatus");
+  const currentStatus = statusSelect.value;
+  const statusKeys = statusKeysForTyp(typ);
+  statusSelect.innerHTML = statusKeys
+    .map((key) => `<option value="${key}" ${key === currentStatus ? "selected" : ""}>${STATUS_LABELS[key]}</option>`)
+    .join("");
+  if (!statusKeys.includes(currentStatus)) statusSelect.value = statusKeys[0];
 }
 
 // Übernimmt bei Auswahl eines Projekts aus der zentralen Liste (nur bei

@@ -231,6 +231,10 @@
   }
   .status-select[data-status="versendet"] { background-color: #DCE6EA; color: #3E6478; }
   .status-select[data-status="bezahlt"] { background-color: #E1E8DC; color: #5C7350; }
+  /* Bei Offerten ist "Versendet" bereits der Endzustand (kein "Bezahlt"
+     danach, siehe statusKeysForTyp() in app.js) -- deshalb dieselbe grüne
+     Farbe wie "Bezahlt" bei Rechnungen statt des neutralen Blautons. */
+  .status-select[data-typ="offerte"][data-status="versendet"] { background-color: #E1E8DC; color: #5C7350; }
 
   .totals-block {
     margin-top: 18px;
