@@ -8,15 +8,20 @@
    geschlossene Einheit, deshalb keine gemeinsame Datei wie bei den
    Pendenzen und keine Merge-Logik über Jahre hinweg nötig.
 
-   Vier Kategorien von Zeilen:
-   - Ausgaben (monatlich): EIN Betrag pro Zeile, gilt für alle 12 Monate
-     gleich -- Klick auf irgendeine Monatszelle ändert ihn (für die ganze
-     Zeile auf einmal).
-   - Ausgaben (einmalig), Einnahmen, Auszahlungen: Betrag pro einzelnem
-     Monat. Klick auf eine Monatszelle markiert sie (Toggle); bei
-     mindestens einer markierten Zelle erscheint darunter eine Eingabezeile
-     ("Übernehmen"), die den eingegebenen Betrag auf alle markierten Monate
-     dieser Zeile schreibt.
+   Drei Abschnitte (SECTIONS): Ausgaben, Einnahmen, Auszahlungen. Jede
+   Zeile trägt ihren eigenen Typ (row.typ):
+   - "monatlich": EIN Betrag pro Zeile, gilt für alle 12 Monate gleich --
+     Klick auf irgendeine Monatszelle ändert ihn (für die ganze Zeile auf
+     einmal). Nur bei Ausgaben wählbar (+ monatlich) -- Einnahmen/
+     Auszahlungen sind bei einem Architekturbüro erfahrungsgemäss immer
+     einmalig, siehe Todo-Wortlaut.
+   - "einmalig": Betrag pro einzelnem Monat. Klick auf eine Monatszelle
+     markiert sie (Toggle); bei mindestens einer markierten Zelle
+     erscheint darunter eine Eingabezeile ("Übernehmen"), die den
+     eingegebenen Betrag auf alle markierten Monate dieser Zeile schreibt.
+   Die Ausgaben-Zeilen beider Typen stehen bewusst GEMEINSAM in einer
+   Liste mit einer einzigen Summe (übersichtlicher als zwei getrennte
+   Abschnitte) -- ein kleines Icon pro Zeile zeigt den Typ.
 
    Beträge werden immer POSITIV eingegeben -- ob ein Betrag den Saldo
    erhöht oder verringert, ergibt sich allein aus der Kategorie
@@ -46,15 +51,20 @@ const MONTH_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "
 // Reihenfolge hier bestimmt auch die Reihenfolge der Abschnitte in der
 // Tabelle. vorzeichen: wie sich ein Betrag dieser Kategorie auf den Saldo
 // auswirkt (Ausgaben/Auszahlungen verringern ihn, Einnahmen erhöhen ihn).
+// mixed: ob die Zeilen dieses Abschnitts beide typ-Werte mischen dürfen
+// (Ausgaben) oder immer "einmalig" sind (Einnahmen/Auszahlungen) -- nur
+// mixed-Abschnitte zeigen das Typ-Icon pro Zeile und zwei "+"-Knöpfe.
 const SECTIONS = [
-  { key: "ausgabenMonatlich", label: "Ausgaben (monatlich)", typ: "monatlich", vorzeichen: -1 },
-  { key: "ausgabenEinmalig", label: "Ausgaben (einmalig)", typ: "einmalig", vorzeichen: -1 },
-  { key: "einnahmen", label: "Einnahmen", typ: "einmalig", vorzeichen: 1 },
-  { key: "auszahlungen", label: "Auszahlungen (Gewinnausschüttungen)", typ: "einmalig", vorzeichen: -1 }
+  { key: "ausgaben", label: "Ausgaben", vorzeichen: -1, mixed: true },
+  { key: "einnahmen", label: "Einnahmen", vorzeichen: 1, mixed: false },
+  { key: "auszahlungen", label: "Auszahlungen (Gewinnausschüttungen)", vorzeichen: -1, mixed: false }
 ];
 // Gesamtzahl Spalten der Tabelle (Bezeichnung + 12 Monate + Total + Aktion) --
 // für colspan bei Abschnitts-/Subtotal-/"+ Zeile"-Zeilen.
 const TABLE_COLSPAN = 15;
+
+const TYP_ICON = { monatlich: "🔁", einmalig: "📌" };
+const TYP_LABEL = { monatlich: "Monatlich wiederkehrend", einmalig: "Einmalig" };
 
 function cacheKey(jahr) {
   return `${LS_KEYS_PREFIX}${jahr}`;
@@ -63,8 +73,7 @@ function blankYear(jahr, anfangssaldo) {
   return {
     jahr,
     anfangssaldo: anfangssaldo || 0,
-    ausgabenMonatlich: [],
-    ausgabenEinmalig: [],
+    ausgaben: [],
     einnahmen: [],
     auszahlungen: [],
     updatedAt: null,
@@ -212,16 +221,16 @@ async function persist(jahr, vorschlag, mutateFn) {
 
 // ---------- Berechnung ----------
 
-function rowBetragFuerMonat(sec, row, monat) {
-  if (sec.typ === "monatlich") return Number(row.betrag) || 0;
+function rowBetragFuerMonat(row, monat) {
+  if (row.typ === "monatlich") return Number(row.betrag) || 0;
   return Number(row.monate && row.monate[monat]) || 0;
 }
-function rowJahresTotal(sec, row) {
-  if (sec.typ === "monatlich") return (Number(row.betrag) || 0) * 12;
+function rowJahresTotal(row) {
+  if (row.typ === "monatlich") return (Number(row.betrag) || 0) * 12;
   return Object.values(row.monate || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
 }
 function sectionSubtotal(sec, data, monat) {
-  return (data[sec.key] || []).reduce((sum, row) => sum + rowBetragFuerMonat(sec, row, monat), 0);
+  return (data[sec.key] || []).reduce((sum, row) => sum + rowBetragFuerMonat(row, monat), 0);
 }
 // salden[0] = Anfangssaldo, salden[1..12] = Saldo am Ende von Monat 1..12.
 function berechneSalden(data) {
@@ -258,7 +267,7 @@ function selectionPrefill(row, selSet) {
 }
 
 function monthCellHtml(sec, row, monat) {
-  if (sec.typ === "monatlich") {
+  if (row.typ === "monatlich") {
     const val = Number(row.betrag) || 0;
     return `<td class="fp-month-cell" data-action="edit-monthly" data-section="${sec.key}" data-row="${row.id}">${val ? chNumber(val) : ""}</td>`;
   }
@@ -268,18 +277,25 @@ function monthCellHtml(sec, row, monat) {
   return `<td class="fp-month-cell${selected ? " selected" : ""}" data-action="toggle-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}">${val ? chNumber(val) : ""}</td>`;
 }
 
-function rowHtml(sec, row) {
+function rowHtml(sec, row, index, count) {
   const cells = MONTH_LABELS.map((_, idx) => monthCellHtml(sec, row, idx + 1)).join("");
-  const total = rowJahresTotal(sec, row);
+  const total = rowJahresTotal(row);
+  const icon = sec.mixed ? `<span class="fp-typ-icon" title="${TYP_LABEL[row.typ]}">${TYP_ICON[row.typ]}</span>` : "";
+  const canUp = index > 0;
+  const canDown = index < count - 1;
   let html = `<tr class="fp-row" data-row-id="${row.id}">
-    <td class="fp-bezeichnung">${escapeHtml(row.bezeichnung)}</td>
+    <td class="fp-bezeichnung">${icon}<span class="fp-row-title" data-action="rename-row" data-section="${sec.key}" data-row="${row.id}" title="Klicken zum Umbenennen">${escapeHtml(row.bezeichnung)}</span></td>
     ${cells}
     <td class="fp-total">${total ? chNumber(total) : ""}</td>
-    <td class="fp-row-actions"><button type="button" class="row-action" data-action="delete-row" data-section="${sec.key}" data-row="${row.id}" title="Zeile löschen">×</button></td>
+    <td class="fp-row-actions">
+      <button type="button" class="row-action" data-action="move-row" data-section="${sec.key}" data-row="${row.id}" data-direction="-1" title="Nach oben verschieben"${canUp ? "" : " disabled"}>▲</button>
+      <button type="button" class="row-action" data-action="move-row" data-section="${sec.key}" data-row="${row.id}" data-direction="1" title="Nach unten verschieben"${canDown ? "" : " disabled"}>▼</button>
+      <button type="button" class="row-action" data-action="delete-row" data-section="${sec.key}" data-row="${row.id}" title="Zeile löschen">×</button>
+    </td>
   </tr>`;
 
   const selSet = selections[row.id];
-  if (sec.typ !== "monatlich" && selSet && selSet.size) {
+  if (row.typ !== "monatlich" && selSet && selSet.size) {
     const monthNames = [...selSet].sort((a, b) => a - b).map((m) => MONTH_LABELS[m - 1]).join(", ");
     html += `<tr class="fp-apply-row">
       <td colspan="${TABLE_COLSPAN}">
@@ -295,21 +311,35 @@ function rowHtml(sec, row) {
   return html;
 }
 
+// "+ Zeile" (bzw. bei gemischten Abschnitten "+ monatlich"/"+ einmalig")
+// steht bewusst VOR der Summen-Zeile, nicht danach -- sonst müsste man
+// nach dem Hinzufügen immer erst an der Summe vorbei scrollen.
+function addRowButtonsHtml(sec) {
+  if (sec.mixed) {
+    return `<tr class="fp-add-row"><td colspan="${TABLE_COLSPAN}">
+      <button type="button" class="fp-link-btn" data-action="add-row" data-section="${sec.key}" data-typ="monatlich">+ monatlich</button>
+      <button type="button" class="fp-link-btn" data-action="add-row" data-section="${sec.key}" data-typ="einmalig">+ einmalig</button>
+    </td></tr>`;
+  }
+  return `<tr class="fp-add-row"><td colspan="${TABLE_COLSPAN}"><button type="button" class="fp-link-btn" data-action="add-row" data-section="${sec.key}" data-typ="einmalig">+ Zeile</button></td></tr>`;
+}
+
 function sectionHtml(sec, data) {
+  const rows = data[sec.key] || [];
   let html = `<tr class="fp-section-row"><td colspan="${TABLE_COLSPAN}">${escapeHtml(sec.label)}</td></tr>`;
-  (data[sec.key] || []).forEach((row) => { html += rowHtml(sec, row); });
+  rows.forEach((row, idx) => { html += rowHtml(sec, row, idx, rows.length); });
+  html += addRowButtonsHtml(sec);
   const subtotalCells = MONTH_LABELS.map((_, idx) => {
     const v = sectionSubtotal(sec, data, idx + 1);
     return `<td class="fp-month-cell">${v ? chNumber(v) : ""}</td>`;
   }).join("");
-  const subtotalTotal = (data[sec.key] || []).reduce((sum, row) => sum + rowJahresTotal(sec, row), 0);
+  const subtotalTotal = rows.reduce((sum, row) => sum + rowJahresTotal(row), 0);
   html += `<tr class="fp-subtotal-row">
     <td>Total ${escapeHtml(sec.label)}</td>
     ${subtotalCells}
     <td class="fp-total">${subtotalTotal ? chNumber(subtotalTotal) : ""}</td>
     <td></td>
   </tr>`;
-  html += `<tr class="fp-add-row"><td colspan="${TABLE_COLSPAN}"><button type="button" class="fp-link-btn" data-action="add-row" data-section="${sec.key}">+ Zeile</button></td></tr>`;
   return html;
 }
 
@@ -344,6 +374,21 @@ function parseAmount(raw) {
 }
 
 function onTableClick(e) {
+  const renameBtn = e.target.closest('[data-action="rename-row"]');
+  if (renameBtn) {
+    const { section, row: rowId } = renameBtn.dataset;
+    const row = findRow(yearData, section, rowId);
+    if (!row) return;
+    const neu = (prompt("Bezeichnung:", row.bezeichnung) || "").trim();
+    if (!neu || neu === row.bezeichnung) return;
+    mutate((data) => {
+      const r = findRow(data, section, rowId);
+      if (r) r.bezeichnung = neu;
+      return data;
+    });
+    return;
+  }
+
   const editMonthly = e.target.closest('[data-action="edit-monthly"]');
   if (editMonthly) {
     const { section, row: rowId } = editMonthly.dataset;
@@ -398,16 +443,30 @@ function onTableClick(e) {
     return;
   }
 
+  const moveBtn = e.target.closest('[data-action="move-row"]');
+  if (moveBtn) {
+    const { section, row: rowId, direction } = moveBtn.dataset;
+    const dir = Number(direction);
+    mutate((data) => {
+      const arr = data[section] || [];
+      const idx = arr.findIndex((r) => r.id === rowId);
+      const swapIdx = idx + dir;
+      if (idx === -1 || swapIdx < 0 || swapIdx >= arr.length) return data;
+      [arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]];
+      return data;
+    });
+    return;
+  }
+
   const addRowBtn = e.target.closest('[data-action="add-row"]');
   if (addRowBtn) {
-    const section = addRowBtn.dataset.section;
+    const { section, typ } = addRowBtn.dataset;
     const bezeichnung = (prompt("Bezeichnung der neuen Zeile:") || "").trim();
     if (!bezeichnung) return;
-    const sec = SECTIONS.find((s) => s.key === section);
     const newId = uid();
     mutate((data) => {
       if (!data[section]) data[section] = [];
-      data[section].push(sec.typ === "monatlich" ? { id: newId, bezeichnung, betrag: 0 } : { id: newId, bezeichnung, monate: {} });
+      data[section].push(typ === "monatlich" ? { id: newId, bezeichnung, typ, betrag: 0 } : { id: newId, bezeichnung, typ, monate: {} });
       return data;
     });
     return;

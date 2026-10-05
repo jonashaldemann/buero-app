@@ -1053,22 +1053,32 @@ berechnet der Saldo pro Monat.
   Merge-Logik über Jahre hinweg nötig (anders als bei den Pendenzen).
 - **Jahres-Navigation**: `‹ Jahr ›` oben, freie Navigation in beide
   Richtungen ohne Begrenzung.
-- **Vier Kategorien** (von oben nach unten): Ausgaben (monatlich), Ausgaben
-  (einmalig), Einnahmen, Auszahlungen (Gewinnausschüttungen). Beträge
-  werden immer **positiv** eingegeben — ob ein Betrag den Saldo erhöht oder
-  verringert, ergibt sich allein aus der Kategorie, nicht aus einem
-  Vorzeichen (`SECTIONS` in `finanzplanung/app.js`).
-  - **Ausgaben (monatlich)**: ein Betrag pro Zeile, gilt für alle 12 Monate
-    gleich — Klick auf eine beliebige Monatszelle öffnet ein Eingabefeld,
-    das den Betrag für die ganze Zeile ändert.
-  - **Ausgaben (einmalig), Einnahmen, Auszahlungen**: Betrag an einzelnen
-    Monaten. Klick auf eine Monatszelle markiert sie (Toggle, nochmals
-    anklicken hebt die Markierung wieder auf); sobald mindestens eine Zelle
-    markiert ist, erscheint darunter ein Eingabefeld — der eingegebene
-    Betrag wird auf alle markierten Monate dieser Zeile geschrieben (0 oder
-    leer entfernt den Eintrag).
-  - Jede Kategorie hat eine Subtotal-Zeile (Summe pro Monat über alle ihre
-    Zeilen) sowie eine "Total"-Spalte (Jahressumme der Zeile).
+- **Drei Abschnitte** (von oben nach unten): Ausgaben, Einnahmen,
+  Auszahlungen (Gewinnausschüttungen). Beträge werden immer **positiv**
+  eingegeben — ob ein Betrag den Saldo erhöht oder verringert, ergibt sich
+  allein aus dem Abschnitt, nicht aus einem Vorzeichen (`SECTIONS` in
+  `finanzplanung/app.js`).
+  - **Ausgaben** fasst beide Zeilentypen bewusst in EINER Liste mit einer
+    einzigen Summe zusammen (übersichtlicher als zwei getrennte
+    Abschnitte), unterscheidbar am Icon vor der Bezeichnung:
+    - 🔁 **monatlich** ("+ monatlich"): ein Betrag pro Zeile, gilt für alle
+      12 Monate gleich — Klick auf eine beliebige Monatszelle öffnet ein
+      Eingabefeld, das den Betrag für die ganze Zeile ändert.
+    - 📌 **einmalig** ("+ einmalig"): Betrag an einzelnen Monaten. Klick
+      auf eine Monatszelle markiert sie (Toggle, nochmals anklicken hebt
+      die Markierung wieder auf); sobald mindestens eine Zelle markiert
+      ist, erscheint darunter ein Eingabefeld — der eingegebene Betrag wird
+      auf alle markierten Monate dieser Zeile geschrieben (0 oder leer
+      entfernt den Eintrag).
+  - **Einnahmen**/**Auszahlungen** sind immer vom Typ "einmalig" (bei einem
+    Architekturbüro erfahrungsgemäss nie monatlich wiederkehrend) — eigener
+    "+ Zeile"-Knopf statt der beiden Ausgaben-Knöpfe.
+  - Jeder Abschnitt hat eine Subtotal-Zeile (Summe pro Monat über alle
+    seine Zeilen) sowie eine "Total"-Spalte (Jahressumme der Zeile). Die
+    "+"-Knöpfe stehen bewusst VOR der Subtotal-Zeile, nicht danach.
+  - **Zeilen bearbeiten**: auf die Bezeichnung klicken benennt sie um; ▲▼
+    verschieben eine Zeile innerhalb ihres Abschnitts nach oben/unten
+    (am Rand deaktiviert); × löscht sie (mit Rückfrage).
 - **Saldo-Zeile** ganz unten: wird laufend für jeden Monat berechnet
   (`berechneSalden()`), rötlich eingefärbt bei negativem Saldo.
 - **Jahres-Übertrag**: öffnet man ein Jahr, für das noch keine Datei
