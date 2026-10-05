@@ -1058,9 +1058,9 @@ berechnet der Saldo pro Monat.
   eingegeben — ob ein Betrag den Saldo erhöht oder verringert, ergibt sich
   allein aus dem Abschnitt, nicht aus einem Vorzeichen (`SECTIONS` in
   `finanzplanung/app.js`).
-  - **Ausgaben** fasst beide Zeilentypen bewusst in EINER Liste mit einer
-    einzigen Summe zusammen (übersichtlicher als zwei getrennte
-    Abschnitte), unterscheidbar am Icon vor der Bezeichnung:
+  - **Ausgaben** und **Auszahlungen** fassen beide Zeilentypen bewusst in
+    EINER Liste mit einer einzigen Summe zusammen (übersichtlicher als zwei
+    getrennte Abschnitte), unterscheidbar am Icon vor der Bezeichnung:
     - 🔁 **monatlich** ("+ monatlich"): ein Betrag pro Zeile, gilt für alle
       12 Monate gleich — Klick auf eine beliebige Monatszelle öffnet ein
       Eingabefeld, das den Betrag für die ganze Zeile ändert.
@@ -1068,12 +1068,14 @@ berechnet der Saldo pro Monat.
       auf eine Monatszelle öffnet direkt ein Eingabefeld für genau diesen
       einen Monat (0 oder leer entfernt den Eintrag) — kein Markieren
       mehrerer Zellen nötig.
-  - **Einnahmen**/**Auszahlungen** sind immer vom Typ "einmalig" (bei einem
-    Architekturbüro erfahrungsgemäss nie monatlich wiederkehrend) — eigener
-    "+ Zeile"-Knopf statt der beiden Ausgaben-Knöpfe.
-  - Jeder Abschnitt hat eine Subtotal-Zeile (Summe pro Monat über alle
-    seine Zeilen) sowie eine "Total"-Spalte (Jahressumme der Zeile). Die
-    "+"-Knöpfe stehen bewusst VOR der Subtotal-Zeile, nicht danach.
+  - **Einnahmen** sind immer vom Typ "einmalig" (bei einem Architekturbüro
+    erfahrungsgemäss nie monatlich wiederkehrend) — eigener "+ Zeile"-Knopf
+    statt der beiden Knöpfe bei Ausgaben/Auszahlungen.
+  - Titel UND Summe (Monats-Subtotale sowie "Total"-Spalte mit der
+    Jahressumme) stehen gemeinsam in der OBERSTEN Zeile jedes Abschnitts —
+    keine separate Summen-Zeile am Ende, man sieht die Zahlen sofort ohne
+    an den Zeilen vorbeizuscrollen. Darunter die einzelnen Zeilen, danach
+    die "+"-Knöpfe.
   - **Zeilen bearbeiten**: auf die Bezeichnung klicken benennt sie um; ▲▼
     verschieben eine Zeile innerhalb ihres Abschnitts nach oben/unten
     (am Rand deaktiviert); × löscht sie (mit Rückfrage).
