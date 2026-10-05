@@ -275,7 +275,9 @@ viele schmale Balken; Datum + Dauer als Tooltip beim Hovern/Antippen).
 ## Quittung
 
 Belege (Foto oder PDF) erfassen, nach Nextcloud hochladen und als Buchung für
-Banana vorbereiten.
+Banana vorbereiten. Die kurze Bedienungsanleitung steht nicht mehr fest auf
+der Seite, sondern hinter dem ?-Symbol ("Hilfe") neben Startseite/
+Einstellungen oben rechts.
 
 1. Foto aufnehmen oder Datei (Bild/PDF) auswählen.
 2. Datum, Einnahme/Ausgabe, Betrag, MwSt/USt-Code, Konto und Kategorie sowie
@@ -460,10 +462,18 @@ alles neu erfassen zu müssen.
   öffnet ihn zum Bearbeiten. Die **Status**-Spalte ganz rechts ist als
   einziges Feld direkt in der Liste editierbar (Dropdown, ohne den Editor zu
   öffnen) und speichert die Änderung sofort auf Nextcloud.
-- **Status**: rein interner Vermerk (In Bearbeitung / Versendet / Bezahlt,
-  siehe `STATUS_LABELS` in `offerten/app.js`), taucht **nicht** im PDF auf —
-  nur zur eigenen Übersicht, editierbar im Editor (vierte Spalte neben Typ/
-  Nr./Datum) oder direkt in der Liste.
+- **Status**: rein interner Vermerk, taucht **nicht** im PDF auf — nur zur
+  eigenen Übersicht, editierbar im Editor (vierte Spalte neben Typ/Nr./
+  Datum) oder direkt in der Liste. Rechnungen kennen alle drei Werte (In
+  Bearbeitung / Versendet / Bezahlt, siehe `STATUS_LABELS`/
+  `statusKeysForTyp()` in `offerten/app.js`) — Offerten dagegen bewusst nur
+  zwei (In Bearbeitung / Versendet, kein "Bezahlt": man bezahlt kein
+  Angebot). Da "Versendet" bei einer Offerte damit bereits der Endzustand
+  ist, erscheint es dort grün (wie "Bezahlt" bei Rechnungen), während es bei
+  Rechnungen weiterhin neutral-blau bleibt (dort ist ja erst "Bezahlt" der
+  Abschluss). Beim Umschalten des Typs im Editor bleibt eine gültige
+  Status-Auswahl erhalten, eine bei Rechnung gesetzte "Bezahlt"-Auswahl
+  fällt beim Wechsel zu Offerte auf "In Bearbeitung" zurück.
 - **Typ**: Offerte oder Rechnung, jederzeit im Editor umschaltbar (gleiches
   Formular für beide) — "Offert-Nr." heisst dann "Rechnungs-Nr.", und im PDF
   erscheint unterhalb der Summen zusätzlich fix der Satz
@@ -912,7 +922,9 @@ Icons nicht ins Leere laufen, sondern automatisch nach `../timeline/`
 weitergeleitet werden — inkl. eigener Service-Worker-Aktualisierung, damit
 das auch für bereits offene alte Tabs zuverlässig funktioniert (siehe
 Abschnitt "Bekannte Grenzen"/`registerServiceWorkerWithAutoUpdate()` in
-`shared/common.js`). Das Zeitfenster ist immer "heute bis in 1 Jahr" —
+`shared/common.js`). Die ausführliche Bedienungsanleitung steht nicht mehr
+fest auf der Seite, sondern hinter dem ?-Symbol ("Hilfe") neben Startseite/
+Einstellungen oben rechts. Das Zeitfenster ist immer "heute bis in 1 Jahr" —
 rollend, kein festes Kalenderjahr; beim erneuten Öffnen verschiebt es sich
 also automatisch mit.
 
