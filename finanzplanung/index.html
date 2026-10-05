@@ -53,6 +53,12 @@
     cursor: pointer; padding: 4px 6px;
   }
   .row-action:active { color: #B5654C; }
+  .row-action[disabled] { opacity: 0.25; cursor: default; }
+  .row-action[disabled]:active { color: var(--text-muted); }
+
+  .fp-typ-icon { margin-right: 5px; }
+  .fp-row-title { cursor: pointer; }
+  .fp-row-title:hover { text-decoration: underline; }
 
   .fp-section-row td {
     font-family: var(--font-medium); font-size: 12px; color: var(--text-muted);
@@ -61,6 +67,7 @@
   .fp-subtotal-row td { color: var(--text-muted); font-family: var(--font-medium); border-bottom: 1px solid var(--border); }
   .fp-add-row td { border-bottom: 1px solid var(--border); padding-top: 2px; padding-bottom: 10px; }
   .fp-link-btn { background: none; border: none; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .fp-link-btn + .fp-link-btn { margin-left: 18px; }
 
   .fp-saldo-row td {
     font-family: var(--font-medium); font-size: 13px;
@@ -157,17 +164,24 @@
       tatsächlichen Finanzen weichen von der Prognose manchmal leicht ab).
     </p>
     <p class="hint">
-      "Ausgaben (monatlich)" gelten mit demselben Betrag für alle 12 Monate
-      -- auf eine beliebige Monatszelle klicken ändert ihn für die ganze
-      Zeile auf einmal. Bei "Ausgaben (einmalig)", "Einnahmen" und
-      "Auszahlungen" markiert ein Klick auf eine Monatszelle sie (nochmals
-      anklicken hebt die Markierung wieder auf); sobald mindestens eine
-      Zelle markiert ist, erscheint darunter ein Eingabefeld -- der
-      eingegebene Betrag wird auf alle markierten Monate dieser Zeile
-      geschrieben (0 oder leer entfernt den Eintrag). Beträge immer positiv
-      eingeben, das Vorzeichen in der Saldo-Berechnung ergibt sich automatisch
-      aus der Kategorie. Der Saldo ganz unten wird laufend für jeden Monat
-      berechnet, bei Minus rötlich eingefärbt.
+      Bei "Ausgaben" gibt es zwei Zeilentypen nebeneinander ("+ monatlich"/
+      "+ einmalig", am Icon 🔁/📌 vor der Bezeichnung erkennbar): 🔁
+      monatlich wiederkehrende Zeilen gelten mit demselben Betrag für alle
+      12 Monate -- auf eine beliebige Monatszelle klicken ändert ihn für die
+      ganze Zeile auf einmal. 📌 Einmalige Zeilen (auch bei "Einnahmen" und
+      "Auszahlungen" immer dieser Typ) haben einen Betrag pro einzelnem
+      Monat: ein Klick auf eine Monatszelle markiert sie (nochmals anklicken
+      hebt die Markierung wieder auf); sobald mindestens eine Zelle markiert
+      ist, erscheint darunter ein Eingabefeld -- der eingegebene Betrag wird
+      auf alle markierten Monate dieser Zeile geschrieben (0 oder leer
+      entfernt den Eintrag). Beträge immer positiv eingeben, das Vorzeichen
+      in der Saldo-Berechnung ergibt sich automatisch aus der Kategorie.
+    </p>
+    <p class="hint">
+      Auf die Bezeichnung einer Zeile klicken benennt sie um. Die Pfeile ▲▼
+      verschieben eine Zeile innerhalb ihres Abschnitts nach oben/unten. Der
+      Saldo ganz unten wird laufend für jeden Monat berechnet, bei Minus
+      rötlich eingefärbt.
     </p>
   </div>
 </div>
