@@ -61,7 +61,8 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `offerten/`, `adressliste/`, `pendenzen/`, `protokoll/`, `timeline/`
   (hiess früher "Zeitplanung"/`zeitplanung/` — unter der alten Adresse liegt
   bewusst ein Redirect-Stub, damit alte Lesezeichen/Home-Icons nicht ins
-  Leere laufen).
+  Leere laufen), `finanzplanung/` (Liquiditätsplanung pro Kalenderjahr, ein
+  File pro Jahr statt einer gemeinsamen Datei — siehe README).
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal

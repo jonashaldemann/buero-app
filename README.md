@@ -102,6 +102,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Zeiterfassung | `Buero/Admin/App/Zeiterfassung` |
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
+| Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
@@ -1037,6 +1038,57 @@ also automatisch mit.
   statt eines eigenen Dialogs) — gedacht zum Ausprobieren, danach gezielt
   verfeinern.
 
+---
+
+## Finanzplanung
+
+Liquiditätsplanung pro Kalenderjahr (fest, nicht rollend wie die Timeline) —
+Anfangssaldo, monatlich wiederkehrende und einmalige Ausgaben, Einnahmen,
+Auszahlungen (Gewinnausschüttungen an die Gesellschafter), daraus laufend
+berechnet der Saldo pro Monat.
+
+- **Speicherort**: ein Jahr = eine eigene JSON-Datei auf Nextcloud
+  (`Buero/Admin/App/Finanzplanung/<Jahr>.json`) — ein Jahr ist in sich
+  geschlossen, beim Jahreswechsel wird ohnehin komplett neu geladen, keine
+  Merge-Logik über Jahre hinweg nötig (anders als bei den Pendenzen).
+- **Jahres-Navigation**: `‹ Jahr ›` oben, freie Navigation in beide
+  Richtungen ohne Begrenzung.
+- **Vier Kategorien** (von oben nach unten): Ausgaben (monatlich), Ausgaben
+  (einmalig), Einnahmen, Auszahlungen (Gewinnausschüttungen). Beträge
+  werden immer **positiv** eingegeben — ob ein Betrag den Saldo erhöht oder
+  verringert, ergibt sich allein aus der Kategorie, nicht aus einem
+  Vorzeichen (`SECTIONS` in `finanzplanung/app.js`).
+  - **Ausgaben (monatlich)**: ein Betrag pro Zeile, gilt für alle 12 Monate
+    gleich — Klick auf eine beliebige Monatszelle öffnet ein Eingabefeld,
+    das den Betrag für die ganze Zeile ändert.
+  - **Ausgaben (einmalig), Einnahmen, Auszahlungen**: Betrag an einzelnen
+    Monaten. Klick auf eine Monatszelle markiert sie (Toggle, nochmals
+    anklicken hebt die Markierung wieder auf); sobald mindestens eine Zelle
+    markiert ist, erscheint darunter ein Eingabefeld — der eingegebene
+    Betrag wird auf alle markierten Monate dieser Zeile geschrieben (0 oder
+    leer entfernt den Eintrag).
+  - Jede Kategorie hat eine Subtotal-Zeile (Summe pro Monat über alle ihre
+    Zeilen) sowie eine "Total"-Spalte (Jahressumme der Zeile).
+- **Saldo-Zeile** ganz unten: wird laufend für jeden Monat berechnet
+  (`berechneSalden()`), rötlich eingefärbt bei negativem Saldo.
+- **Jahres-Übertrag**: öffnet man ein Jahr, für das noch keine Datei
+  existiert, wird der Anfangssaldo mit dem berechneten Endsaldo des
+  Vorjahres vorbefüllt (nur falls dessen Datei existiert) — bleibt aber ein
+  ganz normales editierbares Feld, falls die effektiven Finanzen leicht von
+  der Prognose abweichen.
+- **Speichern**: wie bei den Offerten (`updateOfferStatus()` in
+  `offerten/app.js`) wird jede Änderung als reine Funktion sowohl sofort
+  lokal (optimistisch) als auch, seriell in einer Warteschlange, auf einen
+  frisch vom Server geholten Stand angewendet — kein Vergleichs-/
+  Konflikt-Dialog nötig, da die Teiländerung gezielt nachgetragen wird statt
+  den ganzen Stand zu überschreiben. Jahr und Anfangssaldo-Vorschlag werden
+  dabei beim Auslösen der Änderung eingefroren (nicht erst beim
+  tatsächlichen Schreiben gelesen) — sonst würde ein noch hängender
+  Speichervorgang beim schnellen Weiterklicken aufs nächste Jahr versehentlich
+  dort landen.
+
+---
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
@@ -1054,7 +1106,7 @@ also automatisch mit.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
   `icons/adressliste-*.png`, `icons/pendenzen-*.png`, `icons/protokoll-*.png`,
-  `icons/timeline-*.png` (je 192px + 512px PNG).
+  `icons/timeline-*.png`, `icons/finanzplanung-*.png` (je 192px + 512px PNG).
   Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
   Code-/Manifest-Änderung nötig.
 
