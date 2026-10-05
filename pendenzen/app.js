@@ -4,14 +4,30 @@
    Alle Pendenzen liegen in EINER gemeinsamen JSON-Datei auf Nextcloud
    (Buero/Admin/Pendenzen/pendenzen.json), anders als z.B. die Adressliste
    (eine Datei pro Kontakt) -- bei kurzen Textzeilen, die oft schnell
-   angehakt/ergänzt werden, wäre eine Datei pro Pendenz nur Overhead.
-   Damit sich zwei Personen dabei nicht gegenseitig überschreiben, wird bei
-   jedem Speichern der aktuelle Serverstand nochmals geholt und pro Pendenz
-   (per id) gemergt -- die jeweils neuere updatedAt gewinnt, nur lokal oder
-   nur serverseitig bekannte Pendenzen bleiben in jedem Fall erhalten (siehe
-   mergePendenzenLists()). Das ist kein Feld-Merge wie bei den Offerten,
-   sondern ein Merge auf Ebene ganzer Listeneinträge -- für eine Pendenz
-   (kurzer Text, an/abgehakt) reicht das.
+   angehakt/ergänzt werden, wäre eine Datei pro Pendenz nur Overhead (und das
+   Umsortieren per Drag & Drop, das pro Zug den order-Wert mehrerer Pendenzen
+   gleichzeitig ändert, bräuchte dann viele einzelne Schreibvorgänge statt
+   eines atomaren). Damit sich zwei Personen dabei nicht gegenseitig
+   überschreiben, wird bei jedem Speichern der aktuelle Serverstand nochmals
+   geholt und pro Pendenz (per id) gemergt -- die jeweils neuere updatedAt
+   gewinnt, nur lokal oder nur serverseitig bekannte Pendenzen bleiben in
+   jedem Fall erhalten (siehe mergePendenzenLists()). Das ist kein Feld-Merge
+   wie bei den Offerten, sondern ein Merge auf Ebene ganzer Listeneinträge --
+   für eine Pendenz (kurzer Text, an/abgehakt) reicht das.
+
+   Löschen passiert deshalb bewusst NICHT durch Entfernen aus der Liste,
+   sondern per Tombstone (geloescht:true + aktualisiertes updatedAt, siehe
+   deleteErledigteInFilter()) -- ein Gerät mit veraltetem lokalem Stand (z.B.
+   lange nicht geöffneter Tab) kennt eine echte Entfernung sonst nicht und
+   würde die längst gelöschte Pendenz beim nächsten Sync über die
+   "nur lokal bekannt bleibt erhalten"-Regel einfach wieder zurückschreiben.
+   Der Tombstone läuft dagegen über denselben updatedAt-Mechanismus wie jede
+   andere Änderung und verbreitet sich so zuverlässig auf alle Geräte.
+   geloescht-Pendenzen werden überall ausgeblendet (siehe filteredPendenzen())
+   und nach TOMBSTONE_RETENTION_DAYS endgültig aus der Liste entfernt (siehe
+   purgeOldTombstones(), in syncPendenzenNow()) -- lange genug, dass auch ein
+   Gerät nach einer längeren Pause die Löschung noch mitbekommt, aber nicht
+   für immer.
 
    Projekte + Farben kommen aus derselben zentralen config.json wie in der
    Zeiterfassung (siehe shared/common.js, refreshAppConfig();
@@ -46,7 +62,8 @@ let projectList = appConfig.projekte;
 let personen = appConfig.mitarbeitende;
 
 // { id, text, projekt (Projektname oder null), person (key oder null),
-//   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy }
+//   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy,
+//   geloescht (Tombstone, siehe TOMBSTONE_RETENTION_DAYS) }
 let pendenzen = loadJSON(LS_KEYS.cache, []);
 
 let filterPerson = "ALL";
@@ -178,11 +195,20 @@ function mergePendenzenLists(serverList, localList) {
   return Array.from(byId.values());
 }
 
+// Pendenzen, die seit mindestens so vielen Tagen als gelöscht markiert sind
+// (geloescht:true), werden endgültig aus der Liste entfernt (siehe
+// purgeOldTombstones()) -- lange genug, dass auch ein Gerät nach einer
+// längeren Pause (Ferien, lange offline) die Löschung über den normalen
+// updatedAt-Merge noch mitbekommt, bevor der Tombstone verschwindet.
+const TOMBSTONE_RETENTION_DAYS = 30;
+
+function purgeOldTombstones(list) {
+  const cutoffMs = Date.now() - TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return list.filter((p) => !p.geloescht || new Date(p.updatedAt || 0).getTime() > cutoffMs);
+}
+
 // Zentrale Stelle für jede Änderung: optionale lokale Änderung sofort
 // anzeigen (optimistisch), danach mit dem Server mergen und zurückschreiben.
-// deleteIds: Pendenzen, die endgültig entfernt werden sollen -- ohne das
-// würde mergePendenzenLists() sie aus dem (noch nicht aktualisierten)
-// Serverstand einfach wieder zurückholen.
 //
 // Der Netzwerk-Teil (fetch -> merge -> put) läuft in einer Warteschlange
 // (syncQueue), NICHT parallel bei jedem Aufruf: sonst könnten sich zwei
@@ -193,17 +219,17 @@ function mergePendenzenLists(serverList, localList) {
 // UI-Feedback), nur das Schreiben/Lesen auf Nextcloud wird serialisiert.
 let syncQueue = Promise.resolve();
 
-function syncPendenzen(localChange, deleteIds) {
+function syncPendenzen(localChange) {
   if (typeof localChange === "function") {
     pendenzen = localChange(pendenzen);
     saveJSON(LS_KEYS.cache, pendenzen);
     render();
   }
-  syncQueue = syncQueue.then(() => syncPendenzenNow(deleteIds));
+  syncQueue = syncQueue.then(() => syncPendenzenNow());
   return syncQueue;
 }
 
-async function syncPendenzenNow(deleteIds) {
+async function syncPendenzenNow() {
   const line = document.getElementById("syncLine");
   if (!isConfigured()) {
     if (line) line.textContent = "Nextcloud noch nicht eingerichtet · Einstellungen ⚙";
@@ -217,8 +243,7 @@ async function syncPendenzenNow(deleteIds) {
   try {
     await ensurePendenzenFolder();
     const serverList = await fetchPendenzenFile();
-    let merged = mergePendenzenLists(serverList, pendenzen);
-    if (deleteIds && deleteIds.size) merged = merged.filter((p) => !deleteIds.has(p.id));
+    const merged = purgeOldTombstones(mergePendenzenLists(serverList, pendenzen));
     await putPendenzenFile(merged);
     pendenzen = merged;
     saveJSON(LS_KEYS.cache, pendenzen);
@@ -244,7 +269,7 @@ function handleAdd() {
   const now = new Date().toISOString();
   // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
   // Drag & Drop frei verschiebbar (siehe reorderFromDom()).
-  const minOrder = pendenzen.filter((p) => !p.erledigt).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
+  const minOrder = pendenzen.filter((p) => !p.erledigt && !p.geloescht).reduce((min, p) => Math.min(min, p.order ?? 0), 0);
   const item = {
     id: uid(),
     text,
@@ -300,18 +325,23 @@ function reorderFromDom() {
 
 // Löscht nur die aktuell im Filter sichtbaren erledigten Pendenzen (nicht
 // alle erledigten überhaupt) -- siehe Todo-Wortlaut "nur jeweils die, die
-// gerade im Filter aktiv sind".
+// gerade im Filter aktiv sind". Markiert per Tombstone statt die Einträge
+// aus der Liste zu entfernen (siehe Kommentar oben bei TOMBSTONE_RETENTION_DAYS).
 function deleteErledigteInFilter() {
   const ids = new Set(filteredPendenzen().filter((p) => p.erledigt).map((p) => p.id));
   if (!ids.size) return;
   if (!confirm(`${ids.size} erledigte Pendenz${ids.size === 1 ? "" : "en"} endgültig löschen?`)) return;
-  syncPendenzen((list) => list.filter((p) => !ids.has(p.id)), ids);
+  const now = new Date().toISOString();
+  syncPendenzen((list) =>
+    list.map((p) => (ids.has(p.id) ? { ...p, geloescht: true, updatedAt: now, updatedBy: personName() } : p))
+  );
 }
 
 // ---------- Filter ----------
 
 function filteredPendenzen() {
   return pendenzen.filter((p) => {
+    if (p.geloescht) return false;
     if (filterProjekt !== "ALL" && (p.projekt || null) !== filterProjekt) return false;
     if (filterPerson !== "ALL" && (p.person || null) !== filterPerson) return false;
     return true;
@@ -430,6 +460,7 @@ function render() {
     deleteDoneBtn.textContent = `🗑 ${erledigt.length} erledigte löschen`;
   } else {
     doneSection.style.display = "none";
+    doneList.innerHTML = ""; // sonst blieben alte (nur versteckte) Zeilen samt Listenern im DOM hängen
   }
 
   document.querySelectorAll('[data-action="toggle"]').forEach((cb) => {
