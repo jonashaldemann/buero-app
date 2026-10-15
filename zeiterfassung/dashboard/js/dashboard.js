@@ -160,6 +160,13 @@ function populateYearFilter() {
 function toISODate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+// new Date("YYYY-MM-DD") parst als UTC-Mitternacht -- in Zeitzonen westlich
+// von UTC würde das lokal auf den Vortag zurückfallen. Hier bewusst mit den
+// einzelnen Zahlen konstruiert, damit es immer der lokale Tag bleibt.
+function parseISODate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 function startOfWeek(d) {
   // Montag als Wochenbeginn.
   const diff = (d.getDay() + 6) % 7;
@@ -185,9 +192,18 @@ function computeZeitraumRange(zeitraum) {
   return null;
 }
 
-function getFilteredRows() {
-  const project = document.getElementById("filterProject").value;
-  const person = document.getElementById("filterPerson").value;
+// Fehlt eine explizite Zeitraum-Eingabe (Filter "ganzes Jahr", oder "frei"
+// mit nur einer gesetzten Seite), wird der Bereich auf das ganze geladene
+// Jahr ergänzt -- beim gerade laufenden Jahr nur bis heute, damit der
+// Tages-Balken (siehe groupByDay()) nicht mit leeren Balken für die Zukunft
+// endet.
+function effectiveRangeEnd(year) {
+  const currentYear = new Date().getFullYear();
+  if (Number(year) === currentYear) return toISODate(new Date());
+  return `${year}-12-31`;
+}
+function getActiveRange() {
+  const year = document.getElementById("filterYear").value;
   const zeitraum = document.getElementById("filterZeitraum").value;
 
   let von = null;
@@ -200,12 +216,18 @@ function getFilteredRows() {
     von = range.von;
     bis = range.bis;
   }
+  return { von: von || `${year}-01-01`, bis: bis || effectiveRangeEnd(year) };
+}
+
+function getFilteredRows() {
+  const project = document.getElementById("filterProject").value;
+  const person = document.getElementById("filterPerson").value;
+  const { von, bis } = getActiveRange();
 
   return allRows.filter((r) => {
     if (project && r.project !== project) return false;
     if (person && r.person !== person) return false;
-    if (von && r.date < von) return false;
-    if (bis && r.date > bis) return false;
+    if (r.date < von || r.date > bis) return false;
     return true;
   });
 }
@@ -276,7 +298,7 @@ function renderAll() {
   const rows = getFilteredRows();
   renderSummary(rows);
   renderBarChart("chartByProject", groupSum(rows, "project"), true);
-  renderDayBarChart("chartByDay", groupByDay(rows));
+  renderDayBarChart("chartByDay", groupByDay(rows, getActiveRange()));
   renderTable(rows);
 }
 
@@ -292,17 +314,25 @@ function groupSum(rows, field) {
     .sort((a, b) => b.minutes - a.minutes);
 }
 
-// Für "Nach Tag": Summe pro Kalendertag, chronologisch sortiert -- egal wie
-// lang der gefilterte Zeitraum ist, ergibt das eine (ggf. sehr lange) Reihe
-// schmaler Balken statt einzeln beschrifteter Zeilen wie bei groupSum().
-function groupByDay(rows) {
+// Für "Nach Tag": Summe pro Kalendertag -- über den GANZEN sichtbaren
+// Zeitraum (range), nicht nur über Tage mit tatsächlichen Einträgen. Tage
+// ohne Eintrag landen mit minutes=0 trotzdem in der Liste, damit sie im
+// Diagramm als eigene (sehr kleine) Lücke sichtbar bleiben, statt beim
+// Rendern stillschweigend übersprungen zu werden -- sonst würden z.B. Montag
+// und Mittwoch direkt nebeneinander erscheinen, wenn am Dienstag nichts
+// erfasst wurde.
+function groupByDay(rows, range) {
   const map = {};
   rows.forEach((r) => {
     map[r.date] = (map[r.date] || 0) + r.durationMin;
   });
-  return Object.entries(map)
-    .map(([date, minutes]) => ({ date, minutes }))
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const result = [];
+  const end = parseISODate(range.bis);
+  for (let d = parseISODate(range.von); d <= end; d.setDate(d.getDate() + 1)) {
+    const iso = toISODate(d);
+    result.push({ date: iso, minutes: map[iso] || 0 });
+  }
+  return result;
 }
 
 function renderSummary(rows) {
@@ -336,6 +366,13 @@ function renderBarChart(containerId, grouped, colorByProject) {
 // Vertikale Balken nebeneinander, ein Balken pro Tag -- bewusst ohne
 // Einzelbeschriftung (bei langen Zeiträumen wären das zu viele Labels);
 // stattdessen Datum+Dauer als title-Tooltip beim Hovern/Antippen.
+// Jeder Balken ist ein Flex-Item mit flex:1 1 0 (siehe CSS) -- dadurch
+// teilen sich alle Balken IMMER die volle Breite des Containers, egal wie
+// viele es sind (ganzes Jahr = bis zu 366). Kein horizontales Scrollen
+// nötig, und bei einer Fenstergrösse-Änderung passt sich das von allein neu
+// an (reines CSS, kein Resize-Listener nötig). Der Zwischenraum wird mit der
+// Tagesanzahl kleiner, damit er bei vielen Tagen nicht unverhältnismässig
+// viel von der verfügbaren Breite auffrisst.
 function renderDayBarChart(containerId, grouped) {
   const container = document.getElementById(containerId);
   if (grouped.length === 0) {
@@ -343,11 +380,14 @@ function renderDayBarChart(containerId, grouped) {
     return;
   }
   const max = Math.max(...grouped.map((g) => g.minutes), 1);
+  container.style.gap = grouped.length > 120 ? "1px" : grouped.length > 40 ? "2px" : "3px";
   container.innerHTML = grouped
     .map((g) => {
-      const pct = Math.max(4, Math.round((g.minutes / max) * 100));
-      const title = `${g.date}: ${formatHM(g.minutes)}`;
-      return `<div class="vbar" style="height:${pct}%" title="${escapeHtml(title)}"></div>`;
+      const hasEntry = g.minutes > 0;
+      const pct = hasEntry ? Math.max(4, Math.round((g.minutes / max) * 100)) : 0;
+      const title = `${g.date}: ${hasEntry ? formatHM(g.minutes) : "keine Einträge"}`;
+      const cls = hasEntry ? "vbar" : "vbar vbar-empty";
+      return `<div class="${cls}" style="height:${pct}%" title="${escapeHtml(title)}"></div>`;
     })
     .join("");
 }
