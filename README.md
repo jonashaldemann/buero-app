@@ -232,8 +232,8 @@ Pro Person und Jahr eine Datei (im jeweils eigenen Nextcloud-Account):
 Spalten:
 ```
 Datum,Projekt,Dauer_Min,Kommentar,Person
-2026-08-13,Projekt Nord,105.30,Vormittag Konzept, Nachmittag Umsetzung,Jonas
-2026-08-13,Projekt Süd,12.45,Kurzes Telefonat,Jonas
+2026-08-13,Projekt Nord,105.30,Vormittag Konzept, Nachmittag Umsetzung,Max
+2026-08-13,Projekt Süd,12.45,Kurzes Telefonat,Max
 ```
 
 Es gibt **eine Zeile pro Tag und Projekt**, nicht eine Zeile pro
