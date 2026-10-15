@@ -268,8 +268,17 @@ nicht unterstützt — gezeigt wird dann nur der Teil im gerade geladenen Jahr.
 
 Charts: "Nach Projekt" (horizontale Balken, ein Balken pro Projekt) und "Nach
 Tag" (vertikale Balken nebeneinander, ein Balken pro Kalendertag im aktuell
-gefilterten Zeitraum, ohne Einzelbeschriftung — bei langen Zeiträumen also
-viele schmale Balken; Datum + Dauer als Tooltip beim Hovern/Antippen).
+gefilterten Zeitraum — **auch Tage ohne Eintrag**, als flacher, hell
+eingefärbter Strich, damit Lücken im Diagramm sichtbar bleiben statt
+stillschweigend zu fehlen; ohne Einzelbeschriftung, stattdessen Datum+Dauer
+als Tooltip beim Hovern/Antippen). Fehlt beim "Zeitraum"-Filter eine
+explizite Eingrenzung ("Ganzes Jahr", oder "Frei wählbar" mit nur einer
+gesetzten Seite), wird automatisch das ganze geladene Jahr angezeigt — beim
+gerade laufenden Jahr nur bis heute, nicht bis Jahresende, damit keine
+leeren Balken für die Zukunft erscheinen. Die Balken teilen sich per CSS
+(`flex:1 1 0`) immer die volle verfügbare Breite, egal wie viele es sind
+(bis zu 366 bei "Ganzes Jahr") — kein horizontales Scrollen nötig, passt
+sich auch bei einer Fenstergrösse-Änderung von selbst neu an.
 
 ---
 

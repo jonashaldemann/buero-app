@@ -169,14 +169,22 @@ main {
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  overflow-x: auto;
 }
+/* flex:1 1 0 statt einer festen Breite -- dadurch teilen sich alle Balken
+   immer die volle Containerbreite, egal wie viele es sind (siehe
+   renderDayBarChart() in dashboard.js); kein horizontales Scrollen mehr
+   nötig, auch nicht bei einem ganzen Jahr mit bis zu 366 Balken.
+   max-width begrenzt die Breite bei wenigen Tagen (Woche/Monat), damit die
+   Balken dort nicht unnötig breit gezogen werden. */
 .vbar {
-  flex: 0 0 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 10px;
   min-height: 2px;
   border-radius: 3px 3px 0 0;
   background: var(--accent-primary);
 }
+.vbar-empty { background: var(--surface-2); }
 
 .table-block {
   background: var(--surface);
