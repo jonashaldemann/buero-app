@@ -138,10 +138,17 @@ function populateFilters() {
     persons.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
 }
 
+// Erstes Jahr, für das überhaupt Zeiterfassungs-CSVs existieren -- ein
+// fester Wert statt z.B. "letzte 3 Jahre", damit ältere Jahre nicht jedes
+// Jahr aufs Neue aus der Auswahl rutschen (siehe Rückmeldung: 2023 war mit
+// einem rollenden 3-Jahres-Fenster nicht mehr wählbar).
+const EARLIEST_YEAR = 2023;
+
 function populateYearFilter() {
   const yearSelect = document.getElementById("filterYear");
   const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear - 1, currentYear - 2];
+  const years = [];
+  for (let y = currentYear; y >= EARLIEST_YEAR; y--) years.push(y);
   yearSelect.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
   yearSelect.value = String(currentYear);
 }
