@@ -89,6 +89,7 @@ const COLUMNS = [
   { key: "firma", label: "Firma" },
   { key: "strasse", label: "Strasse" },
   { key: "ort", label: "Ort" },
+  { key: "distanz", label: "Distanz" },
   { key: "tel", label: "Tel." },
   { key: "mail", label: "Mail" },
   { key: "website", label: "Website" },
@@ -390,12 +391,85 @@ function updatedInfoText(data) {
   return `${who}, ${chDateTime(data.updatedAt)}`;
 }
 
+// ---------- Distanz-Spalte (PLZ_DATA aus plz-data.js) ----------
+//
+// Referenz-PLZ wird wie ein ganz normaler Spaltenfilter in
+// currentView.filters.distanz gehalten (siehe filterCellHtml()) -- dadurch
+// landet sie automatisch beim Speichern/Laden einer Ansicht mit, ohne
+// eigene Persistenz-Logik. Anders als ein echter Filter blendet sie aber
+// keine Zeilen aus (siehe matchesFilters()), sondern befüllt nur die
+// Distanz-Spalte und ermöglicht das Sortieren danach -- laut Todo soll die
+// Liste nach Distanz SORTIERT werden, nicht eingeschränkt.
+//
+// "ort" ist ein freies Textfeld ("PLZ Ort", siehe inputOrt) -- manche
+// ältere Einträge enthalten nur den Ortsnamen ohne PLZ. parseOrtField()
+// trennt eine evtl. vorangestellte 4-stellige PLZ ab; ohne PLZ wird der
+// Ortsname gegen PLZ_DATA nachgeschlagen (Gross-/Kleinschreibung egal).
+// Mehrdeutige Ortsnamen (z.B. "Buchs" existiert in mehreren Kantonen)
+// treffen dabei auf den ERSTEN Treffer in PLZ_DATA -- ein bekanntes,
+// bewusst in Kauf genommenes Limit dieser Heuristik (siehe Hilfe-Text).
+function parseOrtField(raw) {
+  const trimmed = (raw || "").trim();
+  const m = trimmed.match(/^(\d{4})\s+(.+)$/);
+  if (m) return { plz: m[1], name: m[2].trim() };
+  return { plz: null, name: trimmed };
+}
+
+let plzByCode = null;
+let plzByName = null;
+function ensurePlzIndex() {
+  if (plzByCode) return;
+  plzByCode = new Map();
+  plzByName = new Map();
+  (typeof PLZ_DATA !== "undefined" ? PLZ_DATA : []).forEach(([plz, name, lat, lon]) => {
+    plzByCode.set(plz, { name, lat, lon });
+    const key = name.toLowerCase();
+    if (!plzByName.has(key)) plzByName.set(key, { plz, lat, lon });
+  });
+}
+
+function resolveOrtCoord(rawOrt) {
+  ensurePlzIndex();
+  const { plz, name } = parseOrtField(rawOrt);
+  if (plz && plzByCode.has(plz)) return plzByCode.get(plz);
+  if (name && plzByName.has(name.toLowerCase())) return plzByName.get(name.toLowerCase());
+  return null;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function distanzReferenceCoord() {
+  const refPlz = ((currentView.filters && currentView.filters.distanz) || "").trim();
+  if (!/^\d{4}$/.test(refPlz)) return null;
+  ensurePlzIndex();
+  return plzByCode.get(refPlz) || null;
+}
+
+function contactDistanceKm(data) {
+  const ref = distanzReferenceCoord();
+  if (!ref) return null;
+  const coord = resolveOrtCoord(data.ort);
+  if (!coord) return null;
+  return haversineKm(ref.lat, ref.lon, coord.lat, coord.lon);
+}
+
 function cellValue(data, key) {
   switch (key) {
     case "weihnachtskarte":
       return data.weihnachtskarte ? "Ja" : "";
     case "updatedInfo":
       return updatedInfoText(data);
+    case "distanz": {
+      if (!distanzReferenceCoord()) return "";
+      const km = contactDistanceKm(data);
+      return km === null ? "?" : `${Math.round(km)} km`;
+    }
     default:
       return data[key] || "";
   }
@@ -420,6 +494,7 @@ function matchesFilters(data) {
       if (raw === "nein" && data.weihnachtskarte) return false;
       continue;
     }
+    if (key === "distanz") continue; // Referenz-PLZ, kein Textfilter -- siehe cellValue()
     const cellText = cellValue(data, key).toString().toLowerCase();
     if (!cellText.includes(raw.toLowerCase())) return false;
   }
@@ -441,6 +516,17 @@ function visibleContacts() {
       av = a.data.updatedAt || "";
       bv = b.data.updatedAt || "";
       return av.localeCompare(bv) * mult;
+    }
+    if (field === "distanz") {
+      av = contactDistanceKm(a.data);
+      bv = contactDistanceKm(b.data);
+      // Nicht auflösbare Einträge (kein/unbekannter Ort) immer ans Ende,
+      // unabhängig von der Sortierrichtung -- sonst würden sie bei "desc"
+      // fälschlich ganz nach oben springen.
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return (av - bv) * mult;
     }
     av = (a.data[field] || "").toString();
     bv = (b.data[field] || "").toString();
@@ -502,6 +588,11 @@ function filterCellHtml(col) {
       <option value="ja" ${v === "ja" ? "selected" : ""}>Ja</option>
       <option value="nein" ${v === "nein" ? "selected" : ""}>Nein</option>
     </select>`;
+  }
+  if (col.key === "distanz") {
+    const v = currentView.filters.distanz || "";
+    return `<input type="text" inputmode="numeric" maxlength="4" data-filter="distanz" value="${escapeHtml(v)}"
+      placeholder="Ab PLZ…" title="4-stellige Schweizer PLZ als Referenzpunkt -- auf die Spaltenüberschrift klicken sortiert danach">`;
   }
   const v = currentView.filters[col.key] || "";
   return `<input type="text" data-filter="${col.key}" value="${escapeHtml(v)}" placeholder="Filter…">`;

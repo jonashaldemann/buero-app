@@ -708,6 +708,22 @@ das Browserfenster.
 - **Spalten**: welche Spalten sichtbar sind, lässt sich über die Checkboxen
   oberhalb der Tabelle einstellen. Die Reihenfolge der sichtbaren Spalten
   lässt sich direkt in der Tabelle per Drag & Drop am Spaltentitel ändern.
+- **Distanz-Spalte**: statt eines Textfilters hat die Spalte "Distanz" ein
+  Eingabefeld für eine 4-stellige Schweizer PLZ als Referenzpunkt — die
+  Spalte zeigt danach für jeden Kontakt die Luftlinien-Distanz ab dieser PLZ
+  (`adressliste/plz-data.js`, Koordinaten pro PLZ-Zentrum von GeoNames,
+  CC BY 4.0). Auf die Spaltenüberschrift klicken sortiert die Liste danach
+  (nicht auflösbare Einträge bleiben dabei immer am Ende, unabhängig von der
+  Sortierrichtung). Die Referenz-PLZ selbst verhält sich dabei wie ein ganz
+  normaler Spaltenfilter (landet darum automatisch mit in gespeicherten
+  Ansichten), blendet aber bewusst keine Zeilen aus — die Liste wird
+  sortiert, nicht eingeschränkt. Das Feld "Ort" wird als "PLZ Ortsname"
+  gelesen; fehlt die PLZ (ältere Einträge haben teils nur den Ortsnamen),
+  wird der Ortsname gegen dieselbe Liste nachgeschlagen — bei mehrdeutigen
+  Ortsnamen (z.B. gleichnamige Orte in verschiedenen Kantonen) nicht
+  zwingend der richtige Treffer, ein bewusst in Kauf genommenes Limit dieser
+  Heuristik. Nicht auflösbare Einträge (leeres oder unbekanntes "Ort"-Feld)
+  zeigen "?" statt einer Distanz.
 - **Kategorie, Status**: kommen aus einem gemeinsam verwalteten Optionen-Set
   (`_optionen.json`, im selben Nextcloud-Ordner) statt aus freiem Text —
   Dropdowns statt Textfelder, sowohl im Editor als auch direkt in der
