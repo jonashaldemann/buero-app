@@ -1,4 +1,4 @@
-const CACHE_NAME = "offerten-v9";
+const CACHE_NAME = "offerten-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,14 +27,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App-Shell: aus Cache, Fallback Netz. absender.json sowie die zentrale
-// config.json (Mitarbeitende/Projekte, von Nextcloud) bewusst NICHT in
-// ASSETS gelistet -- die sollen immer frisch kommen, damit Änderungen
-// (Adresse, neue/andere Unterzeichner etc.) ohne Code-Update ankommen. Die PDF-Bibliothek
-// (CDN) und die Nudica-.otf-Schriftdateien für den PDF-Export sind
-// ebenfalls bewusst nicht vorab gecacht -- ein einzelner fehlgeschlagener
-// Cross-Origin-Fetch würde sonst das ganze cache.addAll() beim Install
-// scheitern lassen und die App-Shell selbst offline unbrauchbar machen.
+// App-Shell: aus Cache, Fallback Netz. Absenderadresse (_absender.json) und
+// die zentrale config.json (Mitarbeitende/Projekte) kommen beide von
+// Nextcloud, nicht hier aus ASSETS -- die sollen immer frisch kommen, damit
+// Änderungen (Adresse, neue/andere Unterzeichner etc.) ohne Code-Update
+// ankommen. Die PDF-Bibliothek (CDN) und die Nudica-.otf-Schriftdateien für
+// den PDF-Export sind ebenfalls bewusst nicht vorab gecacht -- ein einzelner
+// fehlgeschlagener Cross-Origin-Fetch würde sonst das ganze cache.addAll()
+// beim Install scheitern lassen und die App-Shell selbst offline
+// unbrauchbar machen.
 // "PDF erstellen" braucht deshalb (zumindest beim ersten Mal pro
 // Browser-Cache) eine Internetverbindung; Liste/Bearbeiten/Speichern
 // funktionieren offline unverändert.
