@@ -588,14 +588,33 @@ erlaubte HTTP-Methode im Cloudflare Worker — siehe Abschnitt
 
 ### Absenderadresse
 
-Liegt in `offerten/absender.json` (Name, Adresse, PLZ/Ort, Ort fürs
-"Ort, Datum" in der Brief-Datumszeile, Telefon, E-Mail, Website) — bewusst
-**nicht** pro Offerte/Rechnung erfasst, da praktisch immer gleich. Datei mit
-den echten Angaben füllen, committen, pushen; die App lädt sie zur Laufzeit
-(`fetch("absender.json")`, kein Nextcloud-Zugriff nötig, da sie mit der App
-selbst ausgeliefert wird — analog zu `konten.txt` etc. bei Quittung). Wird
-für den PDF-Briefkopf verwendet (`absender` in `offerten/app.js`, siehe
-`loadAbsender()`).
+Enthält echte Geschäftsdaten (Name, Adresse, PLZ/Ort, Ort fürs "Ort, Datum"
+in der Brief-Datumszeile, Telefon, E-Mail, Website) — liegt deshalb
+**vertraulich auf Nextcloud** statt im (öffentlichen!) Repo, analog zu
+`konten.txt`/`kategorien.txt` bei Quittung. Bewusst **nicht** pro
+Offerte/Rechnung erfasst, da praktisch immer gleich.
+
+**`Buero/Admin/App/Offerten und Rechnungen/_absender.json`** anlegen (im
+selben Ordner wie die Offerten-Dateien selbst, aber kein eigener
+Offerten-Datensatz — wird beim Auflisten der Offerten ausdrücklich
+ausgeschlossen, siehe `ABSENDER_FILENAME`):
+```json
+{
+  "name": "Muster Architekten AG",
+  "adresse": "Musterstrasse 12",
+  "plz_ort": "8000 Zürich",
+  "ort": "Zürich",
+  "telefon": "+41 44 000 00 00",
+  "email": "office@muster-architekten.ch",
+  "website": "www.muster-architekten.ch"
+}
+```
+Die App lädt die Datei zur Laufzeit per Login (`proxyFetch`, siehe
+`loadAbsender()` in `offerten/app.js`) und hält den zuletzt geladenen Stand
+zusätzlich in `localStorage` als Offline-Fallback. Fehlt die Datei (noch)
+auf Nextcloud, bleibt der Briefkopf im PDF einfach leer, statt dass der
+Export fehlschlägt. Wird für den PDF-Briefkopf verwendet (`absender` in
+`offerten/app.js`).
 
 ### Unterschriften
 

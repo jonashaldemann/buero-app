@@ -16,9 +16,11 @@
    "Zahlbar innert 30 Tagen", sonst identisches Modell/Formular für beide.
 
    PDF-Export (Brief + Offerte/Rechnung) kommt aus pdf.js
-   (exportOfferPdf()). Die Absenderadresse dafür kommt aus
-   offerten/absender.json (bleibt praktisch immer gleich, deshalb
-   nicht pro Offerte erfasst) -- siehe loadAbsender().
+   (exportOfferPdf()). Die Absenderadresse dafür kommt aus einer
+   Stammdaten-Datei auf Nextcloud (ABSENDER_FILENAME, siehe loadAbsender())
+   statt aus dem Repo -- sie bleibt praktisch immer gleich (deshalb nicht
+   pro Offerte erfasst) UND enthält echte Geschäftsdaten (Adresse, Telefon,
+   Mail, Website), die nicht im öffentlichen Repo stehen sollen.
 
    Nextcloud-Login, proxyFetch/authHeader/davPath, Einstellungen-UI
    usw. kommen aus ../shared/common.js (gemeinsam mit Zeiterfassung,
@@ -36,8 +38,15 @@
 
 const LS_KEYS = {
   cache: "offerten_cache", // zuletzt geladene Offerten (Offline-Fallback)
-  rate: "offerten_stundensatz" // Vorgabe-Stundensatz für NEUE Offerten
+  rate: "offerten_stundensatz", // Vorgabe-Stundensatz für NEUE Offerten
+  absenderCache: "offerten_absender_cache" // zuletzt geladene Absenderadresse (Offline-Fallback)
 };
+
+// Stammdaten-Datei (Absenderadresse fürs Briefpapier) im selben Ordner wie
+// die Offerten -- kein eigener Datensatz, deshalb beim Auflisten der Offerten
+// ausdrücklich ausgeschlossen (siehe listOfferFilenames()), analog zu
+// "_optionen.json" in der Adressliste.
+const ABSENDER_FILENAME = "_absender.json";
 
 const DEFAULT_STUNDENSATZ = 150;
 const DEFAULT_MWST_PROZENT = 8.1;
@@ -115,14 +124,27 @@ let editingBaselineOffer = null;
 let draggedRow = null;
 
 // Absenderadresse fürs PDF-Anschreiben -- ändert sich praktisch nie,
-// deshalb zentral in einer Datei statt pro Offerte erfasst.
-let absender = null;
+// deshalb zentral in einer Datei statt pro Offerte erfasst. Liegt auf
+// Nextcloud (ABSENDER_FILENAME im selben Ordner wie die Offerten) statt im
+// Repo, weil sie echte Geschäftsdaten enthält (Adresse, Telefon, Mail,
+// Website) -- ein lokaler, mit localStorage gecachter Offline-Fallback
+// reicht, ein Repo-weiter Platzhalter ist dafür nicht nötig.
+let absender = loadJSON(LS_KEYS.absenderCache, null);
 async function loadAbsender() {
+  if (!isConfigured()) return;
   try {
-    const res = await fetch("absender.json");
-    absender = res.ok ? await res.json() : null;
-  } catch (e) {
-    absender = null;
+    const relPath = davPath([...offerSegments(), ABSENDER_FILENAME].join("/"));
+    const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
+    if (res.status === 404) return; // noch nicht auf Nextcloud angelegt -- beim bisherigen Stand bleiben
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const text = await res.text();
+    const data = text.trim() ? JSON.parse(text) : null;
+    if (data) {
+      absender = data;
+      saveJSON(LS_KEYS.absenderCache, data);
+    }
+  } catch (err) {
+    console.warn("Absenderadresse konnte nicht geladen werden:", err);
   }
 }
 
@@ -170,7 +192,7 @@ async function listOfferFilenames() {
   const hrefs = Array.from(doc.getElementsByTagNameNS("DAV:", "href")).map((el) => el.textContent);
   return hrefs
     .map((href) => decodeURIComponent(href.replace(/\/$/, "").split("/").pop() || ""))
-    .filter((name) => name.toLowerCase().endsWith(".json"));
+    .filter((name) => name.toLowerCase().endsWith(".json") && name !== ABSENDER_FILENAME);
 }
 
 async function fetchOfferFile(filename) {
@@ -1112,9 +1134,9 @@ function init() {
     renderPositionen();
   });
 
-  window.addEventListener("online", refreshOffers);
+  window.addEventListener("online", () => { refreshOffers(); loadAbsender(); });
   window.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { refreshOffers(); refreshAppData(); }
+    if (document.visibilityState === "visible") { refreshOffers(); refreshAppData(); loadAbsender(); }
   });
   setInterval(refreshAppData, 60000);
 

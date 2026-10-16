@@ -12,3 +12,10 @@
 # sie als Arbeitskopie bestehen (nur von git ignoriert, nicht gelöscht).
 quittung/konten.txt
 quittung/kategorien.txt
+
+# Absenderadresse fürs Offerten-Briefpapier enthält echte Geschäftsdaten
+# (Adresse, Telefon, Mail, Website) -- liegt deshalb vertraulich auf
+# Nextcloud (ABSENDER_FILENAME in offerten/app.js) statt im (öffentlichen!)
+# Repo. Lokal bleibt die Datei als Arbeitskopie bestehen (nur von git
+# ignoriert, nicht gelöscht).
+offerten/absender.json
