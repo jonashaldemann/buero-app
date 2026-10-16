@@ -495,6 +495,11 @@ function matchesFilters(data) {
       continue;
     }
     if (key === "distanz") continue; // Referenz-PLZ, kein Textfilter -- siehe cellValue()
+    // Eine reine 4-stellige PLZ im "Ort"-Filter ist der Komfort-Shortcut für
+    // die Distanz-Referenz (siehe handleOrtDistanceShortcut()) -- als
+    // Textfilter wäre das ohnehin nutzlos, da er nur Zeilen zeigen würde,
+    // deren "ort"-Feld diese PLZ wörtlich enthält (keine Umkreissuche).
+    if (key === "ort" && /^\d{4}$/.test(raw)) continue;
     const cellText = cellValue(data, key).toString().toLowerCase();
     if (!cellText.includes(raw.toLowerCase())) return false;
   }
@@ -594,6 +599,11 @@ function filterCellHtml(col) {
     return `<input type="text" inputmode="numeric" maxlength="4" data-filter="distanz" value="${escapeHtml(v)}"
       placeholder="Ab PLZ…" title="4-stellige Schweizer PLZ als Referenzpunkt -- auf die Spaltenüberschrift klicken sortiert danach">`;
   }
+  if (col.key === "ort") {
+    const v = currentView.filters.ort || "";
+    return `<input type="text" data-filter="ort" value="${escapeHtml(v)}" placeholder="Filter… oder PLZ für Distanz"
+      title="Freitext filtert nach Ort; eine reine 4-stellige PLZ wird stattdessen als Distanz-Referenz verwendet (blendet die Spalte 'Distanz' ein und sortiert danach)">`;
+  }
   const v = currentView.filters[col.key] || "";
   return `<input type="text" data-filter="${col.key}" value="${escapeHtml(v)}" placeholder="Filter…">`;
 }
@@ -656,9 +666,61 @@ function renderTableHead() {
     const eventName = el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(eventName, () => {
       currentView.filters[key] = el.value;
+      // handleOrtDistanceShortcut() rendert bei Bedarf Kopf+Körper selbst
+      // (mit Fokus-Erhalt, siehe dort) -- das normale renderTableBody() hier
+      // dann überspringen, um nicht doppelt zu rendern.
+      if (key === "ort" && handleOrtDistanceShortcut(el.value)) return;
       renderTableBody();
     });
   });
+}
+
+// Komfort-Shortcut: tippt man im "Ort"-Filter eine reine 4-stellige PLZ ein,
+// wird das als Distanz-Referenz interpretiert statt als Text-Suche (siehe
+// matchesFilters()) -- blendet dafür bei Bedarf die Spalte "Distanz" ein
+// und sortiert danach, genau wie beim dedizierten Eingabefeld in der
+// Distanz-Spalte selbst (beide schreiben in dasselbe
+// currentView.filters.distanz). Verlässt man die PLZ wieder (z.B. um
+// stattdessen nach einem Ortsnamen zu suchen), bleibt eine einmal gesetzte
+// Distanz-Referenz bewusst bestehen -- die Distanz-Spalte ist dafür ab dann
+// die massgebliche Stelle zum Ändern/Löschen.
+function handleOrtDistanceShortcut(value) {
+  const trimmed = value.trim();
+  if (!/^\d{4}$/.test(trimmed)) return false;
+  currentView.filters.distanz = trimmed;
+  let headChanged = false;
+  if (!currentView.columns.includes("distanz")) {
+    currentView.columns.push("distanz");
+    headChanged = true;
+  }
+  if (currentView.sort.field !== "distanz") {
+    currentView.sort = { field: "distanz", dir: "asc" };
+    headChanged = true;
+  }
+  if (!headChanged) return false;
+  renderColumnToggles();
+  renderTableHeadPreservingFocus();
+  renderTableBody();
+  return true;
+}
+
+// renderTableHead() baut die Filter-Zeile komplett neu auf -- würde man das
+// direkt aus dem "input"-Handler eines Filterfelds heraus aufrufen, verlöre
+// dieses Feld (obwohl der Nutzer gerade noch darin tippt) Fokus und
+// Cursor-Position. Hier wird deshalb vorher gemerkt, welches Feld fokussiert
+// war, und danach wiederhergestellt.
+function renderTableHeadPreservingFocus() {
+  const active = document.activeElement;
+  const key = active && active.dataset ? active.dataset.filter : null;
+  const selStart = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
+  renderTableHead();
+  if (!key) return;
+  const restored = document.querySelector(`[data-filter="${key}"]`);
+  if (!restored) return;
+  restored.focus();
+  if (selStart !== null && typeof restored.setSelectionRange === "function") {
+    restored.setSelectionRange(selStart, selStart);
+  }
 }
 
 // <option>-Liste für ein Optionen-Set-Feld (Kategorie/Status) -- der
