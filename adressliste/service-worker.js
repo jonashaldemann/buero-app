@@ -1,9 +1,10 @@
-const CACHE_NAME = "adressliste-v7";
+const CACHE_NAME = "adressliste-v8";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./etiketten.js",
+  "./plz-data.js",
   "./manifest.json",
   "../shared/common.js",
   "../css/style.css",
