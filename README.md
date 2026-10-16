@@ -708,22 +708,30 @@ das Browserfenster.
 - **Spalten**: welche Spalten sichtbar sind, lässt sich über die Checkboxen
   oberhalb der Tabelle einstellen. Die Reihenfolge der sichtbaren Spalten
   lässt sich direkt in der Tabelle per Drag & Drop am Spaltentitel ändern.
-- **Distanz-Spalte**: statt eines Textfilters hat die Spalte "Distanz" ein
-  Eingabefeld für eine 4-stellige Schweizer PLZ als Referenzpunkt — die
-  Spalte zeigt danach für jeden Kontakt die Luftlinien-Distanz ab dieser PLZ
-  (`adressliste/plz-data.js`, Koordinaten pro PLZ-Zentrum von GeoNames,
-  CC BY 4.0). Auf die Spaltenüberschrift klicken sortiert die Liste danach
-  (nicht auflösbare Einträge bleiben dabei immer am Ende, unabhängig von der
-  Sortierrichtung). Die Referenz-PLZ selbst verhält sich dabei wie ein ganz
-  normaler Spaltenfilter (landet darum automatisch mit in gespeicherten
-  Ansichten), blendet aber bewusst keine Zeilen aus — die Liste wird
-  sortiert, nicht eingeschränkt. Das Feld "Ort" wird als "PLZ Ortsname"
-  gelesen; fehlt die PLZ (ältere Einträge haben teils nur den Ortsnamen),
-  wird der Ortsname gegen dieselbe Liste nachgeschlagen — bei mehrdeutigen
-  Ortsnamen (z.B. gleichnamige Orte in verschiedenen Kantonen) nicht
-  zwingend der richtige Treffer, ein bewusst in Kauf genommenes Limit dieser
-  Heuristik. Nicht auflösbare Einträge (leeres oder unbekanntes "Ort"-Feld)
-  zeigen "?" statt einer Distanz.
+- **Distanz-Spalte**: eine reine 4-stellige Schweizer PLZ (z.B. "8000") ins
+  Filterfeld der Spalte "Ort" eingegeben wird als Distanz-Referenz
+  verstanden statt als Text-Suche (dort als Textfilter ohnehin nutzlos —
+  würde nur Zeilen zeigen, deren "Ort"-Feld diese PLZ wörtlich enthält).
+  Die Spalte "Distanz" blendet sich dadurch automatisch ein (falls noch
+  nicht sichtbar) und zeigt für jeden Kontakt die Luftlinien-Distanz ab
+  dieser PLZ (`adressliste/plz-data.js`, Koordinaten pro PLZ-Zentrum von
+  GeoNames, CC BY 4.0); die Liste sortiert sich gleich danach (nicht
+  auflösbare Einträge bleiben dabei immer am Ende, unabhängig von der
+  Sortierrichtung). Die Spalte "Distanz" hat zusätzlich ihr eigenes
+  Eingabefeld für dieselbe Referenz-PLZ — beide schreiben denselben Wert
+  (`currentView.filters.distanz`, landet darum automatisch mit in
+  gespeicherten Ansichten), blenden aber bewusst keine Zeilen aus: die
+  Liste wird sortiert, nicht eingeschränkt. Einmal gesetzt, bleibt die
+  Referenz-PLZ bestehen, auch wenn im "Ort"-Filter danach wieder normal
+  nach einem Ortsnamen gesucht wird (z.B. "nur Kontakte mit 'Muster AG' im
+  Ort, sortiert nach Distanz ab 8000") — zum Ändern/Löschen ist danach die
+  Distanz-Spalte selbst die massgebliche Stelle. Das Feld "Ort" wird als
+  "PLZ Ortsname" gelesen; fehlt die PLZ (ältere Einträge haben teils nur
+  den Ortsnamen), wird der Ortsname gegen dieselbe Liste nachgeschlagen —
+  bei mehrdeutigen Ortsnamen (z.B. gleichnamige Orte in verschiedenen
+  Kantonen) nicht zwingend der richtige Treffer, ein bewusst in Kauf
+  genommenes Limit dieser Heuristik. Nicht auflösbare Einträge (leeres oder
+  unbekanntes "Ort"-Feld) zeigen "?" statt einer Distanz.
 - **Kategorie, Status**: kommen aus einem gemeinsam verwalteten Optionen-Set
   (`_optionen.json`, im selben Nextcloud-Ordner) statt aus freiem Text —
   Dropdowns statt Textfelder, sowohl im Editor als auch direkt in der
