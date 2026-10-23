@@ -1006,13 +1006,24 @@ function onRowsPointerDown(e) {
       entry.ende = toISO(clampToRange(newEnde));
     }
 
+    // Derselbe Eintrag wird doppelt gerendert -- einmal in seiner
+    // Aufgaben-Zeile, einmal (dieselben Daten) in der Projekt-
+    // Übersichtszeile (siehe renderRows()). Ohne diesen querySelectorAll
+    // würde beim Ziehen nur der angefasste Balken live folgen, während sein
+    // Gegenstück in der Projektzeile bis zum Loslassen (renderAll()) auf der
+    // alten Position stehen bliebe -- sichtbar "nach hinten verschoben".
+    const sameEntryBars = document.querySelectorAll(
+      `.tp-bar[data-entry-id="${entryId}"], .tp-milestone[data-entry-id="${entryId}"]`
+    );
     if (entry.typ === "meilenstein") {
       const x = dateToX(entry.start) + DAY_WIDTH / 2;
-      bar.style.left = x - 7 + "px";
+      sameEntryBars.forEach((el) => { el.style.left = x - 7 + "px"; });
     } else {
       const { left, width } = visibleBarRect(entry);
-      bar.style.left = left + "px";
-      bar.style.width = width + "px";
+      sameEntryBars.forEach((el) => {
+        el.style.left = left + "px";
+        el.style.width = width + "px";
+      });
     }
   };
 
