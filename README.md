@@ -776,7 +776,13 @@ das Browserfenster.
   (z.B. "Weihnachtskarten" = nur Firma/Vorname/Name/Weihnachtskarte, gefiltert
   auf Weihnachtskarte = Ja). Jede Ansicht ist — wie die Kontakte selbst —
   eine eigene JSON-Datei, im Unterordner `Buero/Admin/App/Adressen/Ansichten`,
-  also für alle Personen mit Zugriff auf diesen Ordner gleich sichtbar.
+  also für alle Personen mit Zugriff auf diesen Ordner gleich sichtbar. Ist
+  gerade eine gespeicherte Ansicht aktiv und man klickt "Ansicht speichern"
+  mit demselben Namen, wird diese Ansicht überschrieben; gibt man dagegen
+  einen anderen, noch nicht vergebenen Namen ein, entsteht eine **neue**
+  Ansicht (die ursprüngliche bleibt unverändert erhalten) — nur bei einem
+  Namen, der bereits einer anderen Ansicht gehört, fragt die App vor dem
+  Überschreiben nach.
 - **Gleichzeitige Bearbeitung**: weil jeder Kontakt eine eigene Datei ist,
   können zwei Personen problemlos gleichzeitig verschiedene Einträge
   bearbeiten. Für den selteneren Fall, dass zwei Personen genau denselben

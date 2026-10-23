@@ -862,7 +862,13 @@ async function saveCurrentView() {
     if (existing && existing.id !== activeViewId) {
       if (!confirm(`Es gibt schon eine Ansicht "${trimmed}". Überschreiben?`)) return;
     }
-    const target = existing || views.find((v) => v.id === activeViewId);
+    // Die gerade aktive Ansicht nur dann als Ziel nehmen, wenn der Name
+    // unverändert blieb (= bewusstes Überschreiben). Wurde der Name geändert
+    // und trifft keine bestehende Ansicht, soll eine NEUE Ansicht entstehen --
+    // sonst würde die ursprüngliche Ansicht versehentlich umbenannt/ersetzt
+    // (siehe Bug: "Landschaftler" offen, neuer Name eingegeben -> Landschaftler verschwand).
+    const active = views.find((v) => v.id === activeViewId);
+    const target = existing || (active && active.name.toLowerCase() === trimmed.toLowerCase() ? active : null);
     const id = target?.id || uid();
     const entry = {
       id,
