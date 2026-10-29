@@ -134,6 +134,10 @@ synchronisiert, sobald wieder Netz da ist.
 - Klick auf **Stop** ist identisch zu Pause (Tagesende).
 - **Nachtragen**: Zeit für ein beliebiges (auch vergangenes) Datum manuell
   eintragen, falls mal vergessen wurde zu starten/stoppen.
+- In der "Heute"-Liste lässt sich jeder Eintrag über das Stift-Symbol (✎)
+  bearbeiten: Dauer und Kommentar für diesen Tag/dieses Projekt anpassen
+  (überschreibt die bisherige Summe) oder über "Löschen" komplett entfernen
+  (inkl. Kommentar, mit Rückfrage).
 - Jeder abgeschlossene Zeitabschnitt wird als eine Zeile in eine CSV-Datei
   auf eurer Nextcloud geschrieben — pro Person eine eigene Datei.
 - Alles läuft lokal im Browser (localStorage), auch offline. Nicht

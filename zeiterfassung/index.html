@@ -11,6 +11,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="../css/style.css">
+<style>
+  .today-row-actions {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+  }
+  .today-edit-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .today-edit-btn:active { color: var(--accent-primary); }
+</style>
 </head>
 <body>
 
@@ -95,7 +111,7 @@
 <div id="manualOverlay" class="overlay hidden">
   <div class="sheet">
     <div class="sheet-head">
-      <h2>Zeit nachtragen</h2>
+      <h2 id="manualTitle">Zeit nachtragen</h2>
       <button id="closeManual" class="icon-btn" aria-label="Schliessen">&times;</button>
     </div>
 
@@ -115,6 +131,7 @@
 
     <div class="form-actions">
       <button id="cancelManualBtn" class="btn-secondary">Abbrechen</button>
+      <button id="deleteManualBtn" class="btn-secondary" style="display:none;">Löschen</button>
       <button id="saveManualBtn" class="btn-primary">Hinzufügen</button>
     </div>
     <div id="manualResult" class="test-result"></div>
