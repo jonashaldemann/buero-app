@@ -209,7 +209,11 @@ function renderToday() {
       return `<li data-project-id="${escapeHtml(id)}">
         <div class="today-row-main">
           <span class="proj-name" style="color:${color}">${escapeHtml(name)}</span>
-          <span class="proj-time" data-role="time">${formatHM(totals[id])}</span>
+          <span class="today-row-actions">
+            <span class="proj-time" data-role="time">${formatHM(totals[id])}</span>
+            <button type="button" class="today-edit-btn" data-project-id="${escapeHtml(id)}"
+                    aria-label="Bearbeiten" title="Bearbeiten">✎</button>
+          </span>
         </div>
         <input type="text" class="comment-input" data-project-id="${escapeHtml(id)}"
                placeholder="Kommentar: was hast du gemacht?" value="${escapeHtml(commentVal)}">
@@ -219,6 +223,9 @@ function renderToday() {
 
   list.querySelectorAll(".comment-input").forEach((input) => {
     input.addEventListener("change", onCommentChange);
+  });
+  list.querySelectorAll(".today-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openEditEntry(today, btn.dataset.projectId));
   });
 }
 
@@ -351,28 +358,90 @@ async function refreshAppData() {
   }
 }
 
-// ---------- Manuell nachtragen ----------
+// ---------- Manuell nachtragen / bearbeiten ----------
+
+// null -> Dialog im "Nachtragen"-Modus (neue Zeit addieren). Sonst
+// { date, projectId } -> Dialog bearbeitet die bereits erfassten Einträge
+// dieses "Heute"-Buckets (siehe openEditEntry()).
+let editingBucket = null;
 
 function openManualEntry() {
+  editingBucket = null;
+
   const dateInput = document.getElementById("manualDate");
   const today = formatDate(new Date());
   dateInput.value = today;
   dateInput.max = today; // kein Nachtragen in der Zukunft
+  dateInput.disabled = false;
 
   const projectSelect = document.getElementById("manualProject");
   projectSelect.innerHTML = projectList
     .map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)
     .join("");
+  projectSelect.disabled = false;
 
   document.getElementById("manualHours").value = "";
   document.getElementById("manualMinutes").value = "";
   document.getElementById("manualComment").value = "";
   document.getElementById("manualResult").textContent = "";
+
+  document.getElementById("manualTitle").textContent = "Zeit nachtragen";
+  document.getElementById("saveManualBtn").textContent = "Hinzufügen";
+  document.getElementById("deleteManualBtn").style.display = "none";
+  document.getElementById("manualOverlay").classList.remove("hidden");
+}
+
+// Öffnet denselben Dialog im Bearbeiten-Modus für einen bereits in der
+// "Heute"-Liste gezeigten Eintrag (Datum+Projekt): Datum/Projekt sind fix
+// (nur für heute aufrufbar), Dauer/Kommentar sind mit der aktuellen Summe
+// vorbefüllt und überschreiben beim Speichern die bisherigen Einträge
+// dieses Buckets, statt eine weitere Zeit hinzuzuzählen.
+function openEditEntry(date, projectId) {
+  editingBucket = { date, projectId };
+
+  const dateInput = document.getElementById("manualDate");
+  dateInput.value = date;
+  dateInput.max = date;
+  dateInput.disabled = true;
+
+  const projectSelect = document.getElementById("manualProject");
+  projectSelect.innerHTML = `<option value="${escapeHtml(projectId)}">${escapeHtml(projectLabel(projectId))}</option>`;
+  projectSelect.value = projectId;
+  projectSelect.disabled = true;
+
+  const totalSec = sumDurationSec(date, projectId);
+  document.getElementById("manualHours").value = Math.floor(totalSec / 3600) || "";
+  document.getElementById("manualMinutes").value = Math.round((totalSec % 3600) / 60) || "";
+  document.getElementById("manualComment").value = comments[bucketKey(date, projectId)] || "";
+  document.getElementById("manualResult").textContent = "";
+
+  document.getElementById("manualTitle").textContent = "Zeit bearbeiten";
+  document.getElementById("saveManualBtn").textContent = "Speichern";
+  document.getElementById("deleteManualBtn").style.display = "";
   document.getElementById("manualOverlay").classList.remove("hidden");
 }
 
 function closeManualEntry() {
   document.getElementById("manualOverlay").classList.add("hidden");
+  editingBucket = null;
+}
+
+function deleteBucketEntries(date, projectId) {
+  entries = entries.filter((e) => !(e.date === date && e.projectId === projectId));
+  const key = bucketKey(date, projectId);
+  delete comments[key];
+  markDirty(key);
+  saveState();
+  render();
+  trySync();
+}
+
+function deleteEditingEntry() {
+  if (!editingBucket) return;
+  const name = projectLabel(editingBucket.projectId);
+  if (!confirm(`Erfasste Zeit für "${name}" heute wirklich löschen?`)) return;
+  deleteBucketEntries(editingBucket.date, editingBucket.projectId);
+  closeManualEntry();
 }
 
 function saveManualEntry() {
@@ -400,11 +469,20 @@ function saveManualEntry() {
     return;
   }
 
+  // Bearbeiten-Modus: bisherige Einträge dieses Buckets ersetzen statt eine
+  // weitere Zeit hinzuzuzählen (siehe openEditEntry()).
+  if (editingBucket) {
+    entries = entries.filter((e) => !(e.date === editingBucket.date && e.projectId === editingBucket.projectId));
+  }
+
   const entry = { id: uid(), date, start: "", end: "", durationSec, projectId };
   entries.push(entry);
 
   const key = bucketKey(date, projectId);
-  if (commentText) {
+  if (editingBucket) {
+    if (commentText) comments[key] = commentText;
+    else delete comments[key];
+  } else if (commentText) {
     comments[key] = comments[key] ? `${comments[key]}; ${commentText}` : commentText;
   }
   markDirty(key);
@@ -461,11 +539,19 @@ async function trySync() {
       const date = key.slice(0, sepIdx);
       const projectId = key.slice(sepIdx + 1);
       const totalSec = sumDurationSec(date, projectId);
-      const durationMin = (totalSec / 60).toFixed(2);
       const comment = comments[key] || "";
-      const name = projectLabel(projectId); // aktuellen Namen zum Sync-Zeitpunkt auflösen
-
       const idx = rows.findIndex((r) => r.date === date && r.projectId === projectId && r.person === person);
+
+      // Alle Einträge für diesen Bucket wurden gelöscht (siehe
+      // deleteBucketEntries()) -> Zeile aus der CSV entfernen statt mit 0
+      // Minuten weiterzuführen.
+      if (totalSec <= 0 && !comment) {
+        if (idx >= 0) rows.splice(idx, 1);
+        return;
+      }
+
+      const durationMin = (totalSec / 60).toFixed(2);
+      const name = projectLabel(projectId); // aktuellen Namen zum Sync-Zeitpunkt auflösen
       const rowObj = { date, project: name, durationMin, comment, person, projectId };
       if (idx >= 0) rows[idx] = rowObj;
       else rows.push(rowObj);
@@ -510,6 +596,7 @@ function init() {
   document.getElementById("closeManual").addEventListener("click", closeManualEntry);
   document.getElementById("cancelManualBtn").addEventListener("click", closeManualEntry);
   document.getElementById("saveManualBtn").addEventListener("click", saveManualEntry);
+  document.getElementById("deleteManualBtn").addEventListener("click", deleteEditingEntry);
 
   window.addEventListener("online", trySync);
   window.addEventListener("visibilitychange", () => {
