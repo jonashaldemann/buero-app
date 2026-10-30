@@ -497,6 +497,13 @@ alles neu erfassen zu müssen.
   umzuwandeln, überschreibt dieselbe Datei (kein automatisches "Original
   behalten + neue Rechnung erzeugen") — dafür zuerst **Duplizieren**, dann
   am Duplikat den Typ auf Rechnung stellen.
+- **Sprache**: bei **Rechnungen** zusätzlich ein Dropdown Deutsch/
+  Französisch — übersetzt alle fixen Textbausteine im PDF (Spaltenköpfe,
+  "Zwischentotal"/"MWST"/"Total", "Zahlbar innert 30 Tagen", Datum
+  ausgeschrieben, Seitentitel usw., siehe `PDF_I18N` in `offerten/pdf.js`).
+  Betreff und Brieftext bleiben freier Text und werden **nicht** automatisch
+  übersetzt — bei einer französischen Rechnung selbst auf Französisch
+  verfassen. Offerten bleiben immer Deutsch (kein Feld dafür).
 - **Editor** — Kopfdaten: Typ, Offert-/Rechnungs-Nr. (optional, frei), Datum
   und Status nebeneinander in der ersten Zeile, darunter Projekt, Empfänger,
   Adresse, dann Stundensatz (Fr./h) und MWST-Satz (%) nebeneinander (beide

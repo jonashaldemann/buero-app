@@ -62,6 +62,65 @@ const GERMAN_MONTHS = [
   "Januar", "Februar", "März", "April", "Mai", "Juni",
   "Juli", "August", "September", "Oktober", "November", "Dezember"
 ];
+const FRENCH_MONTHS = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+];
+
+// Sprachumschaltung Deutsch/Französisch -- nur bei Rechnungen wählbar
+// (offer.sprache, siehe app.js applyTypVisibility()/blankOffer()), Offerten
+// bleiben immer Deutsch. ctx.lang wird einmal in exportOfferPdf() gesetzt,
+// T(ctx) liefert darüber das passende Textbausteine-Set; einzige Stelle, an
+// der sprachspezifische PDF-Texte definiert sind.
+const PDF_I18N = {
+  de: {
+    colModul: "Modul", colStunden: "Stunden", colKosten: "Kosten",
+    pauschal: "Pauschal",
+    titelOfferte: "Offerte", titelRechnung: "Rechnung",
+    nrOfferte: "Offert-Nr.", nrRechnung: "Rechnungs-Nr.",
+    datum: "Datum",
+    stundensatzHinweis: (frBetrag, isRechnung) =>
+      isRechnung
+        ? `Der mittlere Stundensatz beträgt ${frBetrag}`
+        : `Der mittlere Stundensatz beträgt ${frBetrag} Das Honorar wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte Stundenaufwand als Kostendach.`,
+    nebenkostenpauschale: "Nebenkostenpauschale",
+    honorar: "Honorar",
+    rundungsrabatt: "Rundungsrabatt",
+    zwischentotal: "Zwischentotal exkl. MWST",
+    mwst: (prozent) => `MWST ${prozent}%`,
+    totalRechnung: "Rechnungsbetrag inkl. MWST",
+    totalOfferte: "Total inkl. MWST",
+    zahlbar: "Zahlbar innert 30 Tagen",
+    stundentotal: "Stundentotal",
+    std: "Std.",
+    months: GERMAN_MONTHS
+  },
+  fr: {
+    colModul: "Module", colStunden: "Heures", colKosten: "Coût",
+    pauschal: "Forfait",
+    titelOfferte: "Offre", titelRechnung: "Facture",
+    nrOfferte: "N° d'offre", nrRechnung: "N° de facture",
+    datum: "Date",
+    stundensatzHinweis: (frBetrag, isRechnung) =>
+      isRechnung
+        ? `Le taux horaire moyen est de ${frBetrag}`
+        : `Le taux horaire moyen est de ${frBetrag}. Les honoraires sont facturés selon le temps effectivement consacré, le nombre d'heures total estimé constituant un plafond de coûts.`,
+    nebenkostenpauschale: "Forfait de frais annexes",
+    honorar: "Honoraires",
+    rundungsrabatt: "Rabais d'arrondi",
+    zwischentotal: "Sous-total hors TVA",
+    mwst: (prozent) => `TVA ${prozent}%`,
+    totalRechnung: "Montant de la facture TVA incl.",
+    totalOfferte: "Total TVA incl.",
+    zahlbar: "Payable dans un délai de 30 jours",
+    stundentotal: "Total des heures",
+    std: "h",
+    months: FRENCH_MONTHS
+  }
+};
+function T(ctx) {
+  return PDF_I18N[ctx.lang] || PDF_I18N.de;
+}
 
 function pdfHexRgb(hex) {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -113,12 +172,15 @@ function chDateShort(dateStr) {
   if (!m) return dateStr || "–";
   return `${m[3]}.${m[2]}.${m[1]}`;
 }
-function chDateLong(dateStr) {
+// Deutsch: "5. Oktober 2026" (Punkt nach der Tageszahl). Französisch: "5
+// octobre 2026" (ohne Punkt) -- übliche Schreibweise im jeweiligen Sprachraum.
+function chDateLong(dateStr, lang) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || "");
   if (!m) return dateStr || "";
   const day = parseInt(m[3], 10);
-  const month = GERMAN_MONTHS[parseInt(m[2], 10) - 1] || "";
-  return `${day}. ${month} ${m[1]}`;
+  const months = lang === "fr" ? FRENCH_MONTHS : GERMAN_MONTHS;
+  const month = months[parseInt(m[2], 10) - 1] || "";
+  return lang === "fr" ? `${day} ${month} ${m[1]}` : `${day}. ${month} ${m[1]}`;
 }
 
 function wrapText(font, str, size, maxWidth) {
@@ -206,11 +268,11 @@ function drawLetterPage(ctx, offer, absender) {
   // Ort/Datum + Betreff: eigene fixe Position (siehe LETTER_DATUM_BETREFF_Y),
   // absichtlich unabhängig davon, wo der Adressblock oben endet.
   let y2 = LETTER_DATUM_BETREFF_Y;
-  const ortDatum = [absender && absender.ort, chDateLong(offer.datum)].filter(Boolean).join(", ");
+  const ortDatum = [absender && absender.ort, chDateLong(offer.datum, ctx.lang)].filter(Boolean).join(", ");
   if (ortDatum) drawText(ctx, ortDatum, rightX, y2, { size: SIZE_BODY, font: ctx.light, align: "right" });
 
   y2 -= 28;
-  const titleWord = offer.typ === "rechnung" ? "Rechnung" : "Offerte";
+  const titleWord = offer.typ === "rechnung" ? T(ctx).titelRechnung : T(ctx).titelOfferte;
   const betreff = offer.betreff || `${titleWord}${offer.projekt ? " " + offer.projekt : ""}`;
   drawText(ctx, betreff, PDF_MARGIN, y2, { size: SIZE_BODY, font: ctx.medium });
 
@@ -236,9 +298,9 @@ function drawLetterPage(ctx, offer, absender) {
 // ---------- Seite 2+: Offerte/Rechnung ----------
 
 function drawColumnHeader(ctx) {
-  drawText(ctx, "Modul", COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
-  drawText(ctx, "Stunden", COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
-  drawText(ctx, "Kosten", COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  drawText(ctx, T(ctx).colModul, COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+  drawText(ctx, T(ctx).colStunden, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  drawText(ctx, T(ctx).colKosten, COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
   ctx.y -= 6;
   drawRule(ctx, ctx.y);
   ctx.y -= 14;
@@ -286,7 +348,7 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
   const kosten = pauschalAktiv ? Number(p.pauschalBetrag) || 0 : (Number(p.stunden) || 0) * rate;
   const titleText = numbered ? `${nr})  ${p.titel || ""}` : p.titel || "";
   drawText(ctx, titleText, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
-  drawText(ctx, pauschalAktiv ? "Pauschal" : chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, {
+  drawText(ctx, pauschalAktiv ? T(ctx).pauschal : chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, {
     size: SIZE_BODY,
     font: ctx.light,
     color: pauschalAktiv ? PDF_COLOR_MUTED : undefined,
@@ -361,10 +423,7 @@ function drawTotals(ctx, offer) {
   ensureSpace(ctx, 175);
   ctx.y -= 10;
 
-  const stundensatzHinweis =
-    offer.typ === "rechnung"
-      ? `Der mittlere Stundensatz beträgt ${chFrPdf(rate)}`
-      : `Der mittlere Stundensatz beträgt ${chFrPdf(rate)} Das Honorar wird nach effektivem Zeitaufwand abgerechnet, dabei gilt der total geschätzte Stundenaufwand als Kostendach.`;
+  const stundensatzHinweis = T(ctx).stundensatzHinweis(chFrPdf(rate), offer.typ === "rechnung");
   wrapText(ctx.light, stundensatzHinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
     ensureSpace(ctx, 13);
     drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
@@ -373,14 +432,14 @@ function drawTotals(ctx, offer) {
   ctx.y -= 10;
 
   const rows = [];
-  if (nebenkosten) rows.push(["Nebenkostenpauschale", chFrPdf(nebenkosten)]);
+  if (nebenkosten) rows.push([T(ctx).nebenkostenpauschale, chFrPdf(nebenkosten)]);
   if (rundungsrabatt) {
-    rows.push(["Honorar", chFrRoundedPdf(subtotalRoh)]);
-    rows.push(["Rundungsrabatt", `−${chFrRoundedPdf(rundungsrabatt)}`]);
+    rows.push([T(ctx).honorar, chFrRoundedPdf(subtotalRoh)]);
+    rows.push([T(ctx).rundungsrabatt, `−${chFrRoundedPdf(rundungsrabatt)}`]);
   }
   rows.push(
-    ["Zwischentotal exkl. MWST", chFrRoundedPdf(subtotal)],
-    [`MWST ${chNumberPdf(mwstProzent)}%`, chFrRoundedPdf(mwst)]
+    [T(ctx).zwischentotal, chFrRoundedPdf(subtotal)],
+    [T(ctx).mwst(chNumberPdf(mwstProzent)), chFrRoundedPdf(mwst)]
   );
   rows.forEach(([label, val]) => {
     drawText(ctx, label, labelX, ctx.y, { size: SIZE_BODY, font: ctx.light });
@@ -390,14 +449,14 @@ function drawTotals(ctx, offer) {
 
   ctx.y -= 4;
   drawRule(ctx, ctx.y + 10, { x0: labelX });
-  const totalLabel = offer.typ === "rechnung" ? "Rechnungsbetrag inkl. MWST" : "Total inkl. MWST";
+  const totalLabel = offer.typ === "rechnung" ? T(ctx).totalRechnung : T(ctx).totalOfferte;
   drawText(ctx, totalLabel, labelX, ctx.y, { size: SIZE_BODY, font: ctx.medium });
   drawText(ctx, chFrRoundedPdf(total), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.medium, align: "right" });
   ctx.y -= 26;
 
   if (offer.typ === "rechnung") {
     ensureSpace(ctx, 20);
-    drawText(ctx, "Zahlbar innert 30 Tagen", PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+    drawText(ctx, T(ctx).zahlbar, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
     ctx.y -= 13;
   }
 }
@@ -408,13 +467,13 @@ function drawTotals(ctx, offer) {
 function drawStundenTotalRow(ctx, stundenTotal) {
   ensureSpace(ctx, 26);
   ctx.y -= 2;
-  drawText(ctx, "Stundentotal", COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED });
-  drawText(ctx, `${chNumberPdf(stundenTotal)} Std.`, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED, align: "right" });
+  drawText(ctx, T(ctx).stundentotal, COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED });
+  drawText(ctx, `${chNumberPdf(stundenTotal)} ${T(ctx).std}`, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.medium, color: PDF_COLOR_MUTED, align: "right" });
   ctx.y -= 22;
 }
 
 function drawPositionenPage(ctx, offer) {
-  const titleWord = offer.typ === "rechnung" ? "RECHNUNG" : "OFFERTE";
+  const titleWord = (offer.typ === "rechnung" ? T(ctx).titelRechnung : T(ctx).titelOfferte).toUpperCase();
   let y = ctx.y;
 
   drawText(ctx, titleWord, PDF_MARGIN, y, { size: SIZE_TITLE, font: ctx.medium });
@@ -432,10 +491,10 @@ function drawPositionenPage(ctx, offer) {
     drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
   }
 
-  const nrLabel = offer.typ === "rechnung" ? "Rechnungs-Nr." : "Offert-Nr.";
+  const nrLabel = offer.typ === "rechnung" ? T(ctx).nrRechnung : T(ctx).nrOfferte;
   const metaLines = [];
   if (offer.offert_nr) metaLines.push(`${nrLabel} ${offer.offert_nr}`);
-  metaLines.push(`Datum ${chDateShort(offer.datum)}`);
+  metaLines.push(`${T(ctx).datum} ${chDateShort(offer.datum)}`);
   let metaY = y;
   metaLines.forEach((line) => {
     drawText(ctx, line, PDF_PAGE_WIDTH - PDF_MARGIN, metaY, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
@@ -576,7 +635,11 @@ async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
     medium: await pdfDoc.embedFont(mediumBytes, { subset: false }),
     italic: await pdfDoc.embedFont(italicBytes, { subset: false }),
     page: null,
-    y: 0
+    y: 0,
+    // siehe PDF_I18N/T() oben -- nur bei Rechnungen wählbar, Offerten immer
+    // Deutsch (auch falls offer.sprache aus einem früheren Rechnungs-Zustand
+    // des Formulars "fr" trägt, z.B. nach Typ-Wechsel ohne Zwischenspeichern).
+    lang: offer.typ === "rechnung" && offer.sprache === "fr" ? "fr" : "de"
   };
 
   newPage(ctx);

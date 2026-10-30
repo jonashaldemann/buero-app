@@ -558,6 +558,7 @@ function blankOffer(typ) {
     status: "in_bearbeitung",
     betreff: "",
     brieftext: "",
+    sprache: "de", // nur bei Rechnungen wählbar (siehe applyTypVisibility()), PDF-Textbausteine siehe pdf.js PDF_I18N
     unterzeichner: [],
     stundensatz_chf: loadDefaultRate(),
     mwst_prozent: DEFAULT_MWST_PROZENT,
@@ -581,13 +582,13 @@ function blankOffer(typ) {
 // unterschiedlich voneinander ist, ist das ein echter Konflikt.
 const MERGE_FIELDS = [
   "typ", "empfaenger", "adresse", "projektnummer", "projekt", "datum", "offert_nr", "status",
-  "betreff", "brieftext", "unterzeichner", "stundensatz_chf", "mwst_prozent",
+  "betreff", "brieftext", "sprache", "unterzeichner", "stundensatz_chf", "mwst_prozent",
   "nebenkosten_chf", "automatische_nummerierung", "positionen"
 ];
 const MERGE_FIELD_LABELS = {
   typ: "Typ", empfaenger: "Empfänger", adresse: "Adresse", projektnummer: "Projektnummer", projekt: "Projekt",
   datum: "Datum", offert_nr: "Offert-/Rechnungsnummer", status: "Status",
-  betreff: "Betreff", brieftext: "Brieftext", unterzeichner: "Unterzeichner",
+  betreff: "Betreff", brieftext: "Brieftext", sprache: "Sprache", unterzeichner: "Unterzeichner",
   stundensatz_chf: "Stundensatz", mwst_prozent: "MWST-Prozent",
   nebenkosten_chf: "Nebenkosten", automatische_nummerierung: "Automatische Nummerierung",
   positionen: "Kostenmodule/Positionen"
@@ -644,6 +645,12 @@ function applyTypVisibility(typ) {
   const isRechnung = typ === "rechnung";
   document.getElementById("offertNrLabel").textContent = isRechnung ? "Rechnungs-Nr. (optional)" : "Offert-Nr. (optional)";
   document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
+  // Sprachumschaltung (Deutsch/Französisch) nur bei Rechnungen -- siehe
+  // pdf.js PDF_I18N. Bei Offerten bleibt es beim bisherigen Deutsch, Feld
+  // wird beim Wechsel zurückgesetzt (sonst könnte eine zuvor als Rechnung
+  // auf "fr" gestellte Auswahl unsichtbar an der Offerte hängen bleiben).
+  document.getElementById("spracheGroup").style.display = isRechnung ? "" : "none";
+  if (!isRechnung) document.getElementById("inputSprache").value = "de";
   // Rechnung: Projekt aus der zentralen Liste wählen (Nummer+Name daraus
   // übernehmen), oder über "Eigenes/altes Projekt eingeben" frei eintippen
   // (siehe PROJEKT_CUSTOM_VALUE). Offerte: beide Felder immer frei eingeben
@@ -711,6 +718,7 @@ function openEditor(offer, filename, newTyp) {
   document.getElementById("inputDatum").value = editingOffer.datum || formatDate(new Date());
   document.getElementById("inputOffertNr").value = editingOffer.offert_nr || "";
   document.getElementById("inputStatus").value = editingOffer.status || "in_bearbeitung";
+  document.getElementById("inputSprache").value = editingOffer.sprache === "fr" ? "fr" : "de";
   document.getElementById("inputStundensatz").value = editingOffer.stundensatz_chf;
   document.getElementById("inputMwstProzent").value = editingOffer.mwst_prozent;
   document.getElementById("inputNebenkosten").value = editingOffer.nebenkosten_chf || 0;
@@ -950,6 +958,7 @@ function readHeaderFieldsIntoOffer() {
   editingOffer.datum = document.getElementById("inputDatum").value || formatDate(new Date());
   editingOffer.offert_nr = document.getElementById("inputOffertNr").value.trim();
   editingOffer.status = document.getElementById("inputStatus").value || "in_bearbeitung";
+  editingOffer.sprache = document.getElementById("inputSprache").value === "fr" ? "fr" : "de";
   editingOffer.stundensatz_chf = Number(document.getElementById("inputStundensatz").value) || 0;
   editingOffer.mwst_prozent = Number(document.getElementById("inputMwstProzent").value) || 0;
   editingOffer.nebenkosten_chf = Number(document.getElementById("inputNebenkosten").value) || 0;
