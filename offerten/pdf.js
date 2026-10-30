@@ -275,9 +275,18 @@ function drawLetterPage(ctx, offer, absender) {
       });
   }
 
-  // Adressat: ebenfalls fixe Position (siehe LETTER_BLOCK_TOP_Y) -- kein
-  // wiederholter Absender darüber (bewusst weggelassen).
+  // Adressat: ebenfalls fixe Position (siehe LETTER_BLOCK_TOP_Y). Der grosse
+  // Absenderblock oben rechts liegt ausserhalb des Sichtfensters eines
+  // Fensterkuverts -- zusätzlich deshalb eine kompakte, kleine "Absenderzeile"
+  // direkt über dem Empfänger (DIN-5008-Konvention), damit Absender UND
+  // Empfänger gemeinsam im Fenster sichtbar sind.
   let y = LETTER_BLOCK_TOP_Y;
+  if (absender && (absender.name || absender.adresse || absender.plz_ort)) {
+    const absenderzeile = [absender.name, absender.adresse, absender.plz_ort].filter(Boolean).join(", ");
+    const w = drawText(ctx, absenderzeile, PDF_MARGIN, y, { size: 7, font: ctx.light, color: PDF_COLOR_MUTED });
+    drawRule(ctx, y - 2, { x0: PDF_MARGIN, x1: PDF_MARGIN + w, thickness: 0.5 });
+    y -= 7 + 10;
+  }
   if (offer.empfaenger) {
     drawText(ctx, offer.empfaenger, PDF_MARGIN, y, { size: SIZE_BODY, font: ctx.light });
     y -= SIZE_BODY + 4;
