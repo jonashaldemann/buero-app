@@ -62,8 +62,10 @@ let offers = loadJSON(LS_KEYS.cache, []);
 // shared/common.js, refreshAppConfig()) -- bei Rechnungen (typ "rechnung")
 // wird Projektnummer+Projekt daraus ausgewählt statt frei eingegeben, weil
 // eine Rechnung praktisch immer ein bereits laufendes, nummeriertes Projekt
-// betrifft. Bei Offerten (typ "offerte") bleiben beide Felder frei eingebbar
-// -- aus einer Offerte entsteht nicht immer ein Projekt mit eigener Nummer.
+// betrifft (mit Fallback auf Freitext für ein altes/abgeschlossenes Projekt,
+// das nicht mehr in der Liste steht, siehe PROJEKT_CUSTOM_VALUE unten). Bei
+// Offerten (typ "offerte") bleiben beide Felder immer frei eingebbar -- aus
+// einer Offerte entsteht nicht immer ein Projekt mit eigener Nummer.
 let projectList = appConfig.projekte;
 
 // Dropdown für Rechnungen: "021 – Neubau Werkhof" -- Nummer UND Name in
@@ -75,6 +77,17 @@ let projectList = appConfig.projekte;
 // Optionen im Dropdown weder auseinanderhalten noch beim Wiederöffnen
 // einer Rechnung korrekt vorauswählen. Nummer UND Name jeder Option stehen
 // deshalb als data-Attribute, siehe onProjektAuswahlChange().
+//
+// Letzte Option ist immer "Eigenes Projekt eingeben" (PROJEKT_CUSTOM_VALUE)
+// -- blendet dieselben Freitextfelder ein, die bei Offerten direkt sichtbar
+// sind (projektFreitextGroup), für ein altes/abgeschlossenes Projekt, das
+// nicht (mehr) in der zentralen Liste steht. Eine bereits gespeicherte
+// Rechnung mit einer nicht (mehr) passenden Nummer wird automatisch in
+// diesem Modus geöffnet, siehe matchIndex-Logik unten -- Nummer/Name bleiben
+// dabei unverändert als reiner Text erhalten (keine Live-Verknüpfung zur
+// Liste), nur die Eingabe-Widgets unterscheiden sich.
+const PROJEKT_CUSTOM_VALUE = "custom";
+
 function renderProjektAuswahl() {
   const select = document.getElementById("inputProjektAuswahl");
   if (!select) return;
@@ -87,25 +100,22 @@ function renderProjektAuswahl() {
   let matchIndex = projectList.findIndex((p) => p.id === currentId && p.name === currentName);
   if (matchIndex === -1) matchIndex = projectList.findIndex((p) => p.id === currentId);
 
-  let options = projectList.map(
+  const options = projectList.map(
     (p, i) => `<option value="${i}" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.id)} – ${escapeHtml(p.name)}</option>`
   );
-  // Nummer nicht (mehr) in der aktiven Liste (z.B. altes, inzwischen
-  // abgeschlossenes/archiviertes Projekt einer bestehenden Rechnung) --
-  // trotzdem als eigene, vorausgewählte Option zeigen statt einfach auf
-  // "– Projekt wählen –" zurückzufallen. Sonst sieht es beim Öffnen einer
-  // alten Rechnung so aus, als sei das Projekt verloren gegangen (ist es
-  // nicht, projektnummer/projekt bleiben im Hintergrund unverändert) -- und
-  // eine versehentliche Neuauswahl würde die alten Werte überschreiben.
-  if (currentId && matchIndex === -1) {
-    options = [
-      `<option value="-1" data-id="${escapeHtml(currentId)}" data-name="${escapeHtml(currentName)}">${escapeHtml(currentId)} – ${escapeHtml(currentName)} (nicht mehr in der Liste)</option>`,
-      ...options
-    ];
-  }
+  options.push(`<option value="${PROJEKT_CUSTOM_VALUE}">✎ Eigenes/altes Projekt eingeben…</option>`);
 
   select.innerHTML = '<option value="">– Projekt wählen –</option>' + options.join("");
-  select.value = currentId ? String(matchIndex) : "";
+  if (currentId && matchIndex === -1) select.value = PROJEKT_CUSTOM_VALUE;
+  else select.value = currentId ? String(matchIndex) : "";
+}
+
+// Freitextfelder nur zeigen, wenn im Custom-Modus (siehe renderProjektAuswahl()
+// und onProjektAuswahlChange()) -- bei Rechnungen sonst versteckt.
+function updateProjektFreitextVisibility() {
+  const select = document.getElementById("inputProjektAuswahl");
+  document.getElementById("projektFreitextGroup").style.display =
+    select && select.value === PROJEKT_CUSTOM_VALUE ? "" : "none";
 }
 
 // Aktuell im Editor offene Offerte (Arbeitskopie) und ihr Dateiname auf
@@ -635,11 +645,16 @@ function applyTypVisibility(typ) {
   document.getElementById("offertNrLabel").textContent = isRechnung ? "Rechnungs-Nr. (optional)" : "Offert-Nr. (optional)";
   document.getElementById("editorTitle").textContent = editingFilename ? `${typLabel(typ)} bearbeiten` : `Neue ${typLabel(typ)}`;
   // Rechnung: Projekt aus der zentralen Liste wählen (Nummer+Name daraus
-  // übernehmen). Offerte: beide Felder frei eingeben (siehe Kommentar bei
-  // projectList oben).
-  document.getElementById("projektFreitextGroup").style.display = isRechnung ? "none" : "";
+  // übernehmen), oder über "Eigenes/altes Projekt eingeben" frei eintippen
+  // (siehe PROJEKT_CUSTOM_VALUE). Offerte: beide Felder immer frei eingeben
+  // (siehe Kommentar bei projectList oben).
   document.getElementById("projektAuswahlGroup").style.display = isRechnung ? "" : "none";
-  if (isRechnung) renderProjektAuswahl();
+  if (isRechnung) {
+    renderProjektAuswahl();
+    updateProjektFreitextVisibility();
+  } else {
+    document.getElementById("projektFreitextGroup").style.display = "";
+  }
 
   // Status-Dropdown auf die beim Typ gültigen Werte beschränken (siehe
   // statusKeysForTyp()) -- bisherige Auswahl nur übernehmen, wenn sie beim
@@ -660,6 +675,16 @@ function applyTypVisibility(typ) {
 // EINGABE-Widgets unterscheiden sich.
 function onProjektAuswahlChange() {
   const select = document.getElementById("inputProjektAuswahl");
+  updateProjektFreitextVisibility();
+
+  if (select.value === PROJEKT_CUSTOM_VALUE) {
+    // Freitextfelder NICHT überschreiben -- enthalten bei einer bestehenden
+    // Rechnung bereits die alte Nummer/Name (siehe renderProjektAuswahl()),
+    // bei einer neuen Rechnung sind sie leer und bereit zum Eintippen.
+    document.getElementById("inputProjektnummer").focus();
+    return;
+  }
+
   // Optionswert ist der Array-Index (siehe renderProjektAuswahl()), nicht
   // die Nummer -- Nummer und Name der ausgewählten Option kommen deshalb
   // aus ihren data-Attributen, nicht aus einer erneuten Suche in

@@ -515,13 +515,15 @@ alles neu erfassen zu müssen.
   oben) — eine Rechnung betrifft praktisch immer ein bereits laufendes,
   nummeriertes Projekt; Auswahl übernimmt Nummer und Name automatisch in
   dieselben (bei Rechnungen nur versteckten) Felder. Liste und PDF zeigen
-  "Nummer – Name", sofern eine Projektnummer gesetzt ist. Verschwindet ein
-  Projekt später aus der zentralen Liste (z.B. abgeschlossen/archiviert),
-  bleiben bereits gespeicherte Rechnungen davon unberührt (Nummer/Name sind
-  beim Speichern als reiner Text übernommen worden, keine Live-Verknüpfung)
-  — beim erneuten Öffnen einer solchen Rechnung erscheint die nicht mehr
-  aktive Nummer trotzdem als eigene, vorausgewählte Dropdown-Option
-  ("… (nicht mehr in der Liste)"), damit es nicht aussieht, als sei das
+  "Nummer – Name", sofern eine Projektnummer gesetzt ist. Letzte Option im
+  Dropdown ist immer "✎ Eigenes/altes Projekt eingeben…" — blendet dieselben
+  Freitextfelder wie bei Offerten ein, für ein altes/abgeschlossenes Projekt,
+  das nicht (mehr) in der zentralen Liste steht. Verschwindet ein Projekt
+  später aus der zentralen Liste, bleiben bereits gespeicherte Rechnungen
+  davon unberührt (Nummer/Name sind beim Speichern als reiner Text
+  übernommen worden, keine Live-Verknüpfung) — beim erneuten Öffnen einer
+  solchen Rechnung öffnet sich automatisch der Freitext-Modus mit der alten
+  Nummer/dem alten Namen vorausgefüllt, damit es nicht aussieht, als sei das
   Projekt verloren gegangen, und eine unabsichtliche Neuauswahl die alten
   Werte nicht überschreibt.
 - **Automatische Nummerierung**: Checkbox oberhalb der Positionsliste, pro
