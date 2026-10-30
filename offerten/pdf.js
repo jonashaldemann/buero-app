@@ -101,8 +101,6 @@ const PDF_I18N = {
       receipt: "Empfangsschein",
       paymentPart: "Zahlteil",
       account: "Konto / Zahlbar an",
-      reference: "Referenz",
-      payableBy: "Zahlbar durch",
       payableByEmpty: "Zahlbar durch (Name/Adresse)",
       currency: "Währung",
       amount: "Betrag",
@@ -134,8 +132,6 @@ const PDF_I18N = {
       receipt: "Récépissé",
       paymentPart: "Section paiement",
       account: "Compte / Payable à",
-      reference: "Référence",
-      payableBy: "Payable par",
       payableByEmpty: "Payable par (nom/adresse)",
       currency: "Monnaie",
       amount: "Montant",
@@ -609,11 +605,10 @@ function drawPositionenPage(ctx, offer) {
 // sind von SIX ebenfalls vorgegeben -- deshalb bewusst NICHT die Hausschrift
 // (Nudica), sondern die dafür zugelassene Standardschrift Helvetica (in
 // pdf-lib fest eingebaut, kein Font-Download nötig, siehe ctx.helv/helvBold).
-// Debitor-Adresse (Empfänger/Adresse der Rechnung) ist freier Text ohne
-// getrennte PLZ/Ort-Felder -- wird nur dann strukturiert mitgegeben, wenn
-// sich die letzte Zeile zweifelsfrei als "PLZ Ort" lesen lässt (übliche
-// CH-Konvention, siehe splitSwissAddress()); sonst bleibt der Debitor-Block
-// leer, statt falsch befüllte Felder zu riskieren.
+// "Zahlbar durch" (Debitor) bewusst IMMER leer gelassen -- Empfänger/Adresse
+// der Rechnung sind freier Text ohne Längenbeschränkung und liefen bei
+// langen Adressen im gedruckten Empfangsschein/Zahlteil (feste 52/87mm
+// Spaltenbreite, kein Zeilenumbruch) bis in die QR-Code-Fläche hinein.
 
 const QR_BILL_HEIGHT_MM = 105;
 const QR_CODE_SIZE_MM = 46;
@@ -637,17 +632,6 @@ function splitAbsenderAddress(absender) {
   };
 }
 
-// Gibt null zurück, wenn sich die Adresse nicht zweifelsfrei strukturieren
-// lässt (siehe Kommentar oben) -- der Aufrufer lässt den Debitor-Block dann
-// einfach weg, statt unvollständige/falsche Felder in den QR-Code zu packen.
-function splitSwissAddress(name, freitext) {
-  const lines = String(freitext || "").split("\n").map((l) => l.trim()).filter(Boolean);
-  if (!name || !lines.length) return null;
-  const m = /^(\d{4})\s+(.+)$/.exec(lines[lines.length - 1]);
-  if (!m) return null;
-  return { name, street: lines.slice(0, -1).join(" "), plz: m[1], ort: m[2], land: "CH" };
-}
-
 // SPC-Payload-Felder sind zeilenbasiert (ein Feld = eine Zeile) -- Umbrüche
 // vorsichtshalber entfernen, falls ein Wert aus einem mehrzeiligen Textfeld
 // stammt.
@@ -657,7 +641,6 @@ function spcField(s) {
 
 function buildSpcPayload(offer, absender, totalAmount) {
   const creditor = splitAbsenderAddress(absender);
-  const debtor = splitSwissAddress(offer.empfaenger, offer.adresse);
   const message = spcField(offer.offert_nr ? `Rechnung ${offer.offert_nr}` : offer.projekt || "").slice(0, 140);
 
   const lines = [
@@ -666,18 +649,12 @@ function buildSpcPayload(offer, absender, totalAmount) {
     "S", spcField(creditor.name), spcField(creditor.street), "", spcField(creditor.plz), spcField(creditor.ort), creditor.land,
     "", "", "", "", "", "", "", // Ultimate Creditor -- immer leer, veraltetes Feld
     totalAmount.toFixed(2), "CHF",
-    debtor ? "S" : "",
-    debtor ? spcField(debtor.name) : "",
-    debtor ? spcField(debtor.street) : "",
-    "",
-    debtor ? spcField(debtor.plz) : "",
-    debtor ? spcField(debtor.ort) : "",
-    debtor ? debtor.land : "",
-    "NON", "", // Referenztyp/Referenz -- siehe Kommentar oben, bewusst immer ohne
+    "", "", "", "", "", "", "", // Debitor ("Zahlbar durch") -- siehe Kommentar oben, bewusst immer leer
+    "NON", "", // Referenztyp/Referenz -- bewusst immer ohne Referenz
     message,
     "EPD"
   ];
-  return { payload: lines.join("\n"), debtor };
+  return lines.join("\n");
 }
 
 // isDark(row, col) -- empirisch gegen die eingebaute, garantiert korrekte
@@ -746,8 +723,7 @@ function drawQrBillPage(ctx, offer, absender, totalAmount) {
   const X = (mm) => mm2pt(mm);
   const Y = (mm) => blockTopY - mm2pt(mm); // mm = Abstand von der Oberkante des Blocks
 
-  const { payload, debtor } = buildSpcPayload(offer, absender, totalAmount);
-  const modules = qrModuleMatrix(payload);
+  const modules = qrModuleMatrix(buildSpcPayload(offer, absender, totalAmount));
 
   // Trennlinien (Empfangsschein/Zahlteil, und oberer Rand des Blocks)
   ctx.page.drawLine({ start: { x: X(0), y: blockTopY }, end: { x: X(210), y: blockTopY }, thickness: 0.75, color: PDF_COLOR_BORDER, dashArray: [1, 2] });
@@ -762,12 +738,8 @@ function drawQrBillPage(ctx, offer, absender, totalAmount) {
   drawText(ctx, L.account, X(5), Y(12), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
   creditorLines(creditorAddr).forEach((line, i) => drawText(ctx, line, X(5), Y(17 + i * 4), { size: 8, font: ctx.helv }));
 
-  if (debtor) {
-    drawText(ctx, L.payableBy, X(5), Y(37), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
-    [debtor.name, debtor.street, `${debtor.plz} ${debtor.ort}`.trim()].forEach((line, i) =>
-      drawText(ctx, line, X(5), Y(42 + i * 4), { size: 8, font: ctx.helv })
-    );
-  }
+  // "Zahlbar durch" bewusst immer leer -- siehe Kommentar oben.
+  drawText(ctx, L.payableByEmpty, X(5), Y(37), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
 
   drawText(ctx, L.currency, X(5), Y(68), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
   drawText(ctx, L.amount, X(20), Y(68), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
@@ -790,14 +762,8 @@ function drawQrBillPage(ctx, offer, absender, totalAmount) {
   drawText(ctx, L.account, X(118), Y(5), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
   creditorLines(creditorAddr).forEach((line, i) => drawText(ctx, line, X(118), Y(10 + i * 4.5), { size: 10, font: ctx.helv }));
 
-  if (debtor) {
-    drawText(ctx, L.payableBy, X(118), Y(32), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
-    [debtor.name, debtor.street, `${debtor.plz} ${debtor.ort}`.trim()].forEach((line, i) =>
-      drawText(ctx, line, X(118), Y(37 + i * 4.5), { size: 10, font: ctx.helv })
-    );
-  } else {
-    drawText(ctx, L.payableByEmpty, X(118), Y(32), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
-  }
+  // "Zahlbar durch" bewusst immer leer -- siehe Kommentar oben.
+  drawText(ctx, L.payableByEmpty, X(118), Y(32), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
 }
 
 // ---------- Unterschriften (Seite 1, nach dem Brieftext) ----------

@@ -668,11 +668,11 @@ trotzdem normal. Offerten bekommen nie eine QR-Rechnung-Seite.
   Typ "NON") — entspricht der bisher vom Büro genutzten Vorlage. Als
   Mitteilung wird stattdessen automatisch "Rechnung \<Nr.\>" (oder der
   Projektname, falls keine Nummer gesetzt ist) mitgegeben.
-- **"Zahlbar durch"**: wird nur dann strukturiert aus Empfänger/Adresse der
-  Rechnung befüllt, wenn sich deren letzte Adresszeile zweifelsfrei als
-  "PLZ Ort" lesen lässt (übliche Schweizer Konvention, z.B. "9000 St.
-  Gallen" als letzte Zeile im Adressfeld) — sonst bleibt der Debitor-Block
-  bewusst leer, statt falsch strukturierte Angaben zu riskieren.
+- **"Zahlbar durch"**: bleibt bewusst immer leer (Feld inkl. Beschriftung
+  "Zahlbar durch (Name/Adresse)" zum Selbst-ausfüllen) — Empfänger/Adresse
+  der Rechnung sind freier Text ohne Längenbeschränkung und liefen bei
+  langen Adressen im Empfangsschein/Zahlteil (feste Spaltenbreite, kein
+  Zeilenumbruch) bis in die QR-Code-Fläche hinein.
 - **Sprache**: folgt der Sprache der Rechnung (siehe Abschnitt "Sprache"
   oben) — auf Französisch erscheinen auch die Beschriftungen der
   QR-Rechnung französisch (die amtlich vorgeschriebenen SIX-Begriffe, nicht
