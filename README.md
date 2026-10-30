@@ -629,7 +629,8 @@ ausgeschlossen, siehe `ABSENDER_FILENAME`):
   "ort": "Zürich",
   "telefon": "+41 44 000 00 00",
   "email": "office@muster-architekten.ch",
-  "website": "www.muster-architekten.ch"
+  "website": "www.muster-architekten.ch",
+  "iban": "CH93 0076 2011 6238 5295 7"
 }
 ```
 Die App lädt die Datei zur Laufzeit per Login (`proxyFetch`, siehe
@@ -637,7 +638,42 @@ Die App lädt die Datei zur Laufzeit per Login (`proxyFetch`, siehe
 zusätzlich in `localStorage` als Offline-Fallback. Fehlt die Datei (noch)
 auf Nextcloud, bleibt der Briefkopf im PDF einfach leer, statt dass der
 Export fehlschlägt. Wird für den PDF-Briefkopf verwendet (`absender` in
-`offerten/app.js`).
+`offerten/app.js`). `iban` ist optional und wird ausschliesslich für die
+QR-Rechnung gebraucht (siehe nächster Abschnitt) — ohne dieses Feld
+entstehen Offerten/Rechnungen weiterhin normal, nur eben ohne QR-Rechnung-
+Seite.
+
+### QR-Rechnung
+
+Bei **Rechnungen** wird dem PDF automatisch eine zusätzliche, eigene Seite
+mit der Schweizer QR-Rechnung (Empfangsschein + Zahlteil, 210×105mm,
+flächenbündig am unteren Seitenrand) angehängt — vorausgesetzt, `iban` ist
+in der `_absender.json` gesetzt (siehe oben); fehlt sie, erscheint beim
+Export eine Warnung statt eines stillen Fehlens, der Rest des PDFs entsteht
+trotzdem normal. Offerten bekommen nie eine QR-Rechnung-Seite.
+
+- **Betrag**: identisch zur gedruckten Summenzeile "Rechnungsbetrag inkl.
+  MWST" (`computeTotals()` in `offerten/pdf.js`, von beiden Stellen
+  gemeinsam verwendet, damit sie nie auseinanderlaufen können).
+- **Referenznummer**: bewusst immer "ohne Referenz" (reine IBAN-Zahlung,
+  Typ "NON") — entspricht der bisher vom Büro genutzten Vorlage. Als
+  Mitteilung wird stattdessen automatisch "Rechnung \<Nr.\>" (oder der
+  Projektname, falls keine Nummer gesetzt ist) mitgegeben.
+- **"Zahlbar durch"**: wird nur dann strukturiert aus Empfänger/Adresse der
+  Rechnung befüllt, wenn sich deren letzte Adresszeile zweifelsfrei als
+  "PLZ Ort" lesen lässt (übliche Schweizer Konvention, z.B. "9000 St.
+  Gallen" als letzte Zeile im Adressfeld) — sonst bleibt der Debitor-Block
+  bewusst leer, statt falsch strukturierte Angaben zu riskieren.
+- **Sprache**: folgt der Sprache der Rechnung (siehe Abschnitt "Sprache"
+  oben) — auf Französisch erscheinen auch die Beschriftungen der
+  QR-Rechnung französisch (die amtlich vorgeschriebenen SIX-Begriffe, nicht
+  frei übersetzt).
+- Verwendet aus technischen/rechtlichen Gründen (von SIX für die
+  QR-Rechnung vorgeschriebene Standardschrift) bewusst **nicht** die
+  Hausschrift Nudica, sondern Helvetica (in pdf-lib fest eingebaut).
+- QR-Code-Erzeugung über `qrcode-generator` (CDN, siehe `offerten/index.html`),
+  das reine Zahlungs-Textformat ("Swiss Payments Code") wird in
+  `buildSpcPayload()` in `offerten/pdf.js` zusammengestellt.
 
 ### Unterschriften
 

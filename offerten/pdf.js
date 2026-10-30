@@ -93,7 +93,21 @@ const PDF_I18N = {
     zahlbar: "Zahlbar innert 30 Tagen",
     stundentotal: "Stundentotal",
     std: "Std.",
-    months: GERMAN_MONTHS
+    months: GERMAN_MONTHS,
+    // Amtliche Beschriftungen der Schweizer QR-Rechnung (SIX "Swiss
+    // Implementation Guidelines QR-bill") -- bewusst NICHT frei übersetzt,
+    // sondern die vorgeschriebenen Begriffe, siehe drawQrBillPage() unten.
+    qrBill: {
+      receipt: "Empfangsschein",
+      paymentPart: "Zahlteil",
+      account: "Konto / Zahlbar an",
+      reference: "Referenz",
+      payableBy: "Zahlbar durch",
+      payableByEmpty: "Zahlbar durch (Name/Adresse)",
+      currency: "Währung",
+      amount: "Betrag",
+      acceptancePoint: "Annahmestelle"
+    }
   },
   fr: {
     colModul: "Module", colStunden: "Heures", colKosten: "Coût",
@@ -115,7 +129,18 @@ const PDF_I18N = {
     zahlbar: "Payable dans un délai de 30 jours",
     stundentotal: "Total des heures",
     std: "h",
-    months: FRENCH_MONTHS
+    months: FRENCH_MONTHS,
+    qrBill: {
+      receipt: "Récépissé",
+      paymentPart: "Section paiement",
+      account: "Compte / Payable à",
+      reference: "Référence",
+      payableBy: "Payable par",
+      payableByEmpty: "Payable par (nom/adresse)",
+      currency: "Monnaie",
+      amount: "Montant",
+      acceptancePoint: "Point de dépôt"
+    }
   }
 };
 function T(ctx) {
@@ -398,7 +423,12 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
 // gewohnten, ungerundeten Verhalten -- keine "Honorar"/0.00-Zeilen.
 const PDF_ROUNDING_STEP_CHF = 5;
 
-function drawTotals(ctx, offer) {
+// Reine Berechnung (keine Zeichen-Aufrufe) -- ausgelagert aus drawTotals(),
+// damit drawQrBillPage() (siehe unten, QR-Rechnung-Anhang) exakt denselben,
+// bereits gerundeten Endbetrag verwenden kann wie die gedruckte Summenzeile
+// "Rechnungsbetrag inkl. MWST". Zwei unabhängige Berechnungen hätten bei
+// künftigen Änderungen auseinanderlaufen können.
+function computeTotals(offer) {
   const rate = Number(offer.stundensatz_chf) || 0;
   const modulPositionen = (offer.positionen || []).filter((p) => p.typ === "modul");
   // Pauschal-Module zählen mit ihrem festen Betrag statt Stunden × Stundensatz
@@ -422,6 +452,12 @@ function drawTotals(ctx, offer) {
   const subtotal = subtotalRoh - rundungsrabatt;
   const mwst = rundungsrabatt ? totalGerundet - subtotal : subtotalRoh * (mwstProzent / 100);
   const total = rundungsrabatt ? totalGerundet : subtotal + mwst;
+
+  return { rate, stundenTotal, nebenkosten, subtotalRoh, mwstProzent, rundungsrabatt, subtotal, mwst, total };
+}
+
+function drawTotals(ctx, offer) {
+  const { rate, nebenkosten, subtotalRoh, mwstProzent, rundungsrabatt, subtotal, mwst, total } = computeTotals(offer);
   const labelX = COL_STUNDEN_RIGHT - 140;
 
   ensureSpace(ctx, 175);
@@ -544,6 +580,217 @@ function drawPositionenPage(ctx, offer) {
   drawTotals(ctx, offer);
 }
 
+// ---------- QR-Rechnung (Swiss QR-bill) ----------
+//
+// Nur bei Rechnungen, automatisch als zusätzliche, eigene A4-Seite ans PDF
+// angehängt (Block flächenbündig unten, Oberseite leer -- so handhaben es
+// die meisten Buchhaltungsprogramme auch) -- SOFERN absender.iban gesetzt
+// ist. Das Feld existiert bewusst nicht in der Repo-Vorlage, sondern muss
+// einmalig manuell in der _absender.json auf Nextcloud ergänzt werden
+// (siehe README "Absenderadresse") -- fehlt es, wird die Seite übersprungen
+// und eine Warnung zurückgegeben (siehe exportOfferPdf()), der Rest des PDFs
+// entsteht trotzdem normal.
+//
+// Format: "Swiss Payments Code" (SPC), 31 Textzeilen in fixer Reihenfolge
+// gemäss den "Swiss Implementation Guidelines QR-bill" von SIX, als QR-Code
+// kodiert (Fehlerkorrektur M, Byte-Modus/UTF-8 -- siehe qrcode-generator via
+// CDN in index.html). Referenznummer bewusst immer "NON" (keine Referenz) --
+// entspricht der bisher vom Büro genutzten Vorlage (reine IBAN-Zahlung ohne
+// Referenz). Layout (Empfangsschein/Zahlteil, 210×105mm) und Beschriftungen
+// sind von SIX ebenfalls vorgegeben -- deshalb bewusst NICHT die Hausschrift
+// (Nudica), sondern die dafür zugelassene Standardschrift Helvetica (in
+// pdf-lib fest eingebaut, kein Font-Download nötig, siehe ctx.helv/helvBold).
+// Debitor-Adresse (Empfänger/Adresse der Rechnung) ist freier Text ohne
+// getrennte PLZ/Ort-Felder -- wird nur dann strukturiert mitgegeben, wenn
+// sich die letzte Zeile zweifelsfrei als "PLZ Ort" lesen lässt (übliche
+// CH-Konvention, siehe splitSwissAddress()); sonst bleibt der Debitor-Block
+// leer, statt falsch befüllte Felder zu riskieren.
+
+const QR_BILL_HEIGHT_MM = 105;
+const QR_CODE_SIZE_MM = 46;
+
+function mm2pt(mm) {
+  return mm * 2.83465;
+}
+
+// Schweizer Konvention: PLZ+Ort stehen zusammen auf der letzten Adresszeile
+// ("9000 St. Gallen"). absender.plz_ort ist bereits genau so eine Zeile
+// (siehe shared/common.js-Nutzung in drawLetterPage() oben); absender.ort
+// dient hier nur als Fallback, falls das Regex ausnahmsweise nicht greift.
+function splitAbsenderAddress(absender) {
+  const m = /^(\d{4})\s*(.*)$/.exec((absender && absender.plz_ort) || "");
+  return {
+    name: (absender && absender.name) || "",
+    street: (absender && absender.adresse) || "",
+    plz: m ? m[1] : "",
+    ort: (m && m[2]) || (absender && absender.ort) || "",
+    land: "CH"
+  };
+}
+
+// Gibt null zurück, wenn sich die Adresse nicht zweifelsfrei strukturieren
+// lässt (siehe Kommentar oben) -- der Aufrufer lässt den Debitor-Block dann
+// einfach weg, statt unvollständige/falsche Felder in den QR-Code zu packen.
+function splitSwissAddress(name, freitext) {
+  const lines = String(freitext || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!name || !lines.length) return null;
+  const m = /^(\d{4})\s+(.+)$/.exec(lines[lines.length - 1]);
+  if (!m) return null;
+  return { name, street: lines.slice(0, -1).join(" "), plz: m[1], ort: m[2], land: "CH" };
+}
+
+// SPC-Payload-Felder sind zeilenbasiert (ein Feld = eine Zeile) -- Umbrüche
+// vorsichtshalber entfernen, falls ein Wert aus einem mehrzeiligen Textfeld
+// stammt.
+function spcField(s) {
+  return String(s ?? "").replace(/[\r\n]+/g, " ").trim();
+}
+
+function buildSpcPayload(offer, absender, totalAmount) {
+  const creditor = splitAbsenderAddress(absender);
+  const debtor = splitSwissAddress(offer.empfaenger, offer.adresse);
+  const message = spcField(offer.offert_nr ? `Rechnung ${offer.offert_nr}` : offer.projekt || "").slice(0, 140);
+
+  const lines = [
+    "SPC", "0200", "1",
+    spcField(absender.iban).replace(/\s/g, "").toUpperCase(),
+    "S", spcField(creditor.name), spcField(creditor.street), "", spcField(creditor.plz), spcField(creditor.ort), creditor.land,
+    "", "", "", "", "", "", "", // Ultimate Creditor -- immer leer, veraltetes Feld
+    totalAmount.toFixed(2), "CHF",
+    debtor ? "S" : "",
+    debtor ? spcField(debtor.name) : "",
+    debtor ? spcField(debtor.street) : "",
+    "",
+    debtor ? spcField(debtor.plz) : "",
+    debtor ? spcField(debtor.ort) : "",
+    debtor ? debtor.land : "",
+    "NON", "", // Referenztyp/Referenz -- siehe Kommentar oben, bewusst immer ohne
+    message,
+    "EPD"
+  ];
+  return { payload: lines.join("\n"), debtor };
+}
+
+// isDark(row, col) -- empirisch gegen die eingebaute, garantiert korrekte
+// createDataURL()-Referenzfunktion der Bibliothek verifiziert (pixelgleicher
+// Vergleich), NICHT nur aus der Doku übernommen: ein vertauschtes row/col
+// hätte einen optisch wie ein QR-Code aussehenden, aber unlesbaren Code
+// erzeugt -- bei einem Zahlungsbeleg inakzeptabel.
+function qrModuleMatrix(payload) {
+  const qr = qrcode(0, "M"); // Typ 0 = automatische Grösse, Fehlerkorrektur M (SIX-Vorgabe)
+  qr.addData(payload, "Byte");
+  qr.make();
+  const count = qr.getModuleCount();
+  const rows = [];
+  for (let r = 0; r < count; r++) {
+    const row = [];
+    for (let c = 0; c < count; c++) row.push(qr.isDark(r, c));
+    rows.push(row);
+  }
+  return rows;
+}
+
+function drawQrModules(ctx, rows, xLeft, yTop, sizePt) {
+  const count = rows.length;
+  const cell = sizePt / count;
+  ctx.page.drawRectangle({ x: xLeft, y: yTop - sizePt, width: sizePt, height: sizePt, color: PDFLib.rgb(1, 1, 1) });
+  rows.forEach((rowVals, r) => {
+    rowVals.forEach((dark, c) => {
+      if (!dark) return;
+      // +0.25pt Überlappung gegen Haarlinien-Lücken zwischen Modulen durch
+      // Rundungsfehler beim separaten Zeichnen jedes einzelnen Rechtecks.
+      ctx.page.drawRectangle({ x: xLeft + c * cell, y: yTop - (r + 1) * cell, width: cell + 0.25, height: cell + 0.25, color: PDFLib.rgb(0, 0, 0) });
+    });
+  });
+}
+
+// Schweizerkreuz in der Mitte des QR-Codes -- Masse gemäss SIX-Vorgabe,
+// bezogen auf einen 46mm-Code (weisses Feld 7mm, schwarzes Feld 6mm,
+// Kreuzbalken 1.17mm dick/3.89mm lang).
+function drawSwissCross(ctx, xLeft, yTop, sizePt) {
+  const cx = xLeft + sizePt / 2;
+  const cy = yTop - sizePt / 2;
+  const rect = (w, h, color) => ctx.page.drawRectangle({ x: cx - w / 2, y: cy - h / 2, width: w, height: h, color });
+  rect(mm2pt(7), mm2pt(7), PDFLib.rgb(1, 1, 1));
+  rect(mm2pt(6), mm2pt(6), PDFLib.rgb(0, 0, 0));
+  rect(mm2pt(3.89), mm2pt(1.17), PDFLib.rgb(1, 1, 1));
+  rect(mm2pt(1.17), mm2pt(3.89), PDFLib.rgb(1, 1, 1));
+}
+
+function formatIbanSpaced(iban) {
+  const clean = String(iban || "").replace(/\s/g, "");
+  return (clean.match(/.{1,4}/g) || [clean]).join(" ");
+}
+
+// Sichtbarer Betrag auf dem Beleg: Tausender-Trennung mit Leerschlag statt
+// Apostroph (anders als sonst im PDF, siehe chNumberPdf() oben) -- so
+// schreibt es SIX für die QR-Rechnung vor (vergleiche mitgelieferte Vorlage).
+function formatAmountSpaced(n) {
+  const [intPart, dec] = Number(n).toFixed(2).split(".");
+  return `${intPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}.${dec}`;
+}
+
+function drawQrBillPage(ctx, offer, absender, totalAmount) {
+  newPage(ctx);
+  const L = T(ctx).qrBill;
+  const blockTopY = mm2pt(QR_BILL_HEIGHT_MM); // Block belegt die untersten 105mm der Seite
+  const X = (mm) => mm2pt(mm);
+  const Y = (mm) => blockTopY - mm2pt(mm); // mm = Abstand von der Oberkante des Blocks
+
+  const { payload, debtor } = buildSpcPayload(offer, absender, totalAmount);
+  const modules = qrModuleMatrix(payload);
+
+  // Trennlinien (Empfangsschein/Zahlteil, und oberer Rand des Blocks)
+  ctx.page.drawLine({ start: { x: X(0), y: blockTopY }, end: { x: X(210), y: blockTopY }, thickness: 0.75, color: PDF_COLOR_BORDER, dashArray: [1, 2] });
+  ctx.page.drawLine({ start: { x: X(62), y: 0 }, end: { x: X(62), y: blockTopY }, thickness: 0.75, color: PDF_COLOR_BORDER, dashArray: [1, 2] });
+
+  const creditorLines = (addr) => [formatIbanSpaced(absender.iban), addr.name, addr.street, `${addr.plz} ${addr.ort}`.trim()];
+  const creditorAddr = splitAbsenderAddress(absender);
+
+  // ---------- Empfangsschein (links, Breite 52mm) ----------
+  drawText(ctx, L.receipt, X(5), Y(5), { size: 11, font: ctx.helvBold });
+
+  drawText(ctx, L.account, X(5), Y(12), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  creditorLines(creditorAddr).forEach((line, i) => drawText(ctx, line, X(5), Y(17 + i * 4), { size: 8, font: ctx.helv }));
+
+  if (debtor) {
+    drawText(ctx, L.payableBy, X(5), Y(37), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+    [debtor.name, debtor.street, `${debtor.plz} ${debtor.ort}`.trim()].forEach((line, i) =>
+      drawText(ctx, line, X(5), Y(42 + i * 4), { size: 8, font: ctx.helv })
+    );
+  }
+
+  drawText(ctx, L.currency, X(5), Y(68), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  drawText(ctx, L.amount, X(20), Y(68), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  drawText(ctx, "CHF", X(5), Y(73), { size: 8, font: ctx.helv });
+  drawText(ctx, formatAmountSpaced(totalAmount), X(20), Y(73), { size: 8, font: ctx.helv });
+
+  drawText(ctx, L.acceptancePoint, X(57), Y(88), { size: 6, font: ctx.helvBold, color: PDF_COLOR_MUTED, align: "right" });
+
+  // ---------- Zahlteil (rechts): QR-Code-Spalte + Konto-/Debitor-Spalte ----------
+  drawText(ctx, L.paymentPart, X(67), Y(5), { size: 11, font: ctx.helvBold });
+
+  drawQrModules(ctx, modules, X(67), Y(17), mm2pt(QR_CODE_SIZE_MM));
+  drawSwissCross(ctx, X(67), Y(17), mm2pt(QR_CODE_SIZE_MM));
+
+  drawText(ctx, L.currency, X(67), Y(68), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  drawText(ctx, L.amount, X(89), Y(68), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  drawText(ctx, "CHF", X(67), Y(73), { size: 10, font: ctx.helv });
+  drawText(ctx, formatAmountSpaced(totalAmount), X(89), Y(73), { size: 10, font: ctx.helv });
+
+  drawText(ctx, L.account, X(118), Y(5), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  creditorLines(creditorAddr).forEach((line, i) => drawText(ctx, line, X(118), Y(10 + i * 4.5), { size: 10, font: ctx.helv }));
+
+  if (debtor) {
+    drawText(ctx, L.payableBy, X(118), Y(32), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+    [debtor.name, debtor.street, `${debtor.plz} ${debtor.ort}`.trim()].forEach((line, i) =>
+      drawText(ctx, line, X(118), Y(37 + i * 4.5), { size: 10, font: ctx.helv })
+    );
+  } else {
+    drawText(ctx, L.payableByEmpty, X(118), Y(32), { size: 8, font: ctx.helvBold, color: PDF_COLOR_MUTED });
+  }
+}
+
 // ---------- Unterschriften (Seite 1, nach dem Brieftext) ----------
 
 // Lädt die ausgewählten Unterschrift-PNGs vom Nextcloud der aktuell
@@ -654,6 +901,11 @@ async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
     light: await pdfDoc.embedFont(lightBytes, { subset: false }),
     medium: await pdfDoc.embedFont(mediumBytes, { subset: false }),
     italic: await pdfDoc.embedFont(italicBytes, { subset: false }),
+    // Standardschriften (in pdf-lib fest eingebaut, kein Download) -- NUR für
+    // die QR-Rechnung (drawQrBillPage()), siehe Kommentar dort: SIX schreibt
+    // dafür eine der zugelassenen Standardschriften vor, nicht die Hausschrift.
+    helv: await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica),
+    helvBold: await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold),
     page: null,
     y: 0,
     // siehe PDF_I18N/T() oben -- nur bei Rechnungen wählbar, Offerten immer
@@ -670,6 +922,18 @@ async function exportOfferPdf(offer, absender, unterzeichnerConfig) {
 
   newPage(ctx); // Offerte/Rechnung beginnt bewusst auf einer eigenen Seite
   drawPositionenPage(ctx, offer);
+
+  // QR-Rechnung: nur bei Rechnungen, nur wenn absender.iban gesetzt ist
+  // (siehe Kommentar bei drawQrBillPage() oben) -- fehlt sie, wird das als
+  // Warnung gemeldet statt den PDF-Export abzubrechen.
+  if (offer.typ === "rechnung") {
+    if (absender && absender.iban) {
+      const { total } = computeTotals(offer);
+      drawQrBillPage(ctx, offer, absender, total);
+    } else {
+      warnings.push('QR-Rechnung konnte nicht erstellt werden: IBAN fehlt in den Absender-Stammdaten ("iban" in _absender.json auf Nextcloud ergänzen).');
+    }
+  }
 
   const bytes = await pdfDoc.save();
   downloadPdfBytes(bytes, pdfFilename(offer));
