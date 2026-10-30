@@ -548,6 +548,16 @@ alles neu erfassen zu müssen.
   ergänzen. Die Spaltenbeschriftung ("Modul"/"Stunden"/"Kosten") ist im
   Web-Formular bewusst weggelassen (selbsterklärend); im PDF steht sie
   weiterhin da.
+- **Pauschal** (pro Modul, Checkbox neben Stunden): rechnet dieses Modul mit
+  einem fest eingegebenen Betrag statt Stunden × Stundensatz ab — im
+  Web-Formular wie im PDF erscheint dort "Pauschal" statt einer Stundenzahl.
+  Sind in einer Offerte/Rechnung **alle** Module pauschal (keines nach
+  Stunden), verschwindet im PDF zusätzlich die ganze Stunden-Spalte
+  (Modul/Kosten bleiben zweispaltig), die Zeile "Stundentotal" sowie der
+  Hinweissatz "Der mittlere Stundensatz beträgt …" — sinnlos, wenn gar keine
+  Stunden verrechnet werden. Enthält die Liste auch nur ein einziges
+  Stunden-Modul, bleibt alles wie gewohnt sichtbar. Siehe
+  `allePositionenPauschal()`/`ctx.hideStunden` in `offerten/pdf.js`.
 - **Bemerkung** (pro Modul, Checkbox "Bemerkung" unter dem Kurzbeschrieb):
   blendet ein zusätzliches Textfeld ein. Erscheint im PDF kursiv, **ohne**
   Bulletpoint, direkt nach den Stichpunkten — z.B. "Besprechungen vor Ort,

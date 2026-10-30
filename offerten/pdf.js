@@ -299,7 +299,9 @@ function drawLetterPage(ctx, offer, absender) {
 
 function drawColumnHeader(ctx) {
   drawText(ctx, T(ctx).colModul, COL_TITLE_X, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
-  drawText(ctx, T(ctx).colStunden, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  if (!ctx.hideStunden) {
+    drawText(ctx, T(ctx).colStunden, COL_STUNDEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
+  }
   drawText(ctx, T(ctx).colKosten, COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED, align: "right" });
   ctx.y -= 6;
   drawRule(ctx, ctx.y);
@@ -348,12 +350,14 @@ function drawModulRow(ctx, p, nr, rate, numbered) {
   const kosten = pauschalAktiv ? Number(p.pauschalBetrag) || 0 : (Number(p.stunden) || 0) * rate;
   const titleText = numbered ? `${nr})  ${p.titel || ""}` : p.titel || "";
   drawText(ctx, titleText, COL_TITLE_X, ctx.y, { size: SIZE_BODY, font: ctx.medium });
-  drawText(ctx, pauschalAktiv ? T(ctx).pauschal : chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, {
-    size: SIZE_BODY,
-    font: ctx.light,
-    color: pauschalAktiv ? PDF_COLOR_MUTED : undefined,
-    align: "right"
-  });
+  if (!ctx.hideStunden) {
+    drawText(ctx, pauschalAktiv ? T(ctx).pauschal : chNumberPdf(p.stunden), COL_STUNDEN_RIGHT, ctx.y, {
+      size: SIZE_BODY,
+      font: ctx.light,
+      color: pauschalAktiv ? PDF_COLOR_MUTED : undefined,
+      align: "right"
+    });
+  }
   drawText(ctx, chFrPdf(kosten), COL_KOSTEN_RIGHT, ctx.y, { size: SIZE_BODY, font: ctx.light, align: "right" });
   ctx.y -= 15;
 
@@ -423,13 +427,17 @@ function drawTotals(ctx, offer) {
   ensureSpace(ctx, 175);
   ctx.y -= 10;
 
-  const stundensatzHinweis = T(ctx).stundensatzHinweis(chFrPdf(rate), offer.typ === "rechnung");
-  wrapText(ctx.light, stundensatzHinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
-    ensureSpace(ctx, 13);
-    drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
-    ctx.y -= 13;
-  });
-  ctx.y -= 10;
+  // Stundensatz-Hinweis ergibt keinen Sinn, wenn gar keine Position nach
+  // Stunden abgerechnet wird (siehe ctx.hideStunden/allePositionenPauschal()).
+  if (!ctx.hideStunden) {
+    const stundensatzHinweis = T(ctx).stundensatzHinweis(chFrPdf(rate), offer.typ === "rechnung");
+    wrapText(ctx.light, stundensatzHinweis, SIZE_SMALL, PDF_CONTENT_WIDTH).forEach((line) => {
+      ensureSpace(ctx, 13);
+      drawText(ctx, line, PDF_MARGIN, ctx.y, { size: SIZE_SMALL, font: ctx.light, color: PDF_COLOR_MUTED });
+      ctx.y -= 13;
+    });
+    ctx.y -= 10;
+  }
 
   const rows = [];
   if (nebenkosten) rows.push([T(ctx).nebenkostenpauschale, chFrPdf(nebenkosten)]);
@@ -472,7 +480,19 @@ function drawStundenTotalRow(ctx, stundenTotal) {
   ctx.y -= 22;
 }
 
+// Sind ALLE Module pauschal abgerechnet (kein einziges nach Stunden), macht
+// jeder Stunden-/Stundensatz-Bezug im PDF keinen Sinn -- weder die
+// Stunden-Spalte noch "Stundentotal" noch der Stundensatz-Hinweis (siehe
+// ctx.hideStunden, gesetzt in drawPositionenPage()). Eine leere Positionen-
+// liste zählt nicht als "nur Pauschal" (es gibt dann schlicht nichts zu
+// verbergen, normale Spalten bleiben sichtbar).
+function allePositionenPauschal(offer) {
+  const moduln = (offer.positionen || []).filter((p) => p.typ === "modul");
+  return moduln.length > 0 && moduln.every((m) => m.pauschalAktiv);
+}
+
 function drawPositionenPage(ctx, offer) {
+  ctx.hideStunden = allePositionenPauschal(offer);
   const titleWord = (offer.typ === "rechnung" ? T(ctx).titelRechnung : T(ctx).titelOfferte).toUpperCase();
   let y = ctx.y;
 
@@ -520,7 +540,7 @@ function drawPositionenPage(ctx, offer) {
     }
   });
 
-  drawStundenTotalRow(ctx, stundenTotal);
+  if (!ctx.hideStunden) drawStundenTotalRow(ctx, stundenTotal);
   drawTotals(ctx, offer);
 }
 
