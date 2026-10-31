@@ -643,14 +643,9 @@ QR-Rechnung gebraucht (siehe nächster Abschnitt) — ohne dieses Feld
 entstehen Offerten/Rechnungen weiterhin normal, nur eben ohne QR-Rechnung-
 Seite.
 
-Der Absender erscheint im PDF an **zwei** Stellen: als grosser Block oben
-rechts auf der ersten Seite (Name/Adresse/Telefon/E-Mail/Website) — der
-liegt bei einem Fensterkuvert ausserhalb des Sichtfensters, dient also eher
-der Übersicht beim digitalen Lesen/Ablegen — UND als kleine, kompakte
-"Absenderzeile" direkt über dem Empfänger (Name/Adresse/PLZ-Ort in einer
-Zeile, klein und unterstrichen, übliche Schweizer/DIN-5008-Konvention für
-Fensterkuverts), damit Absender und Empfänger gemeinsam im Sichtfenster
-erscheinen.
+Der Absender erscheint im PDF als Block oben rechts auf der ersten Seite
+(Name/Adresse/Telefon/E-Mail/Website), kein zusätzlicher Absender über dem
+Empfänger.
 
 ### QR-Rechnung
 
