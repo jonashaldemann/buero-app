@@ -1,22 +1,17 @@
 /* ============================================================
    Zeiterfassung — Auswertungs-Dashboard
-   Liest die Zeiterfassungs-CSVs beider Personen über öffentliche
-   Nextcloud-Freigabelinks (read-only) und stellt sie filterbar dar.
-   Kein Login nötig -- nur Lese-Freigaben.
+   Liest die Zeiterfassungs-CSVs aus dem Nextcloud-Ordner der
+   angemeldeten Person und stellt sie filterbar dar.
+
+   WICHTIG, frühere Fassung: dieses Dashboard las die CSVs über einen
+   ÖFFENTLICHEN Nextcloud-Freigabelink, dessen Token hier im (öffentlichen)
+   Repo stand -- damit konnte jeder, der das Repo fand, die Zeitdaten des
+   Büros lesen. Seit die übrigen Module auf Login umgestellt wurden (siehe
+   README, "Zentrale Konfiguration"), war das Dashboard die letzte Ausnahme.
+   Jetzt läuft es wie alle anderen über ../../shared/common.js:
+   angemeldet -> echte Daten, nicht angemeldet -> Demo-Beispieldaten.
+
    ============================================================ */
-
-// Gleicher Cloudflare-Worker-Proxy wie die Haupt-App (CORS-Umweg).
-const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
-
-// Für jede Person: Token aus dem öffentlichen Freigabelink des GANZEN
-// "Zeiterfassung"-Ordners (nicht nur einer einzelnen Datei) -- damit können auch
-// künftige Jahres-CSVs ohne neuen Link gelesen werden.
-// Bei https://.../s/AbCdEfGh123 ist der Token "AbCdEfGh123".
-// Eintrag mit leerem Token wird übersprungen.
-const PERSON_SOURCES = [
-  { label: "Max", token: "276ipidyqirC7KP" },
-  { label: "Partner", token: "" }
-];
 
 // Gleiche Palette wie die Haupt-App, für konsistente Farben pro Projekt.
 const PROJECT_COLOR_PALETTE = ["#4F7089", "#8F9A85", "#C97960", "#626F68", "#8C8171", "#7A95A6"];
@@ -65,59 +60,75 @@ function parseCsvRows(text) {
   });
 }
 
-// ---------- Proxy / Datenladen ----------
+// ---------- Datenladen ----------
+//
+// proxyFetch/authHeader/davPath/ncSegments/appModuleFolderPath kommen aus
+// ../../shared/common.js -- dieselbe Schicht wie in der Haupt-App. Ohne
+// gespeicherte Zugangsdaten antwortet dort die Demo-Attrappe mit
+// Beispieldaten, das Dashboard braucht dafür keinen eigenen Sonderfall.
 
-function proxyFetch(relativePath, options = {}) {
-  const url = `${PROXY_URL}?path=${encodeURIComponent(relativePath)}`;
-  return fetch(url, options);
+const ZEITERFASSUNG_FOLDER_PATH = appModuleFolderPath("Zeiterfassung");
+
+function zeitSegments() {
+  return ncSegments(ZEITERFASSUNG_FOLDER_PATH);
 }
 
-function publicShareAuthHeader(token) {
-  return { Authorization: `Basic ${btoa(`${token}:`)}` };
+const PROPFIND_LIST_BODY =
+  '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>';
+
+// Alle CSV-Dateien im Zeiterfassungs-Ordner. Die Haupt-App legt pro Jahr
+// eine Datei an (zeiterfassung_2026.csv); gelesen wird der ganze Ordner,
+// damit auch von Hand abgelegte oder anders benannte CSVs mitkommen.
+async function listCsvFilenames() {
+  const relPath = davPath(zeitSegments().join("/") + "/");
+  const res = await proxyFetch(relPath, {
+    method: "PROPFIND",
+    headers: { ...authHeader(), Depth: "1", "Content-Type": "application/xml" },
+    body: PROPFIND_LIST_BODY
+  });
+  if (!res.ok) throw new Error(`Ordnerinhalt lesen fehlgeschlagen (${res.status})`);
+  const doc = new DOMParser().parseFromString(await res.text(), "application/xml");
+  return Array.from(doc.getElementsByTagNameNS("DAV:", "href"))
+    .map((el) => decodeURIComponent(el.textContent.replace(/\/$/, "").split("/").pop() || ""))
+    .filter((name) => name.toLowerCase().endsWith(".csv"));
 }
 
-async function fetchPersonYearCsv(token, year) {
-  const path = `public.php/webdav/zeiterfassung_${year}.csv`;
-  const res = await proxyFetch(path, { method: "GET", headers: publicShareAuthHeader(token) });
-  if (res.status === 404) return ""; // dieses Jahr hat für diese Person keine Datei
-  if (!res.ok) throw new Error(`Status ${res.status}`);
+async function fetchCsv(filename) {
+  const relPath = davPath([...zeitSegments(), filename].join("/"));
+  const res = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
+  if (res.status === 404) return "";
+  if (!res.ok) throw new Error(`${filename}: Status ${res.status}`);
   return await res.text();
 }
 
 async function loadAllData(year) {
   const statusLine = document.getElementById("statusLine");
   statusLine.textContent = "Lädt…";
-  const activeSources = PERSON_SOURCES.filter((s) => s.token);
+  allRows = [];
 
-  if (activeSources.length === 0) {
-    statusLine.textContent = "Keine Datenquelle konfiguriert (PERSON_SOURCES in dashboard.js leer).";
-    allRows = [];
-    return;
-  }
+  try {
+    const alle = await listCsvFilenames();
+    // Zu einem Jahr gehören alle Dateien, deren Name die Jahreszahl trägt;
+    // Dateien ohne Jahreszahl werden immer mitgelesen und danach über die
+    // Datumsspalte gefiltert.
+    const passend = alle.filter((n) => n.includes(String(year)) || !/\d{4}/.test(n));
+    const texte = await Promise.all(passend.map(fetchCsv));
+    const rows = [];
+    texte.forEach((t) => {
+      if (t) rows.push(...parseCsvRows(t));
+    });
+    allRows = rows.filter((r) => (r.date || "").startsWith(String(year)));
 
-  const results = await Promise.allSettled(
-    activeSources.map((s) => fetchPersonYearCsv(s.token, year))
-  );
-
-  const rows = [];
-  const errors = [];
-  results.forEach((r, i) => {
-    if (r.status === "fulfilled") {
-      if (r.value) rows.push(...parseCsvRows(r.value));
-    } else {
-      errors.push(activeSources[i].label);
-    }
-  });
-
-  allRows = rows;
-
-  if (errors.length > 0) {
-    statusLine.textContent = `Achtung: Daten von ${errors.join(", ")} konnten nicht geladen werden.`;
-  } else {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
     const mm = String(now.getMinutes()).padStart(2, "0");
-    statusLine.textContent = `Stand: ${hh}:${mm} · ${rows.length} Einträge geladen`;
+    const quelle = istDemo() ? "Beispieldaten" : "Stand";
+    statusLine.textContent = `${quelle}: ${hh}:${mm} · ${allRows.length} Einträge geladen`;
+  } catch (err) {
+    console.warn("Auswertung konnte nicht geladen werden:", err);
+    statusLine.textContent = navigator.onLine
+      ? "Daten konnten nicht geladen werden."
+      : "Offline – keine Daten geladen.";
   }
 }
 
@@ -428,7 +439,17 @@ async function refresh() {
   renderAll();
 }
 
+function pingRelPath() {
+  return davPath([...zeitSegments(), "_ping"].join("/"));
+}
+
 function init() {
+  initSettingsUI({
+    checkRelPath: pingRelPath,
+    ensureFolderFn: () => ensureFolderPath(zeitSegments()),
+    onSaved: refresh
+  });
+
   populateYearFilter();
 
   document.getElementById("filterYear").addEventListener("change", refresh);

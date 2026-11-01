@@ -87,6 +87,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
+- **Kein öffentlicher Freigabelink mehr**: ALLE Module (seit neuem auch
+  `zeiterfassung/dashboard/`, die Auswertung) lesen und schreiben
+  ausschliesslich über den angemeldeten Zugang. Die Auswertung war die
+  letzte Ausnahme und hatte einen Share-Token im öffentlichen Repo stehen.
+  Falls je wieder ein Freigabelink erwogen wird: nicht ins Repo.
 - **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der

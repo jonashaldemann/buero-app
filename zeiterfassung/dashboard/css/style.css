@@ -1,31 +1,7 @@
-@font-face {
-  font-family: "Nudica-Light";
-  src:
-    url("../../../fonts/nudica-light-webfont.woff2") format("woff2"),
-    url("../../../fonts/nudica-light-webfont.woff") format("woff");
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: "Nudica-Medium";
-  src:
-    url("../../../fonts/nudica-medium-webfont.woff2") format("woff2"),
-    url("../../../fonts/nudica-medium-webfont.woff") format("woff");
-  font-weight: normal;
-  font-style: normal;
-}
-
-:root {
-  --bg: #F2EFEA;
-  --surface: #FAF8F4;
-  --surface-2: #EAE6DC;
-  --text: #46433C;
-  --text-muted: #A79C8C;
-  --border: #E3DED2;
-  --accent-primary: #4F7089;
-  --font-light: "Nudica-Light", -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-medium: "Nudica-Medium", -apple-system, "Segoe UI", Roboto, sans-serif;
-}
+/* Schriften, Farbtokens und die Dialog-/Formular-Styles kommen aus dem
+   gemeinsamen ../../css/style.css, das in index.html VOR dieser Datei
+   geladen wird. Hier stehen nur die Regeln, die dieses Dashboard allein
+   betreffen (breitere Spalte, Filterleiste, Diagramme). */
 
 * { box-sizing: border-box; }
 

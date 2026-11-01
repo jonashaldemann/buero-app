@@ -290,35 +290,22 @@ aktualisiert; nur wirklich neue Tag/Projekt-Kombinationen werden angehängt.
 
 ### Auswertung (zeiterfassung/dashboard/)
 
-Eine separate, schreibgeschützte Auswertungsseite (Charts + Tabelle nach
-Projekt/Person) liegt unter `zeiterfassung/dashboard/` — liest die CSVs über
-öffentliche Nextcloud-Freigabelinks (`PERSON_SOURCES` in
-`dashboard/js/dashboard.js`), kein Login nötig. Von der Startseite aus über
-ein eigenes Icon ("Auswertung") erreichbar.
+Filterbare Auswertung der erfassten Zeiten (nach Jahr, Zeitraum, Projekt,
+Person) mit Summe, Balken pro Projekt und pro Tag sowie der Einzelliste.
 
-Filterbar nach Jahr, Projekt, Person sowie zusätzlich nach Zeitraum: "Ganzes
-Jahr" (Standard), "Heute", "Diese Woche", "Dieser Monat" oder "Frei
-wählbar" (zwei Datumsfelder). Die Jahres-CSV wird weiterhin komplett geladen,
-der Zeitraum-Filter schränkt die schon geladenen Zeilen per Datumsvergleich
-zusätzlich ein. "Heute"/"Diese Woche"/"Dieser Monat" beziehen sich immer auf
-das echte heutige Datum — weicht das vom gerade gewählten Jahr ab, wechselt
-die Jahresauswahl automatisch mit (sonst gäbe es scheinbar keine Treffer).
-Ein frei gewählter Zeitraum, der über einen Jahreswechsel hinausgeht, wird
-nicht unterstützt — gezeigt wird dann nur der Teil im gerade geladenen Jahr.
-
-Charts: "Nach Projekt" (horizontale Balken, ein Balken pro Projekt) und "Nach
-Tag" (vertikale Balken nebeneinander, ein Balken pro Kalendertag im aktuell
-gefilterten Zeitraum — **auch Tage ohne Eintrag**, als flacher, hell
-eingefärbter Strich, damit Lücken im Diagramm sichtbar bleiben statt
-stillschweigend zu fehlen; ohne Einzelbeschriftung, stattdessen Datum+Dauer
-als Tooltip beim Hovern/Antippen). Fehlt beim "Zeitraum"-Filter eine
-explizite Eingrenzung ("Ganzes Jahr", oder "Frei wählbar" mit nur einer
-gesetzten Seite), wird automatisch das ganze geladene Jahr angezeigt — beim
-gerade laufenden Jahr nur bis heute, nicht bis Jahresende, damit keine
-leeren Balken für die Zukunft erscheinen. Die Balken teilen sich per CSS
-(`flex:1 1 0`) immer die volle verfügbare Breite, egal wie viele es sind
-(bis zu 366 bei "Ganzes Jahr") — kein horizontales Scrollen nötig, passt
-sich auch bei einer Fenstergrösse-Änderung von selbst neu an.
+- **Datenquelle**: die Jahres-CSVs im Nextcloud-Ordner der angemeldeten
+  Person (`Buero/Admin/App/Zeiterfassung/`), gelesen über dieselbe Schicht
+  wie alle anderen Module (`shared/common.js`). Der Ordner wird per PROPFIND
+  aufgelistet und alle passenden `.csv` werden zusammengeführt — die
+  Spalte "Person" hält die Leute auseinander.
+- **Ohne Login** zeigt die Auswertung wie alle Module **Demo-Beispieldaten**
+  (siehe Abschnitt "Demomodus"), nicht die echten Zahlen. Die Statuszeile
+  sagt dann "Beispieldaten" statt "Stand".
+- **Früher** las dieses Dashboard als einziges Modul über einen
+  **öffentlichen Nextcloud-Freigabelink**, dessen Token im (öffentlichen)
+  Repo stand — jeder, der das Repo fand, konnte die Zeitdaten lesen. Das ist
+  entfernt; der Freigabelink selbst muss in Nextcloud zusätzlich
+  **widerrufen** werden, da der alte Token in der Git-Historie bleibt.
 
 ---
 
