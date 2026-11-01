@@ -72,11 +72,16 @@ function chNumber(n) {
 let settings = loadJSON(SETTINGS_KEY, DEFAULT_SETTINGS);
 
 function personName() {
+  if (istDemo()) return "Demo";
   return (settings.displayName && settings.displayName.trim()) || settings.username || "";
 }
 
+// "Eingerichtet" heisst: die App darf laden und speichern. Im Demomodus
+// trifft das zu -- die Daten landen dann bei demoFetch() statt auf
+// Nextcloud. Mit DEMO_ENABLED = false gilt wieder die reine Prüfung auf
+// gespeicherte Zugangsdaten.
 function isConfigured() {
-  return !!(settings.username && settings.appPassword);
+  return istDemo() || !!(settings.username && settings.appPassword);
 }
 
 function authHeader() {
@@ -84,9 +89,127 @@ function authHeader() {
   return { Authorization: `Basic ${token}` };
 }
 
+// ---------- Demomodus ----------
+//
+// Ohne gespeicherte Zugangsdaten laufen alle Apps im DEMOMODUS: statt der
+// Nextcloud antwortet eine kleine Attrappe (demoFetch) mit Beispieldaten
+// eines erfundenen Büros aus demo/seed.json, Änderungen landen nur im
+// localStorage dieses Browsers.
+//
+// Der Einstiegspunkt sitzt bewusst GANZ UNTEN in der Schicht -- auf Höhe
+// von proxyFetch(), dort wo sonst der Worker-Proxy angesprochen wird.
+// Dadurch funktionieren alle zehn Module unverändert: Laden, Speichern,
+// Ordner auflisten, Löschen. Kein Modul kennt den Demomodus.
+//
+// Sobald Zugangsdaten gespeichert sind, ist der Demomodus aus und die
+// Beispieldaten sind nicht mehr erreichbar: sie liegen unter einem eigenen
+// localStorage-Schlüssel und unter einem eigenen Benutzer "demo", und beim
+// Anmelden wird der localStorage ohnehin komplett geleert (siehe
+// saveSettings()).
+const DEMO_ENABLED = true; // falls der Demomodus je stören sollte: auf false
+const DEMO_USER = "demo";
+const LS_DEMO_OVERLAY = "demo_overlay";
+// Relativ zu common.js selbst aufgelöst -- die Datei wird aus dem Repo-Root
+// ("shared/common.js") UND aus den Modulen ("../shared/common.js") geladen,
+// ein relativer Pfad zur Seite würde also je nach Modul woanders landen.
+const DEMO_SEED_URL = new URL("../demo/seed.json", document.currentScript.src).href;
+
+function istDemo() {
+  return DEMO_ENABLED && !(settings.username && settings.appPassword);
+}
+
+let demoSeedPromise = null;
+function ladeDemoSeed() {
+  if (!demoSeedPromise) {
+    demoSeedPromise = fetch(DEMO_SEED_URL, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .catch((err) => {
+        console.warn("Demodaten konnten nicht geladen werden:", err);
+        return {};
+      });
+  }
+  return demoSeedPromise;
+}
+
+// Aus "remote.php/dav/files/demo/Buero/Admin/..." wird der Schlüssel
+// "Buero/Admin/..." -- so sind die Pfade in demo/seed.json lesbar.
+const DEMO_PREFIX = `remote.php/dav/files/${DEMO_USER}/`;
+function demoSchluessel(path) {
+  const clean = String(path).replace(/^\/+/, "");
+  return clean.startsWith(DEMO_PREFIX) ? clean.slice(DEMO_PREFIX.length) : clean;
+}
+
+function demoOverlay() {
+  return loadJSON(LS_DEMO_OVERLAY, {});
+}
+
+// Seed, überschrieben durch die lokalen Änderungen. null im Overlay ist ein
+// Grabstein: eine Datei, die im Demomodus gelöscht wurde und deshalb auch
+// nicht mehr aus dem Seed auftauchen darf.
+async function demoDateien() {
+  const dateien = { ...(await ladeDemoSeed()), ...demoOverlay() };
+  Object.keys(dateien).forEach((k) => {
+    if (dateien[k] === null) delete dateien[k];
+  });
+  return dateien;
+}
+
+function demoAntwort(body, status, contentType) {
+  return new Response(body, { status, headers: contentType ? { "Content-Type": contentType } : {} });
+}
+
+async function demoFetch(relativePath, options) {
+  const method = (options.method || "GET").toUpperCase();
+  const key = demoSchluessel(relativePath);
+
+  if (method === "MKCOL") return demoAntwort("", 201);
+
+  if (method === "PROPFIND") {
+    const dateien = await demoDateien();
+    const ordner = key.replace(/\/+$/, "");
+    const hrefs = [`/${DEMO_PREFIX}${ordner}/`];
+    Object.keys(dateien).forEach((k) => {
+      if (k.startsWith(ordner + "/") && !k.slice(ordner.length + 1).includes("/")) {
+        hrefs.push("/" + (DEMO_PREFIX + k).split("/").map(encodeURIComponent).join("/"));
+      }
+    });
+    const xml = `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">${hrefs
+      .map((h) => `<d:response><d:href>${h}</d:href></d:response>`)
+      .join("")}</d:multistatus>`;
+    return demoAntwort(xml, 207, "application/xml");
+  }
+
+  if (method === "PUT") {
+    const overlay = demoOverlay();
+    // Hochgeladene Bilder/PDFs (Quittungs-Belege) kommen als Blob -- die
+    // landen im Demomodus bewusst nicht im localStorage (Platz), der
+    // Dateiname erscheint aber in der Ordnerliste, damit die Belegnummern
+    // weiterzählen wie im Echtbetrieb.
+    overlay[key] = typeof options.body === "string" ? options.body : "(Demo: Datei nicht gespeichert)";
+    saveJSON(LS_DEMO_OVERLAY, overlay);
+    return demoAntwort("", 201);
+  }
+
+  if (method === "DELETE") {
+    const overlay = demoOverlay();
+    overlay[key] = null;
+    saveJSON(LS_DEMO_OVERLAY, overlay);
+    return demoAntwort("", 204);
+  }
+
+  const dateien = await demoDateien();
+  if (!(key in dateien)) return demoAntwort("", 404);
+  const inhalt = dateien[key];
+  // In seed.json dürfen JSON-Dateien als echte Objekte stehen (lesbar),
+  // Textdateien wie projekte.txt als String.
+  const text = typeof inhalt === "string" ? inhalt : JSON.stringify(inhalt, null, 2);
+  return demoAntwort(text, 200, "application/json");
+}
+
 // Ruft den Cloudflare-Worker-Proxy statt Nextcloud direkt auf.
 // relativePath ist komplett relativ zur Nextcloud-Domain (siehe worker.js).
 function proxyFetch(relativePath, options = {}) {
+  if (istDemo()) return demoFetch(relativePath, options);
   const url = `${PROXY_URL}?path=${encodeURIComponent(relativePath)}`;
   return fetch(url, options);
 }
@@ -99,7 +222,7 @@ function davPath(relativeToUser) {
 // Segmente relativ zum persönlichen Nextcloud-Dateibereich, z.B.
 // ncSegments("Buero/Admin/Finanzen") -> [username, "Buero", "Admin", "Finanzen"].
 function ncSegments(folderPath) {
-  return [settings.username, ...folderPath.split("/").filter(Boolean)];
+  return [istDemo() ? DEMO_USER : settings.username, ...folderPath.split("/").filter(Boolean)];
 }
 
 // Alle Modul-Daten liegen zentral gebündelt unter diesem Ordner (Ausnahme:
@@ -270,12 +393,60 @@ function deriveDisplayName(username) {
   return namePart ? namePart.charAt(0).toUpperCase() + namePart.slice(1) : "";
 }
 function saveSettings(onSaved) {
-  settings.username = document.getElementById("inputUser").value.trim();
-  settings.appPassword = document.getElementById("inputPass").value.trim();
+  const warDemo = istDemo();
+  const username = document.getElementById("inputUser").value.trim();
+  const appPassword = document.getElementById("inputPass").value.trim();
+  // Beim Wechsel vom Demomodus zum echten Konto wird der localStorage
+  // komplett geleert -- dort liegen sonst die Demo-Änderungen UND die
+  // Modul-Caches mit Demodaten. Danach wird die Seite neu geladen: die
+  // bereits gerenderte Demo-Liste steckt ja noch im Arbeitsspeicher der
+  // Seite und würde sonst bis zum nächsten erfolgreichen Sync weiter
+  // angezeigt -- als wären es die eigenen Daten.
+  if (warDemo && username && appPassword) {
+    localStorage.clear();
+    settings.username = username;
+    settings.appPassword = appPassword;
+    settings.displayName = deriveDisplayName(username);
+    saveJSON(SETTINGS_KEY, settings);
+    location.reload();
+    return;
+  }
+  settings.username = username;
+  settings.appPassword = appPassword;
   settings.displayName = deriveDisplayName(settings.username);
   saveJSON(SETTINGS_KEY, settings);
   closeSettingsFn();
+  entferneDemoBanner();
   if (typeof onSaved === "function") onSaved();
+}
+
+// ---------- Demo-Banner ----------
+
+// Wird von initSettingsUI() aufgerufen, also von jedem Modul automatisch --
+// keine Änderung an den zehn index.html nötig.
+function zeigeDemoBanner() {
+  if (!istDemo() || document.getElementById("demoBanner")) return;
+  const bar = document.createElement("div");
+  bar.id = "demoBanner";
+  bar.innerHTML =
+    '<span><strong>Demomodus</strong> — Beispieldaten eines erfundenen Büros. ' +
+    "Änderungen bleiben nur in diesem Browser und werden nirgends gespeichert.</span>" +
+    '<button type="button" id="demoResetBtn">Beispieldaten zurücksetzen</button>';
+  document.body.insertBefore(bar, document.body.firstChild);
+  document.getElementById("demoResetBtn").addEventListener("click", () => {
+    if (!confirm("Alle im Demomodus gemachten Änderungen verwerfen?")) return;
+    // Im Demomodus liegt nichts Schützenswertes im localStorage (die
+    // Zugangsdaten sind ja gerade leer) -- komplett leeren ist deshalb die
+    // ehrlichste Variante: auch die Modul-Caches müssen weg, sonst zeigen
+    // die Apps weiter den geänderten Stand.
+    localStorage.clear();
+    location.reload();
+  });
+}
+
+function entferneDemoBanner() {
+  const bar = document.getElementById("demoBanner");
+  if (bar) bar.remove();
 }
 
 // checkRelPath: () => DAV-Pfad, der per GET geprüft wird (200 oder 404 = ok,
@@ -283,6 +454,14 @@ function saveSettings(onSaved) {
 // ensureFolderFn: () => Promise, baut vorher den jeweiligen Zielordner.
 async function testConnection(checkRelPath, ensureFolderFn) {
   const el = document.getElementById("testResult");
+  // Geprüft werden die GESPEICHERTEN Zugangsdaten, nicht die gerade
+  // eingetippten. Ohne gespeicherte Daten liefe der Test gegen die
+  // Demo-Attrappe und meldete fälschlich Erfolg.
+  if (istDemo()) {
+    el.textContent = "Noch keine Zugangsdaten gespeichert (Demomodus) – zuerst speichern.";
+    el.className = "test-result err";
+    return;
+  }
   el.textContent = "Teste Verbindung…";
   el.className = "test-result";
   try {
@@ -316,4 +495,13 @@ function initSettingsUI({ checkRelPath, ensureFolderFn, onSaved } = {}) {
   if (checkRelPath && ensureFolderFn) {
     document.getElementById("testConnBtn").addEventListener("click", () => testConnection(checkRelPath, ensureFolderFn));
   }
+}
+
+// Der Demo-Hinweis erscheint auf JEDER Seite -- auch auf der Startseite,
+// die gar keinen Einstellungen-Dialog hat. Deshalb hier direkt verdrahtet
+// statt in initSettingsUI().
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", zeigeDemoBanner);
+} else {
+  zeigeDemoBanner();
 }

@@ -1,0 +1,773 @@
+{
+  "Buero/Admin/App/config.json": {
+    "bueroName": "Muster Architektur (Demo)",
+    "mitarbeitende": [
+      {
+        "key": "an",
+        "name": "Anna Nussbaumer",
+        "datei": "anna.csv"
+      },
+      {
+        "key": "tb",
+        "name": "Tobias Brunner",
+        "datei": "tobias.csv"
+      }
+    ]
+  },
+  "Buero/Admin/App/projekte.txt": "001 Büro Allgemein\n002 Akquisition\n014 Wohnhaus Seestrasse\n021 Werkhof Riedmatt\n027 Dachausbau Lindenweg\n",
+  "Buero/Admin/App/Zeiterfassung/zeiterfassung_2026.csv": "Datum,Projekt,Dauer_Min,Kommentar,Person,ProjektID\n2026-10-26,Wohnhaus Seestrasse,285,\"Bauprojekt, Grundrisse überarbeitet\",Anna Nussbaumer,Wohnhaus Seestrasse\n2026-10-26,Werkhof Riedmatt,120,\"Besprechung mit Bauingenieur\",Tobias Brunner,Werkhof Riedmatt\n2026-10-27,Dachausbau Lindenweg,330,\"Aufnahme vor Ort, Fotos\",Anna Nussbaumer,Dachausbau Lindenweg\n2026-10-27,Büro Allgemein,45,\"Ablage, Post\",Tobias Brunner,Büro Allgemein\n2026-10-28,Wohnhaus Seestrasse,410,\"Baueingabe vorbereitet\",Anna Nussbaumer,Wohnhaus Seestrasse\n2026-10-28,Akquisition,90,\"Anfrage Umbau Mühlegasse beantwortet\",Tobias Brunner,Akquisition\n2026-10-29,Werkhof Riedmatt,240,\"Ausschreibung Baumeisterarbeiten\",Tobias Brunner,Werkhof Riedmatt\n2026-10-30,Dachausbau Lindenweg,195,\"Kostenschätzung nach BKP\",Anna Nussbaumer,Dachausbau Lindenweg\n",
+  "Buero/Admin/App/Pendenzen/pendenzen.json": [
+    {
+      "id": "demo-p1",
+      "text": "Baueingabe Seestrasse: Nachweis Schallschutz beilegen",
+      "projekt": "Wohnhaus Seestrasse",
+      "person": "Anna Nussbaumer",
+      "erledigt": false,
+      "erledigtAt": null,
+      "order": 1,
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "updatedAt": "2026-10-28T09:12:00.000Z",
+      "updatedBy": "Demo"
+    },
+    {
+      "id": "demo-p2",
+      "text": "Offerte Baumeister Werkhof einholen (3 Firmen)",
+      "projekt": "Werkhof Riedmatt",
+      "person": "Tobias Brunner",
+      "erledigt": false,
+      "erledigtAt": null,
+      "order": 2,
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "updatedAt": "2026-10-28T09:12:00.000Z",
+      "updatedBy": "Demo"
+    },
+    {
+      "id": "demo-p3",
+      "text": "Lindenweg: Dachaufbau mit Bauphysiker klären",
+      "projekt": "Dachausbau Lindenweg",
+      "person": "Anna Nussbaumer",
+      "erledigt": false,
+      "erledigtAt": null,
+      "order": 3,
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "updatedAt": "2026-10-28T09:12:00.000Z",
+      "updatedBy": "Demo"
+    },
+    {
+      "id": "demo-p4",
+      "text": "Bauherrschaft Seestrasse: Termin für Materialmuster",
+      "projekt": "Wohnhaus Seestrasse",
+      "person": "Tobias Brunner",
+      "erledigt": false,
+      "erledigtAt": null,
+      "order": 4,
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "updatedAt": "2026-10-28T09:12:00.000Z",
+      "updatedBy": "Demo"
+    },
+    {
+      "id": "demo-p5",
+      "text": "Versicherung Bauzeit für Werkhof abschliessen",
+      "projekt": "Werkhof Riedmatt",
+      "person": "Tobias Brunner",
+      "erledigt": true,
+      "erledigtAt": "2026-10-28T09:12:00.000Z",
+      "order": 5,
+      "createdAt": "2026-10-20T08:00:00.000Z",
+      "updatedAt": "2026-10-28T09:12:00.000Z",
+      "updatedBy": "Demo"
+    }
+  ],
+  "Buero/Admin/App/Timeline/zeitplanung.json": {
+    "mitarbeiterEintraege": {
+      "an": [
+        {
+          "id": "demo-f1",
+          "titel": "Ferien",
+          "start": "2026-12-21",
+          "ende": "2027-01-02"
+        }
+      ],
+      "tb": [
+        {
+          "id": "demo-f2",
+          "titel": "Weiterbildung",
+          "start": "2026-11-12",
+          "ende": "2026-11-13"
+        }
+      ]
+    },
+    "mitarbeiterSchema": {},
+    "projekte": [
+      {
+        "id": "demo-pr1",
+        "titel": "014 Wohnhaus Seestrasse",
+        "aufgeklappt": true,
+        "aufgaben": [
+          {
+            "id": "demo-a1",
+            "titel": "Bauprojekt",
+            "eintraege": [
+              {
+                "id": "demo-e1",
+                "typ": "balken",
+                "titel": "Bauprojekt",
+                "start": "2026-10-05",
+                "ende": "2026-11-20",
+                "pensum": {
+                  "an": 60
+                }
+              }
+            ]
+          },
+          {
+            "id": "demo-a2",
+            "titel": "Baueingabe",
+            "eintraege": [
+              {
+                "id": "demo-e2",
+                "typ": "meilenstein",
+                "titel": "Eingabe Gemeinde",
+                "start": "2026-11-27",
+                "ende": "2026-11-27"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "demo-pr2",
+        "titel": "021 Werkhof Riedmatt",
+        "aufgeklappt": true,
+        "aufgaben": [
+          {
+            "id": "demo-a3",
+            "titel": "Ausschreibung",
+            "eintraege": [
+              {
+                "id": "demo-e3",
+                "typ": "balken",
+                "titel": "Ausschreibung Rohbau",
+                "start": "2026-10-19",
+                "ende": "2026-12-11",
+                "pensum": {
+                  "tb": 40
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "updatedAt": "2026-10-30T16:04:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Finanzplanung/2026.json": {
+    "jahr": 2026,
+    "anfangssaldo": 48000,
+    "ausgaben": [
+      {
+        "id": "demo-fp1",
+        "bezeichnung": "Löhne",
+        "typ": "monatlich",
+        "betrag": 14500
+      },
+      {
+        "id": "demo-fp2",
+        "bezeichnung": "Miete Büro",
+        "typ": "monatlich",
+        "betrag": 2100
+      },
+      {
+        "id": "demo-fp3",
+        "bezeichnung": "Software, Lizenzen",
+        "typ": "monatlich",
+        "betrag": 320
+      },
+      {
+        "id": "demo-fp4",
+        "bezeichnung": "Versicherungen",
+        "typ": "einmalig",
+        "monate": {
+          "1": 3800,
+          "7": 3800
+        }
+      }
+    ],
+    "einnahmen": [
+      {
+        "id": "demo-fp5",
+        "bezeichnung": "014 Wohnhaus Seestrasse",
+        "typ": "einmalig",
+        "monate": {
+          "2": 28000,
+          "5": 34000,
+          "9": 26000
+        },
+        "notizen": {
+          "2": "Vorprojekt",
+          "5": "Bauprojekt",
+          "9": "Ausschreibung"
+        }
+      },
+      {
+        "id": "demo-fp6",
+        "bezeichnung": "021 Werkhof Riedmatt",
+        "typ": "einmalig",
+        "monate": {
+          "3": 41000,
+          "8": 52000
+        },
+        "notizen": {
+          "3": "Bauprojekt",
+          "8": "Realisierung"
+        }
+      },
+      {
+        "id": "demo-fp7",
+        "bezeichnung": "027 Dachausbau Lindenweg",
+        "typ": "einmalig",
+        "monate": {
+          "6": 18500
+        }
+      }
+    ],
+    "auszahlungen": [
+      {
+        "id": "demo-fp8",
+        "bezeichnung": "Gewinnausschüttung",
+        "typ": "einmalig",
+        "monate": {
+          "12": 20000
+        }
+      }
+    ],
+    "updatedAt": "2026-10-30T16:10:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Finanzen/konten.txt": "1000\tKasse\n1020\tBankkonto\n1100\tForderungen aus Lieferungen und Leistungen\n2000\tVerbindlichkeiten aus Lieferungen und Leistungen\n3400\tHonorarertrag\n4000\tFremdleistungen\n6000\tRaumaufwand\n6500\tBüromaterial, Drucksachen\n6510\tFachliteratur, Software\n6600\tWerbeaufwand\n6700\tÜbriger Betriebsaufwand",
+  "Buero/Admin/App/Finanzen/kategorien.txt": "\tERLÖSE\n3400\tHonorar Architektur\n3401\tHonorar Bauleitung\n\n\tAUFWAND\n4000\tFremdleistungen Planung\n6000\tMiete Büro\n6500\tBüromaterial\n6510\tSoftware-Abos\n6530\tFachliteratur\n6600\tWerbung, Website\n6640\tReisespesen\n6700\tDiverses",
+  "Buero/Admin/App/Baukosten/027 Dachausbau Lindenweg Kostenschätzung.json": {
+    "id": "demo-schaetzung-1",
+    "titel": "Kostenschätzung Dachausbau",
+    "projekt": "027",
+    "projektName": "Dachausbau Lindenweg",
+    "genauigkeit": "±25%",
+    "kostenstand": "Oktober 2026",
+    "grundlagen": "Alle Kennwerte inkl. MWST. Grundlage: Begehung vom 27.10.2026, Richtofferten Dachdecker und Fenster.",
+    "module": [
+      {
+        "id": "demo-m1",
+        "name": "Dach",
+        "zusatz": false
+      },
+      {
+        "id": "demo-m2",
+        "name": "Innenausbau",
+        "zusatz": false
+      },
+      {
+        "id": "demo-m3",
+        "name": "Dachterrasse",
+        "zusatz": true
+      }
+    ],
+    "positionen": {
+      "138": [
+        {
+          "id": "demo-bk1",
+          "beschrieb": "1x Mulde mit regelmässigem Service, inkl. Entsorgung",
+          "ausmass": "1",
+          "einheit": "Stk",
+          "kennwert": "3800",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "211": [
+        {
+          "id": "demo-bk2",
+          "beschrieb": "Abbruch Innenwände und Zwischendecke",
+          "ausmass": "18*2.6",
+          "einheit": "m²",
+          "kennwert": "80",
+          "modul": "demo-m2",
+          "intern": "Mengen grob geschätzt, vor Ausschreibung nachmessen",
+          "extern": ""
+        }
+      ],
+      "211.1": [
+        {
+          "id": "demo-bk3",
+          "beschrieb": "Fassadengerüst inkl. Spenglergang",
+          "ausmass": "11.5*42",
+          "einheit": "m²",
+          "kennwert": "25",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": "Richtofferte Gerüstbau"
+        }
+      ],
+      "221": [
+        {
+          "id": "demo-bk4",
+          "beschrieb": "3 Dachflächenfenster, inkl. Einbau und Anschlüsse",
+          "ausmass": "1.8*3",
+          "einheit": "m²",
+          "kennwert": "2100",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        },
+        {
+          "id": "demo-bk5",
+          "beschrieb": "Hebeschiebetür zur Terrasse",
+          "ausmass": "6.2",
+          "einheit": "m²",
+          "kennwert": "2500",
+          "modul": "demo-m3",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "222": [
+        {
+          "id": "demo-bk6",
+          "beschrieb": "Dachrinnen",
+          "ausmass": "38",
+          "einheit": "lfm",
+          "kennwert": "120",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        },
+        {
+          "id": "demo-bk7",
+          "beschrieb": "Ablaufrohre",
+          "ausmass": "16",
+          "einheit": "lfm",
+          "kennwert": "54",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "224": [
+        {
+          "id": "demo-bk8",
+          "beschrieb": "Abbruch Eindeckung inkl. Entsorgung",
+          "ausmass": "215",
+          "einheit": "m²",
+          "kennwert": "158",
+          "modul": "demo-m1",
+          "intern": "Richtofferte Dachdecker",
+          "extern": ""
+        },
+        {
+          "id": "demo-bk9",
+          "beschrieb": "Neuer Dachaufbau ab Sparrenlage",
+          "ausmass": "215",
+          "einheit": "m²",
+          "kennwert": "190",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        },
+        {
+          "id": "demo-bk10",
+          "beschrieb": "Zwischensparrendämmung + 80mm Aufsparrendämmung",
+          "ausmass": "215",
+          "einheit": "m²",
+          "kennwert": "136*1.08",
+          "modul": "demo-m1",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "271": [
+        {
+          "id": "demo-bk11",
+          "beschrieb": "Leichtbauwände, zweifach beplankt, inkl. Weissputz",
+          "ausmass": "46",
+          "einheit": "m²",
+          "kennwert": "140",
+          "modul": "demo-m2",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "272": [
+        {
+          "id": "demo-bk12",
+          "beschrieb": "Geländer Dachterrasse, Stahl verzinkt",
+          "ausmass": "9.5",
+          "einheit": "lfm",
+          "kennwert": "680",
+          "modul": "demo-m3",
+          "intern": "",
+          "extern": "Option – noch nicht beschlossen"
+        }
+      ],
+      "281": [
+        {
+          "id": "demo-bk13",
+          "beschrieb": "Parkett abschleifen und ölen",
+          "ausmass": "68",
+          "einheit": "m²",
+          "kennwert": "50",
+          "modul": "demo-m2",
+          "intern": "",
+          "extern": ""
+        },
+        {
+          "id": "demo-bk14",
+          "beschrieb": "Plattenbelag Dachterrasse auf Stelzlager",
+          "ausmass": "22",
+          "einheit": "m²",
+          "kennwert": "190",
+          "modul": "demo-m3",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "285": [
+        {
+          "id": "demo-bk15",
+          "beschrieb": "Malerarbeiten, 2-facher Anstrich",
+          "ausmass": "180",
+          "einheit": "m²",
+          "kennwert": "10",
+          "modul": "demo-m2",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "291": [
+        {
+          "id": "demo-bk16",
+          "beschrieb": "Honorar alle Phasen, inkl. Bauleitung",
+          "ausmass": "",
+          "einheit": "Pausch.",
+          "kennwert": "58000",
+          "modul": "",
+          "intern": "",
+          "extern": ""
+        }
+      ],
+      "583": [
+        {
+          "id": "demo-bk17",
+          "beschrieb": "Reserve für Unvorhergesehenes",
+          "ausmass": "",
+          "einheit": "Pausch.",
+          "kennwert": "25000",
+          "modul": "",
+          "intern": "",
+          "extern": ""
+        }
+      ]
+    },
+    "eigenePositionen": [
+      {
+        "nr": "211.1",
+        "titel": "Gerüste"
+      }
+    ],
+    "status": {
+      "138": "erledigt",
+      "211": "verifiziert",
+      "221": "erledigt",
+      "222": "verifiziert",
+      "224": "verifiziert",
+      "271": "pendent",
+      "281": "erledigt",
+      "291": "erledigt"
+    },
+    "druck": {
+      "nurVerwendete": true,
+      "alleHauptgruppen": true,
+      "unterpositionen": false,
+      "unterteilungen": false,
+      "bemerkungExtern": true,
+      "modulSpalten": false,
+      "modulSummen": true
+    },
+    "updatedAt": "2026-10-30T15:22:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/demo-k1.json": {
+    "kategorie": "Bauherrschaft",
+    "status": "aktiv",
+    "kontaktperson": "Anna Nussbaumer",
+    "vorname": "Martina",
+    "name": "Degen",
+    "firma": "",
+    "strasse": "Seestrasse 44",
+    "ort": "8800 Thalwil",
+    "tel": "044 123 45 67",
+    "mail": "m.degen@example.ch",
+    "website": "",
+    "bemerkungen": "Bauherrin Wohnhaus Seestrasse",
+    "projekte": "014 Wohnhaus Seestrasse",
+    "weihnachtskarte": true,
+    "updatedAt": "2026-10-22T10:00:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/demo-k2.json": {
+    "kategorie": "Unternehmer",
+    "status": "angefragt",
+    "kontaktperson": "Tobias Brunner",
+    "vorname": "Peter",
+    "name": "Wenger",
+    "firma": "Wenger Bedachungen AG",
+    "strasse": "Industriestrasse 7",
+    "ort": "8820 Wädenswil",
+    "tel": "044 234 56 78",
+    "mail": "info@example.ch",
+    "website": "www.example.ch",
+    "bemerkungen": "Richtofferte Dach Lindenweg erhalten",
+    "projekte": "027 Dachausbau Lindenweg",
+    "weihnachtskarte": false,
+    "updatedAt": "2026-10-22T10:00:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/demo-k3.json": {
+    "kategorie": "Fachplaner",
+    "status": "aktiv",
+    "kontaktperson": "Anna Nussbaumer",
+    "vorname": "Claudia",
+    "name": "Steiner",
+    "firma": "Steiner Bauingenieure GmbH",
+    "strasse": "Bahnhofplatz 3",
+    "ort": "8001 Zürich",
+    "tel": "044 345 67 89",
+    "mail": "c.steiner@example.ch",
+    "website": "",
+    "bemerkungen": "Statik Werkhof",
+    "projekte": "021 Werkhof Riedmatt",
+    "weihnachtskarte": true,
+    "updatedAt": "2026-10-22T10:00:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/demo-k4.json": {
+    "kategorie": "Behörde",
+    "status": "aktiv",
+    "kontaktperson": "Tobias Brunner",
+    "vorname": "",
+    "name": "Bauamt",
+    "firma": "Gemeinde Thalwil",
+    "strasse": "Dorfstrasse 1",
+    "ort": "8800 Thalwil",
+    "tel": "044 456 78 90",
+    "mail": "bauamt@example.ch",
+    "website": "",
+    "bemerkungen": "Baueingaben",
+    "projekte": "",
+    "weihnachtskarte": false,
+    "updatedAt": "2026-10-22T10:00:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/demo-k5.json": {
+    "kategorie": "Unternehmer",
+    "status": "offen",
+    "kontaktperson": "Tobias Brunner",
+    "vorname": "Beat",
+    "name": "Hofer",
+    "firma": "Hofer Metallbau",
+    "strasse": "Werkstrasse 22",
+    "ort": "8810 Horgen",
+    "tel": "044 567 89 01",
+    "mail": "b.hofer@example.ch",
+    "website": "",
+    "bemerkungen": "Geländer, Treppen",
+    "projekte": "",
+    "weihnachtskarte": false,
+    "updatedAt": "2026-10-22T10:00:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Adressen/_optionen.json": {
+    "kategorien": [
+      "Bauherrschaft",
+      "Unternehmer",
+      "Fachplaner",
+      "Behörde",
+      "Lieferant"
+    ],
+    "status": [
+      "aktiv",
+      "angefragt",
+      "offen",
+      "archiviert"
+    ]
+  },
+  "Buero/Admin/App/Offerten und Rechnungen/_absender.json": {
+    "name": "Muster Architektur GmbH (Demo)",
+    "adresse": "Beispielweg 3",
+    "plz_ort": "8000 Musterstadt",
+    "ort": "Musterstadt",
+    "telefon": "+41 44 000 00 00",
+    "email": "office@example.ch",
+    "website": "www.example.ch"
+  },
+  "Buero/Admin/App/Offerten und Rechnungen/2026-10-15 Dachausbau Lindenweg.json": {
+    "typ": "offerte",
+    "empfaenger": "Herr und Frau Keller",
+    "adresse": "Lindenweg 8\n8810 Horgen",
+    "projektnummer": "027",
+    "projekt": "Dachausbau Lindenweg",
+    "datum": "2026-10-15",
+    "offert_nr": "2026-027",
+    "status": "versendet",
+    "betreff": "Honorarofferte Dachausbau Lindenweg 8",
+    "brieftext": "Sehr geehrte Frau Keller, sehr geehrter Herr Keller\n\nGerne unterbreiten wir Ihnen unsere Honorarofferte für den Dachausbau an der Lindenstrasse. Grundlage bildet die Begehung vom 27. Oktober 2026.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.",
+    "sprache": "de",
+    "unterzeichner": [],
+    "stundensatz_chf": 145,
+    "mwst_prozent": 8.1,
+    "nebenkosten_chf": 1200,
+    "automatische_nummerierung": true,
+    "positionen": [
+      {
+        "typ": "modul",
+        "titel": "Vorprojekt",
+        "beschrieb": [
+          "Bestandesaufnahme und Fotodokumentation",
+          "Variantenstudium Grundriss",
+          "Kostenschätzung nach BKP"
+        ],
+        "stunden": 48,
+        "bemerkung": "",
+        "bemerkungAktiv": false,
+        "pauschalAktiv": false,
+        "pauschalBetrag": 0
+      },
+      {
+        "typ": "modul",
+        "titel": "Bauprojekt",
+        "beschrieb": [
+          "Ausarbeitung Projekt 1:50",
+          "Abstimmung mit Fachplanern",
+          "Baueingabeunterlagen"
+        ],
+        "stunden": 86,
+        "bemerkung": "Baubewilligungsgebühren sind nicht enthalten.",
+        "bemerkungAktiv": true,
+        "pauschalAktiv": false,
+        "pauschalBetrag": 0
+      },
+      {
+        "typ": "modul",
+        "titel": "Ausschreibung und Vergabe",
+        "beschrieb": [
+          "Leistungsverzeichnisse",
+          "Offertvergleich",
+          "Vergabeanträge"
+        ],
+        "stunden": 54,
+        "bemerkung": "",
+        "bemerkungAktiv": false,
+        "pauschalAktiv": false,
+        "pauschalBetrag": 0
+      },
+      {
+        "typ": "modul",
+        "titel": "Realisierung",
+        "beschrieb": [
+          "Bauleitung vor Ort",
+          "Kostenkontrolle",
+          "Abnahmen"
+        ],
+        "stunden": 0,
+        "bemerkung": "",
+        "bemerkungAktiv": false,
+        "pauschalAktiv": true,
+        "pauschalBetrag": 32000
+      }
+    ],
+    "updatedAt": "2026-10-15T11:30:00.000Z",
+    "updatedBy": "Demo"
+  },
+  "Buero/Admin/App/Protokolle/2026-10-27 Dachausbau Lindenweg.json": {
+    "titel": "Bauherrensitzung 1",
+    "projekt": "027",
+    "projektName": "Dachausbau Lindenweg",
+    "datum": "2026-10-27",
+    "zeitVon": "14:00",
+    "zeitBis": "15:30",
+    "ort": "Vor Ort, Lindenweg 8",
+    "teilnehmende": [
+      {
+        "name": "Anna Nussbaumer",
+        "kuerzel": "AN"
+      },
+      {
+        "name": "Tobias Brunner",
+        "kuerzel": "TB"
+      },
+      {
+        "name": "Familie Keller",
+        "kuerzel": "FK"
+      }
+    ],
+    "abschnitte": [
+      {
+        "typ": "titel",
+        "id": "demo-ab0",
+        "text": "1. Ausgangslage",
+        "kuerzel": ""
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab1",
+        "text": "Begehung des Dachgeschosses, Aufnahme der bestehenden Konstruktion.",
+        "kuerzel": ""
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab2",
+        "text": "Der Dachstuhl ist in gutem Zustand, die Eindeckung muss ersetzt werden.",
+        "kuerzel": ""
+      },
+      {
+        "typ": "titel",
+        "id": "demo-ab3",
+        "text": "2. Entscheide",
+        "kuerzel": ""
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab4",
+        "text": "Drei Dachflächenfenster statt einer Lukarne – günstiger und bewilligungsfähig.",
+        "kuerzel": ""
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab5",
+        "text": "Dachterrasse wird als Option weiterverfolgt, Entscheid bis Ende November.",
+        "kuerzel": ""
+      },
+      {
+        "typ": "titel",
+        "id": "demo-ab6",
+        "text": "3. Nächste Schritte",
+        "kuerzel": ""
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab7",
+        "text": "Kostenschätzung nach BKP erstellen und zustellen.",
+        "kuerzel": "AN"
+      },
+      {
+        "typ": "bullet",
+        "id": "demo-ab8",
+        "text": "Richtofferten Dachdecker und Fenster einholen.",
+        "kuerzel": "TB"
+      }
+    ],
+    "syncedPendenzIds": [],
+    "updatedAt": "2026-10-27T16:00:00.000Z",
+    "updatedBy": "Demo"
+  }
+}

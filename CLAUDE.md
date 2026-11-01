@@ -87,6 +87,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
+- **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
+  Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
+  aus `demo/seed.json`), Änderungen landen im `localStorage`. Der
+  Einstiegspunkt sitzt bewusst auf Höhe von `proxyFetch()` — kein Modul
+  kennt den Demomodus, alle zehn funktionieren unverändert. `isConfigured()`
+  ist deshalb im Demomodus `true`. Siehe README.
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal
@@ -117,13 +123,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 
 ## Bekannte offene Ideen (noch nicht umgesetzt)
 
-- **Demo-Datensatz** für alle Module (damit man die Tools ohne Bürodaten
-  anschauen kann) — besprochen, Vorgehen noch offen.
-- **Autor-Mailadresse in der Git-Historie**: die ersten 66 Commits tragen
-  `jonasha@users.noreply.github.com` statt
-  `104436733+jonashaldemann@users.noreply.github.com`; GitHub rechnet sie
-  deshalb einem fremden Konto zu. Korrektur nur per History-Rewrite +
-  Force-Push möglich — bewusst noch nicht gemacht.
+- Im Demomodus fehlen noch Beispieldaten für **Wettbewerbsprogramme** und
+  **Quittung** (dort nur Kontenplan/Kategorien, keine Belege) — die Module
+  starten leer, man kann aber Einträge anlegen.
 - Google-Kalender-Sync für Ferien/Abwesenheiten in der Timeline (Vorschlag:
   privater iCal-Link pro Person statt volle Calendar-API/OAuth, über den
   Worker proxyen) — besprochen, aber bewusst zurückgestellt.

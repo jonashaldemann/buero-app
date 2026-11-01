@@ -29,6 +29,38 @@ eingebunden. `localStorage` ist pro Domain (nicht pro Unterordner) gültig —
 einmal in **irgendeiner** App unter dem Zahnrad-Symbol eingerichtet, gelten
 Benutzername/App-Passwort automatisch auch in den anderen.
 
+## Demomodus (ohne Login)
+
+Solange **keine Zugangsdaten gespeichert** sind, laufen alle Apps im
+Demomodus: statt der Nextcloud antwortet eine kleine Attrappe mit
+Beispieldaten eines erfundenen Büros ("Muster Architektur"), und ein
+gelbes Band oben weist darauf hin. So lässt sich jedes Modul anschauen und
+ausprobieren, ohne echte Bürodaten zu sehen.
+
+- **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
+  `{ "<Nextcloud-Pfad>": <Inhalt> }`. JSON-Dateien stehen dort als echte
+  Objekte (lesbar), Textdateien wie `projekte.txt` als String. Neue
+  Beispieldaten ergänzt man einfach als weiteren Schlüssel.
+- **Wo das sitzt**: in `shared/common.js` auf Höhe von `proxyFetch()` —
+  also ganz unten in der Schicht, genau dort, wo sonst der Worker-Proxy
+  angesprochen wird (`demoFetch()`). GET, PUT, DELETE, MKCOL und PROPFIND
+  werden nachgebildet. **Kein Modul kennt den Demomodus**: Laden,
+  Speichern, Ordner auflisten und Löschen funktionieren unverändert.
+- **Änderungen** landen ausschliesslich im `localStorage` dieses Browsers
+  (Schlüssel `demo_overlay`) und überleben einen Reload. "Beispieldaten
+  zurücksetzen" im Band verwirft sie. Hochgeladene Bilder/PDFs
+  (Quittungs-Belege) werden bewusst nicht gespeichert — nur der Dateiname
+  erscheint in der Ordnerliste, damit die Belegnummern weiterzählen.
+- **Beim Anmelden** wird der `localStorage` komplett geleert (Demo-Daten
+  und Modul-Caches) und die Seite neu geladen. Danach sind die
+  Beispieldaten nicht mehr erreichbar: sie liegen unter einem eigenen
+  Benutzer `demo` und einem eigenen Schlüssel, und die bereits gerenderte
+  Demo-Ansicht ist durch den Reload weg.
+- **Abschaltbar**: `DEMO_ENABLED = false` in `shared/common.js` stellt das
+  frühere Verhalten wieder her ("Nextcloud noch nicht eingerichtet").
+
+---
+
 ## Ersteinrichtung (einmalig, für alle Apps zusammen)
 
 1. In Nextcloud: **Einstellungen → Sicherheit → App-Passwörter** → neues
