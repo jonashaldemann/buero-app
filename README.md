@@ -1242,38 +1242,57 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
 - **Speicherort**: eine Kostenschätzung = eine JSON-Datei auf Nextcloud
   (`Buero/Admin/App/Baukosten/<Projekt> <Titel>.json`), Liste + Editor wie
   bei den Offerten/Protokollen.
-- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, rund 540
-  Nummern) und ist für alle Schätzungen identisch; die Datei einer Schätzung
-  enthält nur, was tatsächlich erfasst wurde. Dadurch bleiben die Dateien
-  klein, und eine Korrektur am Katalog gilt sofort für alle bestehenden
-  Schätzungen. (Der Katalog stammt aus der alten Excel-Vorlage, deren
-  Sortier-Artefakte — "1411" statt "141" — und Tippfehler sind dabei
-  korrigiert, die Reservegruppen 7 und 8 ergänzt.)
+- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, 541
+  Nummern, davon 461 dreistellige Positionen) und ist für alle Schätzungen
+  identisch; die Datei einer Schätzung enthält nur, was tatsächlich erfasst
+  wurde. Dadurch bleiben die Dateien klein, und eine Korrektur am Katalog
+  gilt sofort für alle bestehenden Schätzungen. (Der Katalog stammt aus der
+  alten Excel-Vorlage, deren Sortier-Artefakte — "1411" statt "141" — und
+  Tippfehler sind dabei korrigiert, die Reservegruppen 7 und 8 ergänzt.)
+- **Eigenes Layout**: Dieses Modul weicht bewusst vom Karten-Layout der
+  übrigen Apps ab — Kennzahlen oben, darunter eine dichte Tabelle mit nur
+  feinen horizontalen Trennlinien, rechts ein einblendbares Detailfenster.
+  Eine Kostenschätzung ist eine sehr lange, sehr zahlenlastige Liste, bei
+  der die sonst verwendeten abgerundeten Karten die Lesbarkeit eher stören.
+  Farbpalette und Schriften bleiben dieselben wie überall
+  (`css/style.css`).
 
-### Ansicht: Ebene, Filter, Suche
+### Startsicht und Ansicht
 
+- **Beim Öffnen ist absichtlich der ganze Katalog sichtbar**, auch die
+  leeren Nummern und auf allen Ebenen: Beim Erstellen einer Schätzung geht
+  man den BKP einmal ganz durch, und was man nicht sieht, vergisst man.
+  Leere Gruppen sind grau abgesetzt. Erst wenn die Schätzung Form annimmt,
+  lohnt sich das Ausdünnen — diese Wahl wird dann pro Gerät gemerkt
+  (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
+  gleichzeitig unterschiedlich tief aufgeklappt anschauen).
 - **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
-  "3" zeigt also die Positionen, aber noch keine Unterpositionen; "Alles"
-  auch diese. Einzelne Gruppen lassen sich mit dem Dreieck links zusätzlich
+  "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
+  diese. Einzelne Gruppen lassen sich mit dem Dreieck links zusätzlich
   ein-/ausklappen — ein einzelner Klick hebt die eingestellte Ebene für
   genau diesen Knoten auf, die Ebenen-Knöpfe sind nur eine Ausgangslage.
-- **"Nur verwendete"** (standardmässig an) blendet alles aus, worin noch
-  nichts erfasst ist. Zusammen mit Ebene 3 ergibt das die Übersicht über
-  genau die benutzten Positionen; mit Ebene 1 die Zusammenstellung nach
-  Hauptgruppen.
-- Die **Suche** (BKP-Nummer oder Stichwort, auch im Beschrieb und in den
-  Bemerkungen) setzt Filter und Ein-/Ausklappen bewusst aus und zeigt auch
-  noch leere Positionen — genau so wird eine neue Position gefunden und in
-  Gebrauch genommen. Die eingestellte Ebene und der Filter werden pro Gerät
-  in `localStorage` gemerkt, nicht in der Datei: zwei Leute dürfen dieselbe
-  Schätzung gleichzeitig unterschiedlich tief aufgeklappt anschauen.
+- **"Nur verwendete"** blendet alles aus, worin noch nichts erfasst ist.
+- **Dichte** "Komfortabel"/"Kompakt" verdichtet die Zeilenhöhe.
+- Die **Suche** (<kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>; BKP-Nummer oder
+  Stichwort, auch im Beschrieb und in den Bemerkungen) setzt Filter und
+  Ein-/Ausklappen bewusst aus und zeigt auch noch leere Positionen — genau
+  so wird eine Position gefunden und in Gebrauch genommen.
+- **Kennzahlen oben**: Total, Bandbreite (aus der Prozentangabe im Feld
+  "Genauigkeit" gerechnet, z.B. ±25% → von/bis), Anzahl erfasster
+  Positionen und je Modul eine Kachel.
+- **Kopfzeile und BKP-Spalte** bleiben beim Scrollen stehen, das
+  **Gesamttotal** klebt am unteren Tabellenrand.
+- **"+ Zeile"** erscheint erst, wenn die Maus auf einer Positionszeile
+  steht — bei über 400 sichtbaren Positionen wäre ein dauerhafter Knopf auf
+  jeder davon das Auffälligste auf dem Bildschirm. Solange noch nichts
+  erfasst ist, erklärt stattdessen ein Hinweis unter der Werkzeugleiste den
+  Einstieg.
 
 ### Unterpositionen, Ausmass, Kennwert
 
-- Eine Position kann **beliebig viele Unterpositionen** haben ("+ Zeile"),
-  die automatisch zur Positionssumme zusammengezählt werden; die Summen
-  laufen weiter auf Element-, Hauptgruppe und Gesamttotal hoch (Total immer
-  oben rechts sichtbar).
+- Eine Position kann **beliebig viele Unterpositionen** haben, die
+  automatisch zur Positionssumme zusammengezählt werden; die Summen laufen
+  weiter auf Element-, Hauptgruppe und Gesamttotal hoch.
 - **Ausmass und Kennwert dürfen gerechnet werden**: "2x4x2" ergibt 16,
   "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim Kennwert die MWST
   auf. Angezeigt wird das Resultat, die eingetippte Rechnung bleibt klein
@@ -1294,23 +1313,66 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   Standard-BKP zu grob ist. Sie wird direkt hinter "211" einsortiert und
   gilt nur für diese eine Kostenschätzung.
 
-### Bemerkungen und Ausdruck
+### Detailfenster und Bemerkungen
 
-- Zwei Bemerkungsspalten pro Unterposition: **intern** (Annahmen, offene
-  Fragen, Notizen aus Sitzungen) und **extern**. Die interne Spalte wird
-  beim Drucken komplett ausgeblendet, die externe nicht.
-- **Drucken** (Knopf oben) gibt genau die Ansicht aus, die gerade auf dem
-  Bildschirm steht — Ebene, Ein-/Ausgeklapptes und Filter wirken also auch
-  im Ausdruck; vor dem Drucken erst die gewünschte Tiefe einstellen.
-  Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
-  "Grundlagen" aus den Kopfdaten als Kopfblock.
+- Sobald der Cursor in einer Unterposition steht, zeigt das **Detailfenster
+  rechts** diese Zeile gross: Beschrieb, Ausmass/Einheit/Kennwert, die
+  gerechneten Kosten, das Modul und beide Bemerkungsfelder. Dadurch darf die
+  Tabelle selbst schmal und ruhig bleiben. Beide Seiten schreiben in
+  dieselbe Zeile und werden gegenseitig nachgeführt (`setzeFeld()`).
+- Zwei Bemerkungen pro Unterposition: **intern** (Annahmen, offene Fragen,
+  Notizen aus Sitzungen) und **extern**. Ein kleiner Punkt in der
+  Beschrieb-Spalte zeigt an, dass eine hinterlegt ist (grau = intern,
+  blau = extern).
+- Wer die Bemerkungen lieber direkt in der Tabelle hat, schaltet
+  **"Bemerkungsspalten"** ein — dann erscheinen beide als eigene Spalten.
+
+### Module (Teilbereiche)
+
+In der alten Excel wurden Teilbereiche über zusätzliche Spalten
+("Einsparpotential", "nur Dach", "UG & Fenster", "nur Wohnung") abgebildet,
+in denen der Betrag ein zweites Mal stand. Hier wird nichts kopiert:
+
+- **Module werden in den Kopfdaten als Liste gepflegt** (ein Modul pro
+  Zeile, wie `projekte.txt`).
+- **Jede Unterposition trägt höchstens eine Modul-Zuordnung** (Auswahlfeld
+  in der Tabelle oder im Detailfenster). Soll eine Position auf zwei Module
+  verteilt werden, teilt man sie in zwei Unterpositionen.
+- Die Teilsummen erscheinen **oben als Kacheln** (mit Anteil am Total) und
+  im Ausdruck wahlweise als Spalten und/oder als Zusammenstellung.
+- Die Zuordnungen hängen an einer **ID**, nicht am Namen. Beim Übernehmen
+  der Liste werden zuerst gleiche Namen gepaart, danach der Rest der Reihe
+  nach — so behält ein reines **Umbenennen** seine Zuordnungen, während ein
+  **Entfernen** sie gezielt zurücksetzt (`moduleAusText()`).
+
+### Ausdruck
+
+Der Ausdruck ist **unabhängig von der Bildschirmansicht** und hat einen
+eigenen Dialog ("Drucken …"); er rendert eine eigene Tabelle (`renderDruck()`
+nach `#printView`) statt die Ansicht zu drucken. Nur so lassen sich die
+folgenden Regeln unabhängig von der gerade eingestellten Ebene umsetzen.
+Die Einstellungen gehören zur Schätzung (nicht zum Gerät) und werden
+mitgespeichert.
+
+| Option | Standard | Wirkung |
+|---|---|---|
+| Nur verwendete Positionen | an | Dreistellige Positionen ohne Eintrag weglassen |
+| Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
+| Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
+| Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
+| Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
+| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul am Schluss |
+
+Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
+"Grundlagen" aus den Kopfdaten als Kopfblock.
 
 ### Kopfdaten und Varianten
 
 - **Kopfdaten** (Knopf oben): Projekt (aus der zentralen Projektliste),
-  Titel, Genauigkeit (z.B. "±25%", erscheint auch in der Total-Zeile),
-  Kostenstand (z.B. "September 2025") und ein Freitext "Grundlagen", der nur
-  im Ausdruck erscheint. Dort steckt auch das Löschen der ganzen Schätzung.
+  Titel, Genauigkeit (z.B. "±25%", erscheint auch in der Total-Zeile und
+  steuert die Bandbreiten-Kachel), Kostenstand (z.B. "September 2025"), die
+  Modulliste und ein Freitext "Grundlagen", der nur im Ausdruck erscheint.
+  Dort steckt auch das Löschen der ganzen Schätzung.
 - **Varianten** (z.B. "Mini"/"Maxi" desselben Projekts) über
   **"Duplizieren"** in der Liste — die Kopie bekommt eigene Zeilen-IDs,
   die Ausgangsvariante bleibt unverändert.

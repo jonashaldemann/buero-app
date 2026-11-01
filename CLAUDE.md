@@ -66,6 +66,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
   BKP-Katalog selbst liegt als `baukosten/bkp.js` im Repo und ist für alle
   Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
+- **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
+  Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
+  (nur feine horizontale Trennlinien, sticky Kopfzeile/BKP-Spalte/Total) +
+  einblendbares Detailfenster rechts — eine Kostenschätzung ist eine sehr
+  lange, zahlenlastige Liste. Farbpalette und Schriften bleiben aber die
+  gemeinsamen aus `css/style.css`; das gilt weiterhin für alle Module.
+- **Druckansicht `baukosten/`**: wird als eigene Tabelle nach `#printView`
+  gerendert statt die Bildschirmansicht zu drucken — die Druckregeln (alle
+  Hauptgruppen, aber nur verwendete Positionen; Unterpositionen
+  zusammengefasst) sind bewusst unabhängig von der eingestellten Ansicht.
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal
