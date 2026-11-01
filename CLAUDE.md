@@ -68,10 +68,15 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
 - **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
   Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
-  (nur feine horizontale Trennlinien, sticky Kopfzeile/BKP-Spalte/Total) +
-  einblendbares Detailfenster rechts — eine Kostenschätzung ist eine sehr
-  lange, zahlenlastige Liste. Farbpalette und Schriften bleiben aber die
-  gemeinsamen aus `css/style.css`; das gilt weiterhin für alle Module.
+  (nur feine horizontale Trennlinien) + einblendbares Detailfenster rechts
+  — eine Kostenschätzung ist eine sehr lange, zahlenlastige Liste. Die
+  SCHRIFTEN bleiben die gemeinsamen aus `css/style.css`, die Farben
+  stammen aus derselben Palette, werden hier aber kräftiger eingesetzt
+  (Akzentblau für Hauptgruppen, weisse Eingabefelder) — bei 500+ Zeilen
+  gibt durchgehendes Beige zu wenig Struktur. Dort scrollt die SEITE
+  (nicht ein innerer Container): Seitenkopf + Sync-Zeile scrollen weg,
+  der Block darunter klebt oben; seine gemessene Höhe steht in der
+  CSS-Variable `--bk-sticky-h`, an der die Spaltentitel einrasten.
 - **Druckansicht `baukosten/`**: wird als eigene Tabelle nach `#printView`
   gerendert statt die Bildschirmansicht zu drucken — die Druckregeln (alle
   Hauptgruppen, aber nur verwendete Positionen; Unterpositionen

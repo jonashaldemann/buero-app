@@ -16,18 +16,36 @@
      Baukosten — bewusst eine Layout-Ausnahme gegenüber den übrigen
      Modulen (siehe README): eine Kostenschätzung ist eine sehr lange,
      sehr zahlenlastige Tabelle, bei der die sonst verwendeten
-     abgerundeten Karten eher stören. Farbpalette und Schriften bleiben
-     aber dieselben wie überall (css/style.css).
+     abgerundeten Karten eher stören. Schriften bleiben dieselben wie
+     überall, die Farben kommen aus derselben Palette -- nur kräftiger
+     eingesetzt (Akzentblau für die Hauptgruppen), weil bei 500+ Zeilen
+     das durchgehende Beige zu wenig Struktur gibt.
 
-     Gestaltungsregeln: Kennzahlen oben, darunter die hierarchische
-     Tabelle, rechts ein einblendbares Detailfenster. Nur feine
-     HORIZONTALE Trennlinien, keine vertikalen. Gruppenzeilen leicht
-     getönt und halbfett, Positions-/Unterpositionszeilen normal. Zahlen
-     immer rechtsbündig mit tabular-nums. Kopfzeile und BKP-Spalte
-     bleiben beim Scrollen stehen.
+     Gestaltungsregeln: Kennzahlen + Werkzeugleiste kleben oben,
+     Spaltentitel direkt darunter, Gesamttotal unten; nur feine
+     HORIZONTALE Trennlinien, keine vertikalen; Zahlen rechtsbündig mit
+     tabular-nums; Eingabefelder sind als solche erkennbar (hell
+     abgesetzt mit Rand).
      ============================================================ */
 
-  main { max-width: 100%; padding: 0 20px 24px; gap: 0; }
+  /* Die Seite selbst scrollt (statt eines inneren Scroll-Containers) --
+     nur so dürfen Kopfzeile und Sync-Zeile beim Scrollen verschwinden,
+     während der Block darunter stehen bleibt. */
+  html, body { height: auto; min-height: 100%; }
+  body { display: block; }
+  main { max-width: 100%; padding: 0 20px 24px; gap: 0; display: block; }
+
+  /* Farben dieses Moduls, abgeleitet aus der gemeinsamen Palette */
+  #editorView {
+    --l1-bg: #4F7089;          /* Akzentblau, Hauptgruppen */
+    --l1-fg: #FFFFFF;
+    --l2-bg: #DEE6EB;          /* dieselbe Farbe stark aufgehellt */
+    --feld-bg: #FFFFFF;
+    --feld-rand: #D8D2C4;
+    --st-pendent: #EFDFAE;
+    --st-erledigt: #D3E4CC;
+    --st-verifiziert: #A4C498;
+  }
 
   /* ---------- Liste der Kostenschätzungen ---------- */
 
@@ -42,39 +60,46 @@
   .bk-list-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
   .bk-list-total { font-family: var(--font-medium); font-size: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-  /* ---------- Editor-Kopf ---------- */
+  /* ---------- Der oben klebende Block ----------
+     Enthält Titelzeile, Kennzahlen und Werkzeugleiste. Seine Höhe wird
+     in app.js gemessen und als --bk-sticky-h gesetzt, damit die
+     Spaltentitel der Tabelle exakt darunter einrasten können. */
+  .bk-sticky {
+    position: sticky; top: 0; z-index: 30;
+    background: var(--bg); padding-top: 6px;
+  }
+  .bk-sticky.geklebt { box-shadow: 0 6px 12px -8px rgba(70,67,60,0.35); }
 
-  .bk-head { display: flex; align-items: flex-start; gap: 14px; padding: 4px 0 16px; }
-  .bk-head-titel { font-family: var(--font-medium); font-size: 20px; line-height: 1.2; }
-  .bk-head-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+  .bk-head { display: flex; align-items: center; gap: 14px; padding: 0 0 12px; }
+  .bk-head-titel { font-family: var(--font-medium); font-size: 18px; line-height: 1.2; }
+  .bk-head-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
   .bk-head-spacer { flex: 1; }
   .bk-head-actions { display: flex; gap: 8px; }
 
   /* Kennzahlen-Kacheln */
-  .bk-kpis { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .bk-kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .bk-kpi {
-    background: var(--surface); border-radius: 12px; padding: 12px 16px;
-    min-width: 150px; flex: 0 1 auto;
+    background: var(--surface); border-radius: 10px; padding: 8px 14px;
+    min-width: 130px; flex: 0 1 auto;
   }
-  .bk-kpi-label { font-size: 10.5px; letter-spacing: 0.6px; color: var(--text-muted); text-transform: uppercase; }
-  .bk-kpi-wert { font-family: var(--font-medium); font-size: 21px; font-variant-numeric: tabular-nums; margin-top: 3px; }
-  .bk-kpi-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .bk-kpi.gross .bk-kpi-wert { font-size: 26px; }
+  .bk-kpi-label { font-size: 10px; letter-spacing: 0.6px; color: var(--text-muted); text-transform: uppercase; }
+  .bk-kpi-wert { font-family: var(--font-medium); font-size: 17px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .bk-kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .bk-kpi.gross { background: var(--l1-bg); }
+  .bk-kpi.gross .bk-kpi-label { color: rgba(255,255,255,0.72); }
+  .bk-kpi.gross .bk-kpi-wert { font-size: 22px; color: #fff; }
+  .bk-kpi.gross .bk-kpi-sub { color: rgba(255,255,255,0.72); }
   .bk-kpi-modul { border-left: 3px solid var(--modul-farbe, var(--border)); }
-  .bk-kpi-modul .bk-kpi-wert { font-size: 17px; }
 
   /* ---------- Werkzeugleiste ---------- */
 
-  .bk-toolbar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding-bottom: 12px;
-  }
+  .bk-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 10px; }
   .bk-seg { display: flex; background: var(--surface-2); border-radius: 9px; padding: 2px; }
   .bk-seg button {
     background: none; border: none; color: var(--text-muted); font-family: var(--font-light);
     font-size: 12.5px; padding: 6px 11px; border-radius: 7px; cursor: pointer; white-space: nowrap;
   }
-  .bk-seg button.active { background: var(--surface); color: var(--text); font-family: var(--font-medium); }
+  .bk-seg button.active { background: var(--l1-bg); color: #fff; font-family: var(--font-medium); }
   .bk-toggle {
     background: none; border: 1px solid var(--border); color: var(--text-muted); font-family: var(--font-light);
     font-size: 12.5px; padding: 7px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap;
@@ -83,106 +108,127 @@
   .bk-toggle.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
   .bk-toolbar-label { font-size: 11px; letter-spacing: 0.4px; color: var(--text-muted); text-transform: uppercase; }
   .bk-search { position: relative; flex: 1; min-width: 210px; max-width: 380px; }
-  .bk-search input { padding: 8px 46px 8px 12px; font-size: 12.5px; border-radius: 9px; background: var(--surface); }
+  .bk-search input { padding: 8px 46px 8px 12px; font-size: 12.5px; border-radius: 9px; background: var(--feld-bg); border: 1px solid var(--feld-rand); }
   .bk-search kbd {
     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
     font-family: var(--font-light); font-size: 10.5px; color: var(--text-muted);
     border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; pointer-events: none;
   }
   .bk-toolbar-hint { font-size: 11.5px; color: var(--text-muted); }
+  .bk-einstieg { font-size: 12px; color: var(--text-muted); padding: 0 0 10px; }
+  .bk-einstieg[hidden] { display: none; }
 
   /* ---------- Tabelle + Detailfenster ---------- */
 
   .bk-main { display: flex; gap: 16px; align-items: flex-start; }
-  .bk-table-wrap {
-    flex: 1; min-width: 0; overflow: auto;
-    max-height: calc(100vh - 260px);
-    border-top: 1px solid var(--border);
-  }
-  table.bk-table { font-size: 12.5px; border-collapse: separate; border-spacing: 0; }
+  .bk-table-wrap { flex: 1; min-width: 0; }
+  table.bk-table { font-size: 12.5px; border-collapse: separate; border-spacing: 0; width: 100%; }
 
   /* Keine vertikalen Linien -- nur feine horizontale. */
   .bk-table th, .bk-table td {
     padding: 0; border: none; border-bottom: 1px solid var(--border);
-    vertical-align: middle; background: var(--bg);
+    vertical-align: middle;
   }
   .bk-table thead th {
-    position: sticky; top: 0; z-index: 3; background: var(--bg);
-    padding: 8px 10px; font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase;
-    white-space: nowrap; color: var(--text-muted); border-bottom: 1px solid var(--border);
+    position: sticky; top: var(--bk-sticky-h, 0px); z-index: 20;
+    background: var(--bg); padding: 7px 10px; font-size: 10px;
+    letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;
+    color: var(--text-muted); border-bottom: 1.5px solid var(--l1-bg);
   }
   .bk-table th.bk-right, .bk-table td.bk-right { text-align: right; }
 
-  /* BKP-Spalte bleibt beim seitlichen Scrollen stehen. */
-  .bk-table th.bk-col-nr, .bk-table td.bk-col-nr { position: sticky; left: 0; z-index: 2; }
-  .bk-table thead th.bk-col-nr { z-index: 4; }
-
-  .bk-col-nr { width: 86px; }
-  .bk-col-ausmass { width: 100px; }
-  .bk-col-einheit { width: 88px; }
-  .bk-col-kennwert { width: 104px; }
-  .bk-col-kosten { width: 116px; }
-  .bk-col-modul { width: 130px; }
+  .bk-col-nr { width: 112px; }
+  .bk-col-ausmass { width: 94px; }
+  .bk-col-einheit { width: 86px; }
+  .bk-col-kennwert { width: 100px; }
+  .bk-col-kosten { width: 112px; }
+  .bk-col-modul { width: 132px; }
   .bk-col-bem { width: 180px; }
-  .bk-col-aktion { width: 112px; }
+  .bk-col-aktion { width: 128px; }
   td.bk-col-aktion { white-space: nowrap; text-align: right; padding-right: 6px; }
 
-  /* Gruppen- und Positionszeilen */
-  .bk-group td { padding: 7px 10px; }
+  /* Gruppen-, Element- und Positionszeilen. Die Hintergrundfarbe läuft
+     über eine Variable, damit der Status (gelb/grün) sie auf jeder Ebene
+     gleich überschreiben kann. */
+  .bk-group { --row-bg: var(--bg); cursor: pointer; }
+  .bk-group td { background: var(--row-bg); padding: 6px 10px; }
   .bk-group .bk-nr-text { font-variant-numeric: tabular-nums; }
   .bk-group .bk-total { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  .bk-l1 td { background: var(--surface-2); font-family: var(--font-medium); font-size: 13px; padding: 9px 10px; }
-  .bk-l1 .bk-titel { letter-spacing: 0.2px; }
-  .bk-l2 td { background: var(--surface); font-family: var(--font-medium); }
-  .bk-l3 td { background: var(--bg); }
-  .bk-l3 .bk-titel { color: var(--text); }
+  .bk-l1 { --row-bg: var(--l1-bg); }
+  .bk-l1 td { color: var(--l1-fg); font-family: var(--font-medium); font-size: 13px; padding: 8px 10px; }
+  .bk-l2 { --row-bg: var(--l2-bg); }
+  .bk-l2 td { font-family: var(--font-medium); }
+  .bk-l3, .bk-l4 { --row-bg: var(--bg); }
   .bk-group.leer .bk-titel, .bk-group.leer .bk-nr-text { color: var(--text-muted); }
+  .bk-l1.leer td { color: rgba(255,255,255,0.68); }
+  .bk-l1.leer .bk-titel, .bk-l1.leer .bk-nr-text { color: rgba(255,255,255,0.68); }
 
-  .bk-indent-2 { padding-left: 16px !important; }
-  .bk-indent-3 { padding-left: 34px !important; }
+  /* Status: gelb = pendent, hellgrün = erledigt, dunkelgrün = verifiziert.
+     Gilt auf allen Ebenen; auf der Hauptgruppe wird die Schrift dann
+     wieder dunkel, weil Weiss auf Hellgrün nicht lesbar wäre. */
+  .bk-group.st-pendent { --row-bg: var(--st-pendent); }
+  .bk-group.st-erledigt { --row-bg: var(--st-erledigt); }
+  .bk-group.st-verifiziert { --row-bg: var(--st-verifiziert); }
+  .bk-l1.st-pendent td, .bk-l1.st-erledigt td, .bk-l1.st-verifiziert td { color: var(--text); }
+  /* Sobald eine Zeile eine Statusfarbe trägt, wird ihre Schrift wieder
+     normal dunkel -- die gedämpfte "leer"-Schrift (bzw. Weiss auf der
+     Hauptgruppe) wäre auf Gelb/Grün kaum zu lesen. */
+  .bk-group.st-pendent .bk-titel, .bk-group.st-erledigt .bk-titel, .bk-group.st-verifiziert .bk-titel,
+  .bk-group.st-pendent .bk-nr-text, .bk-group.st-erledigt .bk-nr-text, .bk-group.st-verifiziert .bk-nr-text,
+  .bk-group.st-pendent .bk-total, .bk-group.st-erledigt .bk-total, .bk-group.st-verifiziert .bk-total { color: var(--text); }
 
-  .bk-chevron {
-    background: none; border: none; color: var(--text-muted); cursor: pointer;
-    padding: 0 6px 0 0; font-size: 9px; width: 16px; text-align: left; line-height: 1;
+  .bk-group:hover td { filter: brightness(0.965); }
+
+  .bk-indent-2 { padding-left: 14px !important; }
+  .bk-indent-3 { padding-left: 28px !important; }
+  .bk-indent-4 { padding-left: 42px !important; }
+
+  /* Statusfeld: durchklickbar leer -> pendent -> erledigt -> verifiziert */
+  .bk-status {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 4px; margin-right: 7px;
+    border: 1px solid var(--feld-rand); background: var(--feld-bg);
+    font-size: 9px; line-height: 1; color: var(--text); cursor: pointer;
+    padding: 0; vertical-align: middle; flex: none;
   }
-  .bk-chevron.leer { visibility: hidden; }
+  .bk-status[disabled] { cursor: default; opacity: 0.85; }
+  .bk-status.s-pendent { background: var(--st-pendent); border-color: #C9A94F; }
+  .bk-status.s-erledigt { background: var(--st-erledigt); border-color: #7FA173; }
+  .bk-status.s-verifiziert { background: var(--st-verifiziert); border-color: #5E8352; }
+  .bk-l1 .bk-status { border-color: rgba(255,255,255,0.45); }
+  .bk-status-platz { display: inline-block; width: 15px; margin-right: 7px; }
 
   /* Unterpositionen: die eigentlichen Eingabezeilen */
-  .bk-sub td { padding: 2px 6px; }
-  .bk-sub td.bk-col-nr { padding-left: 34px; }
-  .bk-sub.gewaehlt td { background: #EDE9E0; }
+  .bk-sub td { padding: 2px 6px; background: var(--surface); }
+  .bk-sub td.bk-col-nr { padding-left: 28px; }
+  .bk-sub.gewaehlt td { background: #EAE4D6; }
   .bk-sub input, .bk-sub textarea, .bk-sub select {
-    background: none; border: 1px solid transparent; border-radius: 6px;
-    padding: 5px 6px; font-size: 12.5px; font-family: var(--font-light);
+    background: var(--feld-bg); border: 1px solid var(--feld-rand); border-radius: 6px;
+    padding: 4px 6px; font-size: 12.5px; font-family: var(--font-light);
     color: var(--text); width: 100%; resize: none; overflow: hidden; line-height: 1.35;
     display: block; min-width: 0;
   }
-  .bk-sub input:hover, .bk-sub textarea:hover, .bk-sub select:hover { border-color: var(--border); }
   .bk-sub input:focus, .bk-sub textarea:focus, .bk-sub select:focus {
-    outline: none; border-color: var(--accent-primary); background: var(--surface);
+    outline: none; border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(79,112,137,0.18);
   }
   .bk-sub .bk-num { text-align: right; font-variant-numeric: tabular-nums; }
+  /* Eine Rechnung, die sich nicht auswerten lässt, bleibt stehen und wird
+     eingefärbt -- früher stand dafür "ungültig" unter dem Feld. */
+  .bk-sub .bk-num.ungueltig { color: #B5654C; border-color: #B5654C; }
   .bk-sub .bk-kosten { text-align: right; font-variant-numeric: tabular-nums; padding-right: 12px; white-space: nowrap; }
-  .bk-sub textarea.bk-bem { color: var(--text-muted); font-size: 11.5px; }
-  .bk-sub select { appearance: none; -webkit-appearance: none; font-size: 11.5px; color: var(--text-muted); }
+  .bk-sub textarea.bk-bem { font-size: 11.5px; }
+  .bk-sub select { appearance: none; -webkit-appearance: none; font-size: 11.5px; }
 
   /* Kompakte Dichte */
   .bk-table.kompakt { font-size: 11.5px; }
-  .bk-table.kompakt .bk-group td { padding: 4px 10px; }
+  .bk-table.kompakt .bk-group td { padding: 3px 10px; }
   .bk-table.kompakt .bk-l1 td { padding: 5px 10px; font-size: 12px; }
-  .bk-table.kompakt .bk-sub td { padding: 0 6px; }
+  .bk-table.kompakt .bk-sub td { padding: 1px 6px; }
   .bk-table.kompakt .bk-sub input, .bk-table.kompakt .bk-sub textarea, .bk-table.kompakt .bk-sub select {
-    padding: 3px 6px; font-size: 11.5px;
+    padding: 2px 5px; font-size: 11.5px;
   }
-  .bk-table.kompakt .bk-formel { font-size: 9.5px; }
-
-  /* Herkunft einer Zahl: die eingetippte Rechnung bleibt unter dem Resultat stehen. */
-  .bk-formel {
-    display: block; font-size: 10px; color: var(--text-muted); text-align: right;
-    padding: 0 7px 2px; font-variant-numeric: tabular-nums;
-  }
-  .bk-formel:empty { display: none; }
 
   /* Punkt als Hinweis, dass zu dieser Zeile eine Bemerkung hinterlegt ist */
   .bk-bem-punkt {
@@ -203,68 +249,61 @@
     cursor: pointer; padding: 3px 6px; border-radius: 6px;
   }
   .bk-row-action:hover { color: var(--text); background: var(--surface-2); }
-  /* In der vollständigen Startsicht stehen über 400 Positionszeilen
+  .bk-l1 .bk-row-action, .bk-l1 .bk-add-btn { color: rgba(255,255,255,0.8); }
+
+  /* In der vollständigen Startsicht stehen über 450 Positionszeilen
      untereinander -- ein dauerhaft sichtbares "+ Zeile" auf jeder davon
      wäre die auffälligste Sache auf dem Bildschirm. Deshalb erscheint es
-     erst, wenn die Maus auf der Zeile steht (und bei Tastaturbedienung
-     sobald es den Fokus bekommt). Den Einstieg erklärt stattdessen der
-     Hinweis unter der Werkzeugleiste, solange noch nichts erfasst ist. */
+     erst, wenn die Maus auf der Zeile steht. */
   .bk-add-btn {
     background: none; border: none; color: var(--accent-primary); font-size: 11.5px;
     cursor: pointer; padding: 3px 7px; border-radius: 6px; white-space: nowrap;
     font-family: var(--font-light); opacity: 0;
   }
   .bk-group:hover .bk-add-btn, .bk-add-btn:focus { opacity: 1; }
-  .bk-add-btn:hover { background: var(--surface-2); }
-  .bk-group:hover td { background: var(--surface); }
-  .bk-l1:hover td { background: var(--surface-2); }
-
-  .bk-einstieg {
-    font-size: 12px; color: var(--text-muted); padding: 0 0 10px;
-  }
-  .bk-einstieg[hidden] { display: none; }
+  .bk-add-btn:hover { background: rgba(0,0,0,0.06); }
 
   .bk-leer-hinweis { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
-  /* Gesamttotal bleibt am unteren Tabellenrand stehen */
+  /* Gesamttotal bleibt am unteren Rand des Fensters stehen */
   .bk-gesamt td {
-    position: sticky; bottom: 0; z-index: 3;
-    background: var(--surface-2); font-family: var(--font-medium); font-size: 13.5px;
-    padding: 11px 10px; border-bottom: none; border-top: 1px solid var(--border);
+    position: sticky; bottom: 0; z-index: 20;
+    background: var(--l1-bg); color: #fff; font-family: var(--font-medium);
+    font-size: 13.5px; padding: 10px; border-bottom: none;
   }
-  .bk-gesamt td.bk-col-nr { z-index: 4; }
   .bk-gesamt .bk-total { font-variant-numeric: tabular-nums; }
 
   /* ---------- Detailfenster rechts ---------- */
 
   .bk-panel {
-    width: 320px; flex: none; background: var(--surface); border-radius: 14px;
-    padding: 16px; position: sticky; top: 0; max-height: calc(100vh - 260px); overflow-y: auto;
+    width: 310px; flex: none; background: var(--surface); border-radius: 14px;
+    padding: 16px; position: sticky; top: calc(var(--bk-sticky-h, 0px) + 10px);
+    max-height: calc(100vh - var(--bk-sticky-h, 0px) - 30px); overflow-y: auto;
   }
   .bk-panel[hidden] { display: none; }
-  .bk-panel-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+  .bk-panel-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
   .bk-panel-nr { font-family: var(--font-medium); font-size: 13px; font-variant-numeric: tabular-nums; }
   .bk-panel-pos { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
   .bk-panel label {
     display: block; font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase;
-    color: var(--text-muted); margin: 14px 0 5px;
+    color: var(--text-muted); margin: 12px 0 5px;
   }
   .bk-panel input, .bk-panel textarea, .bk-panel select {
-    background: var(--surface-2); border: 1px solid transparent; border-radius: 8px;
-    padding: 8px 10px; font-size: 13px; font-family: var(--font-light); color: var(--text);
+    background: var(--feld-bg); border: 1px solid var(--feld-rand); border-radius: 8px;
+    padding: 7px 10px; font-size: 13px; font-family: var(--font-light); color: var(--text);
     width: 100%; resize: vertical;
   }
   .bk-panel input:focus, .bk-panel textarea:focus, .bk-panel select:focus {
-    outline: none; border-color: var(--accent-primary);
+    outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(79,112,137,0.18);
   }
   .bk-panel .bk-panel-dreispalt { display: flex; gap: 8px; }
   .bk-panel .bk-panel-dreispalt > div { flex: 1; min-width: 0; }
   .bk-panel-kosten {
-    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: baseline;
   }
   .bk-panel-kosten .wert { font-family: var(--font-medium); font-size: 19px; font-variant-numeric: tabular-nums; }
-  .bk-panel-fuss { margin-top: 16px; }
+  .bk-panel-fuss { margin-top: 14px; }
 
   /* ---------- Dialoge ---------- */
 
@@ -272,6 +311,12 @@
   .bk-opt { display: flex; align-items: flex-start; gap: 9px; margin: 10px 0; font-size: 13.5px; }
   .bk-opt input { width: auto; margin-top: 2px; flex: none; }
   .bk-opt span small { display: block; color: var(--text-muted); font-size: 11.5px; margin-top: 2px; }
+  .bk-legende { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 0; font-size: 12px; }
+  .bk-legende span { display: flex; align-items: center; gap: 6px; }
+  .bk-legende i {
+    width: 14px; height: 14px; border-radius: 4px; display: inline-block;
+    border: 1px solid var(--feld-rand);
+  }
 
   /* ---------- Ausdruck ----------
      Der Ausdruck rendert eine EIGENE Tabelle (#printView, siehe
@@ -355,46 +400,52 @@
 
   <!-- ===== Editor ===== -->
   <section id="editorView" style="display:none;">
-    <div class="bk-head">
-      <button id="backBtn" class="bk-toggle" title="Zurück zur Liste">‹ Liste</button>
-      <div>
-        <div class="bk-head-titel" id="headTitel">–</div>
-        <div class="bk-head-meta" id="headMeta"></div>
-      </div>
-      <div class="bk-head-spacer"></div>
-      <div class="bk-head-actions">
-        <button id="kopfBtn" class="bk-toggle">Kopfdaten</button>
-        <button id="druckBtn" class="bk-toggle">Drucken …</button>
-      </div>
-    </div>
 
-    <div class="bk-kpis" id="kpis"></div>
+    <div class="bk-sticky" id="bkSticky">
+      <div class="bk-head">
+        <button id="backBtn" class="bk-toggle" title="Zurück zur Liste">‹ Liste</button>
+        <div>
+          <div class="bk-head-titel" id="headTitel">–</div>
+          <div class="bk-head-meta" id="headMeta"></div>
+        </div>
+        <div class="bk-head-spacer"></div>
+        <div class="bk-head-actions">
+          <button id="kopfBtn" class="bk-toggle">Kopfdaten</button>
+          <button id="druckBtn" class="bk-toggle">Drucken …</button>
+        </div>
+      </div>
 
-    <div class="bk-toolbar">
-      <span class="bk-toolbar-label">Ebene</span>
-      <div class="bk-seg" id="ebeneSeg">
-        <button type="button" data-ebene="1">1</button>
-        <button type="button" data-ebene="2">2</button>
-        <button type="button" data-ebene="3">3</button>
-        <button type="button" data-ebene="4">Alles</button>
-      </div>
-      <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
-      <button type="button" id="bemerkungenBtn" class="bk-toggle">Bemerkungsspalten</button>
-      <div class="bk-seg" id="dichteSeg">
-        <button type="button" data-dichte="komfortabel">Komfortabel</button>
-        <button type="button" data-dichte="kompakt">Kompakt</button>
-      </div>
-      <div class="bk-search">
-        <input type="text" id="sucheInput" placeholder="BKP-Nummer oder Stichwort suchen">
-        <kbd>⌘K</kbd>
-      </div>
-      <span class="bk-toolbar-hint" id="sucheHinweis"></span>
-    </div>
+      <div class="bk-kpis" id="kpis"></div>
 
-    <div class="bk-einstieg" id="einstiegHinweis" hidden>
-      Alle BKP-Nummern sind sichtbar, damit beim Durchgehen nichts vergessen
-      geht. Zum Erfassen mit der Maus auf eine dreistellige Position fahren
-      und rechts auf <strong>+ Zeile</strong> klicken.
+      <div class="bk-toolbar">
+        <span class="bk-toolbar-label">Ebene</span>
+        <div class="bk-seg" id="ebeneSeg">
+          <button type="button" data-ebene="1">1</button>
+          <button type="button" data-ebene="2">2</button>
+          <button type="button" data-ebene="3">3</button>
+          <button type="button" data-ebene="4">Alles</button>
+        </div>
+        <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
+        <button type="button" id="bemerkungenBtn" class="bk-toggle">Bemerkungsspalten</button>
+        <div class="bk-seg" id="dichteSeg">
+          <button type="button" data-dichte="komfortabel">Komfortabel</button>
+          <button type="button" data-dichte="kompakt">Kompakt</button>
+        </div>
+        <div class="bk-search">
+          <input type="text" id="sucheInput" placeholder="BKP-Nummer oder Stichwort suchen">
+          <kbd>⌘K</kbd>
+        </div>
+        <span class="bk-toolbar-hint" id="sucheHinweis"></span>
+      </div>
+
+      <div class="bk-einstieg" id="einstiegHinweis" hidden>
+        Alle BKP-Nummern sind sichtbar, damit beim Durchgehen nichts vergessen
+        geht. Klick auf eine Zeile klappt sie auf und zu; zum Erfassen mit der
+        Maus auf eine dreistellige Position fahren und rechts auf
+        <strong>+ Zeile</strong> klicken. Das Kästchen links der Nummer
+        markiert durchgegangene Positionen (offen → pendent → erledigt →
+        verifiziert).
+      </div>
     </div>
 
     <div class="bk-main">
@@ -531,6 +582,12 @@
         Unterpositionen werden in der Positionszeile zusammengefasst.</small></span>
     </label>
     <label class="bk-opt">
+      <input type="checkbox" id="optUnterteilungen">
+      <span>Eigene Unterteilungen einzeln aufführen
+        <small>Aus (Standard): eine Nummer wie "211.1 Gerüste" wird in ihre
+        dreistellige Position eingerechnet statt separat ausgewiesen.</small></span>
+    </label>
+    <label class="bk-opt">
       <input type="checkbox" id="optBemerkungExtern">
       <span>Externe Bemerkungen mitdrucken
         <small>Die interne Spalte wird nie gedruckt.</small></span>
@@ -578,11 +635,32 @@
       Ebenen 1/2/3 auszudünnen. Die Einstellung wird pro Gerät gemerkt.
     </p>
     <p class="hint">
-      <strong>Ansicht:</strong> 1 / 2 / 3 / Alles klappen den ganzen Baum auf
-      diese Tiefe auf; einzelne Gruppen zusätzlich mit dem Dreieck links.
-      "Kompakt" verdichtet die Zeilen. Suche mit <kbd>⌘K</kbd> bzw.
-      <kbd>Ctrl K</kbd>; sie setzt Filter und Klapp-Zustand aus, damit auch
-      leere Positionen gefunden werden.
+      <strong>Ein- und Ausklappen</strong>: Klick irgendwo auf eine
+      Gruppen- oder Positionszeile. Die Knöpfe 1 / 2 / 3 / Alles klappen den
+      ganzen Baum auf diese Tiefe auf und sind nur eine Ausgangslage — ein
+      einzelner Klick hebt sie für diese eine Zeile wieder auf.
+    </p>
+    <p class="hint">
+      <strong>Durchgehen zu zweit:</strong> das Kästchen links jeder
+      BKP-Nummer lässt sich durchklicken:
+      offen → <strong>pendent</strong> (gelb) → <strong>erledigt</strong>
+      (hellgrün) → <strong>verifiziert</strong> (dunkelgrün) → wieder offen.
+      Sobald alle Positionen einer Elementgruppe denselben Stand erreicht
+      haben, färbt sich die Elementgruppe mit — und ebenso die Hauptgruppe,
+      wenn all ihre Elementgruppen so weit sind. So sieht man auf einen
+      Blick, welche Bereiche noch niemand angeschaut hat.
+    </p>
+    <div class="bk-legende">
+      <span><i style="background:#FFFFFF"></i> offen</span>
+      <span><i style="background:#EFDFAE; border-color:#C9A94F"></i> pendent</span>
+      <span><i style="background:#D3E4CC; border-color:#7FA173"></i> erledigt</span>
+      <span><i style="background:#A4C498; border-color:#5E8352"></i> verifiziert</span>
+    </div>
+    <p class="hint">
+      <strong>Suche</strong> mit <kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>
+      (BKP-Nummer oder Stichwort, auch im Beschrieb); sie setzt Filter und
+      Klapp-Zustand aus, damit auch leere Positionen gefunden werden.
+      "Kompakt" verdichtet die Zeilen.
     </p>
     <p class="hint">
       <strong>Detailfenster rechts:</strong> sobald der Cursor in einer
@@ -595,10 +673,11 @@
     <p class="hint">
       <strong>Ausmass und Kennwert</strong> dürfen gerechnet werden: "2x4x2"
       ergibt 16, "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim
-      Kennwert die MWST auf. Angezeigt wird das Resultat, die Rechnung bleibt
-      klein darunter stehen und erscheint beim Hineinklicken wieder im Feld.
-      Ein leeres Ausmass zählt als 1 (Pauschalen brauchen also nur den
-      Kennwert). Kosten = Ausmass × Kennwert.
+      Kennwert die MWST auf. Angezeigt wird das Resultat; die eingetippte
+      Rechnung erscheint wieder, sobald man ins Feld klickt. Lässt sich eine
+      Eingabe nicht rechnen, bleibt sie rot stehen. Ein leeres Ausmass zählt
+      als 1 (Pauschalen brauchen also nur den Kennwert).
+      Kosten = Ausmass × Kennwert.
     </p>
     <p class="hint">
       <strong>Module</strong> (in den Kopfdaten anlegen) sind Teilbereiche wie
@@ -607,15 +686,15 @@
       wahlweise als Spalten oder als Zusammenstellung.
     </p>
     <p class="hint">
-      <strong>Eigene Unterteilung:</strong> "+ eigene Pos." auf einer
-      Elementgruppe ergänzt eine Nummer wie "211.1 Gerüste".
+      <strong>Eigene Unterteilung:</strong> "+ Unterteilung" auf einer
+      dreistelligen Position ergänzt eine Nummer wie "211.1 Gerüste" direkt
+      darunter. Ihre Kosten zählen in die Position hinein (211.1 ist Teil von
+      211), nicht daneben. Im Ausdruck wird sie standardmässig in die
+      Position eingerechnet statt separat ausgewiesen.
     </p>
     <p class="hint">
       <strong>Drucken</strong> öffnet einen Dialog mit eigenen Optionen; der
-      Ausdruck hängt NICHT von der Bildschirmansicht ab. Standard: alle
-      Hauptgruppen, nur die verwendeten Positionen, keine einzelnen
-      Unterpositionen (deren Beschriebe werden in der Positionszeile
-      zusammengefasst). Querformat A4.
+      Ausdruck hängt NICHT von der Bildschirmansicht ab. Querformat A4.
     </p>
     <p class="hint">
       <strong>Varianten</strong> (z.B. "Mini"/"Maxi") über "Duplizieren" in

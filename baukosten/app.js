@@ -68,16 +68,30 @@ let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
 let gewaehlteZeile = null; // { nr, id } der im Detailfenster gezeigten Unterposition
+let letzterStatus = {}; // zuletzt gerechneter Durchgeh-Status, für die Kennzahl-Kachel
 
 // Gedämpfte Farbtöne für die Modul-Markierungen (Strich in der Tabelle,
 // Rand an der Kennzahl-Kachel) -- aus derselben Palette wie die
 // Startseiten-Kacheln, bewusst zurückhaltend.
 const MODUL_FARBEN = ["#4F7089", "#8F9A85", "#C97960", "#8C6E86", "#BF9B4F", "#4A7856", "#7A95A6", "#8A7458"];
 
+// Durchgeh-Status pro BKP-Nummer, zum gemeinsamen Abhaken zu zweit.
+// Reihenfolge = Klick-Reihenfolge des Kästchens.
+const STATUS_FOLGE = ["", "pendent", "erledigt", "verifiziert"];
+const STATUS_RANG = { "": 0, pendent: 1, erledigt: 2, verifiziert: 3 };
+const STATUS_LABEL = {
+  "": "offen – noch nicht angeschaut",
+  pendent: "pendent – angeschaut, noch offene Punkte",
+  erledigt: "erledigt",
+  verifiziert: "verifiziert – von der zweiten Person geprüft"
+};
+const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓" };
+
 const DRUCK_DEFAULTS = {
   nurVerwendete: true,
   alleHauptgruppen: true,
   unterpositionen: false,
+  unterteilungen: false,
   bemerkungExtern: true,
   modulSpalten: false,
   modulSummen: true
@@ -238,13 +252,30 @@ function moduleAusText(text, bisherige) {
 
 // ---------- Baum aus Katalog + eigenen Positionen ----------
 
+// Eine Nummer mit Punkt ("211.1 Gerüste") ist im BKP ein TEIL der
+// dreistelligen Position, nicht deren Nachbar -- sie bekommt deshalb eine
+// eigene Ebene 4 und hängt unter "211". Im Katalog selbst kommt keine
+// solche Nummer vor (auch die alte Excel hatte nur die von Hand
+// ergänzte 211.1); sie entstehen ausschliesslich über "+ Unterteilung".
 function knotenEbene(nr) {
+  if (nr.includes(".")) return 4;
   return nr.length === 1 ? 1 : nr.length === 2 ? 2 : 3;
 }
 function elterNummer(nr) {
   const e = knotenEbene(nr);
   if (e === 1) return null;
+  if (e === 4) return nr.slice(0, nr.lastIndexOf("."));
   return e === 2 ? nr.slice(0, 1) : nr.slice(0, 2);
+}
+// Alle Vorfahren einer Nummer, von innen nach aussen: "211.1" -> 211, 21, 2
+function vorfahren(nr) {
+  const liste = [];
+  let eltern = elterNummer(nr);
+  while (eltern) {
+    liste.push(eltern);
+    eltern = elterNummer(eltern);
+  }
+  return liste;
 }
 
 // Katalog + die eigenen Positionen dieser Schätzung, hierarchisch sortiert.
@@ -264,6 +295,17 @@ function zeilenVon(nr) {
   return (offen.positionen && offen.positionen[nr]) || [];
 }
 
+// Zeilen einer Position samt denen ihrer eigenen Unterteilungen
+// ("211" liefert auch die Zeilen von "211.1") -- für den Ausdruck, wenn
+// die Unterteilungen nicht separat ausgewiesen werden.
+function zeilenUnter(nr) {
+  const alle = [];
+  Object.keys(offen.positionen || {}).forEach((k) => {
+    if (k === nr || k.startsWith(nr + ".")) alle.push(...zeilenVon(k));
+  });
+  return alle;
+}
+
 // Summen für alle Knoten auf einmal: erst pro Position, dann auf die
 // zwei- und einstelligen Eltern hochgezählt.
 function alleSummen() {
@@ -272,8 +314,9 @@ function alleSummen() {
   Object.keys(offen.positionen || {}).forEach((nr) => {
     const summe = zeilenVon(nr).reduce((s, z) => s + zeilenKosten(z), 0);
     summen[nr] = (summen[nr] || 0) + summe;
-    summen[nr.slice(0, 2)] = (summen[nr.slice(0, 2)] || 0) + summe;
-    summen[nr.slice(0, 1)] = (summen[nr.slice(0, 1)] || 0) + summe;
+    vorfahren(nr).forEach((v) => {
+      summen[v] = (summen[v] || 0) + summe;
+    });
     gesamt += summe;
   });
   return { summen, gesamt };
@@ -287,10 +330,48 @@ function verwendeteKnoten() {
   Object.keys(offen.positionen || {}).forEach((nr) => {
     if (!zeilenVon(nr).length) return;
     set.add(nr);
-    set.add(nr.slice(0, 2));
-    set.add(nr.slice(0, 1));
+    vorfahren(nr).forEach((v) => set.add(v));
   });
   return set;
+}
+
+// Welche Knoten hängen direkt unter welchem? Einmal pro Rendering gebaut
+// und für Klappbarkeit, Status-Hochrechnung und Druck wiederverwendet.
+function kinderMap(knoten) {
+  const map = {};
+  knoten.forEach((k) => {
+    const eltern = elterNummer(k.nr);
+    if (eltern) (map[eltern] = map[eltern] || []).push(k.nr);
+  });
+  return map;
+}
+
+// Der Status einer Gruppe wird NICHT gespeichert, sondern aus ihren Kindern
+// gerechnet: sie nimmt den Stand an, den ALLE ihre Kinder mindestens
+// erreicht haben (das Minimum). Eine Elementgruppe wird also erst grün,
+// wenn jede ihrer Positionen grün ist -- genau das soll beim gemeinsamen
+// Durchgehen sichtbar machen, wo noch niemand war. Gespeichert wird nur an
+// den Blättern (dreistellige Positionen bzw. eigene Unterteilungen, und
+// jene Reservegruppen, die gar keine Positionen haben).
+function statusBerechnen(knoten, kinder) {
+  const gespeichert = (offen && offen.status) || {};
+  const ergebnis = {};
+  // Tiefste zuerst, damit Kinder vor ihren Eltern feststehen.
+  [...knoten]
+    .sort((a, b) => knotenEbene(b.nr) - knotenEbene(a.nr))
+    .forEach((k) => {
+      const kids = kinder[k.nr];
+      if (!kids || !kids.length) {
+        ergebnis[k.nr] = gespeichert[k.nr] || "";
+        return;
+      }
+      let min = 3;
+      kids.forEach((c) => {
+        min = Math.min(min, STATUS_RANG[ergebnis[c] || ""]);
+      });
+      ergebnis[k.nr] = STATUS_FOLGE[min];
+    });
+  return ergebnis;
 }
 
 function anzahlErfassterPositionen() {
@@ -431,6 +512,19 @@ function renderKpis(gesamt) {
     <div class="bk-kpi-sub">von ${BKP_KATALOG.filter(([nr]) => nr.length === 3).length} im BKP</div>
   </div>`);
 
+  // Fortschritt beim gemeinsamen Durchgehen -- erscheint erst, sobald
+  // überhaupt etwas abgehakt wurde.
+  const abgehakt = Object.keys(offen.status || {}).length;
+  if (abgehakt) {
+    const dreistellig = BKP_KATALOG.filter(([nr]) => nr.length === 3).map(([nr]) => nr);
+    const fertig = dreistellig.filter((nr) => STATUS_RANG[letzterStatus[nr] || ""] >= 2).length;
+    kacheln.push(`<div class="bk-kpi">
+      <div class="bk-kpi-label">Durchgegangen</div>
+      <div class="bk-kpi-wert">${fertig}</div>
+      <div class="bk-kpi-sub">von ${dreistellig.length} Positionen</div>
+    </div>`);
+  }
+
   if (module_().length) {
     const { summen, ohne } = modulSummen();
     module_().forEach((m) => {
@@ -453,29 +547,46 @@ function renderKpis(gesamt) {
 
 // ---------- Rendering: Tabelle ----------
 
-function chevron(nr, hatKinder, offenJetzt) {
-  if (!hatKinder) return '<button class="bk-chevron leer" tabindex="-1"></button>';
-  return `<button type="button" class="bk-chevron" data-action="toggle" data-nr="${nr}" aria-label="Ein-/ausklappen">${offenJetzt ? "▾" : "▸"}</button>`;
+// Das Statuskästchen vor der Nummer. Auf Gruppen ist es nur Anzeige
+// (der Stand kommt aus den Kindern, siehe statusBerechnen()), auf
+// Blättern klickt es sich durch die vier Stände.
+function statusHtml(nr, status, istBlatt) {
+  const titel = istBlatt
+    ? `${STATUS_LABEL[status]} – klicken zum Weiterschalten`
+    : `${STATUS_LABEL[status]} (ergibt sich aus den Positionen darunter)`;
+  return `<button type="button" class="bk-status s-${status || "leer"}${istBlatt ? "" : " nuranzeige"}" data-action="status" data-nr="${nr}"${
+    istBlatt ? ' data-blatt="1"' : ""
+  } title="${escapeHtml(titel)}">${STATUS_ZEICHEN[status] || ""}</button>`;
 }
 
-function gruppenZeileHtml(knoten, summe, hatKinder, offenJetzt, cols) {
+function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
-  const indent = e === 1 ? "" : e === 2 ? " bk-indent-2" : " bk-indent-3";
+  const indent = e === 1 ? "" : ` bk-indent-${e}`;
   let aktionen = "";
-  if (e === 2) {
-    aktionen = `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigene Unterteilung wie &quot;211.1 Gerüste&quot; ergänzen">+ eigene Pos.</button>`;
-  } else if (e === 3) {
+  if (e >= 3) {
     aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
+    if (e === 3) {
+      aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigene Unterteilung wie &quot;211.1 Gerüste&quot; ergänzen">+ Unterteilung</button>`;
+    }
     if (knoten.eigen) {
-      aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigene Position löschen">×</button>`;
+      aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigene Unterteilung löschen">×</button>`;
     }
   }
   // Titel spannt von "Beschrieb" bis vor "Kosten", danach folgen die
   // optionalen Spalten und die Aktionsspalte.
   const titelSpan = cols.findIndex((c) => c.key === "kosten") - 1;
   const restSpan = cols.length - cols.findIndex((c) => c.key === "kosten") - 1;
-  return `<tr class="bk-group bk-l${e}${summe ? "" : " leer"}" data-nr="${knoten.nr}">
-    <td class="bk-col-nr${indent}">${chevron(knoten.nr, hatKinder, offenJetzt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
+  const klassen = [
+    "bk-group",
+    `bk-l${e}`,
+    summe ? "" : "leer",
+    status ? `st-${status}` : "",
+    klappbar ? "klappbar" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>
+    <td class="bk-col-nr${indent}">${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
     <td class="bk-total bk-right" data-total-for="${knoten.nr}">${summe ? franken(summe) : ""}</td>
     ${restSpan > 1 ? `<td colspan="${restSpan - 1}"></td>` : ""}
@@ -483,18 +594,17 @@ function gruppenZeileHtml(knoten, summe, hatKinder, offenJetzt, cols) {
   </tr>`;
 }
 
-// Ausmass- und Kennwert-Zelle: im Feld steht das gerechnete Resultat, die
-// eingetippte Rechnung bleibt klein darunter stehen (und erscheint beim
-// Hineinklicken wieder im Feld, siehe onBodyFocusIn()).
+// Ausmass- und Kennwert-Zelle: im Feld steht das gerechnete Resultat. Die
+// eingetippte Rechnung steht NICHT mehr klein darunter (das war bei
+// hunderten Zeilen zu unruhig) -- sie erscheint beim Hineinklicken wieder
+// im Feld und hängt zusätzlich als Tooltip daran. Lässt sich eine Eingabe
+// nicht rechnen, bleibt sie stehen und wird rot markiert.
 function rechenZelle(zeile, feld, cssExtra) {
   const roh = zeile[feld] || "";
   const wert = rechne(roh);
-  const anzeige = wert === null ? "" : isNaN(wert) ? roh : zahl(wert);
-  const hinweis = isNaN(wert) ? "ungültig" : istRechnung(roh) ? roh : "";
-  return `<td>
-    <input type="text" class="bk-num ${cssExtra}" data-feld="${feld}" data-roh="${escapeHtml(roh)}" value="${escapeHtml(anzeige)}">
-    <span class="bk-formel">${escapeHtml(hinweis)}</span>
-  </td>`;
+  const ungueltig = isNaN(wert);
+  const anzeige = wert === null ? "" : ungueltig ? roh : zahl(wert);
+  return `<td><input type="text" class="bk-num ${cssExtra}${ungueltig ? " ungueltig" : ""}" data-feld="${feld}" data-roh="${escapeHtml(roh)}" value="${escapeHtml(anzeige)}" title="${escapeHtml(roh)}"></td>`;
 }
 
 function modulSelectHtml(zeile, cssKlasse) {
@@ -541,6 +651,8 @@ function unterpositionHtml(nr, zeile, cols) {
 function renderTabelle() {
   const cols = spalten();
   const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  const status = statusBerechnen(knoten, kinder);
   const { summen, gesamt } = alleSummen();
   const q = suche.trim().toLowerCase();
   const sucheAktiv = q.length > 0;
@@ -550,13 +662,6 @@ function renderTabelle() {
   document.getElementById("bkHead").innerHTML =
     "<tr>" + cols.map((c) => `<th class="${c.cls}">${escapeHtml(c.label)}</th>`).join("") + "</tr>";
 
-  const hatKinder = {};
-  knoten.forEach((k) => {
-    const eltern = elterNummer(k.nr);
-    if (eltern) hatKinder[eltern] = true;
-    if (knotenEbene(k.nr) === 3 && zeilenVon(k.nr).length) hatKinder[k.nr] = true;
-  });
-
   let html = "";
   let sichtbareZeilen = 0;
 
@@ -565,20 +670,18 @@ function renderTabelle() {
       if (!trefferSet.has(k.nr)) return;
     } else {
       if (ansicht.nurVerwendet && !verwendet.has(k.nr)) return;
-      let eltern = elterNummer(k.nr);
-      let versteckt = false;
-      while (eltern) {
-        if (zugeklappt.has(eltern)) versteckt = true;
-        eltern = elterNummer(eltern);
-      }
-      if (versteckt) return;
+      if (vorfahren(k.nr).some((v) => zugeklappt.has(v))) return;
     }
 
+    const kids = kinder[k.nr] || [];
+    const eigeneZeilen = knotenEbene(k.nr) >= 3 ? zeilenVon(k.nr).length : 0;
+    const klappbar = kids.length > 0 || eigeneZeilen > 0;
     const kinderOffen = sucheAktiv || !zugeklappt.has(k.nr);
-    html += gruppenZeileHtml(k, summen[k.nr] || 0, !!hatKinder[k.nr], kinderOffen, cols);
+
+    html += gruppenZeileHtml(k, summen[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
     sichtbareZeilen++;
 
-    if (knotenEbene(k.nr) === 3 && kinderOffen) {
+    if (eigeneZeilen && kinderOffen) {
       zeilenVon(k.nr).forEach((z) => {
         html += unterpositionHtml(k.nr, z, cols);
       });
@@ -603,7 +706,18 @@ function renderTabelle() {
   document.getElementById("bkBody").innerHTML = html;
   document.getElementById("bkTable").className = "bk-table" + (ansicht.dichte === "kompakt" ? " kompakt" : "");
   autoGrowAlle();
+  letzterStatus = status;
   return gesamt;
+}
+
+// Die Höhe des oben klebenden Blocks (Titel, Kennzahlen, Werkzeugleiste)
+// ändert sich mit der Fensterbreite und der Zahl der Modul-Kacheln -- die
+// Spaltentitel der Tabelle müssen aber exakt darunter einrasten. Deshalb
+// wird sie gemessen und als CSS-Variable --bk-sticky-h gesetzt.
+function messeSticky() {
+  const sticky = document.getElementById("bkSticky");
+  const editor = document.getElementById("editorView");
+  if (sticky && editor) editor.style.setProperty("--bk-sticky-h", sticky.offsetHeight + "px");
 }
 
 function renderEditor() {
@@ -623,6 +737,7 @@ function renderEditor() {
   // Position erfasst ist.
   document.getElementById("einstiegHinweis").hidden = anzahlErfassterPositionen() > 0;
   renderPanel();
+  messeSticky();
 }
 
 function render() {
@@ -838,6 +953,7 @@ function migriere(data) {
   if (!data.positionen) data.positionen = {};
   if (!data.eigenePositionen) data.eigenePositionen = [];
   if (!data.module) data.module = [];
+  if (!data.status) data.status = {};
   data.druck = { ...DRUCK_DEFAULTS, ...(data.druck || {}) };
   return data;
 }
@@ -854,6 +970,7 @@ function leereSchaetzung({ titel, projekt, projektName, genauigkeit, kostenstand
     positionen: {},
     eigenePositionen: [],
     module: [],
+    status: {},
     druck: { ...DRUCK_DEFAULTS },
     updatedAt: null,
     updatedBy: null
@@ -1034,22 +1151,59 @@ function renderToolbar() {
   document.getElementById("bemerkungenBtn").classList.toggle("active", ansicht.bemerkungen);
 }
 
+function umklappen(nr) {
+  if (zugeklappt.has(nr)) zugeklappt.delete(nr);
+  else zugeklappt.add(nr);
+  renderTabelleErhalten();
+}
+
+// Nächste freie Unterteilungsnummer einer Position: 211 -> "211.1", und
+// wenn die schon vergeben ist -> "211.2".
+function naechsteUnterteilung(nr) {
+  const vergeben = ((offen && offen.eigenePositionen) || [])
+    .map((p) => p.nr)
+    .filter((n) => n.startsWith(nr + "."))
+    .map((n) => Number(n.slice(nr.length + 1)))
+    .filter((n) => !isNaN(n));
+  return `${nr}.${vergeben.length ? Math.max(...vergeben) + 1 : 1}`;
+}
+
 function onBodyClick(e) {
   const btn = e.target.closest("[data-action]");
-  if (!btn) return;
+  if (!btn) {
+    // Klick irgendwo auf eine Gruppen-/Positionszeile klappt sie auf und zu.
+    // In der Zeile selbst gibt es sonst nichts anzuklicken -- dadurch
+    // braucht es keine eigenen Klapp-Dreiecke mehr.
+    const zeile = e.target.closest("tr.bk-group.klappbar");
+    if (zeile) umklappen(zeile.dataset.nr);
+    return;
+  }
   const { action, nr, row } = btn.dataset;
 
-  if (action === "toggle") {
-    // Ein einzeln angeklicktes Dreieck hebt die eingestellte Ebene für
-    // genau diesen Knoten auf -- die Ebenen-Knöpfe bleiben eine
-    // Ausgangslage, kein Zwang.
-    if (zugeklappt.has(nr)) zugeklappt.delete(nr);
-    else zugeklappt.add(nr);
+  if (action === "status") {
+    // Auf Gruppen ist das Kästchen reine Anzeige (der Stand kommt aus den
+    // Kindern) -- dort soll der Klick wie überall sonst in der Zeile
+    // auf-/zuklappen statt ins Leere zu gehen.
+    if (!btn.dataset.blatt) {
+      const zeile = btn.closest("tr.bk-group.klappbar");
+      if (zeile) umklappen(zeile.dataset.nr);
+      return;
+    }
+    const jetzt = (offen.status || {})[nr] || "";
+    const naechster = STATUS_FOLGE[(STATUS_RANG[jetzt] + 1) % STATUS_FOLGE.length];
+    mutate((data) => {
+      if (!data.status) data.status = {};
+      if (naechster) data.status[nr] = naechster;
+      else delete data.status[nr];
+      return data;
+    });
     renderTabelleErhalten();
+    renderKpis(alleSummen().gesamt);
     return;
   }
 
   if (action === "add-zeile") {
+    vorfahren(nr).forEach((v) => zugeklappt.delete(v));
     zugeklappt.delete(nr);
     // Die Zeile wird EINMAL vor dem mutate() erzeugt, nicht darin: mutateFn
     // läuft zweimal (lokal und auf dem frisch geholten Serverstand), und mit
@@ -1076,14 +1230,13 @@ function onBodyClick(e) {
   }
 
   if (action === "add-position") {
-    const eingabe = (prompt(`Eigene Position unter BKP ${nr} – Nummer (z.B. ${nr}1.1):`, "") || "").trim();
+    const vorschlag = naechsteUnterteilung(nr);
+    // Komma wird als Punkt gelesen -- im Büro wird "211,1" genauso
+    // geschrieben wie "211.1".
+    const eingabe = (prompt(`Eigene Unterteilung von BKP ${nr} – Nummer:`, vorschlag) || "").trim().replace(/,/g, ".");
     if (!eingabe) return;
-    if (!/^\d{3}(\.\d+)*$/.test(eingabe)) {
-      alert('Die Nummer muss mit drei Ziffern beginnen, z.B. "211.1".');
-      return;
-    }
-    if (!eingabe.startsWith(nr)) {
-      alert(`Die Nummer muss mit ${nr} beginnen, damit sie unter dieser Elementgruppe einsortiert wird.`);
+    if (!eingabe.startsWith(nr + ".") || !/^\d{3}(\.\d+)+$/.test(eingabe)) {
+      alert(`Die Nummer muss mit "${nr}." beginnen und mit einer Ziffer enden, z.B. ${vorschlag}.`);
       return;
     }
     if (BKP_TITEL[eingabe] || (offen.eigenePositionen || []).some((p) => p.nr === eingabe)) {
@@ -1094,6 +1247,7 @@ function onBodyClick(e) {
     if (!titel) return;
     const ersteZeile = neueZeile(); // siehe Kommentar bei "add-zeile"
     gewaehlteZeile = { nr: eingabe, id: ersteZeile.id };
+    vorfahren(eingabe).forEach((v) => zugeklappt.delete(v));
     mutate(
       (data) => {
         if (!data.eigenePositionen) data.eigenePositionen = [];
@@ -1108,12 +1262,13 @@ function onBodyClick(e) {
 
   if (action === "del-position") {
     const anzahl = zeilenVon(nr).length;
-    if (!confirm(anzahl ? `Position ${nr} mit ${anzahl} Zeile(n) wirklich löschen?` : `Position ${nr} wirklich löschen?`)) return;
+    if (!confirm(anzahl ? `Unterteilung ${nr} mit ${anzahl} Zeile(n) wirklich löschen?` : `Unterteilung ${nr} wirklich löschen?`)) return;
     if (gewaehlteZeile && gewaehlteZeile.nr === nr) gewaehlteZeile = null;
     mutate(
       (data) => {
         data.eigenePositionen = (data.eigenePositionen || []).filter((p) => p.nr !== nr);
         delete data.positionen[nr];
+        if (data.status) delete data.status[nr];
         return data;
       },
       { neuRendern: true }
@@ -1149,11 +1304,10 @@ function onBodyFocusIn(e) {
 
 function zeigeResultat(input) {
   const berechnet = rechne(input.dataset.roh);
-  input.value = berechnet === null ? "" : isNaN(berechnet) ? input.dataset.roh : zahl(berechnet);
-  const hinweis = input.parentElement.querySelector(".bk-formel");
-  if (hinweis) {
-    hinweis.textContent = isNaN(berechnet) ? "ungültig" : istRechnung(input.dataset.roh) ? input.dataset.roh : "";
-  }
+  const ungueltig = isNaN(berechnet);
+  input.value = berechnet === null ? "" : ungueltig ? input.dataset.roh : zahl(berechnet);
+  input.classList.toggle("ungueltig", ungueltig);
+  input.title = input.dataset.roh || "";
 }
 
 // Verlässt man ein Rechenfeld ohne Änderung, feuert kein change-Ereignis --
@@ -1376,6 +1530,7 @@ const DRUCK_FELDER = {
   optNurVerwendete: "nurVerwendete",
   optAlleHauptgruppen: "alleHauptgruppen",
   optUnterpositionen: "unterpositionen",
+  optUnterteilungen: "unterteilungen",
   optBemerkungExtern: "bemerkungExtern",
   optModulSpalten: "modulSpalten",
   optModulSummen: "modulSummen"
@@ -1456,6 +1611,10 @@ function renderDruck(opt) {
     const summe = summen[k.nr] || 0;
     const istVerwendet = verwendet.has(k.nr);
 
+    // Eigene Unterteilungen (211.1) werden standardmässig nicht separat
+    // ausgewiesen -- ihre Kosten stecken über alleSummen() ohnehin schon
+    // in der dreistelligen Position.
+    if (e === 4 && !opt.unterteilungen) return;
     if (e === 1) {
       if (!opt.alleHauptgruppen && !istVerwendet) return;
     } else if (opt.nurVerwendete && !istVerwendet) {
@@ -1475,8 +1634,8 @@ function renderDruck(opt) {
       return;
     }
 
-    // Position (dreistellig)
-    const posZeilen = zeilenVon(k.nr);
+    // Position (dreistellig) bzw. eine separat ausgewiesene Unterteilung
+    const posZeilen = opt.unterteilungen ? zeilenVon(k.nr) : zeilenUnter(k.nr);
     if (opt.unterpositionen && posZeilen.length) {
       zeilen += `<tr class="pr-pos">
         <td>${escapeHtml(k.nr)}</td>
@@ -1663,6 +1822,12 @@ function init() {
       }
     }
   });
+
+  const sticky = document.getElementById("bkSticky");
+  if (window.ResizeObserver) new ResizeObserver(messeSticky).observe(sticky);
+  window.addEventListener("resize", messeSticky);
+  window.addEventListener("scroll", () => sticky.classList.toggle("geklebt", window.scrollY > 4), { passive: true });
+  messeSticky();
 
   window.addEventListener("online", refreshAlle);
 

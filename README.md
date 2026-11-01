@@ -1268,9 +1268,11 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   gleichzeitig unterschiedlich tief aufgeklappt anschauen).
 - **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
   "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
-  diese. Einzelne Gruppen lassen sich mit dem Dreieck links zusätzlich
-  ein-/ausklappen — ein einzelner Klick hebt die eingestellte Ebene für
-  genau diesen Knoten auf, die Ebenen-Knöpfe sind nur eine Ausgangslage.
+  diese. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
+  Positionszeile** genau diese auf und zu — in der Zeile selbst gibt es
+  sonst nichts anzuklicken, deshalb braucht es keine eigenen
+  Klapp-Dreiecke. Die Ebenen-Knöpfe sind nur eine Ausgangslage, die ein
+  einzelner Klick für diese eine Zeile wieder aufhebt.
 - **"Nur verwendete"** blendet alles aus, worin noch nichts erfasst ist.
 - **Dichte** "Komfortabel"/"Kompakt" verdichtet die Zeilenhöhe.
 - Die **Suche** (<kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>; BKP-Nummer oder
@@ -1280,13 +1282,48 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
 - **Kennzahlen oben**: Total, Bandbreite (aus der Prozentangabe im Feld
   "Genauigkeit" gerechnet, z.B. ±25% → von/bis), Anzahl erfasster
   Positionen und je Modul eine Kachel.
-- **Kopfzeile und BKP-Spalte** bleiben beim Scrollen stehen, das
-  **Gesamttotal** klebt am unteren Tabellenrand.
+- **Beim Scrollen bleiben stehen**: der Block aus Titelzeile, Kennzahlen
+  und Werkzeugleiste, direkt darunter die Spaltentitel, und unten das
+  Gesamttotal. Der Seitenkopf (App-Titel, Icons, Sync-Zeile) scrollt
+  dagegen bewusst weg — er wird beim Arbeiten nicht gebraucht und kostet
+  sonst dauerhaft Höhe. Die Höhe des klebenden Blocks ändert sich mit der
+  Fensterbreite und der Zahl der Modul-Kacheln; sie wird deshalb gemessen
+  und als CSS-Variable `--bk-sticky-h` gesetzt (`messeSticky()`), damit die
+  Spaltentitel exakt darunter einrasten.
+- **Farbgebung**: Hauptgruppen stehen auf dem Akzentblau der Palette (weisse
+  Schrift), Elementgruppen auf einer stark aufgehellten Variante davon,
+  Positionen auf dem normalen Hintergrund. Bei 500+ Zeilen gibt das
+  durchgehende Beige der übrigen Apps zu wenig Struktur. Eingabefelder sind
+  weiss mit feinem Rand — man sieht also, was sich bearbeiten lässt.
 - **"+ Zeile"** erscheint erst, wenn die Maus auf einer Positionszeile
   steht — bei über 400 sichtbaren Positionen wäre ein dauerhafter Knopf auf
   jeder davon das Auffälligste auf dem Bildschirm. Solange noch nichts
   erfasst ist, erklärt stattdessen ein Hinweis unter der Werkzeugleiste den
   Einstieg.
+
+### Durchgehen zu zweit (Status)
+
+Damit beim gemeinsamen Durchgehen nichts vergessen geht, trägt jede
+BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
+
+| Stand | Farbe der Zeile |
+|---|---|
+| offen (Start) | keine |
+| pendent | gelb |
+| erledigt | hellgrün |
+| verifiziert | dunkelgrün |
+
+Nach "verifiziert" geht es wieder auf "offen". Gespeichert wird der Stand
+nur an den **Blättern** (dreistellige Positionen, eigene Unterteilungen und
+jene Reservegruppen ohne Positionen). Eine **Gruppe rechnet ihren Stand aus
+den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens
+erreicht haben (`statusBerechnen()`). Eine Elementgruppe wird also erst
+grün, wenn jede ihrer Positionen grün ist, und eine Hauptgruppe erst, wenn
+alle ihre Elementgruppen so weit sind — genau das macht sichtbar, wo noch
+niemand war. Auf Gruppen ist das Kästchen reine Anzeige; ein Klick darauf
+klappt die Zeile auf/zu wie überall sonst. Eine Kennzahl-Kachel
+"Durchgegangen" zeigt, wie viele der 461 Positionen mindestens "erledigt"
+sind (erscheint, sobald etwas abgehakt wurde).
 
 ### Unterpositionen, Ausmass, Kennwert
 
@@ -1295,23 +1332,31 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   weiter auf Element-, Hauptgruppe und Gesamttotal hoch.
 - **Ausmass und Kennwert dürfen gerechnet werden**: "2x4x2" ergibt 16,
   "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim Kennwert die MWST
-  auf. Angezeigt wird das Resultat, die eingetippte Rechnung bleibt klein
-  darunter stehen und erscheint beim Hineinklicken wieder im Feld — so bleibt
-  nachvollziehbar, woher eine Zahl kommt. Gespeichert wird deshalb der
-  eingetippte Text, nicht das Resultat. Erlaubt sind die vier Grundrechenarten
-  mit Klammern; "x"/"×" gelten als Mal, Komma als Dezimaltrennzeichen,
-  Apostrophe (Tausender) werden ignoriert. Ungültige Eingaben bleiben stehen
-  und werden mit "ungültig" markiert statt kommentarlos verworfen.
+  auf. Angezeigt wird das Resultat; die eingetippte Rechnung erscheint wieder
+  im Feld, sobald man hineinklickt, und hängt zusätzlich als Tooltip daran —
+  so bleibt nachvollziehbar, woher eine Zahl kommt. Gespeichert wird deshalb
+  der eingetippte Text, nicht das Resultat. (Eine Zeit lang stand die Rechnung
+  zusätzlich klein unter dem Feld; bei hunderten Zeilen war das zu unruhig.)
+  Erlaubt sind die vier Grundrechenarten mit Klammern; "x"/"×" gelten als Mal,
+  Komma als Dezimaltrennzeichen, Apostrophe (Tausender) werden ignoriert.
+  Lässt sich eine Eingabe nicht rechnen, bleibt sie stehen und wird rot
+  markiert statt kommentarlos verworfen.
 - **Kosten = Ausmass × Kennwert.** Ein leeres Ausmass zählt als 1 — eine
   Pauschale/Budgetposition braucht also nur den Kennwert und z.B. die
   Einheit "Pausch." (in der Excel stand dafür immer ein Pseudo-Ausmass
   "1 Pl").
 - **Einheit** ist ein freies Feld mit Vorschlagsliste (Stk, m², m³, m, lfm,
   kg, t, h, Tag, Pausch., %).
-- **Eigene Unterteilung einer Position**: "+ eigene Pos." auf einer
-  Elementgruppe ergänzt eine Nummer wie "211.1 Gerüste", wenn der
-  Standard-BKP zu grob ist. Sie wird direkt hinter "211" einsortiert und
-  gilt nur für diese eine Kostenschätzung.
+- **Eigene Unterteilung einer Position**: "+ Unterteilung" auf einer
+  dreistelligen Position ergänzt eine Nummer wie "211.1 Gerüste", wenn der
+  Standard-BKP zu grob ist. Sie gilt nur für diese eine Kostenschätzung.
+  Eine Nummer mit Punkt ist im BKP ein **Teil** der dreistelligen Position,
+  nicht deren Nachbar — sie bekommt deshalb eine eigene Ebene 4 und hängt
+  unter "211": ihre Kosten zählen in 211 hinein, von dort in 21 und 2
+  (`elterNummer()`/`vorfahren()`). Im Katalog selbst kommt keine solche
+  Nummer vor; auch die alte Excel hatte nur die von Hand ergänzte 211.1.
+  Beim Anlegen wird die nächste freie Nummer vorgeschlagen, und ein
+  eingetipptes Komma ("211,1") wird als Punkt gelesen.
 
 ### Detailfenster und Bemerkungen
 
@@ -1358,6 +1403,7 @@ mitgespeichert.
 |---|---|---|
 | Nur verwendete Positionen | an | Dreistellige Positionen ohne Eintrag weglassen |
 | Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
+| Eigene Unterteilungen einzeln | **aus** | Aus: "211.1 Gerüste" wird in die Position 211 eingerechnet statt separat ausgewiesen (die Summe steckt dort ohnehin schon) |
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
@@ -1375,7 +1421,8 @@ Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
   Dort steckt auch das Löschen der ganzen Schätzung.
 - **Varianten** (z.B. "Mini"/"Maxi" desselben Projekts) über
   **"Duplizieren"** in der Liste — die Kopie bekommt eigene Zeilen-IDs,
-  die Ausgangsvariante bleibt unverändert.
+  die Ausgangsvariante bleibt unverändert; Module, Zuordnungen und
+  Durchgeh-Status werden mitkopiert.
 - Der **Dateiname bleibt unverändert**, auch wenn Titel/Projekt nachträglich
   geändert werden: Umbenennen hiesse auf WebDAV kopieren + löschen, und ein
   Abbruch mittendrin würde eine Schätzung verlieren.
