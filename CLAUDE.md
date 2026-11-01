@@ -92,6 +92,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   ausschliesslich über den angemeldeten Zugang. Die Auswertung war die
   letzte Ausnahme und hatte einen Share-Token im öffentlichen Repo stehen.
   Falls je wieder ein Freigabelink erwogen wird: nicht ins Repo.
+- **Prozent-Zeilen `baukosten/`**: eine Unterposition kann statt
+  "Ausmass × Kennwert" ein Prozentsatz der Baukosten sein (fürs
+  Architektenhonorar). Prozent-Zeilen zählen NIE in ihre eigene
+  Bemessungsgrundlage — BKP 291 liegt selbst in Hauptgruppe 2, sonst gäbe
+  es einen Zirkelschluss (`basisBetrag()`). Ebenfalls draussen: Hauptgruppe
+  0 und die Options-Module.
 - **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der

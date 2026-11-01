@@ -182,8 +182,53 @@ function kennwertWert(zeile) {
   const v = rechne(zeile.kennwert);
   return v === null || isNaN(v) ? 0 : v;
 }
-function zeilenKosten(zeile) {
+function einfacheKosten(zeile) {
   return ausmassWert(zeile) * kennwertWert(zeile);
+}
+
+// ---------- Prozent-Zeilen (Honorar auf die Baukosten) ----------
+//
+// Eine Unterposition kann statt "Ausmass × Kennwert" auch als PROZENTSATZ
+// der Baukosten gerechnet werden -- gedacht fürs Architektenhonorar (BKP
+// 291), das sich damit automatisch mitbewegt, wenn sich die Schätzung
+// ändert. Die übrigen Honorare werden weiterhin pauschal erfasst.
+//
+// zeile.basis sagt, worauf sich der Prozentsatz bezieht; zeile.ausmass
+// hält dann den Prozentsatz (Einheit "%"), der Kennwert entfällt.
+//
+// ZIRKELSCHLUSS: BKP 291 liegt selbst in Hauptgruppe 2 und wäre damit Teil
+// seiner eigenen Bemessungsgrundlage. Deshalb zählen Prozent-Zeilen NIE in
+// die Basis -- egal welche. Ebenfalls draussen: die Hauptgruppe 0
+// (Grundstück ist keine Baukost) und die Zusatz-/Options-Module (die
+// stehen auch nicht im Total).
+const BASIS_ARTEN = {
+  bkp19: "% der Baukosten BKP 1–9",
+  bkp19ohneHonorar: "% der Baukosten BKP 1–9 ohne Honorare"
+};
+
+function basisBetrag(art, data) {
+  const quelle = data || offen;
+  if (!quelle) return 0;
+  const zIds = new Set((quelle.module || []).filter((m) => m.zusatz).map((m) => m.id));
+  let summe = 0;
+  Object.keys(quelle.positionen || {}).forEach((nr) => {
+    if (nr[0] === "0") return; // Grundstück
+    // Die Honorar-Elementgruppen enden auf 9 (09, 19, 29, ... 99).
+    if (art === "bkp19ohneHonorar" && nr[1] === "9") return;
+    (quelle.positionen[nr] || []).forEach((z) => {
+      if (z.basis) return; // siehe Zirkelschluss oben
+      if (z.modul && zIds.has(z.modul)) return;
+      summe += einfacheKosten(z);
+    });
+  });
+  return summe;
+}
+
+function zeilenKosten(zeile, data) {
+  if (!zeile.basis) return einfacheKosten(zeile);
+  const prozent = rechne(zeile.ausmass);
+  const p = prozent === null || isNaN(prozent) ? 0 : prozent;
+  return (p / 100) * basisBetrag(zeile.basis, data);
 }
 
 // ---------- Module ----------
@@ -492,7 +537,7 @@ function schaetzungTotal(data) {
   let gesamt = 0;
   Object.values(data.positionen || {}).forEach((zeilen) => {
     (zeilen || []).forEach((z) => {
-      if (!(z.modul && zIds.has(z.modul))) gesamt += zeilenKosten(z);
+      if (!(z.modul && zIds.has(z.modul))) gesamt += zeilenKosten(z, data);
     });
   });
   return gesamt;
@@ -708,11 +753,19 @@ function unterpositionHtml(nr, zeile, cols) {
         (!ansicht.bemerkungen && zeile.extern ? '<span class="bk-bem-punkt extern" title="externe Bemerkung"></span>' : "");
       zellen += `<td>${punkte}<textarea rows="1" data-feld="beschrieb" placeholder="Beschrieb der Arbeiten">${escapeHtml(zeile.beschrieb || "")}</textarea></td>`;
     } else if (c.key === "ausmass") {
+      // Bei einer Prozent-Zeile steht hier der Prozentsatz.
       zellen += rechenZelle(zeile, "ausmass", "bk-ausmass");
     } else if (c.key === "einheit") {
-      zellen += `<td><input type="text" data-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></td>`;
+      zellen += zeile.basis
+        ? '<td class="bk-fest">%</td>'
+        : `<td><input type="text" data-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></td>`;
     } else if (c.key === "kennwert") {
-      zellen += rechenZelle(zeile, "kennwert", "bk-kennwert");
+      // Statt eines Kennwerts zeigt die Prozent-Zeile ihre Bemessungs-
+      // grundlage -- sonst wäre nicht nachvollziehbar, worauf sich der
+      // Prozentsatz bezieht.
+      zellen += zeile.basis
+        ? `<td class="bk-fest" title="${escapeHtml(BASIS_ARTEN[zeile.basis] || "")}">${franken(basisBetrag(zeile.basis))}</td>`
+        : rechenZelle(zeile, "kennwert", "bk-kennwert");
     } else if (c.key === "kosten") {
       zellen += `<td class="bk-kosten" data-kosten-for="${zeile.id}">${zeilenKostenText(zeile)}</td>`;
     } else if (c.key === "modul") {
@@ -776,10 +829,10 @@ function renderTabelle() {
 
   const gesamtSpan = cols.findIndex((c) => c.key === "kosten");
   const restSpan = cols.length - gesamtSpan - 1;
-  const fuss = (klasse, text, betrag, id) => `<tr class="bk-gesamt${klasse}">
+  const fuss = (klasse, text, betrag, marker) => `<tr class="bk-gesamt${klasse}">
     <td class="bk-col-nr"></td>
     <td colspan="${gesamtSpan - 1}">${text}</td>
-    <td class="bk-total bk-right"${id ? ` id="${id}"` : ""}>${betrag}</td>
+    <td class="bk-total bk-right"${marker || ""}>${betrag}</td>
     ${restSpan ? `<td colspan="${restSpan}"></td>` : ""}
   </tr>`;
 
@@ -787,15 +840,20 @@ function renderTabelle() {
   // folgt das Total inklusive.
   if (gesamtZusatz) {
     const { summen: ms } = modulSummen();
-    html += fuss(" bk-gesamt-zusatz", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""} (ohne Optionen)`, "CHF " + franken(gesamt), "gesamtTotalZelle");
+    html += fuss(" bk-gesamt-zusatz", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""} (ohne Optionen)`, "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
     module_()
       .filter((m) => m.zusatz)
       .forEach((m) => {
-        html += fuss(" bk-gesamt-zusatz", `Option: ${escapeHtml(m.name)}`, `<span class="bk-zusatz">+ ${franken(ms[m.id])}</span>`);
+        html += fuss(
+          " bk-gesamt-zusatz",
+          `Option: ${escapeHtml(m.name)}`,
+          `<span class="bk-zusatz">+ ${franken(ms[m.id])}</span>`,
+          ` data-option-total="${m.id}"`
+        );
       });
-    html += fuss("", "Total inklusive Optionen", "CHF " + franken(gesamt + gesamtZusatz));
+    html += fuss("", "Total inklusive Optionen", "CHF " + franken(gesamt + gesamtZusatz), ' id="gesamtInklusiveZelle"');
   } else {
-    html += fuss("", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}`, "CHF " + franken(gesamt), "gesamtTotalZelle");
+    html += fuss("", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}`, "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
   }
 
   document.getElementById("bkBody").innerHTML = html;
@@ -860,6 +918,17 @@ function refreshSummen() {
   });
   const gesamtZelle = document.getElementById("gesamtTotalZelle");
   if (gesamtZelle) gesamtZelle.textContent = "CHF " + franken(gesamt);
+  // Die Options-Zeilen im Tabellenfuss hängen ebenfalls an den Summen --
+  // ohne das hier blieben sie nach einer reinen Wertänderung stehen
+  // (die Kennzahl-Kachel oben stimmte dann, der Fuss nicht).
+  const inklZelle = document.getElementById("gesamtInklusiveZelle");
+  if (inklZelle) {
+    const { summen: ms } = modulSummen();
+    inklZelle.textContent = "CHF " + franken(gesamt + gesamtZusatz);
+    document.querySelectorAll("[data-option-total]").forEach((el) => {
+      el.innerHTML = `<span class="bk-zusatz">+ ${franken(ms[el.dataset.optionTotal] || 0)}</span>`;
+    });
+  }
   renderKpis(gesamt, gesamtZusatz);
   renderPanelKosten();
 }
@@ -907,11 +976,29 @@ function renderPanel() {
     </div>
     <label>Beschrieb</label>
     <textarea rows="4" data-panel-feld="beschrieb">${escapeHtml(zeile.beschrieb || "")}</textarea>
-    <div class="bk-panel-dreispalt">
-      <div><label>Ausmass</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
-      <div><label>Einheit</label><input type="text" data-panel-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></div>
-      <div><label>Kennwert</label><input type="text" data-panel-feld="kennwert" value="${escapeHtml(zeile.kennwert || "")}"></div>
-    </div>
+    <label>Berechnung</label>
+    <select data-panel-feld="basis">
+      <option value=""${zeile.basis ? "" : " selected"}>Ausmass × Kennwert</option>
+      ${Object.entries(BASIS_ARTEN)
+        .map(([k, label]) => `<option value="${k}"${zeile.basis === k ? " selected" : ""}>${escapeHtml(label)}</option>`)
+        .join("")}
+    </select>
+    ${
+      zeile.basis
+        ? `<div class="bk-panel-dreispalt">
+             <div><label>Prozentsatz</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
+             <div style="flex:2;"><label>Bemessungsgrundlage</label><input type="text" value="${franken(basisBetrag(zeile.basis))}" readonly></div>
+           </div>
+           <div class="hint" style="margin:6px 0 0; font-size:11px;">
+             Ohne Hauptgruppe 0 (Grundstück), ohne Optionen und ohne andere
+             Prozent-Zeilen – sonst würde sich das Honorar selbst mitrechnen.
+           </div>`
+        : `<div class="bk-panel-dreispalt">
+             <div><label>Ausmass</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
+             <div><label>Einheit</label><input type="text" data-panel-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></div>
+             <div><label>Kennwert</label><input type="text" data-panel-feld="kennwert" value="${escapeHtml(zeile.kennwert || "")}"></div>
+           </div>`
+    }
     <div class="bk-panel-kosten">
       <span style="font-size:11px; letter-spacing:0.4px; color:var(--text-muted); text-transform:uppercase;">Kosten</span>
       <span class="wert" id="panelKosten">CHF ${franken(zeilenKosten(zeile))}</span>
@@ -1050,6 +1137,13 @@ function migriere(data) {
   if (!data.eigenePositionen) data.eigenePositionen = [];
   if (!data.module) data.module = [];
   if (!data.status) data.status = {};
+  // basis (Prozent-Berechnung) kam später dazu -- fehlt sie, ist die Zeile
+  // eine ganz normale "Ausmass × Kennwert"-Zeile.
+  Object.values(data.positionen).forEach((zeilen) => {
+    (zeilen || []).forEach((z) => {
+      if (z.basis === undefined) z.basis = "";
+    });
+  });
   data.druck = { ...DRUCK_DEFAULTS, ...(data.druck || {}) };
   return data;
 }
@@ -1218,7 +1312,7 @@ function zeileSuchen(data, rowId) {
 }
 
 function neueZeile() {
-  return { id: uid(), beschrieb: "", ausmass: "", einheit: "", kennwert: "", modul: "", intern: "", extern: "" };
+  return { id: uid(), beschrieb: "", ausmass: "", einheit: "", kennwert: "", basis: "", modul: "", intern: "", extern: "" };
 }
 
 // Einziger Weg, ein Feld einer Unterposition zu ändern -- egal ob die
@@ -1257,6 +1351,17 @@ function setzeFeld(nr, rowId, feld, wert, quelle) {
   // ein Modulwechsel kann die Fusszeilen umbauen (sobald die erste Zeile
   // in ein Zusatz-Modul wandert, kommen "Option"- und "Total inklusive"-
   // Zeilen dazu) -- beides ist strukturell, refreshSummen() genügt nicht.
+  if (feld === "basis") {
+    // Die Einheit gehört zur Berechnungsart: Prozent-Zeilen rechnen in "%",
+    // beim Zurückschalten bleibt das Feld frei zum Neusetzen.
+    mutate((data) => {
+      const z = (data.positionen[nr] || []).find((x) => x.id === rowId);
+      if (z) z.einheit = wert ? "%" : "";
+      return data;
+    });
+    render();
+    return;
+  }
   if (feld === "modul" || ((feld === "intern" || feld === "extern") && !ansicht.bemerkungen)) {
     renderTabelleErhalten();
   }
@@ -1367,6 +1472,13 @@ function onBodyClick(e) {
     const naechster = STATUS_FOLGE[(STATUS_RANG[jetzt] + 1) % STATUS_FOLGE.length];
     mutate((data) => {
       if (!data.status) data.status = {};
+  // basis (Prozent-Berechnung) kam später dazu -- fehlt sie, ist die Zeile
+  // eine ganz normale "Ausmass × Kennwert"-Zeile.
+  Object.values(data.positionen).forEach((zeilen) => {
+    (zeilen || []).forEach((z) => {
+      if (z.basis === undefined) z.basis = "";
+    });
+  });
       if (naechster) data.status[nr] = naechster;
       else delete data.status[nr];
       return data;
@@ -1849,9 +1961,9 @@ function renderDruck(opt) {
         zeilen += `<tr class="pr-sub">
           <td></td>
           <td>${escapeHtml(z.beschrieb || "")}</td>
-          <td class="r">${zahl(rechne(z.ausmass))}${istRechnung(z.ausmass) ? `<div class="pr-formel">${escapeHtml(z.ausmass)}</div>` : ""}</td>
-          <td>${escapeHtml(z.einheit || "")}</td>
-          <td class="r">${zahl(rechne(z.kennwert))}</td>
+          <td class="r">${zahl(rechne(z.ausmass))}${!z.basis && istRechnung(z.ausmass) ? `<div class="pr-formel">${escapeHtml(z.ausmass)}</div>` : ""}</td>
+          <td>${z.basis ? "%" : escapeHtml(z.einheit || "")}</td>
+          <td class="r">${z.basis ? franken(basisBetrag(z.basis)) : zahl(rechne(z.kennwert))}</td>
           <td class="r">${zeilenKosten(z) ? (istZusatzZeile(z, zIds) ? "+" : "") + franken(zeilenKosten(z)) : ""}</td>
           ${mods.length ? modulZellen(anteile) : ""}
           ${opt.bemerkungExtern ? `<td>${escapeHtml(z.extern || "")}</td>` : ""}
@@ -1871,8 +1983,8 @@ function renderDruck(opt) {
       <td>${escapeHtml(k.nr)}</td>
       <td>${escapeHtml(k.titel)}${beschriebe.length ? `<div class="pr-formel">${escapeHtml(beschriebe.join("; "))}</div>` : ""}</td>
       <td class="r">${einzeln ? zahl(rechne(einzeln.ausmass)) : ""}</td>
-      <td>${einzeln ? escapeHtml(einzeln.einheit || "") : ""}</td>
-      <td class="r">${einzeln ? zahl(rechne(einzeln.kennwert)) : ""}</td>
+      <td>${einzeln ? (einzeln.basis ? "%" : escapeHtml(einzeln.einheit || "")) : ""}</td>
+      <td class="r">${einzeln ? (einzeln.basis ? franken(basisBetrag(einzeln.basis)) : zahl(rechne(einzeln.kennwert))) : ""}</td>
       <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
       ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
       ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join("; "))}</td>` : ""}

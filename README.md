@@ -1367,6 +1367,35 @@ sind (erscheint, sobald etwas abgehakt wurde).
   "1 Pl").
 - **Einheit** ist ein freies Feld mit Vorschlagsliste (Stk, m², m³, m, lfm,
   kg, t, h, Tag, Pausch., %).
+
+#### Honorar als Prozentsatz der Baukosten
+
+Im Detailfenster lässt sich die **Berechnung** einer Unterposition von
+"Ausmass × Kennwert" auf einen **Prozentsatz der Baukosten** umstellen —
+gedacht fürs Architektenhonorar (BKP 291), das sich damit automatisch
+mitbewegt, wenn sich die Schätzung ändert. Die übrigen Honorare
+(Bauingenieur, Spezialisten) werden weiterhin pauschal erfasst.
+
+Die Zeile hält dann den **Prozentsatz** im Ausmass-Feld, die Einheit wird
+auf "%" gesetzt, und statt eines Kennwerts zeigt die Zeile ihre
+**Bemessungsgrundlage** — damit nachvollziehbar bleibt, worauf sich der
+Prozentsatz bezieht. Zwei Varianten stehen zur Wahl:
+
+| Variante | Grundlage |
+|---|---|
+| `% der Baukosten BKP 1–9` | alle Hauptgruppen ausser 0 |
+| `% der Baukosten BKP 1–9 ohne Honorare` | zusätzlich ohne die Honorar-Elementgruppen (09, 19, 29, … 99) |
+
+**Nicht** in der Grundlage enthalten sind in beiden Fällen:
+
+- die **Hauptgruppe 0** (Grundstück ist keine Baukost),
+- die **Optionen** (Zusatz-Module stehen auch nicht im Total),
+- **alle anderen Prozent-Zeilen**. Das ist kein Detail, sondern notwendig:
+  BKP 291 liegt selbst in Hauptgruppe 2 und wäre sonst Teil seiner eigenen
+  Bemessungsgrundlage — ein Zirkelschluss. Weil Prozent-Zeilen generell
+  draussen bleiben, sehen auch mehrere davon dieselbe Grundlage und
+  beeinflussen sich nicht gegenseitig (`basisBetrag()` in
+  `baukosten/app.js`).
 - **Eigene Unterteilung einer Position**: "+ Unterteilung" auf einer
   dreistelligen Position ergänzt eine Nummer wie "211.1 Gerüste", wenn der
   Standard-BKP zu grob ist. Sie gilt nur für diese eine Kostenschätzung.

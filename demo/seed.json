@@ -282,7 +282,8 @@
           "kennwert": "3800",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "211": [
@@ -294,7 +295,8 @@
           "kennwert": "80",
           "modul": "demo-m2",
           "intern": "Mengen grob geschätzt, vor Ausschreibung nachmessen",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "211.1": [
@@ -306,7 +308,8 @@
           "kennwert": "25",
           "modul": "demo-m1",
           "intern": "",
-          "extern": "Richtofferte Gerüstbau"
+          "extern": "Richtofferte Gerüstbau",
+          "basis": ""
         }
       ],
       "221": [
@@ -318,7 +321,8 @@
           "kennwert": "2100",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         },
         {
           "id": "demo-bk5",
@@ -328,7 +332,8 @@
           "kennwert": "2500",
           "modul": "demo-m3",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "222": [
@@ -340,7 +345,8 @@
           "kennwert": "120",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         },
         {
           "id": "demo-bk7",
@@ -350,7 +356,8 @@
           "kennwert": "54",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "224": [
@@ -362,7 +369,8 @@
           "kennwert": "158",
           "modul": "demo-m1",
           "intern": "Richtofferte Dachdecker",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         },
         {
           "id": "demo-bk9",
@@ -372,7 +380,8 @@
           "kennwert": "190",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         },
         {
           "id": "demo-bk10",
@@ -382,7 +391,8 @@
           "kennwert": "136*1.08",
           "modul": "demo-m1",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "271": [
@@ -394,7 +404,8 @@
           "kennwert": "140",
           "modul": "demo-m2",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "272": [
@@ -406,7 +417,8 @@
           "kennwert": "680",
           "modul": "demo-m3",
           "intern": "",
-          "extern": "Option – noch nicht beschlossen"
+          "extern": "Option – noch nicht beschlossen",
+          "basis": ""
         }
       ],
       "281": [
@@ -418,7 +430,8 @@
           "kennwert": "50",
           "modul": "demo-m2",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         },
         {
           "id": "demo-bk14",
@@ -428,7 +441,8 @@
           "kennwert": "190",
           "modul": "demo-m3",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "285": [
@@ -440,18 +454,20 @@
           "kennwert": "10",
           "modul": "demo-m2",
           "intern": "",
-          "extern": ""
+          "extern": "",
+          "basis": ""
         }
       ],
       "291": [
         {
           "id": "demo-bk16",
           "beschrieb": "Honorar alle Phasen, inkl. Bauleitung",
-          "ausmass": "",
-          "einheit": "Pausch.",
-          "kennwert": "58000",
+          "ausmass": "14.5",
+          "einheit": "%",
+          "kennwert": "",
+          "basis": "bkp19ohneHonorar",
           "modul": "",
-          "intern": "",
+          "intern": "Prozentsatz nach SIA, grob angenommen",
           "extern": ""
         }
       ],
@@ -462,6 +478,20 @@
           "ausmass": "",
           "einheit": "Pausch.",
           "kennwert": "25000",
+          "modul": "",
+          "intern": "",
+          "extern": "",
+          "basis": ""
+        }
+      ],
+      "292": [
+        {
+          "id": "demo-bk18",
+          "beschrieb": "Bauingenieur (Budgetposition)",
+          "ausmass": "",
+          "einheit": "Pausch.",
+          "kennwert": "3500",
+          "basis": "",
           "modul": "",
           "intern": "",
           "extern": ""
