@@ -81,6 +81,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   gerendert statt die Bildschirmansicht zu drucken — die Druckregeln (alle
   Hauptgruppen, aber nur verwendete Positionen; Unterpositionen
   zusammengefasst) sind bewusst unabhängig von der eingestellten Ansicht.
+- **Umbenennen auf Nextcloud**: der Worker-Proxy lässt nur
+  GET/PUT/MKCOL/PROPFIND/DELETE durch (kein MOVE, kein Destination-Header).
+  Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
+  dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
+  dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal

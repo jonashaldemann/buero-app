@@ -1372,23 +1372,33 @@ sind (erscheint, sobald etwas abgehakt wurde).
 - Wer die Bemerkungen lieber direkt in der Tabelle hat, schaltet
   **"Bemerkungsspalten"** ein — dann erscheinen beide als eigene Spalten.
 
-### Module (Teilbereiche)
+### Module: Teilbereiche und Optionen
 
 In der alten Excel wurden Teilbereiche über zusätzliche Spalten
 ("Einsparpotential", "nur Dach", "UG & Fenster", "nur Wohnung") abgebildet,
-in denen der Betrag ein zweites Mal stand. Hier wird nichts kopiert:
+in denen der Betrag ein zweites Mal stand. Hier wird nichts kopiert: **jede
+Unterposition trägt höchstens eine Modul-Zuordnung**, die Teilsummen ergeben
+sich daraus. Soll eine Position auf zwei Module verteilt werden, teilt man
+sie in zwei Unterpositionen.
 
-- **Module werden in den Kopfdaten als Liste gepflegt** (ein Modul pro
-  Zeile, wie `projekte.txt`).
-- **Jede Unterposition trägt höchstens eine Modul-Zuordnung** (Auswahlfeld
-  in der Tabelle oder im Detailfenster). Soll eine Position auf zwei Module
-  verteilt werden, teilt man sie in zwei Unterpositionen.
-- Die Teilsummen erscheinen **oben als Kacheln** (mit Anteil am Total) und
-  im Ausdruck wahlweise als Spalten und/oder als Zusammenstellung.
-- Die Zuordnungen hängen an einer **ID**, nicht am Namen. Beim Übernehmen
-  der Liste werden zuerst gleiche Namen gepaart, danach der Rest der Reihe
-  nach — so behält ein reines **Umbenennen** seine Zuordnungen, während ein
-  **Entfernen** sie gezielt zurücksetzt (`moduleAusText()`).
+Module werden in den **Kopfdaten** als Liste gepflegt (Name + Art, "+ Modul"
+legt eines an). Es gibt zwei Arten:
+
+- **Im Total** — eine *Aufteilung* der Schätzung ("nur Dach",
+  "UG & Fenster"): alle zusammen ergeben das Total. Oben erscheint je eine
+  Kachel mit Betrag und Anteil.
+- **Zusätzlich** — eine *Option*, die noch nicht beschlossen ist
+  ("Balkone vergrössern"). Ihre Positionen zählen **nicht** ins Total,
+  sondern werden überall separat ausgewiesen: in der Tabelle mit "+" und
+  abgesetzter Farbe (auch auf den Gruppenzeilen darüber), oben als eigene
+  Kachel neben einer Kachel "Total inkl. Optionen", im Tabellenfuss als
+  eigene Zeile zwischen "Total (ohne Optionen)" und "Total inklusive
+  Optionen", und im Ausdruck genauso. So lassen sich Grundkosten und Option
+  sauber auseinanderhalten, ohne eine zweite Schätzung anzulegen.
+
+Die Zuordnungen hängen an einer **ID**, nicht am Namen — ein Modul
+umbenennen behält sie, ein Modul löschen setzt die betroffenen Zuordnungen
+zurück (`uebernimmKopfDialog()`).
 
 ### Ausdruck
 
@@ -1407,7 +1417,11 @@ mitgespeichert.
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
-| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul am Schluss |
+| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul am Schluss; Optionen stehen dort getrennt unter den Aufteilungen |
+
+Zusatz-/Options-Module erscheinen im Ausdruck immer getrennt: in den
+Betragsspalten als kleines "+…" neben den Grundkosten, und unter dem Total
+als eigene Zeile je Option plus "Total inklusive Optionen".
 
 Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
 "Grundlagen" aus den Kopfdaten als Kopfblock.
@@ -1423,9 +1437,14 @@ Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
   **"Duplizieren"** in der Liste — die Kopie bekommt eigene Zeilen-IDs,
   die Ausgangsvariante bleibt unverändert; Module, Zuordnungen und
   Durchgeh-Status werden mitkopiert.
-- Der **Dateiname bleibt unverändert**, auch wenn Titel/Projekt nachträglich
-  geändert werden: Umbenennen hiesse auf WebDAV kopieren + löschen, und ein
-  Abbruch mittendrin würde eine Schätzung verlieren.
+- **Umbenennen**: in der Liste neben der Schätzung ("Umbenennen"), oder in
+  den Kopfdaten über Titel und Projekt. Die Datei auf Nextcloud wird
+  mitbenannt (`planeUmbenennen()`). Weil der Worker-Proxy nur
+  GET/PUT/MKCOL/PROPFIND/DELETE durchlässt, geht das nicht per WebDAV-MOVE,
+  sondern als "neue Datei schreiben, dann alte löschen" — in dieser
+  Reihenfolge kann ein Abbruch mittendrin höchstens eine Kopie hinterlassen,
+  niemals die Schätzung verlieren. Offline wird nicht umbenannt (Hinweis in
+  der Statuszeile).
 
 ### Speichern
 
@@ -1438,6 +1457,11 @@ gegenüber der Finanzplanung:
   ersetzt. Hier tippt man vier Felder einer Zeile schnell hintereinander;
   der gerade geschriebene Stand basiert auf dem Serverstand von vorhin und
   würde die inzwischen erfassten Felder wieder wegwerfen.
+- Vor jedem strukturellen Neuaufbau der Tabelle wird die **offene Eingabe
+  übernommen** (`uebernimmOffeneEingabe()`): `change` feuert erst beim
+  Verlassen eines Feldes, und wer einen Kennwert tippt und direkt daneben
+  das Modul auswählt, löst damit einen Neuaufbau aus — ohne diesen Schritt
+  wäre der getippte Wert beim Neuzeichnen wieder weg.
 - Eine neu hinzugefügte Zeile wird **einmal vor** der Änderungsfunktion
   erzeugt, nicht darin — die Funktion läuft zweimal (lokal und auf dem
   Serverstand), und mit einem `uid()` im Innern bekäme die Zeile dort eine

@@ -200,7 +200,20 @@ function modulName(modulId) {
   return m ? m.name : "";
 }
 
-// Summe pro Modul plus der nicht zugeordnete Rest.
+// Ein Modul ist entweder eine AUFTEILUNG der Schätzung ("nur Dach",
+// "UG & Fenster" -- alle zusammen ergeben das Total) oder ein ZUSATZ,
+// also eine noch nicht beschlossene Option ("Balkone vergrössern"). Die
+// Positionen eines Zusatz-Moduls zählen bewusst NICHT ins Total: sie
+// werden überall separat mit "+" ausgewiesen, damit der Bauherr
+// Grundkosten und Option auseinanderhalten kann.
+function zusatzModulIds() {
+  return new Set(module_().filter((m) => m.zusatz).map((m) => m.id));
+}
+function istZusatzZeile(zeile, zIds) {
+  return !!(zeile.modul && (zIds || zusatzModulIds()).has(zeile.modul));
+}
+
+// Summe pro Modul (beide Arten) plus der nicht zugeordnete Rest.
 function modulSummen() {
   const summen = {};
   module_().forEach((m) => {
@@ -217,37 +230,60 @@ function modulSummen() {
   return { summen, ohne };
 }
 
-// Die Modulliste wird als Textfeld gepflegt (eine Zeile pro Modul, wie
-// projekte.txt). Die Zuordnungen an den Unterpositionen hängen aber an
-// einer ID, nicht am Namen -- beim Übernehmen muss also jede Zeile ihrem
-// bisherigen Modul zugeordnet werden. Das passiert in zwei Durchgängen:
-//
-//   1. gleiche Namen behalten ihre ID (Einschieben/Löschen/Umsortieren
-//      einer anderen Zeile ändert dann nichts),
-//   2. was danach übrig bleibt, wird der Reihe nach gepaart -- so behält
-//      ein reines UMBENENNEN ("nur Wohnung" -> "Dachwohnung") seine
-//      Zuordnungen, statt sie stillschweigend zu verlieren.
-//
-// Nur wirklich entfernte Module verlieren ihre Zuordnung (siehe
-// uebernimmKopfDialog(), das sie dann auf "" zurücksetzt).
-function moduleAusText(text, bisherige) {
-  const namen = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const ergebnis = new Array(namen.length).fill(null);
-  const nochFrei = [...bisherige];
+// Die Module werden in den Kopfdaten in einer kleinen Liste gepflegt
+// (Name + "Im Total"/"Zusätzlich"). Solange der Dialog offen ist, liegt
+// der Arbeitsstand hier; übernommen wird er erst beim Speichern. Jede
+// Zeile behält dabei ihre ID -- Umbenennen verliert also keine
+// Zuordnungen, nur ein wirklich gelöschtes Modul tut das (siehe
+// uebernimmKopfDialog()).
+let kopfModule = [];
 
-  namen.forEach((name, i) => {
-    const idx = nochFrei.findIndex((m) => m.name === name);
-    if (idx >= 0) {
-      ergebnis[i] = { id: nochFrei[idx].id, name };
-      nochFrei.splice(idx, 1);
-    }
+function renderKopfModule() {
+  const ziel = document.getElementById("kopfModulListe");
+  if (!kopfModule.length) {
+    ziel.innerHTML = '<div class="bk-modul-leer">Noch keine Module – mit "+ Modul" eines anlegen.</div>';
+    return;
+  }
+  ziel.innerHTML = kopfModule
+    .map(
+      (m, i) => `<div class="bk-modul-row" data-idx="${i}">
+      <input type="text" class="bk-modul-name" value="${escapeHtml(m.name)}" placeholder="z.B. nur Dach">
+      <div class="bk-seg">
+        <button type="button" data-zusatz="0" class="${m.zusatz ? "" : "active"}">Im Total</button>
+        <button type="button" data-zusatz="1" class="${m.zusatz ? "active" : ""}">Zusätzlich</button>
+      </div>
+      <button type="button" class="bk-row-action" data-modul-del="1" title="Modul entfernen">×</button>
+    </div>`
+    )
+    .join("");
+}
+
+// Namen aus den Eingabefeldern zurück in den Arbeitsstand holen -- nötig
+// vor jeder Umschaltung und vor dem Speichern, weil die Felder sonst beim
+// Neuzeichnen der Liste verloren gingen.
+function lesKopfModulNamen() {
+  document.querySelectorAll("#kopfModulListe .bk-modul-row").forEach((row) => {
+    const m = kopfModule[Number(row.dataset.idx)];
+    if (m) m.name = row.querySelector(".bk-modul-name").value;
   });
-  namen.forEach((name, i) => {
-    if (ergebnis[i]) return;
-    const uebrig = nochFrei.shift();
-    ergebnis[i] = { id: uebrig ? uebrig.id : uid(), name };
-  });
-  return ergebnis;
+}
+
+function onKopfModulClick(e) {
+  const row = e.target.closest(".bk-modul-row");
+  if (!row) return;
+  const idx = Number(row.dataset.idx);
+  if (e.target.closest("[data-modul-del]")) {
+    lesKopfModulNamen();
+    kopfModule.splice(idx, 1);
+    renderKopfModule();
+    return;
+  }
+  const art = e.target.closest("button[data-zusatz]");
+  if (art) {
+    lesKopfModulNamen();
+    kopfModule[idx].zusatz = art.dataset.zusatz === "1";
+    renderKopfModule();
+  }
 }
 
 // ---------- Baum aus Katalog + eigenen Positionen ----------
@@ -308,18 +344,31 @@ function zeilenUnter(nr) {
 
 // Summen für alle Knoten auf einmal: erst pro Position, dann auf die
 // zwei- und einstelligen Eltern hochgezählt.
+// Liefert zwei parallele Summenbäume: "summen" sind die Grundkosten,
+// "summenZusatz" die Beträge aus Zusatz-/Options-Modulen, die bewusst
+// NICHT ins Total zählen (siehe zusatzModulIds()).
 function alleSummen() {
+  const zIds = zusatzModulIds();
   const summen = {};
+  const summenZusatz = {};
   let gesamt = 0;
+  let gesamtZusatz = 0;
   Object.keys(offen.positionen || {}).forEach((nr) => {
-    const summe = zeilenVon(nr).reduce((s, z) => s + zeilenKosten(z), 0);
-    summen[nr] = (summen[nr] || 0) + summe;
-    vorfahren(nr).forEach((v) => {
-      summen[v] = (summen[v] || 0) + summe;
+    let basis = 0;
+    let zusatz = 0;
+    zeilenVon(nr).forEach((z) => {
+      const kosten = zeilenKosten(z);
+      if (istZusatzZeile(z, zIds)) zusatz += kosten;
+      else basis += kosten;
     });
-    gesamt += summe;
+    [nr, ...vorfahren(nr)].forEach((ziel) => {
+      summen[ziel] = (summen[ziel] || 0) + basis;
+      summenZusatz[ziel] = (summenZusatz[ziel] || 0) + zusatz;
+    });
+    gesamt += basis;
+    gesamtZusatz += zusatz;
   });
-  return { summen, gesamt };
+  return { summen, summenZusatz, gesamt, gesamtZusatz };
 }
 
 // "Verwendet" heisst: irgendwo darunter ist mindestens eine Unterposition
@@ -437,11 +486,13 @@ function spalten() {
 
 // ---------- Rendering: Liste ----------
 
+// Für die Listenansicht: die Grundkosten (ohne Zusatz-/Options-Module).
 function schaetzungTotal(data) {
+  const zIds = new Set((data.module || []).filter((m) => m.zusatz).map((m) => m.id));
   let gesamt = 0;
   Object.values(data.positionen || {}).forEach((zeilen) => {
     (zeilen || []).forEach((z) => {
-      gesamt += zeilenKosten(z);
+      if (!(z.modul && zIds.has(z.modul))) gesamt += zeilenKosten(z);
     });
   });
   return gesamt;
@@ -473,6 +524,7 @@ function renderList() {
           <div class="bk-list-meta">${escapeHtml(meta)}</div>
         </div>
         <div class="bk-list-total">CHF ${franken(schaetzungTotal(d))}</div>
+        <button type="button" class="bk-toggle" data-action="rename" data-file="${escapeHtml(eintrag.filename)}">Umbenennen</button>
         <button type="button" class="bk-toggle" data-action="duplicate" data-file="${escapeHtml(eintrag.filename)}">Duplizieren</button>
       </li>`;
     })
@@ -489,10 +541,10 @@ function genauigkeitProzent() {
   return m ? Number(m[1].replace(",", ".")) : null;
 }
 
-function renderKpis(gesamt) {
+function renderKpis(gesamt, gesamtZusatz) {
   const kacheln = [];
   kacheln.push(`<div class="bk-kpi gross">
-    <div class="bk-kpi-label">Total</div>
+    <div class="bk-kpi-label">${gesamtZusatz ? "Total ohne Optionen" : "Total"}</div>
     <div class="bk-kpi-wert">CHF ${franken(gesamt)}</div>
     ${offen.kostenstand ? `<div class="bk-kpi-sub">Stand ${escapeHtml(offen.kostenstand)}</div>` : ""}
   </div>`);
@@ -528,11 +580,19 @@ function renderKpis(gesamt) {
   if (module_().length) {
     const { summen, ohne } = modulSummen();
     module_().forEach((m) => {
-      kacheln.push(`<div class="bk-kpi bk-kpi-modul" style="--modul-farbe:${modulFarbe(m.id)}">
-        <div class="bk-kpi-label">${escapeHtml(m.name)}</div>
-        <div class="bk-kpi-wert">${franken(summen[m.id])}</div>
-        <div class="bk-kpi-sub">${gesamt ? Math.round((summen[m.id] / gesamt) * 100) : 0}% vom Total</div>
-      </div>`);
+      if (m.zusatz) {
+        kacheln.push(`<div class="bk-kpi bk-kpi-zusatz">
+          <div class="bk-kpi-label">Option · ${escapeHtml(m.name)}</div>
+          <div class="bk-kpi-wert bk-zusatz">+ ${franken(summen[m.id])}</div>
+          <div class="bk-kpi-sub">nicht im Total</div>
+        </div>`);
+      } else {
+        kacheln.push(`<div class="bk-kpi bk-kpi-modul" style="--modul-farbe:${modulFarbe(m.id)}">
+          <div class="bk-kpi-label">${escapeHtml(m.name)}</div>
+          <div class="bk-kpi-wert">${franken(summen[m.id])}</div>
+          <div class="bk-kpi-sub">${gesamt ? Math.round((summen[m.id] / gesamt) * 100) : 0}% vom Total</div>
+        </div>`);
+      }
     });
     if (ohne) {
       kacheln.push(`<div class="bk-kpi bk-kpi-modul">
@@ -540,6 +600,13 @@ function renderKpis(gesamt) {
         <div class="bk-kpi-wert">${franken(ohne)}</div>
       </div>`);
     }
+  }
+
+  if (gesamtZusatz) {
+    kacheln.push(`<div class="bk-kpi bk-kpi-inkl">
+      <div class="bk-kpi-label">Total inkl. Optionen</div>
+      <div class="bk-kpi-wert">CHF ${franken(gesamt + gesamtZusatz)}</div>
+    </div>`);
   }
 
   document.getElementById("kpis").innerHTML = kacheln.join("");
@@ -559,7 +626,12 @@ function statusHtml(nr, status, istBlatt) {
   } title="${escapeHtml(titel)}">${STATUS_ZEICHEN[status] || ""}</button>`;
 }
 
-function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
+function totalZelleInhalt(summe, zusatz) {
+  const basis = summe ? franken(summe) : "";
+  return zusatz ? `${basis}<span class="bk-zusatz">+${franken(zusatz)}</span>` : basis;
+}
+
+function gruppenZeileHtml(knoten, summe, zusatz, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
   const indent = e === 1 ? "" : ` bk-indent-${e}`;
   let aktionen = "";
@@ -579,7 +651,7 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
   const klassen = [
     "bk-group",
     `bk-l${e}`,
-    summe ? "" : "leer",
+    summe || zusatz ? "" : "leer",
     status ? `st-${status}` : "",
     klappbar ? "klappbar" : ""
   ]
@@ -588,7 +660,7 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
   return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>
     <td class="bk-col-nr${indent}">${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
-    <td class="bk-total bk-right" data-total-for="${knoten.nr}">${summe ? franken(summe) : ""}</td>
+    <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe, zusatz)}</td>
     ${restSpan > 1 ? `<td colspan="${restSpan - 1}"></td>` : ""}
     <td class="bk-col-aktion">${aktionen}</td>
   </tr>`;
@@ -614,6 +686,14 @@ function modulSelectHtml(zeile, cssKlasse) {
   return `<select class="${cssKlasse}" data-feld="modul"><option value="">–</option>${optionen}</select>`;
 }
 
+// Zeilen eines Zusatz-/Options-Moduls zeigen ihren Betrag mit "+" und
+// abgesetzt -- sie stecken bewusst nicht im Total darüber.
+function zeilenKostenText(zeile) {
+  const kosten = zeilenKosten(zeile);
+  if (!kosten) return "";
+  return istZusatzZeile(zeile) ? `<span class="bk-zusatz">+${franken(kosten)}</span>` : franken(kosten);
+}
+
 function unterpositionHtml(nr, zeile, cols) {
   const gewaehlt = gewaehlteZeile && gewaehlteZeile.id === zeile.id ? " gewaehlt" : "";
   let zellen = "";
@@ -634,7 +714,7 @@ function unterpositionHtml(nr, zeile, cols) {
     } else if (c.key === "kennwert") {
       zellen += rechenZelle(zeile, "kennwert", "bk-kennwert");
     } else if (c.key === "kosten") {
-      zellen += `<td class="bk-kosten" data-kosten-for="${zeile.id}">${zeilenKosten(zeile) ? franken(zeilenKosten(zeile)) : ""}</td>`;
+      zellen += `<td class="bk-kosten" data-kosten-for="${zeile.id}">${zeilenKostenText(zeile)}</td>`;
     } else if (c.key === "modul") {
       zellen += `<td><span class="bk-modul-zelle"><span class="bk-modul-strich" style="--modul-farbe:${modulFarbe(zeile.modul)}"></span>${modulSelectHtml(zeile, "bk-modul-select")}</span></td>`;
     } else if (c.key === "intern") {
@@ -653,7 +733,7 @@ function renderTabelle() {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
   const status = statusBerechnen(knoten, kinder);
-  const { summen, gesamt } = alleSummen();
+  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
   const q = suche.trim().toLowerCase();
   const sucheAktiv = q.length > 0;
   const trefferSet = sucheAktiv ? sichtbarDurchSuche(knoten, q) : null;
@@ -678,7 +758,7 @@ function renderTabelle() {
     const klappbar = kids.length > 0 || eigeneZeilen > 0;
     const kinderOffen = sucheAktiv || !zugeklappt.has(k.nr);
 
-    html += gruppenZeileHtml(k, summen[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
+    html += gruppenZeileHtml(k, summen[k.nr] || 0, summenZusatz[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
     sichtbareZeilen++;
 
     if (eigeneZeilen && kinderOffen) {
@@ -696,18 +776,33 @@ function renderTabelle() {
 
   const gesamtSpan = cols.findIndex((c) => c.key === "kosten");
   const restSpan = cols.length - gesamtSpan - 1;
-  html += `<tr class="bk-gesamt">
+  const fuss = (klasse, text, betrag, id) => `<tr class="bk-gesamt${klasse}">
     <td class="bk-col-nr"></td>
-    <td colspan="${gesamtSpan - 1}">Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}</td>
-    <td class="bk-total bk-right" id="gesamtTotalZelle">CHF ${franken(gesamt)}</td>
+    <td colspan="${gesamtSpan - 1}">${text}</td>
+    <td class="bk-total bk-right"${id ? ` id="${id}"` : ""}>${betrag}</td>
     ${restSpan ? `<td colspan="${restSpan}"></td>` : ""}
   </tr>`;
+
+  // Zusatz-/Options-Module stehen unter dem Total als eigene Zeilen, danach
+  // folgt das Total inklusive.
+  if (gesamtZusatz) {
+    const { summen: ms } = modulSummen();
+    html += fuss(" bk-gesamt-zusatz", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""} (ohne Optionen)`, "CHF " + franken(gesamt), "gesamtTotalZelle");
+    module_()
+      .filter((m) => m.zusatz)
+      .forEach((m) => {
+        html += fuss(" bk-gesamt-zusatz", `Option: ${escapeHtml(m.name)}`, `<span class="bk-zusatz">+ ${franken(ms[m.id])}</span>`);
+      });
+    html += fuss("", "Total inklusive Optionen", "CHF " + franken(gesamt + gesamtZusatz));
+  } else {
+    html += fuss("", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}`, "CHF " + franken(gesamt), "gesamtTotalZelle");
+  }
 
   document.getElementById("bkBody").innerHTML = html;
   document.getElementById("bkTable").className = "bk-table" + (ansicht.dichte === "kompakt" ? " kompakt" : "");
   autoGrowAlle();
   letzterStatus = status;
-  return gesamt;
+  return { gesamt, gesamtZusatz };
 }
 
 // Die Höhe des oben klebenden Blocks (Titel, Kennzahlen, Werkzeugleiste)
@@ -721,8 +816,8 @@ function messeSticky() {
 }
 
 function renderEditor() {
-  const gesamt = renderTabelle();
-  renderKpis(gesamt);
+  const { gesamt, gesamtZusatz } = renderTabelle();
+  renderKpis(gesamt, gesamtZusatz);
 
   const meta = [projektLabel(offen), offen.genauigkeit, offen.kostenstand ? `Stand ${offen.kostenstand}` : ""]
     .filter(Boolean)
@@ -752,19 +847,20 @@ function render() {
 // nachgeführt werden -- kein kompletter Neuaufbau, der den Cursor aus der
 // Tabelle werfen würde.
 function refreshSummen() {
-  const { summen, gesamt } = alleSummen();
+  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
   document.querySelectorAll("[data-total-for]").forEach((el) => {
     const summe = summen[el.dataset.totalFor] || 0;
-    el.textContent = summe ? franken(summe) : "";
-    el.closest("tr").classList.toggle("leer", !summe);
+    const zusatz = summenZusatz[el.dataset.totalFor] || 0;
+    el.innerHTML = totalZelleInhalt(summe, zusatz);
+    el.closest("tr").classList.toggle("leer", !summe && !zusatz);
   });
   document.querySelectorAll("[data-kosten-for]").forEach((el) => {
     const zeile = zeileSuchen(offen, el.dataset.kostenFor);
-    if (zeile) el.textContent = zeilenKosten(zeile) ? franken(zeilenKosten(zeile)) : "";
+    if (zeile) el.innerHTML = zeilenKostenText(zeile);
   });
   const gesamtZelle = document.getElementById("gesamtTotalZelle");
   if (gesamtZelle) gesamtZelle.textContent = "CHF " + franken(gesamt);
-  renderKpis(gesamt);
+  renderKpis(gesamt, gesamtZusatz);
   renderPanelKosten();
 }
 
@@ -983,8 +1079,8 @@ function sanitizeJsonFilename(name) {
   if (!clean.toLowerCase().endsWith(".json")) clean += ".json";
   return clean;
 }
-function uniqueFilename(base) {
-  const bekannt = new Set(schaetzungen.map((s) => s.filename));
+function uniqueFilename(base, ausser) {
+  const bekannt = new Set(schaetzungen.map((s) => s.filename).filter((f) => f !== ausser));
   if (!bekannt.has(base)) return base;
   const stamm = base.replace(/\.json$/i, "");
   let n = 2;
@@ -995,9 +1091,54 @@ function uniqueFilename(base) {
   } while (bekannt.has(kandidat));
   return kandidat;
 }
-function dateinameFuer(data) {
+function dateinameFuer(data, ausser) {
   const teile = [data.projekt, data.projektName, data.titel].filter(Boolean);
-  return uniqueFilename(sanitizeJsonFilename(teile.join(" ") || "Kostenschätzung"));
+  return uniqueFilename(sanitizeJsonFilename(teile.join(" ") || "Kostenschätzung"), ausser);
+}
+
+// Benennt die Datei auf Nextcloud um, sobald Projekt oder Titel geändert
+// wurden -- sonst hiesse die Datei dort dauerhaft wie die erste Fassung.
+// Der Worker-Proxy lässt nur GET/PUT/MKCOL/PROPFIND/DELETE durch, ein
+// WebDAV-MOVE fällt also aus: erst die neue Datei schreiben, dann die alte
+// löschen. In dieser Reihenfolge kann ein Abbruch mittendrin höchstens
+// eine Kopie hinterlassen, niemals die Schätzung verlieren.
+function planeUmbenennen(alterName, neuerName) {
+  if (alterName === neuerName) return;
+  if (!isConfigured() || !navigator.onLine) {
+    setSyncLine("Offline · Datei wird erst beim nächsten Sync umbenannt");
+    return;
+  }
+  // Die App zeigt ab sofort auf den neuen Namen; nachfolgende Änderungen
+  // landen dort. Die Warteschlange erledigt den Rest der Reihe nach.
+  offenFilename = neuerName;
+  const eintrag = schaetzungen.find((x) => x.filename === alterName);
+  if (eintrag) eintrag.filename = neuerName;
+  saveJSON(LS_KEYS.cache, schaetzungen);
+
+  // Die Daten werden JETZT festgehalten: schliesst man die Schätzung
+  // gleich nach dem Umbenennen (z.B. beim Umbenennen aus der Liste
+  // heraus), ist `offen` längst null, wenn die Warteschlange hier ankommt.
+  const daten = offen;
+  syncQueue = syncQueue.then(async () => {
+    try {
+      setSyncLine("Benennt um…");
+      await ensureBkFolder();
+      await putFile(neuerName, daten);
+      await deleteFile(alterName);
+      // Ein noch laufender Speichervorgang auf den ALTEN Namen kann den
+      // Cache-Eintrag zwischenzeitlich wieder angelegt haben -- hier
+      // endgültig aufräumen.
+      schaetzungen = schaetzungen.filter((x) => x.filename !== alterName);
+      if (!schaetzungen.some((x) => x.filename === neuerName)) schaetzungen.push({ filename: neuerName, data: daten });
+      saveJSON(LS_KEYS.cache, schaetzungen);
+      if (offenFilename === neuerName) setSyncLine("Gespeichert");
+      renderList();
+    } catch (err) {
+      console.warn("Umbenennen fehlgeschlagen:", err);
+      setSyncLine("Umbenennen fehlgeschlagen");
+    }
+  });
+  return syncQueue;
 }
 
 // ---------- Speichern (Muster wie Offerten/Finanzplanung) ----------
@@ -1112,17 +1253,49 @@ function setzeFeld(nr, rowId, feld, wert, quelle) {
     const el = document.querySelector(`#detailPanel [data-panel-feld="${feld}"]`);
     if (el) el.value = wert;
   }
-  // Die Bemerkungs-Punkte in der Beschrieb-Spalte hängen am Inhalt.
-  if ((feld === "intern" || feld === "extern") && !ansicht.bemerkungen) renderTabelleErhalten();
+  // Die Bemerkungs-Punkte in der Beschrieb-Spalte hängen am Inhalt, und
+  // ein Modulwechsel kann die Fusszeilen umbauen (sobald die erste Zeile
+  // in ein Zusatz-Modul wandert, kommen "Option"- und "Total inklusive"-
+  // Zeilen dazu) -- beides ist strukturell, refreshSummen() genügt nicht.
+  if (feld === "modul" || ((feld === "intern" || feld === "extern") && !ansicht.bemerkungen)) {
+    renderTabelleErhalten();
+  }
 }
 
-// Ein Neuaufbau der Tabelle, der die Auswahl und die Scrollposition behält
-// -- für Änderungen, die nur die Darstellung betreffen (Bemerkungs-Punkte).
+// Was gerade im fokussierten Feld steht, ist noch NICHT in den Daten:
+// change feuert erst beim Verlassen des Feldes. Vor jedem Neuaufbau der
+// Tabelle muss die offene Eingabe deshalb übernommen werden, sonst wird
+// sie beim Neuzeichnen überschrieben -- z.B. Kennwert tippen und direkt
+// daneben das Modul auswählen (das Modul baut die Fusszeilen um).
+function uebernimmOffeneEingabe() {
+  const el = document.activeElement;
+  if (!el || !el.dataset) return;
+  const feld = el.dataset.feld || el.dataset.panelFeld;
+  if (!feld) return;
+  const tr = el.closest ? el.closest("tr.bk-sub") : null;
+  const ziel = tr ? { nr: tr.dataset.nr, id: tr.dataset.row } : el.dataset.panelFeld ? gewaehlteZeile : null;
+  if (!ziel) return;
+  const zeile = zeileSuchen(offen, ziel.id);
+  if (!zeile || zeile[feld] === el.value) return;
+  if (el.matches && el.matches("input.bk-num")) el.dataset.roh = el.value;
+  const wert = el.value;
+  mutate((data) => {
+    const z = (data.positionen[ziel.nr] || []).find((x) => x.id === ziel.id);
+    if (z) z[feld] = wert;
+    return data;
+  });
+}
+
+// Ein Neuaufbau der Tabelle, der die Scrollposition behält -- für
+// Änderungen, die nur die Darstellung betreffen (Klappen, Filter, Status,
+// Bemerkungs-Punkte). Gescrollt wird die SEITE (siehe Layout-Kommentar in
+// index.html), nicht ein innerer Container.
 function renderTabelleErhalten() {
-  const wrap = document.querySelector(".bk-table-wrap");
-  const scroll = wrap ? wrap.scrollTop : 0;
-  renderTabelle();
-  if (wrap) wrap.scrollTop = scroll;
+  uebernimmOffeneEingabe();
+  const scroll = window.scrollY;
+  const { gesamt, gesamtZusatz } = renderTabelle();
+  renderKpis(gesamt, gesamtZusatz);
+  window.scrollTo(0, scroll);
 }
 
 // ---------- Interaktion: Tabelle ----------
@@ -1169,6 +1342,7 @@ function naechsteUnterteilung(nr) {
 }
 
 function onBodyClick(e) {
+  uebernimmOffeneEingabe(); // siehe Kommentar dort
   const btn = e.target.closest("[data-action]");
   if (!btn) {
     // Klick irgendwo auf eine Gruppen-/Positionszeile klappt sie auf und zu.
@@ -1198,7 +1372,6 @@ function onBodyClick(e) {
       return data;
     });
     renderTabelleErhalten();
-    renderKpis(alleSummen().gesamt);
     return;
   }
 
@@ -1365,6 +1538,23 @@ function onListClick(e) {
     oeffne(file);
     return;
   }
+  if (action === "rename") {
+    const eintrag = schaetzungen.find((x) => x.filename === file);
+    if (!eintrag) return;
+    const titel = (prompt("Neuer Titel:", eintrag.data.titel || "") || "").trim();
+    if (!titel || titel === eintrag.data.titel) return;
+    // Zum Umbenennen kurz öffnen -- so laufen Speichern und Umbenennen
+    // durch dieselbe Warteschlange wie jede andere Änderung.
+    oeffne(file);
+    mutate((data) => {
+      data.titel = titel;
+      return data;
+    });
+    planeUmbenennen(offenFilename, dateinameFuer(offen, offenFilename));
+    zurueckZurListe();
+    return;
+  }
+
   if (action === "duplicate") {
     const eintrag = schaetzungen.find((s) => s.filename === file);
     if (!eintrag) return;
@@ -1469,7 +1659,8 @@ function oeffneKopfDialog() {
   document.getElementById("kopfTitel").value = offen.titel || "";
   document.getElementById("kopfGenauigkeit").value = offen.genauigkeit || "";
   document.getElementById("kopfKostenstand").value = offen.kostenstand || "";
-  document.getElementById("kopfModule").value = module_().map((m) => m.name).join("\n");
+  kopfModule = module_().map((m) => ({ ...m }));
+  renderKopfModule();
   document.getElementById("kopfGrundlagen").value = offen.grundlagen || "";
   overlay("kopfOverlay", true);
 }
@@ -1480,7 +1671,10 @@ function uebernimmKopfDialog() {
   const genauigkeit = document.getElementById("kopfGenauigkeit").value.trim();
   const kostenstand = document.getElementById("kopfKostenstand").value.trim();
   const grundlagen = document.getElementById("kopfGrundlagen").value;
-  const neueModule = moduleAusText(document.getElementById("kopfModule").value, module_());
+  lesKopfModulNamen();
+  const neueModule = kopfModule
+    .map((m) => ({ id: m.id, name: m.name.trim(), zusatz: !!m.zusatz }))
+    .filter((m) => m.name);
   const gueltigeIds = new Set(neueModule.map((m) => m.id));
   overlay("kopfOverlay", false);
   mutate(
@@ -1503,11 +1697,9 @@ function uebernimmKopfDialog() {
     },
     { neuRendern: true }
   );
+  planeUmbenennen(offenFilename, dateinameFuer(offen, offenFilename));
 }
 
-// Der Dateiname bleibt bewusst unverändert, auch wenn Titel/Projekt
-// nachträglich geändert werden -- Umbenennen hiesse auf WebDAV kopieren +
-// löschen, und ein Abbruch mittendrin würde eine Schätzung verlieren.
 async function loescheOffene() {
   if (!confirm(`Kostenschätzung "${offen.titel}" wirklich komplett löschen?`)) return;
   const filename = offenFilename;
@@ -1572,9 +1764,13 @@ function starteDruck() {
 // oder zu einem Beschrieb zusammengefasst (wie es in der alten Excel die
 // TEXTJOIN-Formel in der Positionszeile tat).
 function renderDruck(opt) {
-  const { summen, gesamt } = alleSummen();
+  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
   const verwendet = verwendeteKnoten();
   const mods = opt.modulSpalten ? module_() : [];
+  const zIds = zusatzModulIds();
+  // Grundkosten und Optionsbeträge in einer Zelle: "45'820  +12'000"
+  const betragZelle = (basis, zusatz) =>
+    `${basis ? franken(basis) : ""}${zusatz ? ` <span class="pr-formel">+${franken(zusatz)}</span>` : ""}`;
 
   const kopf = [
     `<th>BKP</th>`,
@@ -1627,7 +1823,7 @@ function renderDruck(opt) {
         <td>${escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
-        <td class="r">${summe ? franken(summe) : ""}</td>
+        <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
         ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
         ${opt.bemerkungExtern ? "<td></td>" : ""}
       </tr>`;
@@ -1641,7 +1837,7 @@ function renderDruck(opt) {
         <td>${escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
-        <td class="r">${summe ? franken(summe) : ""}</td>
+        <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
         ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
         ${opt.bemerkungExtern ? "<td></td>" : ""}
       </tr>`;
@@ -1656,7 +1852,7 @@ function renderDruck(opt) {
           <td class="r">${zahl(rechne(z.ausmass))}${istRechnung(z.ausmass) ? `<div class="pr-formel">${escapeHtml(z.ausmass)}</div>` : ""}</td>
           <td>${escapeHtml(z.einheit || "")}</td>
           <td class="r">${zahl(rechne(z.kennwert))}</td>
-          <td class="r">${zeilenKosten(z) ? franken(zeilenKosten(z)) : ""}</td>
+          <td class="r">${zeilenKosten(z) ? (istZusatzZeile(z, zIds) ? "+" : "") + franken(zeilenKosten(z)) : ""}</td>
           ${mods.length ? modulZellen(anteile) : ""}
           ${opt.bemerkungExtern ? `<td>${escapeHtml(z.extern || "")}</td>` : ""}
         </tr>`;
@@ -1677,31 +1873,48 @@ function renderDruck(opt) {
       <td class="r">${einzeln ? zahl(rechne(einzeln.ausmass)) : ""}</td>
       <td>${einzeln ? escapeHtml(einzeln.einheit || "") : ""}</td>
       <td class="r">${einzeln ? zahl(rechne(einzeln.kennwert)) : ""}</td>
-      <td class="r">${summe ? franken(summe) : ""}</td>
+      <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
       ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
       ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join("; "))}</td>` : ""}
     </tr>`;
   });
 
   const gesamtModule = mods.length ? modulZellen(modulAnteile("")) : "";
+  const leerZellen = `${mods.map(() => "<td></td>").join("")}${opt.bemerkungExtern ? "<td></td>" : ""}`;
   zeilen += `<tr class="pr-gesamt">
     <td></td>
-    <td>Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}</td>
+    <td>Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}${gesamtZusatz ? " (ohne Optionen)" : ""}</td>
     <td colspan="3"></td>
     <td class="r">CHF ${franken(gesamt)}</td>
     ${gesamtModule}
     ${opt.bemerkungExtern ? "<td></td>" : ""}
   </tr>`;
+  if (gesamtZusatz) {
+    const { summen: ms } = modulSummen();
+    module_()
+      .filter((m) => m.zusatz)
+      .forEach((m) => {
+        zeilen += `<tr><td></td><td>Option: ${escapeHtml(m.name)}</td><td colspan="3"></td><td class="r">+ ${franken(ms[m.id])}</td>${leerZellen}</tr>`;
+      });
+    zeilen += `<tr class="pr-gesamt"><td></td><td>Total inklusive Optionen</td><td colspan="3"></td><td class="r">CHF ${franken(
+      gesamt + gesamtZusatz
+    )}</td>${leerZellen}</tr>`;
+  }
 
   let modulBlock = "";
   if (opt.modulSummen && module_().length) {
     const { summen: ms, ohne } = modulSummen();
     const zeilenHtml =
       module_()
+        .filter((m) => !m.zusatz)
         .map((m) => `<tr><td>${escapeHtml(m.name)}</td><td class="r">${franken(ms[m.id])}</td></tr>`)
         .join("") +
       (ohne ? `<tr><td>Ohne Modul</td><td class="r">${franken(ohne)}</td></tr>` : "") +
-      `<tr><td>Total</td><td class="r">${franken(gesamt)}</td></tr>`;
+      module_()
+        .filter((m) => m.zusatz)
+        .map((m) => `<tr><td>Option: ${escapeHtml(m.name)}</td><td class="r">+ ${franken(ms[m.id])}</td></tr>`)
+        .join("") +
+      `<tr><td>Total${gesamtZusatz ? " inkl. Optionen" : ""}</td><td class="r">${franken(gesamt + gesamtZusatz)}</td></tr>`;
     modulBlock = `<div class="pr-module"><h3>Zusammenstellung nach Modulen</h3><table>${zeilenHtml}</table></div>`;
   }
 
@@ -1792,6 +2005,14 @@ function init() {
   document.getElementById("neuErstellenBtn").addEventListener("click", erstelleAusDialog);
   document.getElementById("closeKopf").addEventListener("click", () => overlay("kopfOverlay", false));
   document.getElementById("kopfSpeichernBtn").addEventListener("click", uebernimmKopfDialog);
+  document.getElementById("kopfModulListe").addEventListener("click", onKopfModulClick);
+  document.getElementById("kopfModulAddBtn").addEventListener("click", () => {
+    lesKopfModulNamen();
+    kopfModule.push({ id: uid(), name: "", zusatz: false });
+    renderKopfModule();
+    const felder = document.querySelectorAll("#kopfModulListe .bk-modul-name");
+    if (felder.length) felder[felder.length - 1].focus();
+  });
   document.getElementById("kopfLoeschenBtn").addEventListener("click", loescheOffene);
   document.getElementById("closeDruck").addEventListener("click", () => overlay("druckOverlay", false));
   document.getElementById("druckAbbrechenBtn").addEventListener("click", () => overlay("druckOverlay", false));
