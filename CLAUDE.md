@@ -1,6 +1,6 @@
 # Hinweise für Claude Code in diesem Repo
 
-Büro-Apps für ein Architekturbüro — acht kleine statische PWAs ohne
+Büro-Apps für ein Architekturbüro — zehn kleine statische PWAs ohne
 Build-Schritt, gehostet auf GitHub Pages (Branch `main`). Was die
 Apps jeweils tun, steht ausführlich in `README.md` — diese Datei hier ist
 bewusst kein Duplikat davon, sondern hält fest, **wie** wir zusammenarbeiten
@@ -62,7 +62,10 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   (hiess früher "Zeitplanung"/`zeitplanung/` — unter der alten Adresse liegt
   bewusst ein Redirect-Stub, damit alte Lesezeichen/Home-Icons nicht ins
   Leere laufen), `finanzplanung/` (Liquiditätsplanung pro Kalenderjahr, ein
-  File pro Jahr statt einer gemeinsamen Datei — siehe README).
+  File pro Jahr statt einer gemeinsamen Datei — siehe README),
+  `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
+  BKP-Katalog selbst liegt als `baukosten/bkp.js` im Repo und ist für alle
+  Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal

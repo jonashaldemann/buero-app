@@ -1,0 +1,15 @@
+{
+  "name": "Baukosten",
+  "short_name": "Baukosten",
+  "description": "Kostenschätzung nach BKP: ein-/aus­klappbare Struktur, Unterpositionen mit Ausmass und Kennwert, interne und externe Bemerkungen",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2EFEA",
+  "theme_color": "#F2EFEA",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "../icons/baukosten-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/baukosten-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

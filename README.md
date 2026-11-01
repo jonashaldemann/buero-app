@@ -1,6 +1,6 @@
 # Büro-Apps
 
-Acht kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Zehn kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
@@ -11,6 +11,8 @@ App auf dem Homescreen installierbar:
 - **[Pendenzen](pendenzen/)** — To-do-Liste nach Projekt und Person filterbar, auf Nextcloud sichern.
 - **[Protokoll](protokoll/)** — Sitzungsprotokolle erfassen, PDF-Export, automatische Pendenzen.
 - **[Timeline](timeline/)** — Terminplanung als horizontaler Zeitbalken (Gantt-artig).
+- **[Finanzplanung](finanzplanung/)** — Liquiditätsplanung pro Kalenderjahr.
+- **[Baukosten](baukosten/)** — Kostenschätzung nach BKP, mit Unterpositionen, Ausmassen und zwei Bemerkungsspalten.
 
 Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher: ein
 App-Icon-Raster wie auf dem Smartphone-Homescreen (Icon + kurzes Label,
@@ -103,6 +105,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
+| Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
@@ -1229,6 +1232,111 @@ berechnet der Saldo pro Monat.
 
 ---
 
+## Baukosten
+
+Kostenschätzung nach **BKP** (Baukostenplan, Ausgabe 1991) — der Ersatz für
+die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
+1-stellig Hauptgruppe ("2 Gebäude"), 2-stellig Elementgruppe ("22 Rohbau 2"),
+3-stellig Position ("224 Bedachungsarbeiten").
+
+- **Speicherort**: eine Kostenschätzung = eine JSON-Datei auf Nextcloud
+  (`Buero/Admin/App/Baukosten/<Projekt> <Titel>.json`), Liste + Editor wie
+  bei den Offerten/Protokollen.
+- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, rund 540
+  Nummern) und ist für alle Schätzungen identisch; die Datei einer Schätzung
+  enthält nur, was tatsächlich erfasst wurde. Dadurch bleiben die Dateien
+  klein, und eine Korrektur am Katalog gilt sofort für alle bestehenden
+  Schätzungen. (Der Katalog stammt aus der alten Excel-Vorlage, deren
+  Sortier-Artefakte — "1411" statt "141" — und Tippfehler sind dabei
+  korrigiert, die Reservegruppen 7 und 8 ergänzt.)
+
+### Ansicht: Ebene, Filter, Suche
+
+- **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
+  "3" zeigt also die Positionen, aber noch keine Unterpositionen; "Alles"
+  auch diese. Einzelne Gruppen lassen sich mit dem Dreieck links zusätzlich
+  ein-/ausklappen — ein einzelner Klick hebt die eingestellte Ebene für
+  genau diesen Knoten auf, die Ebenen-Knöpfe sind nur eine Ausgangslage.
+- **"Nur verwendete"** (standardmässig an) blendet alles aus, worin noch
+  nichts erfasst ist. Zusammen mit Ebene 3 ergibt das die Übersicht über
+  genau die benutzten Positionen; mit Ebene 1 die Zusammenstellung nach
+  Hauptgruppen.
+- Die **Suche** (BKP-Nummer oder Stichwort, auch im Beschrieb und in den
+  Bemerkungen) setzt Filter und Ein-/Ausklappen bewusst aus und zeigt auch
+  noch leere Positionen — genau so wird eine neue Position gefunden und in
+  Gebrauch genommen. Die eingestellte Ebene und der Filter werden pro Gerät
+  in `localStorage` gemerkt, nicht in der Datei: zwei Leute dürfen dieselbe
+  Schätzung gleichzeitig unterschiedlich tief aufgeklappt anschauen.
+
+### Unterpositionen, Ausmass, Kennwert
+
+- Eine Position kann **beliebig viele Unterpositionen** haben ("+ Zeile"),
+  die automatisch zur Positionssumme zusammengezählt werden; die Summen
+  laufen weiter auf Element-, Hauptgruppe und Gesamttotal hoch (Total immer
+  oben rechts sichtbar).
+- **Ausmass und Kennwert dürfen gerechnet werden**: "2x4x2" ergibt 16,
+  "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim Kennwert die MWST
+  auf. Angezeigt wird das Resultat, die eingetippte Rechnung bleibt klein
+  darunter stehen und erscheint beim Hineinklicken wieder im Feld — so bleibt
+  nachvollziehbar, woher eine Zahl kommt. Gespeichert wird deshalb der
+  eingetippte Text, nicht das Resultat. Erlaubt sind die vier Grundrechenarten
+  mit Klammern; "x"/"×" gelten als Mal, Komma als Dezimaltrennzeichen,
+  Apostrophe (Tausender) werden ignoriert. Ungültige Eingaben bleiben stehen
+  und werden mit "ungültig" markiert statt kommentarlos verworfen.
+- **Kosten = Ausmass × Kennwert.** Ein leeres Ausmass zählt als 1 — eine
+  Pauschale/Budgetposition braucht also nur den Kennwert und z.B. die
+  Einheit "Pausch." (in der Excel stand dafür immer ein Pseudo-Ausmass
+  "1 Pl").
+- **Einheit** ist ein freies Feld mit Vorschlagsliste (Stk, m², m³, m, lfm,
+  kg, t, h, Tag, Pausch., %).
+- **Eigene Unterteilung einer Position**: "+ eigene Pos." auf einer
+  Elementgruppe ergänzt eine Nummer wie "211.1 Gerüste", wenn der
+  Standard-BKP zu grob ist. Sie wird direkt hinter "211" einsortiert und
+  gilt nur für diese eine Kostenschätzung.
+
+### Bemerkungen und Ausdruck
+
+- Zwei Bemerkungsspalten pro Unterposition: **intern** (Annahmen, offene
+  Fragen, Notizen aus Sitzungen) und **extern**. Die interne Spalte wird
+  beim Drucken komplett ausgeblendet, die externe nicht.
+- **Drucken** (Knopf oben) gibt genau die Ansicht aus, die gerade auf dem
+  Bildschirm steht — Ebene, Ein-/Ausgeklapptes und Filter wirken also auch
+  im Ausdruck; vor dem Drucken erst die gewünschte Tiefe einstellen.
+  Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
+  "Grundlagen" aus den Kopfdaten als Kopfblock.
+
+### Kopfdaten und Varianten
+
+- **Kopfdaten** (Knopf oben): Projekt (aus der zentralen Projektliste),
+  Titel, Genauigkeit (z.B. "±25%", erscheint auch in der Total-Zeile),
+  Kostenstand (z.B. "September 2025") und ein Freitext "Grundlagen", der nur
+  im Ausdruck erscheint. Dort steckt auch das Löschen der ganzen Schätzung.
+- **Varianten** (z.B. "Mini"/"Maxi" desselben Projekts) über
+  **"Duplizieren"** in der Liste — die Kopie bekommt eigene Zeilen-IDs,
+  die Ausgangsvariante bleibt unverändert.
+- Der **Dateiname bleibt unverändert**, auch wenn Titel/Projekt nachträglich
+  geändert werden: Umbenennen hiesse auf WebDAV kopieren + löschen, und ein
+  Abbruch mittendrin würde eine Schätzung verlieren.
+
+### Speichern
+
+Wie bei Offerten/Finanzplanung: jede Änderung ist eine reine Funktion, die
+sofort lokal (optimistisch, fürs UI) und seriell in einer Warteschlange auf
+einen frisch vom Server geholten Stand angewendet wird. Zwei Besonderheiten
+gegenüber der Finanzplanung:
+
+- Der lokale Stand wird nach dem Schreiben **nicht** durch den Serverstand
+  ersetzt. Hier tippt man vier Felder einer Zeile schnell hintereinander;
+  der gerade geschriebene Stand basiert auf dem Serverstand von vorhin und
+  würde die inzwischen erfassten Felder wieder wegwerfen.
+- Eine neu hinzugefügte Zeile wird **einmal vor** der Änderungsfunktion
+  erzeugt, nicht darin — die Funktion läuft zweimal (lokal und auf dem
+  Serverstand), und mit einem `uid()` im Innern bekäme die Zeile dort eine
+  andere ID, womit alle späteren Feldänderungen sie auf dem Server nicht
+  mehr fänden.
+
+---
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
@@ -1246,7 +1354,8 @@ berechnet der Saldo pro Monat.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
   `icons/adressliste-*.png`, `icons/pendenzen-*.png`, `icons/protokoll-*.png`,
-  `icons/timeline-*.png`, `icons/finanzplanung-*.png` (je 192px + 512px PNG).
+  `icons/timeline-*.png`, `icons/finanzplanung-*.png`, `icons/baukosten-*.png`
+  (je 192px + 512px PNG).
   Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
   Code-/Manifest-Änderung nötig.
 
@@ -1256,7 +1365,8 @@ berechnet der Saldo pro Monat.
 python3 -m http.server 8080
 # im Browser: http://localhost:8080 (Startseite)
 # bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/,
-# /offerten/, /adressliste/, /pendenzen/, /protokoll/, /timeline/
+# /offerten/, /adressliste/, /pendenzen/, /protokoll/, /timeline/,
+# /finanzplanung/, /baukosten/
 ```
 
 ## Auf GitHub veröffentlichen (GitHub Pages)

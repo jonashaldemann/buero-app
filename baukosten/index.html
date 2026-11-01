@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Baukosten</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/baukosten-192.png">
+<link rel="apple-touch-icon" href="../icons/baukosten-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* Baukosten ist wie Timeline/Finanzplanung ein reines Desktop-Werkzeug
+     (breite BKP-Tabelle mit neun Spalten) -- kein mobile-first 480px-Limit. */
+  main { max-width: 100%; padding: 0 16px 24px; gap: 12px; }
+
+  /* ---------- Liste der Kostenschätzungen ---------- */
+
+  .bk-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 14px; overflow: hidden; }
+  .bk-list li { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  .bk-list li:last-child { border-bottom: none; }
+  .bk-list li.empty { color: var(--text-muted); justify-content: center; font-size: 14px; }
+  .bk-list-main { flex: 1; min-width: 0; cursor: pointer; }
+  .bk-list-titel { font-family: var(--font-medium); font-size: 15px; }
+  .bk-list-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .bk-list-total { font-family: var(--font-medium); font-size: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Editor: Kopf + Werkzeugleiste ---------- */
+
+  .bk-editor-head {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--surface); border-radius: 14px; padding: 12px 16px;
+  }
+  .bk-editor-head .bk-head-titel { font-family: var(--font-medium); font-size: 17px; }
+  .bk-editor-head .bk-head-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .bk-head-spacer { flex: 1; }
+  .bk-head-total { text-align: right; }
+  .bk-head-total .bk-head-total-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.3px; }
+  .bk-head-total .bk-head-total-wert {
+    font-family: var(--font-medium); font-size: 22px; font-variant-numeric: tabular-nums;
+  }
+
+  .bk-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .bk-seg { display: flex; background: var(--surface-2); border-radius: 10px; padding: 2px; }
+  .bk-seg button {
+    background: none; border: none; color: var(--text-muted); font-family: var(--font-light);
+    font-size: 13px; padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  }
+  .bk-seg button.active { background: var(--surface); color: var(--text); font-family: var(--font-medium); }
+  .bk-toggle {
+    background: var(--surface-2); border: none; color: var(--text-muted); font-family: var(--font-light);
+    font-size: 13px; padding: 9px 13px; border-radius: 10px; cursor: pointer; white-space: nowrap;
+  }
+  .bk-toggle.active { background: var(--accent-primary); color: #fff; }
+  .bk-search { position: relative; flex: 1; min-width: 200px; max-width: 420px; }
+  .bk-search input { padding: 9px 13px; font-size: 13px; }
+  .bk-toolbar-hint { font-size: 12px; color: var(--text-muted); }
+
+  /* ---------- Die BKP-Tabelle ---------- */
+
+  .bk-table-wrap { overflow-x: auto; background: var(--surface); border-radius: 14px; }
+  table.bk-table { font-size: 12.5px; }
+  .bk-table th, .bk-table td { padding: 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .bk-table thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--surface);
+    padding: 9px 10px; font-size: 11px; white-space: nowrap;
+  }
+  .bk-table th.bk-right, .bk-table td.bk-right { text-align: right; }
+
+  .bk-col-nr { width: 78px; }
+  .bk-col-ausmass { width: 104px; }
+  .bk-col-einheit { width: 96px; }
+  .bk-col-kennwert { width: 108px; }
+  .bk-col-kosten { width: 112px; }
+  .bk-col-bem { width: 190px; }
+  .bk-col-aktion { width: 118px; }
+  td.bk-col-aktion { white-space: nowrap; }
+
+  /* Gruppenzeilen (ein-/zweistellig) und Positionszeilen (dreistellig) */
+  .bk-group td { padding: 7px 10px; cursor: default; }
+  .bk-group .bk-nr { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bk-group .bk-total { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .bk-l1 td { background: var(--surface-2); font-family: var(--font-medium); font-size: 13.5px; padding: 10px; }
+  .bk-l2 td { font-family: var(--font-medium); font-size: 12.5px; }
+  .bk-l3 td { font-size: 12.5px; }
+  .bk-l3 .bk-titel { color: var(--text); }
+  .bk-l2 .bk-titel { padding-left: 0; }
+  .bk-indent-2 { padding-left: 14px !important; }
+  .bk-indent-3 { padding-left: 30px !important; }
+
+  .bk-chevron {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    padding: 0 5px 0 0; font-size: 10px; width: 18px; text-align: left;
+  }
+  .bk-chevron.leer { visibility: hidden; }
+
+  /* Unterpositionen: die eigentlichen Eingabezeilen */
+  .bk-sub td { background: var(--surface); padding: 3px 6px; }
+  .bk-sub td:first-child { padding-left: 30px; }
+  .bk-sub input, .bk-sub textarea {
+    background: none; border: 1px solid transparent; border-radius: 6px;
+    padding: 5px 6px; font-size: 12.5px; font-family: var(--font-light);
+    color: var(--text); width: 100%; resize: none; overflow: hidden; line-height: 1.35;
+    display: block; min-width: 0;
+  }
+  .bk-sub input:hover, .bk-sub textarea:hover { border-color: var(--border); }
+  .bk-sub input:focus, .bk-sub textarea:focus { outline: none; border-color: var(--accent-primary); background: var(--bg); }
+  .bk-sub .bk-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bk-sub .bk-kosten { text-align: right; font-variant-numeric: tabular-nums; padding-right: 12px; white-space: nowrap; }
+  .bk-sub textarea.bk-bem { color: var(--text-muted); font-size: 12px; }
+
+  /* Herkunft einer Zahl: die eingetippte Rechnung bleibt unter dem Resultat
+     stehen (siehe app.js, ausmassZelle()). */
+  .bk-formel {
+    display: block; font-size: 10.5px; color: var(--text-muted); text-align: right;
+    padding: 0 7px 2px; font-variant-numeric: tabular-nums; min-height: 0;
+  }
+  .bk-formel:empty { display: none; }
+
+  .bk-row-action {
+    background: none; border: none; color: var(--text-muted); font-size: 15px;
+    cursor: pointer; padding: 4px 6px; border-radius: 6px;
+  }
+  .bk-row-action:hover { color: var(--text); background: var(--surface-2); }
+  .bk-add-btn {
+    background: none; border: none; color: var(--accent-primary); font-size: 12px;
+    cursor: pointer; padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+    font-family: var(--font-light);
+  }
+  .bk-add-btn:hover { background: var(--surface-2); }
+
+  .bk-leer-hinweis { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  /* Gesamttotal-Zeile am Tabellenende */
+  .bk-gesamt td {
+    background: var(--surface-2); font-family: var(--font-medium); font-size: 14px;
+    padding: 12px 10px; border-bottom: none;
+  }
+  .bk-gesamt .bk-total { font-variant-numeric: tabular-nums; }
+
+  /* Kopfdaten-Block, erscheint nur im Ausdruck */
+  .bk-print-head { display: none; }
+
+  #helpOverlay .sheet, #kopfOverlay .sheet, #neuOverlay .sheet { max-width: 560px; }
+
+  /* ---------- Ausdruck ----------
+     Gedruckt wird bewusst genau die Ansicht, die gerade auf dem Bildschirm
+     steht (Ebene, Ein-/Ausgeklapptes, Filter) -- plus einem Kopfblock mit
+     Projekt/Genauigkeit/Kostenstand. Die INTERNE Bemerkungsspalte wird
+     komplett ausgeblendet. */
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+    body { background: #fff; }
+    .topbar, .bk-toolbar, .sync-line, .overlay, .bk-editor-head, #listView { display: none !important; }
+    main { padding: 0; }
+    .bk-print-head { display: block; margin-bottom: 10px; }
+    .bk-print-head h2 { font-family: var(--font-medium); font-size: 15px; margin: 0 0 2px; font-weight: normal; }
+    .bk-print-head .bk-print-meta { font-size: 11px; color: #555; }
+    .bk-print-head .bk-print-grundlagen { font-size: 11px; margin-top: 6px; white-space: pre-wrap; }
+    .bk-table-wrap { overflow: visible; background: none; border-radius: 0; }
+    .bk-table { font-size: 10px; }
+    .bk-table thead th { position: static; background: #fff; border-bottom: 1px solid #999; }
+    .bk-sub td, .bk-l1 td, .bk-gesamt td { background: #fff; }
+    .bk-sub input, .bk-sub textarea { border-color: transparent !important; padding: 2px 4px; font-size: 10px; }
+    .bk-col-intern, .bk-chevron, .bk-row-action, .bk-add-btn, .bk-col-aktion { display: none !important; }
+    .bk-table tr { break-inside: avoid; }
+    .bk-sub input::placeholder, .bk-sub textarea::placeholder { color: transparent !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1 id="viewTitel">Baukosten</h1>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="helpBtn" class="icon-btn" aria-label="Hilfe" title="Hilfe">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2zm0-3.6V14h-2v-1.4c0-.3.1-.5.4-.8l1.4-1.4c.3-.3.5-.6.5-1a1.5 1.5 0 00-3-.1H8.4a3.5 3.5 0 017-.3c0 .9-.4 1.5-1.1 2.2l-1 1z" fill="currentColor"/></svg>
+    </button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="sync-line" id="syncLine">&nbsp;</div>
+
+  <!-- ===== Liste ===== -->
+  <section id="listView">
+    <div class="bk-toolbar" style="margin-bottom:12px;">
+      <button id="neuBtn" class="btn-primary" style="flex:none; padding:11px 18px;">+ Neue Kostenschätzung</button>
+    </div>
+    <ul class="bk-list" id="bkList"></ul>
+  </section>
+
+  <!-- ===== Editor ===== -->
+  <section id="editorView" style="display:none;">
+    <div class="bk-editor-head">
+      <button id="backBtn" class="bk-toggle" title="Zurück zur Liste">‹ Liste</button>
+      <div>
+        <div class="bk-head-titel" id="headTitel">–</div>
+        <div class="bk-head-meta" id="headMeta"></div>
+      </div>
+      <div class="bk-head-spacer"></div>
+      <button id="kopfBtn" class="bk-toggle">Kopfdaten</button>
+      <button id="printBtn" class="bk-toggle">Drucken</button>
+      <div class="bk-head-total">
+        <div class="bk-head-total-label">TOTAL</div>
+        <div class="bk-head-total-wert" id="gesamtTotalHead">0</div>
+      </div>
+    </div>
+
+    <div class="bk-toolbar">
+      <span class="bk-toolbar-hint">Ebene</span>
+      <div class="bk-seg" id="ebeneSeg">
+        <button type="button" data-ebene="1">1</button>
+        <button type="button" data-ebene="2">2</button>
+        <button type="button" data-ebene="3">3</button>
+        <button type="button" data-ebene="4">Alles</button>
+      </div>
+      <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
+      <div class="bk-search">
+        <input type="text" id="sucheInput" placeholder="BKP-Nummer oder Stichwort suchen">
+      </div>
+      <span class="bk-toolbar-hint" id="sucheHinweis"></span>
+    </div>
+
+    <div class="bk-print-head" id="printHead"></div>
+
+    <div class="bk-table-wrap">
+      <table class="bk-table">
+        <thead>
+          <tr>
+            <th class="bk-col-nr">BKP</th>
+            <th>Beschrieb</th>
+            <th class="bk-col-ausmass bk-right">Ausmass</th>
+            <th class="bk-col-einheit">Einheit</th>
+            <th class="bk-col-kennwert bk-right">Kennwert</th>
+            <th class="bk-col-kosten bk-right">Kosten</th>
+            <th class="bk-col-bem bk-col-intern">Bemerkung intern</th>
+            <th class="bk-col-bem">Bemerkung extern</th>
+            <th class="bk-col-aktion"></th>
+          </tr>
+        </thead>
+        <tbody id="bkBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<datalist id="einheitenListe">
+  <option value="Stk"></option>
+  <option value="m²"></option>
+  <option value="m³"></option>
+  <option value="m"></option>
+  <option value="lfm"></option>
+  <option value="kg"></option>
+  <option value="t"></option>
+  <option value="h"></option>
+  <option value="Tag"></option>
+  <option value="Pausch."></option>
+  <option value="%"></option>
+</datalist>
+
+<!-- Neue Kostenschätzung -->
+<div id="neuOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Neue Kostenschätzung</h2>
+      <button id="closeNeu" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Projekt</label>
+      <select id="neuProjekt"></select>
+      <label>Titel</label>
+      <input type="text" id="neuTitel" placeholder="z.B. Grobkostenschätzung Variante Mini">
+      <div class="two-col">
+        <div>
+          <label>Genauigkeit</label>
+          <input type="text" id="neuGenauigkeit" placeholder="±25%">
+        </div>
+        <div>
+          <label>Kostenstand</label>
+          <input type="text" id="neuKostenstand" placeholder="z.B. September 2025">
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button id="neuAbbrechenBtn" class="btn-secondary">Abbrechen</button>
+      <button id="neuErstellenBtn" class="btn-primary">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kopfdaten der offenen Kostenschätzung -->
+<div id="kopfOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Kopfdaten</h2>
+      <button id="closeKopf" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div class="form-group">
+      <label>Projekt</label>
+      <select id="kopfProjekt"></select>
+      <label>Titel</label>
+      <input type="text" id="kopfTitel">
+      <div class="two-col">
+        <div>
+          <label>Genauigkeit</label>
+          <input type="text" id="kopfGenauigkeit" placeholder="±25%">
+        </div>
+        <div>
+          <label>Kostenstand</label>
+          <input type="text" id="kopfKostenstand" placeholder="z.B. September 2025">
+        </div>
+      </div>
+      <label>Grundlagen / Bemerkungen (erscheinen im Ausdruck)</label>
+      <textarea id="kopfGrundlagen" rows="4" placeholder="z.B. Alle Kennwerte inkl. MWST. Grundlage: Begehung vom …"></textarea>
+    </div>
+    <div class="form-actions">
+      <button id="kopfLoeschenBtn" class="btn-secondary">Löschen</button>
+      <button id="kopfSpeichernBtn" class="btn-primary">Übernehmen</button>
+    </div>
+    <p class="hint">
+      "Löschen" entfernt die ganze Kostenschätzung von Nextcloud (mit Rückfrage).
+    </p>
+  </div>
+</div>
+
+<!-- Hilfe -->
+<div id="helpOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Hilfe</h2>
+      <button id="closeHelp" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <p class="hint" style="margin-top:0;">
+      Die Kostenschätzung ist nach BKP (Baukostenplan) gegliedert:
+      <strong>1-stellig</strong> Hauptgruppe (z.B. "2 Gebäude"),
+      <strong>2-stellig</strong> Elementgruppe (z.B. "22 Rohbau 2"),
+      <strong>3-stellig</strong> Position (z.B. "224 Bedachungsarbeiten").
+      Der ganze Katalog ist fest hinterlegt, es muss also nichts abgetippt
+      werden.
+    </p>
+    <p class="hint">
+      <strong>Ansicht:</strong> Die Knöpfe 1 / 2 / 3 / Alles klappen den ganzen
+      Baum auf diese Tiefe auf; einzelne Gruppen lassen sich zusätzlich mit
+      dem Dreieck links ein- und ausklappen. "Nur verwendete" blendet alles
+      aus, worin (noch) nichts erfasst ist — zusammen mit "3" ergibt das die
+      Übersicht über genau die benutzten Positionen.
+    </p>
+    <p class="hint">
+      <strong>Position benutzen:</strong> ins Suchfeld die BKP-Nummer oder ein
+      Stichwort tippen (z.B. "224" oder "Dach") — die Suche zeigt auch
+      Positionen, die der Filter "Nur verwendete" sonst versteckt. Mit
+      "+ Unterposition" hinter einer Position wird eine Zeile erfasst; eine
+      Position kann beliebig viele Unterpositionen haben, die automatisch
+      zur Positionssumme zusammengezählt werden.
+    </p>
+    <p class="hint">
+      <strong>Eigene Unterteilung:</strong> Mit "+ eigene Position" auf einer
+      Elementgruppe lässt sich eine Nummer wie "211.1 Gerüste" ergänzen, wenn
+      der Standard-BKP zu grob ist. Sie erscheint direkt hinter "211".
+    </p>
+    <p class="hint">
+      <strong>Ausmass und Kennwert</strong> dürfen gerechnet werden: "2x4x2"
+      ergibt 16, "105*1.15+30*0.8" ergibt 144.75, "136*1.08" beim Kennwert
+      rechnet die MWST auf. Angezeigt wird das Resultat, die eingetippte
+      Rechnung bleibt klein darunter stehen — so ist nachvollziehbar, woher
+      eine Zahl kommt. Beim Anklicken des Feldes erscheint wieder die
+      Rechnung zum Bearbeiten. Ein leeres Ausmass zählt als 1 (für
+      Pauschalen/Budgetpositionen genügt also der Kennwert).
+      Kosten = Ausmass × Kennwert.
+    </p>
+    <p class="hint">
+      <strong>Bemerkungen:</strong> die interne Spalte ist für Annahmen,
+      offene Fragen und Notizen aus Sitzungen — sie wird beim Drucken
+      <strong>nicht</strong> mitgedruckt. Die externe Spalte erscheint im
+      Ausdruck.
+    </p>
+    <p class="hint">
+      <strong>Drucken</strong> gibt genau die Ansicht aus, die gerade auf dem
+      Bildschirm steht (Ebene, Ein-/Ausgeklapptes, Filter) — vor dem Drucken
+      also erst die gewünschte Tiefe einstellen. Querformat A4, mit
+      Projekt/Genauigkeit/Kostenstand als Kopf.
+    </p>
+    <p class="hint">
+      <strong>Varianten</strong> (z.B. "Mini"/"Maxi") am besten über
+      "Duplizieren" in der Liste anlegen — dann bleibt die Ausgangsvariante
+      unverändert bestehen.
+    </p>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="max">
+      <label>App-Passwort</label>
+      <div class="password-field">
+        <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+        <button type="button" id="togglePassBtn" class="password-toggle" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für die anderen Büro-Apps (einmal einrichten, überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<script src="../shared/common.js"></script>
+<script src="bkp.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
