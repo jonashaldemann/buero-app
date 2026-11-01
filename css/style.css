@@ -128,7 +128,9 @@ main {
 
 .control-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Zwei Knöpfe (Stop, Nachtragen) -- "Pause" ist entfallen, es tat
+     dasselbe wie "Stop". */
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
@@ -162,7 +164,6 @@ main {
   padding: 16px 6px;
   font-size: 14px;
 }
-.control-buttons .proj-btn[data-action="PAUSE"] { --accent: #8C8171; }
 .control-buttons .proj-btn[data-action="STOP"] { --accent: #B5654C; }
 .control-buttons .proj-btn.manual { --accent: #A79C8C; }
 

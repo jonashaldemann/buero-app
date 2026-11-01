@@ -49,10 +49,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   siehe unten).
 - Vor jedem Testlauf `node --check <datei>.js` auf alle geänderten
   JS-Dateien.
-- Nach Änderungen an `shared/common.js`: **CACHE_NAME in JEDEM
-  `service-worker.js` bumpen**, das `../shared/common.js` cached (aktuell
-  alle Module + Root) — sonst bekommen bestehende Installationen die
-  Änderung nicht automatisch mit.
+- Nach Änderungen an einer GEMEINSAMEN Datei (`shared/common.js` oder
+  `css/style.css`): **CACHE_NAME in JEDEM `service-worker.js` bumpen**, das
+  sie cached (aktuell alle Module + Root, ausser dem Redirect-Stub
+  `zeitplanung/`) — sonst bekommen bestehende Installationen die Änderung
+  nicht automatisch mit.
 - Server danach beenden: `lsof -ti:<port> -sTCP:LISTEN | xargs -r kill`.
 
 ## Architektur-Eckpunkte
@@ -116,6 +117,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 
 ## Bekannte offene Ideen (noch nicht umgesetzt)
 
+- **Demo-Datensatz** für alle Module (damit man die Tools ohne Bürodaten
+  anschauen kann) — besprochen, Vorgehen noch offen.
+- **Autor-Mailadresse in der Git-Historie**: die ersten 66 Commits tragen
+  `jonasha@users.noreply.github.com` statt
+  `104436733+jonashaldemann@users.noreply.github.com`; GitHub rechnet sie
+  deshalb einem fremden Konto zu. Korrektur nur per History-Rewrite +
+  Force-Push möglich — bewusst noch nicht gemacht.
 - Google-Kalender-Sync für Ferien/Abwesenheiten in der Timeline (Vorschlag:
   privater iCal-Link pro Person statt volle Calendar-API/OAuth, über den
   Worker proxyen) — besprochen, aber bewusst zurückgestellt.

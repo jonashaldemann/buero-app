@@ -125,7 +125,7 @@ unter "Zeiterfassung" unten.
 
 ## Zeiterfassung
 
-Zeit per Knopfdruck erfassen (P1 / P2 / P3 / Pause / Stop), Einträge werden
+Zeit per Knopfdruck erfassen (ein Knopf pro Projekt, Stop, Nachtragen), Einträge werden
 automatisch als CSV auf Nextcloud synchronisiert. Läuft offline und
 synchronisiert, sobald wieder Netz da ist.
 
@@ -133,8 +133,9 @@ synchronisiert, sobald wieder Netz da ist.
 
 - Klick auf **P1/P2/P3** beendet den aktuell laufenden Zähler (falls einer
   läuft) und startet sofort einen neuen für das geklickte Projekt.
-- Klick auf **Pause** beendet den aktuellen Zähler, startet aber keinen neuen.
-- Klick auf **Stop** ist identisch zu Pause (Tagesende).
+- Klick auf **Stop** beendet den aktuellen Zähler, startet aber keinen neuen
+  (Pause wie Tagesende). Einen separaten "Pause"-Knopf gab es früher, er tat
+  exakt dasselbe wie "Stop" und ist deshalb entfallen.
 - **Nachtragen**: Zeit für ein beliebiges (auch vergangenes) Datum manuell
   eintragen, falls mal vergessen wurde zu starten/stoppen.
 - In der "Heute"-Liste lässt sich jeder Eintrag über das Stift-Symbol (✎)

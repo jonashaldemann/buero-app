@@ -45,7 +45,7 @@ function stringHash(s) {
   return Math.abs(h);
 }
 
-let current = loadJSON(LS_KEYS.current, null);       // { action: 'Neubau Werkhof'|'PAUSE'|'STOP', start: ISOString }
+let current = loadJSON(LS_KEYS.current, null);       // { action: 'Neubau Werkhof'|'STOP', start: ISOString }
 let entries = loadJSON(LS_KEYS.entries, []);          // { id, date, start, end, durationSec, projectId }
 let dirtyBuckets = loadJSON(LS_KEYS.dirtyBuckets, []); // ["2026-08-13|Neubau Werkhof", ...] -- Projektname, siehe Kommentar bei projectColor()
 let comments = loadJSON(LS_KEYS.comments, {});         // { "2026-08-13|Neubau Werkhof": "Kommentartext" }
@@ -75,8 +75,8 @@ function formatHM(totalSec) {
   return h > 0 ? `${h} h ${pad(m)} min` : `${m} min`;
 }
 // Aktionen ("Projekt-IDs" im weiteren Sinne) sind seit der Umstellung auf
-// namensbasierte Zuordnung schlicht der Projektname selbst (oder "PAUSE"/
-// "STOP") -- siehe Kommentar bei projectColor() oben für die Begründung.
+// namensbasierte Zuordnung schlicht der Projektname selbst (oder "STOP")
+// -- siehe Kommentar bei projectColor() oben für die Begründung.
 // Position in der aktuellen Projektliste (für die Sortierung von
 // Buttons/"Heute"-Liste in Dateireihenfolge).
 function projectIndexFromAction(action) {
@@ -96,7 +96,10 @@ function handleButton(action) {
   const now = new Date();
   closeCurrentSession(now);
 
-  if (action === "PAUSE" || action === "STOP") {
+  // "Pause" gab es früher zusätzlich, tat aber exakt dasselbe wie "Stop"
+  // (laufenden Zähler beenden, keinen neuen starten) -- der zweite Knopf
+  // stiftete nur Verwirrung und ist deshalb entfallen.
+  if (action === "STOP") {
     current = null;
   } else {
     current = { action, start: now.toISOString() };
@@ -156,7 +159,9 @@ function render() {
   if (current) {
     statusLabel.textContent = projectLabel(current.action) + " läuft";
   } else {
-    statusLabel.textContent = "Pausiert";
+    // Hiess früher "Pausiert" -- seit der Pause-Knopf weg ist (er tat
+    // dasselbe wie Stop) wäre das irreführend: es läuft schlicht nichts.
+    statusLabel.textContent = "Nichts läuft";
   }
 
   renderToday();
