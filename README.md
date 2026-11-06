@@ -1474,24 +1474,31 @@ sich daraus. Soll eine Position auf zwei Module verteilt werden, teilt man
 sie in zwei Unterpositionen.
 
 Module werden in den **Kopfdaten** als Liste gepflegt (nur der Name,
-"+ Modul" legt eines an). Ein Modul ist eine **Auswertung** der Schätzung,
-keine Ausnahme davon: die Positionen zählen ganz normal ins Total, und das
-Modul bestimmt bloss, in welcher Teilsumme sie zusätzlich erscheinen —
-als eigene Kennzahl-Kachel oben (Betrag und Anteil am Total), wahlweise als
-Modulspalte im Ausdruck und als "Zusammenstellung nach Modulen" am Schluss
-des Ausdrucks. Alle Module plus die Positionen ohne Zuordnung ("Ohne
-Modul") ergeben zusammen das Total.
+"+ Modul" legt eines an). **Jedes Modul wird separat gerechnet**: unter der
+Tabelle steht zuerst das Total der Positionen *ohne* Modulzuordnung
+("Total ±25% ohne Module"), darunter je Modul eine eigene Zeile mit "+",
+zuletzt das Gesamttotal über alles. Oben erscheint je Modul eine
+Kennzahl-Kachel (Betrag und Anteil am Total) plus eine Kachel "Ohne Modul";
+im Ausdruck lässt sich dieselbe Aufstellung ein- und ausschalten und
+zusätzlich je Modul eine Spalte einblenden.
+
+Die Beträge **im Baum bleiben vollständig**: eine Positions- oder
+Gruppenzeile zeigt, was diese BKP-Nummer kostet — unabhängig davon, welchem
+Modul die einzelnen Zeilen zugeordnet sind. Die Aufteilung passiert in der
+Aufstellung unter der Tabelle, in den Kacheln und (optional) in den
+Modulspalten. Ohne Modulzuordnungen erscheint die Aufstellung gar nicht,
+dann steht wie früher nur eine Total-Zeile da.
 
 Die Zuordnungen hängen an einer **ID**, nicht am Namen — ein Modul
 umbenennen behält sie, ein Modul löschen setzt die betroffenen Zuordnungen
 zurück (`uebernimmKopfDialog()`).
 
-Früher gab es dazu eine zweite Art Modul ("Zusätzlich"/Option), deren
-Positionen nicht ins Total zählten und überall mit einem violetten "+"
-ausgewiesen wurden. Das ist ersatzlos weggefallen: Module sind jetzt
-einheitlich Teilbereiche im Total. Bestehende Dateien verlieren das Merkmal
-beim Öffnen (`migriere()`), die betroffenen Positionen zählen also neu ins
-Total.
+Früher gab es **zwei Arten** Modul: "Im Total" (eine Aufteilung) und
+"Zusätzlich" (eine noch nicht beschlossene Option, deren Positionen nicht
+ins Total zählten und überall mit einem violetten "+" standen). Diese
+Unterscheidung ist weg — alle Module werden gleich behandelt und separat
+ausgewiesen. Bestehende Dateien verlieren das Merkmal beim Öffnen
+(`migriere()`).
 
 ### Ausdruck
 
@@ -1510,7 +1517,7 @@ mitgespeichert.
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
-| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul (plus "Ohne Modul") am Schluss |
+| Module als Aufstellung über dem Total | an | Unter der Tabelle das Total ohne Module, je Modul eine Zeile, dann das Gesamttotal — dieselbe Aufstellung wie am Bildschirm |
 
 Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand, dem MwSt-Hinweis
 und den "Grundlagen" aus den Kopfdaten als Kopfblock.

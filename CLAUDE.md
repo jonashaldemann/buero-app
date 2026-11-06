@@ -111,11 +111,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   pro Schätzung in den Kopfdaten (`data.mwst`, neue Schätzungen 8.1);
   Dateien ohne das Feld bekommen 0, weil dort die Kennwerte noch inklusive
   erfasst waren.
-- **Module `baukosten/` zählen immer ins Total**: ein Modul ist eine
-  Auswertung (Teilsumme), keine Ausnahme vom Total. Die frühere zweite Art
-  ("Zusätzlich"/Option, nicht im Total, violettes "+") ist ersatzlos
-  entfernt — falls so etwas je wieder gewünscht wird, bewusst neu
-  entscheiden statt das alte Flag wiederzubeleben.
+- **Module `baukosten/` werden separat ausgewiesen**: unter der Tabelle
+  steht das Total der Positionen OHNE Modul, darunter je Modul eine Zeile,
+  zuletzt das Gesamttotal. Die Beträge im Baum (Positions- und
+  Gruppenzeilen) bleiben dagegen vollständig — die Aufteilung passiert nur
+  im Fuss, in den Kacheln und in den optionalen Modulspalten. Die frühere
+  Unterscheidung "Im Total"/"Zusätzlich" samt violettem "+" ist entfernt;
+  alle Module sind gleich.
 - **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der

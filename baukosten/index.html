@@ -289,6 +289,16 @@
   }
   .bk-gesamt .bk-total { font-variant-numeric: tabular-nums; }
 
+  /* Modul-Aufstellung direkt über dem Gesamttotal (Grundtotal + je Modul).
+     Bewusst NICHT klebend: mehrere klebende Zeilen würden sich am unteren
+     Fensterrand überlagern -- sie stehen am Tabellenende über dem Total. */
+  .bk-gesamt.bk-gesamt-teil td {
+    position: static; background: var(--l2-bg); color: var(--text);
+    font-size: 12.5px; padding: 6px 10px; border-top: 1px solid var(--border);
+  }
+  .bk-gesamt-teil + .bk-gesamt-teil td { border-top: none; }
+  .bk-modul-betrag { font-variant-numeric: tabular-nums; }
+
   /* ---------- Detailfenster rechts ---------- */
 
   .bk-panel {
@@ -370,6 +380,8 @@
     .pr-table .pr-sub td { color: #333; }
     .pr-table .pr-sub td:first-child { padding-left: 16px; }
     .pr-table .pr-formel { color: #8A8477; font-size: 8px; }
+    .pr-table .pr-teil td { padding-top: 4px; border-bottom: none; }
+    .pr-table .pr-teil:first-of-type td { border-top: 0.75px solid #8A8477; padding-top: 6px; }
     .pr-table .pr-gesamt td {
       font-family: var(--font-medium); font-size: 11px; padding-top: 6px;
       border-top: 0.75px solid #46433C; border-bottom: none;
@@ -377,11 +389,6 @@
     .pr-table tr { break-inside: avoid; }
     .pr-table thead { display: table-header-group; }
 
-    .pr-module { margin-top: 14px; break-inside: avoid; }
-    .pr-module h3 { font-family: var(--font-medium); font-size: 10.5px; font-weight: normal; margin: 0 0 4px; }
-    .pr-module table { width: auto; min-width: 280px; border-collapse: collapse; font-size: 9.5px; }
-    .pr-module td { padding: 2.5px 14px 2.5px 0; border-bottom: 0.5px solid #D8D3C8; }
-    .pr-module tr:last-child td { font-family: var(--font-medium); border-top: 0.75px solid #46433C; border-bottom: none; }
   }
 </style>
 </head>
@@ -560,10 +567,11 @@
     <p class="hint">
       <strong>Module</strong> sind frei wählbare Teilbereiche (z.B. "nur
       Dach", "UG &amp; Fenster"), denen sich jede Unterposition zuordnen
-      lässt. Die Kosten werden nur einmal erfasst und zählen ganz normal ins
-      Total — das Modul bestimmt bloss, in welcher Teilsumme sie zusätzlich
-      erscheinen: als eigene Kennzahl-Kachel oben, als Modulspalte und als
-      Zusammenstellung im Ausdruck.
+      lässt. Jedes Modul wird <strong>separat gerechnet</strong>: unter der
+      Tabelle steht zuerst das Total der Positionen <em>ohne</em> Modul,
+      darunter je Modul eine eigene Zeile, zuletzt das Gesamttotal. Oben
+      erscheint je Modul eine Kennzahl-Kachel; im Ausdruck lassen sich
+      Modulspalten und eine Zusammenstellung dazuschalten.
       <br><br>
       Der <strong>MwSt-Satz</strong> gilt für die ganze Schätzung: Kennwerte
       werden exklusive erfasst, die Kostenspalte und alle Summen zeigen den
@@ -627,8 +635,9 @@
       </label>
       <label class="bk-opt">
         <input type="checkbox" id="optModulSummen">
-        <span>Als Zusammenstellung am Schluss
-          <small>Eine kurze Tabelle mit der Summe pro Modul.</small></span>
+        <span>Als Aufstellung über dem Total
+          <small>Unter der Tabelle zuerst das Total ohne Module, dann je
+          Modul eine Zeile, zuletzt das Gesamttotal.</small></span>
       </label>
     </div>
 
@@ -720,8 +729,9 @@
     <p class="hint">
       <strong>Module</strong> (in den Kopfdaten anlegen) sind Teilbereiche wie
       "nur Dach" oder "UG &amp; Fenster". Jede Unterposition lässt sich einem
-      zuordnen; die Teilsummen erscheinen oben als Kacheln und im Ausdruck
-      wahlweise als Spalten oder als Zusammenstellung.
+      zuordnen; jedes Modul wird separat gerechnet und unter der Tabelle als
+      eigene Zeile ausgewiesen — oben zusätzlich als Kachel, im Ausdruck
+      wahlweise auch als eigene Spalte.
     </p>
     <p class="hint">
       <strong>Eigene Unterteilung:</strong> "+ Unterteilung" auf einer

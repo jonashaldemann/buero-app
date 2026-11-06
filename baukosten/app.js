@@ -213,6 +213,19 @@ function totalBeschriftung() {
     (satz ? ` inkl. ${zahl(satz)}% MwSt` : " exkl. MwSt")
   );
 }
+// Die Zeile über der Modul-Aufstellung: das Grundtotal ohne alles, was
+// einem Modul zugeordnet ist.
+function grundTotalBeschriftung() {
+  return "Total" + (offen.genauigkeit ? " " + offen.genauigkeit : "") + " ohne Module";
+}
+// Lohnt sich die Aufstellung überhaupt? Nur wenn wenigstens ein Modul
+// einen Betrag hat -- sonst stünde dreimal dieselbe Zahl untereinander.
+function modulAufstellung() {
+  if (!module_().length) return null;
+  const { summen, ohne } = modulSummen();
+  if (!module_().some((m) => summen[m.id])) return null;
+  return { summen, ohne };
+}
 
 // ---------- Prozent-Zeilen (Honorar auf die Baukosten) ----------
 //
@@ -819,6 +832,20 @@ function renderTabelle() {
     ${restSpan ? `<td colspan="${restSpan}"></td>` : ""}
   </tr>`;
 
+  // Module werden separat gerechnet: zuerst das Grundtotal (nur Positionen
+  // ohne Modul), dann je Modul eine Zeile, zuletzt das Gesamttotal.
+  const aufstellung = modulAufstellung();
+  if (aufstellung) {
+    html += fuss(" bk-gesamt-teil", grundTotalBeschriftung(), "CHF " + franken(aufstellung.ohne), ' id="gesamtOhneModuleZelle"');
+    module_().forEach((m) => {
+      html += fuss(
+        " bk-gesamt-teil",
+        `Modul: ${escapeHtml(m.name)}`,
+        `<span class="bk-modul-betrag">+ ${franken(aufstellung.summen[m.id])}</span>`,
+        ` data-modul-total="${m.id}"`
+      );
+    });
+  }
   html += fuss("", totalBeschriftung(), "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
 
   document.getElementById("bkBody").innerHTML = html;
@@ -882,6 +909,14 @@ function refreshSummen() {
   });
   const gesamtZelle = document.getElementById("gesamtTotalZelle");
   if (gesamtZelle) gesamtZelle.textContent = "CHF " + franken(gesamt);
+  // Die Modul-Aufstellung im Fuss hängt ebenfalls an den Summen -- ohne das
+  // hier bliebe sie nach einer reinen Wertänderung auf dem alten Stand.
+  const { summen: ms, ohne } = modulSummen();
+  const ohneZelle = document.getElementById("gesamtOhneModuleZelle");
+  if (ohneZelle) ohneZelle.textContent = "CHF " + franken(ohne);
+  document.querySelectorAll("[data-modul-total]").forEach((el) => {
+    el.innerHTML = `<span class="bk-modul-betrag">+ ${franken(ms[el.dataset.modulTotal] || 0)}</span>`;
+  });
   renderKpis(gesamt);
   renderPanelKosten();
 }
@@ -1953,6 +1988,18 @@ function renderDruck(opt) {
   });
 
   const gesamtModule = mods.length ? modulZellen(modulAnteile("")) : "";
+  const druckAufstellung = opt.modulSummen ? modulAufstellung() : null;
+  if (druckAufstellung) {
+    const leerZellen = `${mods.map(() => "<td></td>").join("")}${opt.bemerkungExtern ? "<td></td>" : ""}`;
+    zeilen += `<tr class="pr-teil"><td></td><td>${escapeHtml(grundTotalBeschriftung())}</td><td colspan="3"></td><td class="r">${franken(
+      druckAufstellung.ohne
+    )}</td>${leerZellen}</tr>`;
+    module_().forEach((m) => {
+      zeilen += `<tr class="pr-teil"><td></td><td>Modul: ${escapeHtml(m.name)}</td><td colspan="3"></td><td class="r">+ ${franken(
+        druckAufstellung.summen[m.id]
+      )}</td>${leerZellen}</tr>`;
+    });
+  }
   zeilen += `<tr class="pr-gesamt">
     <td></td>
     <td>${escapeHtml(totalBeschriftung())}</td>
@@ -1961,18 +2008,6 @@ function renderDruck(opt) {
     ${gesamtModule}
     ${opt.bemerkungExtern ? "<td></td>" : ""}
   </tr>`;
-  let modulBlock = "";
-  if (opt.modulSummen && module_().length) {
-    const { summen: ms, ohne } = modulSummen();
-    const zeilenHtml =
-      module_()
-        .map((m) => `<tr><td>${escapeHtml(m.name)}</td><td class="r">${franken(ms[m.id])}</td></tr>`)
-        .join("") +
-      (ohne ? `<tr><td>Ohne Modul</td><td class="r">${franken(ohne)}</td></tr>` : "") +
-      `<tr><td>Total</td><td class="r">${franken(gesamt)}</td></tr>`;
-    modulBlock = `<div class="pr-module"><h3>Zusammenstellung nach Modulen</h3><table>${zeilenHtml}</table></div>`;
-  }
-
   const meta = [
     projektLabel(offen),
     offen.genauigkeit,
@@ -1991,8 +2026,7 @@ function renderDruck(opt) {
     <table class="pr-table">
       <thead><tr>${kopf.join("")}</tr></thead>
       <tbody>${zeilen}</tbody>
-    </table>
-    ${modulBlock}`;
+    </table>`;
 }
 
 // ---------- Init ----------
