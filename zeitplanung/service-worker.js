@@ -3,12 +3,18 @@
    bereits installierte/gecachte alte Versionen an dieser Adresse zuverlässig
    auf die neue Version (den Redirect-Stub in index.html) aktualisiert
    werden, statt für immer die alte, alte gecachte App weiter auszuliefern. */
-const CACHE_NAME = "zeitplanung-redirect-v1";
+const CACHE_NAME = "zeitplanung-redirect-v2";
 const ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    // cache: "reload" ist hier entscheidend: ohne das holt addAll() die
+    // Dateien durch den HTTP-Cache, und GitHub Pages liefert alles mit
+    // "Cache-Control: max-age=600" -- ein frisch deployter Worker legte
+    // dann bis zu zehn Minuten alte Dateien in seinen neuen Cache und
+    // servierte sie anschliessend cache-first weiter. Die neue Version kam
+    // dadurch trotz Reload nicht an.
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS.map((pfad) => new Request(pfad, { cache: "reload" }))))
   );
   self.skipWaiting();
 });

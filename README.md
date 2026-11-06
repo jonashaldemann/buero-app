@@ -23,6 +23,14 @@ Beschreibungstext. Jede App hat ihr eigenes `manifest.json` und ihren eigenen
 hinzufügen" tippen, dann landet nur diese eine App als eigenes Icon auf dem
 Homescreen.
 
+Jeder Service Worker lädt seine Dateien beim Installieren mit
+`cache: "reload"`, holt sie also bewusst am HTTP-Cache vorbei. Sonst greift
+auf GitHub Pages (`Cache-Control: max-age=600`) eine Falle: der neue Worker
+legt bis zu zehn Minuten alte Dateien in seinen eigenen, frischen Cache und
+liefert sie danach cache-first weiter — eine neue Version käme trotz Reload
+nicht an. Wer eine Änderung nicht sieht, hat also fast immer einen alten
+Worker aktiv; ein Hard-Reload (<kbd>⌘⇧R</kbd>) hilft sofort.
+
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog,
 zentrale Konfiguration) liegt in `shared/common.js` und wird von allen Apps
 eingebunden. `localStorage` ist pro Domain (nicht pro Unterordner) gültig —
