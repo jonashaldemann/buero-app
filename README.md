@@ -39,14 +39,14 @@ ausprobieren, ohne echte Bürodaten zu sehen.
 
 - **Wie realistisch die Daten sind**: die Beispiel-Kostenschätzung ist
   einmal ganz durchgegangen (siehe "Durchgehen zu zweit"): erfasste und
-  geprüfte Positionen stehen auf "verifiziert" (dunkelgrün), für das
-  Projekt nicht relevante leere Positionen auf "erledigt" (hellgrün), und
-  gelb bleibt, was noch offen ist — Elektro, Heizung, Sanitär, ein paar
-  Ausbaupositionen, das Geländer und der Honorarsatz. Die Kachel
-  "Durchgegangen" zeigt dadurch einen plausiblen Stand statt 6 von 461.
-  Auch die **Module** sind so gesetzt, wie sie gemeint sind: der Hauptteil
-  der Kosten trägt keines, und die beiden Module ("Dachterrasse", "Küche
-  ersetzen") sind separat zu entscheidende Teilbereiche.
+  geprüfte Positionen stehen auf "verifiziert" (dunkelgrün, Doppelhaken),
+  für das Projekt nicht relevante leere Positionen auf "erledigt"
+  (hellgrün), und gelb bleibt, was noch offen ist — Elektro, Heizung,
+  Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz. Die
+  Kachel "Durchgegangen" zeigt dadurch einen plausiblen Stand statt 6 von
+  461. Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
+  der Kosten tragen keines, und die beiden Module ("Dachterrasse", "Ersatz
+  Küche") sind separat zu entscheidende Teilbereiche.
 - **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
   `{ "<Nextcloud-Pfad>": <Inhalt> }`. JSON-Dateien stehen dort als echte
   Objekte (lesbar), Textdateien wie `projekte.txt` als String. Neue
@@ -1343,21 +1343,29 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
 Damit beim gemeinsamen Durchgehen nichts vergessen geht, trägt jede
 BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
 
-| Stand | Farbe der Zeile |
+| Stand | Kästchen |
 |---|---|
-| offen (Start) | keine |
-| pendent | gelb |
-| erledigt | hellgrün |
-| verifiziert | dunkelgrün |
+| offen (Start) | weiss, leer |
+| pendent | gelb, leer |
+| erledigt | hellgrün mit einem Haken ✓ |
+| verifiziert | dunkelgrün mit Doppelhaken ✓✓ |
+
+Der Stand färbt **nur das Kästchen, nie die ganze Zeile**. Ganze Zeilen in
+Gelb/Grün haben die Tabelle bei 500 Zeilen unruhig gemacht und die
+Ebenenfarben (Haupt-/Elementgruppe) überdeckt — die Struktur ging verloren,
+und das ist beim Durchgehen das Wichtigere. Dass "verifiziert" zusätzlich
+einen **Doppelhaken** trägt, hat denselben Grund: hell- gegen dunkelgrün
+allein wäre ein zu feiner Unterschied, wenn nur noch ein 19 × 15 Pixel
+grosses Kästchen den Stand zeigt.
 
 Nach "verifiziert" geht es wieder auf "offen". Gespeichert wird der Stand
 nur an den **Blättern** (dreistellige Positionen, eigene Unterteilungen und
 jene Reservegruppen ohne Positionen). Eine **Gruppe rechnet ihren Stand aus
 den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens
-erreicht haben (`statusBerechnen()`). Eine Elementgruppe wird also erst
-grün, wenn jede ihrer Positionen grün ist, und eine Hauptgruppe erst, wenn
-alle ihre Elementgruppen so weit sind — genau das macht sichtbar, wo noch
-niemand war.
+erreicht haben (`statusBerechnen()`). Das Kästchen einer Elementgruppe wird
+also erst grün, wenn jede ihrer Positionen grün ist, und das einer
+Hauptgruppe erst, wenn all ihre Elementgruppen so weit sind — genau das
+macht sichtbar, wo noch niemand war.
 
 Das **Kästchen einer Gruppe lässt sich trotzdem anklicken**: es schaltet vom
 angezeigten (abgeleiteten) Stand aus weiter und setzt den neuen Stand auf
