@@ -371,6 +371,7 @@
     body > header, body > main, body > .overlay, body > datalist { display: none !important; }
     #printView { display: block !important; }
 
+    .pr-seite + .pr-seite { break-before: page; padding-top: 2px; }
     .pr-kopf { margin-bottom: 10px; }
     .pr-kopf h2 { font-family: var(--font-medium); font-size: 14px; margin: 0 0 2px; font-weight: normal; }
     .pr-kopf .pr-meta { font-size: 10px; color: #555; }
@@ -653,6 +654,13 @@
         <span>Als Aufstellung über dem Total
           <small>Unter der Tabelle zuerst das Total ohne Module, dann je
           Modul eine Zeile, zuletzt das Gesamttotal.</small></span>
+      </label>
+      <label class="bk-opt">
+        <input type="checkbox" id="optModulSeiten">
+        <span>Je Modul eine eigene Seite
+          <small>Nach der Gesamtschätzung folgt pro Modul eine vollständige
+          eigene Berechnung — gleiche Tabelle, nur mit den Zeilen dieses
+          Moduls und dessen Total.</small></span>
       </label>
     </div>
 

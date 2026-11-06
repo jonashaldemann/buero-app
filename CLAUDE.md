@@ -67,6 +67,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
   BKP-Katalog selbst liegt als `baukosten/bkp.js` im Repo und ist für alle
   Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
+- **Dialoge `baukosten/`**: dieses Modul hat als einziges klebende Ebenen
+  (Kopfblock `z-index: 30`, Spaltentitel und Gesamttotal `20`). Die lagen
+  über den Dialogen (`.overlay` in `css/style.css` hat 20) und verdeckten
+  deren oberen Rand samt Schliessen-Knopf — deshalb hebt `baukosten/`
+  `.overlay` lokal auf `z-index: 60`. Bei neuen klebenden Ebenen daran
+  denken.
 - **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
   Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
   (nur feine horizontale Trennlinien) + einblendbares Detailfenster rechts
@@ -82,6 +88,10 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   gerendert statt die Bildschirmansicht zu drucken — die Druckregeln (alle
   Hauptgruppen, aber nur verwendete Positionen; Unterpositionen
   zusammengefasst) sind bewusst unabhängig von der eingestellten Ansicht.
+  `druckSeite(opt, modul)` rendert eine Seite: ohne Modul die ganze
+  Schätzung, mit Modul dieselbe Tabelle nur mit dessen Zeilen (Option "Je
+  Modul eine eigene Seite"). Der Filter läuft über `summenMit()` und
+  `verwendeteKnoten(filter)` — keine zweite Rendering-Logik.
 - **Umbenennen auf Nextcloud**: der Worker-Proxy lässt nur
   GET/PUT/MKCOL/PROPFIND/DELETE durch (kein MOVE, kein Destination-Header).
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,

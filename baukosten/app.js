@@ -103,7 +103,8 @@ const DRUCK_DEFAULTS = {
   unterteilungen: false,
   bemerkungExtern: true,
   modulSpalten: false,
-  modulSummen: true
+  modulSummen: true,
+  modulSeiten: false
 };
 
 // ---------- Zentrale Konfiguration ----------
@@ -411,14 +412,16 @@ function zeilenUnter(nr) {
 }
 
 // Summen für alle Knoten auf einmal: erst pro Position, dann auf die
-// zwei- und einstelligen Eltern hochgezählt.
-function alleSummen() {
+// zwei- und einstelligen Eltern hochgezählt. Der Filter zählt nur einen
+// Teil der Zeilen mit -- gebraucht für die Modulseiten im Ausdruck, wo
+// dieselbe Tabelle nur mit den Zeilen EINES Moduls steht.
+function summenMit(filter) {
   const summen = {};
   let gesamt = 0;
   Object.keys(offen.positionen || {}).forEach((nr) => {
     let betrag = 0;
     zeilenVon(nr).forEach((z) => {
-      betrag += zeilenKosten(z);
+      if (filter(z)) betrag += zeilenKosten(z);
     });
     [nr, ...vorfahren(nr)].forEach((ziel) => {
       summen[ziel] = (summen[ziel] || 0) + betrag;
@@ -427,14 +430,17 @@ function alleSummen() {
   });
   return { summen, gesamt };
 }
+function alleSummen() {
+  return summenMit(() => true);
+}
 
 // "Verwendet" heisst: irgendwo darunter ist mindestens eine Unterposition
 // erfasst -- bewusst unabhängig vom Betrag, eine Zeile mit noch offenem
 // Preis (Kosten 0) soll nicht wieder verschwinden.
-function verwendeteKnoten() {
+function verwendeteKnoten(filter) {
   const set = new Set();
   Object.keys(offen.positionen || {}).forEach((nr) => {
-    if (!zeilenVon(nr).length) return;
+    if (!zeilenVon(nr).filter(filter || (() => true)).length) return;
     set.add(nr);
     vorfahren(nr).forEach((v) => set.add(v));
   });
@@ -1857,7 +1863,8 @@ const DRUCK_FELDER = {
   optUnterteilungen: "unterteilungen",
   optBemerkungExtern: "bemerkungExtern",
   optModulSpalten: "modulSpalten",
-  optModulSummen: "modulSummen"
+  optModulSummen: "modulSummen",
+  optModulSeiten: "modulSeiten"
 };
 
 function oeffneDruckDialog() {
@@ -1895,11 +1902,20 @@ function starteDruck() {
 // die verwendeten Positionen -- und die Unterpositionen wahlweise einzeln
 // oder zu einem Beschrieb zusammengefasst (wie es in der alten Excel die
 // TEXTJOIN-Formel in der Positionszeile tat).
-function renderDruck(opt) {
-  const { summen, gesamt } = alleSummen();
-  const verwendet = verwendeteKnoten();
-  const mods = opt.modulSpalten ? module_() : [];
+//
+// druckSeite() rendert eine solche Seite. Ohne Modul ist das die ganze
+// Schätzung; mit Modul dieselbe Tabelle, aber nur mit dessen Zeilen und
+// dessen Summen -- eine vollwertige, für sich lesbare Berechnung des
+// Teilbereichs (Option "Je Modul eine eigene Seite").
+function druckSeite(opt, modul) {
+  const filter = modul ? (z) => z.modul === modul.id : () => true;
+  const { summen, gesamt } = summenMit(filter);
+  const verwendet = verwendeteKnoten(filter);
+  // Modulspalten und die Modul-Aufstellung ergeben nur auf der Gesamtseite
+  // Sinn -- eine Modulseite IST schon die Aufteilung.
+  const mods = !modul && opt.modulSpalten ? module_() : [];
   const betragZelle = (summe) => (summe ? franken(summe) : "");
+  const zeilenDavon = (nr) => (opt.unterteilungen ? zeilenVon(nr) : zeilenUnter(nr)).filter(filter);
 
   const kopf = [
     `<th>BKP</th>`,
@@ -1937,7 +1953,7 @@ function renderDruck(opt) {
     const istVerwendet = verwendet.has(k.nr);
 
     // Eigene Unterteilungen (211.1) werden standardmässig nicht separat
-    // ausgewiesen -- ihre Kosten stecken über alleSummen() ohnehin schon
+    // ausgewiesen -- ihre Kosten stecken über die Summen ohnehin schon
     // in der dreistelligen Position.
     if (e === 4 && !opt.unterteilungen) return;
     if (e === 1) {
@@ -1960,7 +1976,7 @@ function renderDruck(opt) {
     }
 
     // Position (dreistellig) bzw. eine separat ausgewiesene Unterteilung
-    const posZeilen = opt.unterteilungen ? zeilenVon(k.nr) : zeilenUnter(k.nr);
+    const posZeilen = zeilenDavon(k.nr);
     if (opt.unterpositionen && posZeilen.length) {
       zeilen += `<tr class="pr-pos">
         <td>${escapeHtml(k.nr)}</td>
@@ -2010,7 +2026,7 @@ function renderDruck(opt) {
   });
 
   const gesamtModule = mods.length ? modulZellen(modulAnteile("")) : "";
-  const druckAufstellung = opt.modulSummen ? modulAufstellung() : null;
+  const druckAufstellung = !modul && opt.modulSummen ? modulAufstellung() : null;
   if (druckAufstellung) {
     const leerZellen = `${mods.map(() => "<td></td>").join("")}${opt.bemerkungExtern ? "<td></td>" : ""}`;
     zeilen += `<tr class="pr-teil"><td></td><td>${escapeHtml(grundTotalBeschriftung())}</td><td colspan="3"></td><td class="r">${franken(
@@ -2024,12 +2040,13 @@ function renderDruck(opt) {
   }
   zeilen += `<tr class="pr-gesamt">
     <td></td>
-    <td>${escapeHtml(totalBeschriftung())}</td>
+    <td>${escapeHtml(modul ? `Total Modul ${modul.name}` : totalBeschriftung())}</td>
     <td colspan="3"></td>
     <td class="r">CHF ${franken(gesamt)}</td>
     ${gesamtModule}
     ${opt.bemerkungExtern ? "<td></td>" : ""}
   </tr>`;
+
   const meta = [
     projektLabel(offen),
     offen.genauigkeit,
@@ -2039,16 +2056,30 @@ function renderDruck(opt) {
     .filter(Boolean)
     .join(" · ");
 
-  document.getElementById("printView").innerHTML = `
+  return `<section class="pr-seite">
     <div class="pr-kopf">
-      <h2>${escapeHtml(offen.titel || "")}</h2>
+      <h2>${escapeHtml(offen.titel || "")}${modul ? ` — Modul ${escapeHtml(modul.name)}` : ""}</h2>
       <div class="pr-meta">${escapeHtml(meta)}</div>
-      ${offen.grundlagen ? `<div class="pr-grundlagen">${escapeHtml(offen.grundlagen)}</div>` : ""}
+      ${offen.grundlagen && !modul ? `<div class="pr-grundlagen">${escapeHtml(offen.grundlagen)}</div>` : ""}
     </div>
     <table class="pr-table">
       <thead><tr>${kopf.join("")}</tr></thead>
       <tbody>${zeilen}</tbody>
-    </table>`;
+    </table>
+  </section>`;
+}
+
+function renderDruck(opt) {
+  const seiten = [druckSeite(opt, null)];
+  if (opt.modulSeiten) {
+    const { summen } = modulSummen();
+    // Module ohne eine einzige Zeile bekommen keine Seite -- ein Blatt mit
+    // lauter Nullen hilft niemandem.
+    module_()
+      .filter((m) => summen[m.id])
+      .forEach((m) => seiten.push(druckSeite(opt, m)));
+  }
+  document.getElementById("printView").innerHTML = seiten.join("");
 }
 
 // ---------- Init ----------

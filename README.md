@@ -37,6 +37,13 @@ Beispieldaten eines erfundenen Büros ("Muster Architektur"), und ein
 gelbes Band oben weist darauf hin. So lässt sich jedes Modul anschauen und
 ausprobieren, ohne echte Bürodaten zu sehen.
 
+- **Wie realistisch die Daten sind**: die Beispiel-Kostenschätzung ist
+  einmal ganz durchgegangen (siehe "Durchgehen zu zweit"): erfasste und
+  geprüfte Positionen stehen auf "verifiziert" (dunkelgrün), für das
+  Projekt nicht relevante leere Positionen auf "erledigt" (hellgrün), und
+  gelb bleibt, was noch offen ist — Elektro, Heizung, Sanitär, ein paar
+  Ausbaupositionen, das Geländer und der Honorarsatz. Die Kachel
+  "Durchgegangen" zeigt dadurch einen plausiblen Stand statt 6 von 461.
 - **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
   `{ "<Nextcloud-Pfad>": <Inhalt> }`. JSON-Dateien stehen dort als echte
   Objekte (lesbar), Textdateien wie `projekte.txt` als String. Neue
@@ -1528,9 +1535,21 @@ mitgespeichert.
 | Bemerkungen | an | Die Spalte **Notizen** wird nie gedruckt; auf der Positionszeile stehen die Bemerkungen der Unterpositionen zusammengezogen |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
 | Module als Aufstellung über dem Total | an | Unter der Tabelle das Total ohne Module, je Modul eine Zeile, dann das Gesamttotal — dieselbe Aufstellung wie am Bildschirm |
+| Je Modul eine eigene Seite | aus | Nach der Gesamtschätzung folgt pro Modul eine **vollständige eigene Berechnung** auf einer neuen Seite |
+
+**Je Modul eine eigene Seite** gibt jedem Modul ein eigenes Blatt: gleiche
+Tabelle, gleiche Regeln, aber nur mit den Zeilen dieses Moduls, mit dessen
+Summen auf allen Ebenen und einem eigenen Schluss ("Total Modul Dach").
+Gedacht für Teilbereiche, über die separat entschieden oder abgerechnet wird
+— man kann das Blatt für sich weitergeben. Die Modulspalten und die
+Aufstellung über dem Total bleiben dort weg (eine Modulseite *ist* schon die
+Aufteilung), und Module ohne eine einzige Zeile bekommen kein Blatt
+(`druckSeite()` in `baukosten/app.js`).
 
 Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand, dem MwSt-Hinweis
-und den "Grundlagen" aus den Kopfdaten als Kopfblock.
+und den "Grundlagen" aus den Kopfdaten als Kopfblock. Die Modulseiten tragen
+denselben Kopf mit dem Zusatz "— Modul Dach" (ohne die "Grundlagen", die
+stehen einmal auf der Gesamtschätzung).
 
 ### Kopfdaten und Varianten
 
