@@ -42,9 +42,8 @@ ausprobieren, ohne echte Bürodaten zu sehen.
   geprüfte Positionen stehen auf "verifiziert" (dunkelgrün, Doppelhaken),
   für das Projekt nicht relevante leere Positionen auf "erledigt"
   (hellgrün), und gelb bleibt, was noch offen ist — Elektro, Heizung,
-  Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz. Die
-  Kachel "Durchgegangen" zeigt dadurch einen plausiblen Stand statt 6 von
-  461. Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
+  Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz.
+  Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
   der Kosten tragen keines, und die beiden Module ("Dachterrasse", "Ersatz
   Küche") sind separat zu entscheidende Teilbereiche.
 - **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
@@ -1317,8 +1316,12 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   Ein-/Ausklappen bewusst aus und zeigt auch noch leere Positionen — genau
   so wird eine Position gefunden und in Gebrauch genommen.
 - **Kennzahlen oben**: Total, Bandbreite (aus der Prozentangabe im Feld
-  "Genauigkeit" gerechnet, z.B. ±25% → von/bis), Anzahl erfasster
-  Positionen und je Modul eine Kachel.
+  "Genauigkeit" gerechnet, z.B. ±25% → "217'623 – 362'705"; beide Grenzen
+  gleich gross, es ist eine Spanne und keine Zahl mit Zusatz), danach
+  "Baukosten ohne Module" und je Modul eine Kachel. Bewusst **keine**
+  Zählkacheln ("erfasste Positionen", "durchgegangen"): sie sagen über eine
+  Kostenschätzung nichts, was man nicht ohnehin an den Beträgen und den
+  Statuskästchen sieht, und nahmen den Beträgen den Platz.
 - **Beim Scrollen bleiben stehen**: der Block aus Titelzeile, Kennzahlen
   und Werkzeugleiste, direkt darunter die Spaltentitel, und unten das
   Gesamttotal. Der Seitenkopf (App-Titel, Icons, Sync-Zeile) scrollt
@@ -1375,9 +1378,6 @@ den Kindern gerechnet wird, zeigt die Gruppe danach genau diesen Stand.
 Einzeln gesetzte Stände darunter werden dabei überschrieben; ein weiterer
 Durchlauf bis "offen" löscht sie wieder. Der **restliche Teil der Zeile
 klappt weiterhin auf und zu** — nur das Kästchen selbst setzt den Status.
-Eine Kennzahl-Kachel
-"Durchgegangen" zeigt, wie viele der 461 Positionen mindestens "erledigt"
-sind (erscheint, sobald etwas abgehakt wurde).
 
 ### Unterpositionen, Ausmass, Kennwert
 
