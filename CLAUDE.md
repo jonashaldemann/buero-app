@@ -75,9 +75,15 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   denken.
 - **Durchgeh-Status `baukosten/`** färbt NUR das Kästchen vor der Nummer,
   nie die ganze Zeile (das überdeckte die Ebenenfarben und machte die
-  Tabelle unruhig). "verifiziert" trägt deshalb zusätzlich einen
+  Tabelle unruhig). Der letzte Stand trägt deshalb zusätzlich einen
   Doppelhaken -- hell- gegen dunkelgrün allein ist auf 19 x 15 Pixeln zu
-  fein.
+  fein. In den Dateien heisst er `verifiziert`, in der Oberfläche
+  "Vieraugenprinzip" (`STATUS_LABEL`) -- der Schlüssel bleibt, sonst müsste
+  jede bestehende Schätzung umgeschrieben werden.
+- **Startsicht `baukosten/`**: eine Schätzung öffnet IMMER auf Ebene 1 (nur
+  die zehn Hauptgruppen), `oeffne()` setzt das fest. Die Ebene wird also
+  bewusst nicht gemerkt, die übrigen Ansichtseinstellungen schon. Tests,
+  die an tiefere Zeilen wollen, müssen vorher `setzeEbene(4)` aufrufen.
 - **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
   Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
   (nur feine horizontale Trennlinien) + einblendbares Detailfenster rechts

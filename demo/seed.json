@@ -276,7 +276,7 @@
           "kennwert": "3800",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Mulde 7 m³, Abfuhr nach Bedarf",
           "basis": ""
         }
       ],
@@ -289,7 +289,7 @@
           "kennwert": "80",
           "modul": "",
           "intern": "Mengen grob geschätzt, vor Ausschreibung nachmessen",
-          "extern": "",
+          "extern": "Mengen nach Aufnahme vor Ort",
           "basis": ""
         }
       ],
@@ -315,7 +315,7 @@
           "kennwert": "2100",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Dachflächenfenster 78/140, 3-fach verglast",
           "basis": ""
         },
         {
@@ -326,7 +326,7 @@
           "kennwert": "2500",
           "modul": "demo-m3",
           "intern": "",
-          "extern": "",
+          "extern": "Hebeschiebetür 2.4 m, Holz-Metall",
           "basis": ""
         }
       ],
@@ -339,7 +339,7 @@
           "kennwert": "120",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Dachrinnen Kupfer, halbrund",
           "basis": ""
         },
         {
@@ -350,7 +350,7 @@
           "kennwert": "54",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Ablaufrohre Kupfer an bestehende Leitung",
           "basis": ""
         }
       ],
@@ -363,7 +363,7 @@
           "kennwert": "158",
           "modul": "",
           "intern": "Richtofferte Dachdecker",
-          "extern": "",
+          "extern": "Abbruch inkl. Entsorgung Eternit",
           "basis": ""
         },
         {
@@ -374,7 +374,7 @@
           "kennwert": "190",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Ziegel wie bestehend",
           "basis": ""
         },
         {
@@ -385,7 +385,7 @@
           "kennwert": "146",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Dämmung U-Wert 0.17 W/m²K",
           "basis": ""
         }
       ],
@@ -411,7 +411,7 @@
           "kennwert": "140",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Trennwände neue Zimmer, Wandhöhe 2.4 m",
           "basis": ""
         }
       ],
@@ -437,7 +437,7 @@
           "kennwert": "50",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Bestehendes Parkett bleibt liegen",
           "basis": ""
         },
         {
@@ -448,7 +448,7 @@
           "kennwert": "190",
           "modul": "demo-m3",
           "intern": "",
-          "extern": "",
+          "extern": "Betonplatten 60/60 auf Stelzlager",
           "basis": ""
         }
       ],
@@ -461,7 +461,7 @@
           "kennwert": "10",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Weiss, matt",
           "basis": ""
         }
       ],
@@ -475,7 +475,7 @@
           "basis": "bkp19ohneHonorar",
           "modul": "",
           "intern": "Prozentsatz nach SIA, grob angenommen",
-          "extern": ""
+          "extern": "Phasen 31–53 nach SIA 102"
         }
       ],
       "292": [
@@ -488,7 +488,7 @@
           "basis": "",
           "modul": "",
           "intern": "",
-          "extern": ""
+          "extern": "Budgetposition, Offerte ausstehend"
         }
       ],
       "583": [
@@ -500,7 +500,7 @@
           "kennwert": "25000",
           "modul": "",
           "intern": "",
-          "extern": "",
+          "extern": "Rund 10% der Bausumme",
           "basis": ""
         }
       ]

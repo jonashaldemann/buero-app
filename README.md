@@ -47,13 +47,18 @@ ausprobieren, ohne echte Bürodaten zu sehen.
 
 - **Wie realistisch die Daten sind**: die Beispiel-Kostenschätzung ist
   einmal ganz durchgegangen (siehe "Durchgehen zu zweit"): erfasste und
-  geprüfte Positionen stehen auf "verifiziert" (dunkelgrün, Doppelhaken),
+  geprüfte Positionen stehen auf "Vieraugenprinzip" (dunkelgrün,
+  Doppelhaken),
   für das Projekt nicht relevante leere Positionen auf "erledigt"
   (hellgrün), und gelb bleibt, was noch offen ist — Elektro, Heizung,
   Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz.
   Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
   der Kosten tragen keines, und die beiden Module ("Dachterrasse", "Ersatz
-  Küche") sind separat zu entscheidende Teilbereiche.
+  Küche") sind separat zu entscheidende Teilbereiche. Jede Zeile mit einem
+  Betrag trägt ausserdem eine **Bemerkung** ("Ziegel wie bestehend",
+  "Dämmung U-Wert 0.17 W/m²K") — so sieht man im Demomodus sofort, wie der
+  Zusammenzug auf der dreistelligen Positionszeile und im Ausdruck
+  aussieht.
 - **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
   `{ "<Nextcloud-Pfad>": <Inhalt> }`. JSON-Dateien stehen dort als echte
   Objekte (lesbar), Textdateien wie `projekte.txt` als String. Neue
@@ -1303,13 +1308,15 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
 
 ### Startsicht und Ansicht
 
-- **Beim Öffnen ist absichtlich der ganze Katalog sichtbar**, auch die
-  leeren Nummern und auf allen Ebenen: Beim Erstellen einer Schätzung geht
-  man den BKP einmal ganz durch, und was man nicht sieht, vergisst man.
-  Leere Gruppen sind grau abgesetzt. Erst wenn die Schätzung Form annimmt,
-  lohnt sich das Ausdünnen — diese Wahl wird dann pro Gerät gemerkt
+- **Beim Öffnen steht immer Ebene 1**: die zehn Hauptgruppen und sonst
+  nichts. Das ist der Überblick, mit dem man anfängt — 541 Zeilen beim
+  Öffnen sind keiner. Aufklappen ist ein Klick (auf die Zeile oder über die
+  Ebenen-Knöpfe), und das gilt **bei jedem Öffnen neu**: die Ebene wird
+  bewusst nicht gemerkt. Die übrigen Ansichtseinstellungen ("Nur
+  verwendete", Bemerkungsspalten, Dichte) werden dagegen pro Gerät gemerkt
   (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
-  gleichzeitig unterschiedlich tief aufgeklappt anschauen).
+  gleichzeitig unterschiedlich anschauen). Leere Gruppen sind grau
+  abgesetzt.
 - **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
   "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
   diese. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
@@ -1359,17 +1366,21 @@ BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
 | offen (Start) | weiss, leer |
 | pendent | gelb, leer |
 | erledigt | hellgrün mit einem Haken ✓ |
-| verifiziert | dunkelgrün mit Doppelhaken ✓✓ |
+| Vieraugenprinzip | dunkelgrün mit Doppelhaken ✓✓ |
+
+In den Dateien heisst der letzte Stand weiterhin `verifiziert` — nur die
+Oberfläche nennt ihn "Vieraugenprinzip", damit bestehende Schätzungen nicht
+umgeschrieben werden müssen.
 
 Der Stand färbt **nur das Kästchen, nie die ganze Zeile**. Ganze Zeilen in
 Gelb/Grün haben die Tabelle bei 500 Zeilen unruhig gemacht und die
 Ebenenfarben (Haupt-/Elementgruppe) überdeckt — die Struktur ging verloren,
-und das ist beim Durchgehen das Wichtigere. Dass "verifiziert" zusätzlich
+und das ist beim Durchgehen das Wichtigere. Dass das Vieraugenprinzip zusätzlich
 einen **Doppelhaken** trägt, hat denselben Grund: hell- gegen dunkelgrün
 allein wäre ein zu feiner Unterschied, wenn nur noch ein 19 × 15 Pixel
 grosses Kästchen den Stand zeigt.
 
-Nach "verifiziert" geht es wieder auf "offen". Gespeichert wird der Stand
+Nach dem Vieraugenprinzip geht es wieder auf "offen". Gespeichert wird der Stand
 nur an den **Blättern** (dreistellige Positionen, eigene Unterteilungen und
 jene Reservegruppen ohne Positionen). Eine **Gruppe rechnet ihren Stand aus
 den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens

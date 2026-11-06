@@ -60,12 +60,12 @@ let offenFilename = null;
 // localStorage -- zwei Leute dürfen dieselbe Schätzung gleichzeitig
 // unterschiedlich tief aufgeklappt anschauen.
 //
-// Startsicht ist bewusst die VOLLSTÄNDIGE: alle Nummern, auch die leeren,
-// auf allen Ebenen. Beim Erstellen einer Schätzung geht man den Katalog
-// einmal ganz durch, und was man nicht sieht, vergisst man. Ausdünnen
-// ("Nur verwendete", tiefere Ebene) ist etwas für später, wenn die
-// Schätzung schon Form hat -- diese Wahl wird dann gemerkt.
-const ansichtDefaults = { ebene: 4, nurVerwendet: false, bemerkungen: false, dichte: "komfortabel" };
+// Die EBENE ist davon ausgenommen: eine Schätzung öffnet IMMER auf Ebene 1
+// (siehe oeffne()), also mit den zehn Hauptgruppen und sonst nichts. Das
+// ist der Überblick, mit dem man anfängt -- 541 Zeilen beim Öffnen sind
+// keiner. Aufklappen ist ein Klick, und die übrigen Einstellungen
+// ("Nur verwendete", Bemerkungsspalten, Dichte) bleiben gemerkt.
+const ansichtDefaults = { ebene: 1, nurVerwendet: false, bemerkungen: false, dichte: "komfortabel" };
 let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
@@ -84,11 +84,14 @@ const MODUL_FARBEN = ["#4F7089", "#8F9A85", "#C97960", "#8C6E86", "#BF9B4F", "#4
 // Reihenfolge = Klick-Reihenfolge des Kästchens.
 const STATUS_FOLGE = ["", "pendent", "erledigt", "verifiziert"];
 const STATUS_RANG = { "": 0, pendent: 1, erledigt: 2, verifiziert: 3 };
+// Der Schlüssel "verifiziert" bleibt in den Dateien stehen (sonst müsste
+// jede bestehende Schätzung umgeschrieben werden) -- in der Oberfläche
+// heisst dieser Stand "Vieraugenprinzip".
 const STATUS_LABEL = {
   "": "offen – noch nicht angeschaut",
   pendent: "pendent – angeschaut, noch offene Punkte",
   erledigt: "erledigt",
-  verifiziert: "verifiziert – von der zweiten Person geprüft"
+  verifiziert: "Vieraugenprinzip – von der zweiten Person geprüft"
 };
 // Ein Haken = erledigt, zwei = von der zweiten Person geprüft. Die Farbe
 // allein (hell- vs. dunkelgrün) wäre ein zu feiner Unterschied, seit der
@@ -1741,7 +1744,7 @@ function oeffne(filename) {
   suche = "";
   gewaehlteZeile = null;
   document.getElementById("sucheInput").value = "";
-  setzeEbene(ansicht.ebene);
+  setzeEbene(1); // immer mit dem Überblick anfangen, siehe ansichtDefaults
 }
 
 function zurueckZurListe() {
