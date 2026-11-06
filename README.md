@@ -1430,15 +1430,17 @@ mitbewegt, wenn sich die Schätzung ändert. Die übrigen Honorare
 Die Zeile hält dann den **Prozentsatz** im Ausmass-Feld, die Einheit wird
 auf "%" gesetzt, und statt eines Kennwerts zeigt die Zeile ihre
 **Bemessungsgrundlage** — damit nachvollziehbar bleibt, worauf sich der
-Prozentsatz bezieht. Zwei Varianten stehen zur Wahl:
+Prozentsatz bezieht.
 
-| Variante | Grundlage |
-|---|---|
-| `% der Baukosten BKP 1–9` | alle Hauptgruppen ausser 0 |
-| `% der Baukosten BKP 1–9 ohne Honorare` | zusätzlich ohne die Honorar-Elementgruppen (09, 19, 29, … 99) |
+Die Grundlage ist immer dieselbe: die **Baukosten BKP 1–9 ohne Honorare**.
+Eine zweite Variante (mit Honoraren) gab es kurz, sie ist aber nicht
+gebräuchlich — ein Honorar auf Honorare zu rechnen will niemand, und die
+Wahl war nur eine Stolperstelle. Bestehende Zeilen mit der alten Variante
+rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
 
-**Nicht** in der Grundlage enthalten sind in beiden Fällen:
+**Nicht** in der Grundlage enthalten sind:
 
+- die **Honorar-Elementgruppen** (09, 19, 29, … 99),
 - die **Hauptgruppe 0** (Grundstück ist keine Baukost),
 - **alle anderen Prozent-Zeilen**. Das ist kein Detail, sondern notwendig:
   BKP 291 liegt selbst in Hauptgruppe 2 und wäre sonst Teil seiner eigenen
