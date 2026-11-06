@@ -27,7 +27,9 @@
    Betrag ein zweites Mal stand). Hier wird der Betrag NICHT kopiert:
    jede Unterposition trägt höchstens eine Modul-Zuordnung, die Teilsummen
    ergeben sich daraus. Will man eine Position auf zwei Module verteilen,
-   teilt man sie in zwei Unterpositionen.
+   teilt man sie in zwei Unterpositionen. Jede Position zählt dabei ganz
+   normal ins Total -- ein Modul ist eine AUSWERTUNG der Schätzung, keine
+   Ausnahme davon.
 
    Ein File pro Kostenschätzung auf Nextcloud (Liste + Editor), Struktur
    bewusst analog zu Offerten/Protokoll. Speichern wie dort/bei der
@@ -86,6 +88,13 @@ const STATUS_LABEL = {
   verifiziert: "verifiziert – von der zweiten Person geprüft"
 };
 const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓" };
+
+// MwSt: Kennwerte werden exklusive erfasst (so kommen sie aus Richtofferten
+// und Kennwert-Sammlungen), die Kostenspalte und alle Summen zeigen den
+// Betrag inklusive -- der Bauherr will wissen, was er am Schluss zahlt.
+// Der Satz gehört zur Schätzung (Kostenstand!), nicht ins Programm, und
+// steht deshalb in den Kopfdaten; 8.1% ist nur der Startwert.
+const MWST_DEFAULT = 8.1;
 
 const DRUCK_DEFAULTS = {
   nurVerwendete: true,
@@ -186,6 +195,25 @@ function einfacheKosten(zeile) {
   return ausmassWert(zeile) * kennwertWert(zeile);
 }
 
+function mwstSatz(data) {
+  const quelle = data || offen;
+  const v = quelle && quelle.mwst;
+  return typeof v === "number" && isFinite(v) && v >= 0 ? v : 0;
+}
+function mwstFaktor(data) {
+  return 1 + mwstSatz(data) / 100;
+}
+// "Total ±25% inkl. 8.1% MwSt" -- die Beschriftung steht unter der Tabelle
+// und im Ausdruck, damit nie offen bleibt, ob die Zahl inklusive ist.
+function totalBeschriftung() {
+  const satz = mwstSatz();
+  return (
+    "Total" +
+    (offen.genauigkeit ? " " + offen.genauigkeit : "") +
+    (satz ? ` inkl. ${zahl(satz)}% MwSt` : " exkl. MwSt")
+  );
+}
+
 // ---------- Prozent-Zeilen (Honorar auf die Baukosten) ----------
 //
 // Eine Unterposition kann statt "Ausmass × Kennwert" auch als PROZENTSATZ
@@ -199,8 +227,7 @@ function einfacheKosten(zeile) {
 // ZIRKELSCHLUSS: BKP 291 liegt selbst in Hauptgruppe 2 und wäre damit Teil
 // seiner eigenen Bemessungsgrundlage. Deshalb zählen Prozent-Zeilen NIE in
 // die Basis -- egal welche. Ebenfalls draussen: die Hauptgruppe 0
-// (Grundstück ist keine Baukost) und die Zusatz-/Options-Module (die
-// stehen auch nicht im Total).
+// (Grundstück ist keine Baukost).
 const BASIS_ARTEN = {
   bkp19: "% der Baukosten BKP 1–9",
   bkp19ohneHonorar: "% der Baukosten BKP 1–9 ohne Honorare"
@@ -209,7 +236,6 @@ const BASIS_ARTEN = {
 function basisBetrag(art, data) {
   const quelle = data || offen;
   if (!quelle) return 0;
-  const zIds = new Set((quelle.module || []).filter((m) => m.zusatz).map((m) => m.id));
   let summe = 0;
   Object.keys(quelle.positionen || {}).forEach((nr) => {
     if (nr[0] === "0") return; // Grundstück
@@ -217,18 +243,23 @@ function basisBetrag(art, data) {
     if (art === "bkp19ohneHonorar" && nr[1] === "9") return;
     (quelle.positionen[nr] || []).forEach((z) => {
       if (z.basis) return; // siehe Zirkelschluss oben
-      if (z.modul && zIds.has(z.modul)) return;
       summe += einfacheKosten(z);
     });
   });
   return summe;
 }
 
+// Der MwSt-Zuschlag sitzt bewusst NUR hier: alles darunter (einfacheKosten,
+// basisBetrag) rechnet exklusive, alles darüber (Summen, Kennzahlen,
+// Ausdruck) geht über zeilenKosten() und ist damit inklusive. Insbesondere
+// bleibt die Bemessungsgrundlage der Prozent-Zeilen exklusive -- das
+// Honorar wird auf die Netto-Baukosten gerechnet und dann selbst versteuert,
+// nicht auf einen Betrag, in dem die MwSt schon steckt.
 function zeilenKosten(zeile, data) {
-  if (!zeile.basis) return einfacheKosten(zeile);
-  const prozent = rechne(zeile.ausmass);
-  const p = prozent === null || isNaN(prozent) ? 0 : prozent;
-  return (p / 100) * basisBetrag(zeile.basis, data);
+  const netto = zeile.basis
+    ? ((rechne(zeile.ausmass) || 0) / 100) * basisBetrag(zeile.basis, data)
+    : einfacheKosten(zeile);
+  return (isNaN(netto) ? 0 : netto) * mwstFaktor(data);
 }
 
 // ---------- Module ----------
@@ -245,20 +276,10 @@ function modulName(modulId) {
   return m ? m.name : "";
 }
 
-// Ein Modul ist entweder eine AUFTEILUNG der Schätzung ("nur Dach",
-// "UG & Fenster" -- alle zusammen ergeben das Total) oder ein ZUSATZ,
-// also eine noch nicht beschlossene Option ("Balkone vergrössern"). Die
-// Positionen eines Zusatz-Moduls zählen bewusst NICHT ins Total: sie
-// werden überall separat mit "+" ausgewiesen, damit der Bauherr
-// Grundkosten und Option auseinanderhalten kann.
-function zusatzModulIds() {
-  return new Set(module_().filter((m) => m.zusatz).map((m) => m.id));
-}
-function istZusatzZeile(zeile, zIds) {
-  return !!(zeile.modul && (zIds || zusatzModulIds()).has(zeile.modul));
-}
-
-// Summe pro Modul (beide Arten) plus der nicht zugeordnete Rest.
+// Summe pro Modul plus der nicht zugeordnete Rest. Ein Modul ist eine
+// AUFTEILUNG der Schätzung ("nur Dach", "UG & Fenster"): alle Module plus
+// der Rest ergeben zusammen das Total -- ein Modul ist nie ein Zuschlag
+// darauf.
 function modulSummen() {
   const summen = {};
   module_().forEach((m) => {
@@ -276,7 +297,7 @@ function modulSummen() {
 }
 
 // Die Module werden in den Kopfdaten in einer kleinen Liste gepflegt
-// (Name + "Im Total"/"Zusätzlich"). Solange der Dialog offen ist, liegt
+// (nur der Name). Solange der Dialog offen ist, liegt
 // der Arbeitsstand hier; übernommen wird er erst beim Speichern. Jede
 // Zeile behält dabei ihre ID -- Umbenennen verliert also keine
 // Zuordnungen, nur ein wirklich gelöschtes Modul tut das (siehe
@@ -293,10 +314,6 @@ function renderKopfModule() {
     .map(
       (m, i) => `<div class="bk-modul-row" data-idx="${i}">
       <input type="text" class="bk-modul-name" value="${escapeHtml(m.name)}" placeholder="z.B. nur Dach">
-      <div class="bk-seg">
-        <button type="button" data-zusatz="0" class="${m.zusatz ? "" : "active"}">Im Total</button>
-        <button type="button" data-zusatz="1" class="${m.zusatz ? "active" : ""}">Zusätzlich</button>
-      </div>
       <button type="button" class="bk-row-action" data-modul-del="1" title="Modul entfernen">×</button>
     </div>`
     )
@@ -320,13 +337,6 @@ function onKopfModulClick(e) {
   if (e.target.closest("[data-modul-del]")) {
     lesKopfModulNamen();
     kopfModule.splice(idx, 1);
-    renderKopfModule();
-    return;
-  }
-  const art = e.target.closest("button[data-zusatz]");
-  if (art) {
-    lesKopfModulNamen();
-    kopfModule[idx].zusatz = art.dataset.zusatz === "1";
     renderKopfModule();
   }
 }
@@ -389,31 +399,20 @@ function zeilenUnter(nr) {
 
 // Summen für alle Knoten auf einmal: erst pro Position, dann auf die
 // zwei- und einstelligen Eltern hochgezählt.
-// Liefert zwei parallele Summenbäume: "summen" sind die Grundkosten,
-// "summenZusatz" die Beträge aus Zusatz-/Options-Modulen, die bewusst
-// NICHT ins Total zählen (siehe zusatzModulIds()).
 function alleSummen() {
-  const zIds = zusatzModulIds();
   const summen = {};
-  const summenZusatz = {};
   let gesamt = 0;
-  let gesamtZusatz = 0;
   Object.keys(offen.positionen || {}).forEach((nr) => {
-    let basis = 0;
-    let zusatz = 0;
+    let betrag = 0;
     zeilenVon(nr).forEach((z) => {
-      const kosten = zeilenKosten(z);
-      if (istZusatzZeile(z, zIds)) zusatz += kosten;
-      else basis += kosten;
+      betrag += zeilenKosten(z);
     });
     [nr, ...vorfahren(nr)].forEach((ziel) => {
-      summen[ziel] = (summen[ziel] || 0) + basis;
-      summenZusatz[ziel] = (summenZusatz[ziel] || 0) + zusatz;
+      summen[ziel] = (summen[ziel] || 0) + betrag;
     });
-    gesamt += basis;
-    gesamtZusatz += zusatz;
+    gesamt += betrag;
   });
-  return { summen, summenZusatz, gesamt, gesamtZusatz };
+  return { summen, gesamt };
 }
 
 // "Verwendet" heisst: irgendwo darunter ist mindestens eine Unterposition
@@ -517,8 +516,8 @@ function spalten() {
     { key: "beschrieb", label: "Beschrieb", cls: "" },
     { key: "ausmass", label: "Ausmass", cls: "bk-col-ausmass bk-right" },
     { key: "einheit", label: "Einheit", cls: "bk-col-einheit" },
-    { key: "kennwert", label: "Kennwert", cls: "bk-col-kennwert bk-right" },
-    { key: "kosten", label: "Kosten", cls: "bk-col-kosten bk-right" }
+    { key: "kennwert", label: mwstSatz() ? "Kennwert exkl." : "Kennwert", cls: "bk-col-kennwert bk-right" },
+    { key: "kosten", label: mwstSatz() ? "Kosten inkl." : "Kosten", cls: "bk-col-kosten bk-right" }
   ];
   if (module_().length) cols.push({ key: "modul", label: "Modul", cls: "bk-col-modul" });
   if (ansicht.bemerkungen) {
@@ -531,13 +530,12 @@ function spalten() {
 
 // ---------- Rendering: Liste ----------
 
-// Für die Listenansicht: die Grundkosten (ohne Zusatz-/Options-Module).
+// Für die Listenansicht: das Total der ganzen Schätzung.
 function schaetzungTotal(data) {
-  const zIds = new Set((data.module || []).filter((m) => m.zusatz).map((m) => m.id));
   let gesamt = 0;
   Object.values(data.positionen || {}).forEach((zeilen) => {
     (zeilen || []).forEach((z) => {
-      if (!(z.modul && zIds.has(z.modul))) gesamt += zeilenKosten(z, data);
+      gesamt += zeilenKosten(z, data);
     });
   });
   return gesamt;
@@ -586,12 +584,14 @@ function genauigkeitProzent() {
   return m ? Number(m[1].replace(",", ".")) : null;
 }
 
-function renderKpis(gesamt, gesamtZusatz) {
+function renderKpis(gesamt) {
   const kacheln = [];
   kacheln.push(`<div class="bk-kpi gross">
-    <div class="bk-kpi-label">${gesamtZusatz ? "Total ohne Optionen" : "Total"}</div>
+    <div class="bk-kpi-label">Total</div>
     <div class="bk-kpi-wert">CHF ${franken(gesamt)}</div>
-    ${offen.kostenstand ? `<div class="bk-kpi-sub">Stand ${escapeHtml(offen.kostenstand)}</div>` : ""}
+    <div class="bk-kpi-sub">${mwstSatz() ? `inkl. ${zahl(mwstSatz())}% MwSt` : "exkl. MwSt"}${
+      offen.kostenstand ? ` · Stand ${escapeHtml(offen.kostenstand)}` : ""
+    }</div>
   </div>`);
 
   const prozent = genauigkeitProzent();
@@ -625,19 +625,11 @@ function renderKpis(gesamt, gesamtZusatz) {
   if (module_().length) {
     const { summen, ohne } = modulSummen();
     module_().forEach((m) => {
-      if (m.zusatz) {
-        kacheln.push(`<div class="bk-kpi bk-kpi-zusatz">
-          <div class="bk-kpi-label">Option · ${escapeHtml(m.name)}</div>
-          <div class="bk-kpi-wert bk-zusatz">+ ${franken(summen[m.id])}</div>
-          <div class="bk-kpi-sub">nicht im Total</div>
-        </div>`);
-      } else {
-        kacheln.push(`<div class="bk-kpi bk-kpi-modul" style="--modul-farbe:${modulFarbe(m.id)}">
-          <div class="bk-kpi-label">${escapeHtml(m.name)}</div>
-          <div class="bk-kpi-wert">${franken(summen[m.id])}</div>
-          <div class="bk-kpi-sub">${gesamt ? Math.round((summen[m.id] / gesamt) * 100) : 0}% vom Total</div>
-        </div>`);
-      }
+      kacheln.push(`<div class="bk-kpi bk-kpi-modul" style="--modul-farbe:${modulFarbe(m.id)}">
+        <div class="bk-kpi-label">${escapeHtml(m.name)}</div>
+        <div class="bk-kpi-wert">${franken(summen[m.id])}</div>
+        <div class="bk-kpi-sub">${gesamt ? Math.round((summen[m.id] / gesamt) * 100) : 0}% vom Total</div>
+      </div>`);
     });
     if (ohne) {
       kacheln.push(`<div class="bk-kpi bk-kpi-modul">
@@ -647,36 +639,30 @@ function renderKpis(gesamt, gesamtZusatz) {
     }
   }
 
-  if (gesamtZusatz) {
-    kacheln.push(`<div class="bk-kpi bk-kpi-inkl">
-      <div class="bk-kpi-label">Total inkl. Optionen</div>
-      <div class="bk-kpi-wert">CHF ${franken(gesamt + gesamtZusatz)}</div>
-    </div>`);
-  }
-
   document.getElementById("kpis").innerHTML = kacheln.join("");
 }
 
 // ---------- Rendering: Tabelle ----------
 
-// Das Statuskästchen vor der Nummer. Auf Gruppen ist es nur Anzeige
-// (der Stand kommt aus den Kindern, siehe statusBerechnen()), auf
-// Blättern klickt es sich durch die vier Stände.
+// Das Statuskästchen vor der Nummer. Auf Blättern schaltet es den eigenen
+// Stand weiter; auf Gruppen (deren Stand sich aus den Kindern ergibt, siehe
+// statusBerechnen()) setzt es denselben Stand auf alles darunter -- sonst
+// müsste man beim gemeinsamen Durchgehen eine fertige Elementgruppe Zeile
+// für Zeile abhaken. Der Rest der Zeile bleibt fürs Auf- und Zuklappen.
 function statusHtml(nr, status, istBlatt) {
   const titel = istBlatt
     ? `${STATUS_LABEL[status]} – klicken zum Weiterschalten`
-    : `${STATUS_LABEL[status]} (ergibt sich aus den Positionen darunter)`;
-  return `<button type="button" class="bk-status s-${status || "leer"}${istBlatt ? "" : " nuranzeige"}" data-action="status" data-nr="${nr}"${
+    : `${STATUS_LABEL[status]} – klicken setzt alle Positionen darunter auf den nächsten Stand`;
+  return `<button type="button" class="bk-status s-${status || "leer"}" data-action="status" data-nr="${nr}"${
     istBlatt ? ' data-blatt="1"' : ""
   } title="${escapeHtml(titel)}">${STATUS_ZEICHEN[status] || ""}</button>`;
 }
 
-function totalZelleInhalt(summe, zusatz) {
-  const basis = summe ? franken(summe) : "";
-  return zusatz ? `${basis}<span class="bk-zusatz">+${franken(zusatz)}</span>` : basis;
+function totalZelleInhalt(summe) {
+  return summe ? franken(summe) : "";
 }
 
-function gruppenZeileHtml(knoten, summe, zusatz, klappbar, offenJetzt, cols, status, istBlatt) {
+function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
   const indent = e === 1 ? "" : ` bk-indent-${e}`;
   let aktionen = "";
@@ -696,7 +682,7 @@ function gruppenZeileHtml(knoten, summe, zusatz, klappbar, offenJetzt, cols, sta
   const klassen = [
     "bk-group",
     `bk-l${e}`,
-    summe || zusatz ? "" : "leer",
+    summe ? "" : "leer",
     status ? `st-${status}` : "",
     klappbar ? "klappbar" : ""
   ]
@@ -705,7 +691,7 @@ function gruppenZeileHtml(knoten, summe, zusatz, klappbar, offenJetzt, cols, sta
   return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>
     <td class="bk-col-nr${indent}">${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
-    <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe, zusatz)}</td>
+    <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe)}</td>
     ${restSpan > 1 ? `<td colspan="${restSpan - 1}"></td>` : ""}
     <td class="bk-col-aktion">${aktionen}</td>
   </tr>`;
@@ -731,12 +717,9 @@ function modulSelectHtml(zeile, cssKlasse) {
   return `<select class="${cssKlasse}" data-feld="modul"><option value="">–</option>${optionen}</select>`;
 }
 
-// Zeilen eines Zusatz-/Options-Moduls zeigen ihren Betrag mit "+" und
-// abgesetzt -- sie stecken bewusst nicht im Total darüber.
 function zeilenKostenText(zeile) {
   const kosten = zeilenKosten(zeile);
-  if (!kosten) return "";
-  return istZusatzZeile(zeile) ? `<span class="bk-zusatz">+${franken(kosten)}</span>` : franken(kosten);
+  return kosten ? franken(kosten) : "";
 }
 
 function unterpositionHtml(nr, zeile, cols) {
@@ -786,7 +769,7 @@ function renderTabelle() {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
   const status = statusBerechnen(knoten, kinder);
-  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
+  const { summen, gesamt } = alleSummen();
   const q = suche.trim().toLowerCase();
   const sucheAktiv = q.length > 0;
   const trefferSet = sucheAktiv ? sichtbarDurchSuche(knoten, q) : null;
@@ -811,7 +794,7 @@ function renderTabelle() {
     const klappbar = kids.length > 0 || eigeneZeilen > 0;
     const kinderOffen = sucheAktiv || !zugeklappt.has(k.nr);
 
-    html += gruppenZeileHtml(k, summen[k.nr] || 0, summenZusatz[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
+    html += gruppenZeileHtml(k, summen[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
     sichtbareZeilen++;
 
     if (eigeneZeilen && kinderOffen) {
@@ -836,31 +819,13 @@ function renderTabelle() {
     ${restSpan ? `<td colspan="${restSpan}"></td>` : ""}
   </tr>`;
 
-  // Zusatz-/Options-Module stehen unter dem Total als eigene Zeilen, danach
-  // folgt das Total inklusive.
-  if (gesamtZusatz) {
-    const { summen: ms } = modulSummen();
-    html += fuss(" bk-gesamt-zusatz", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""} (ohne Optionen)`, "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
-    module_()
-      .filter((m) => m.zusatz)
-      .forEach((m) => {
-        html += fuss(
-          " bk-gesamt-zusatz",
-          `Option: ${escapeHtml(m.name)}`,
-          `<span class="bk-zusatz">+ ${franken(ms[m.id])}</span>`,
-          ` data-option-total="${m.id}"`
-        );
-      });
-    html += fuss("", "Total inklusive Optionen", "CHF " + franken(gesamt + gesamtZusatz), ' id="gesamtInklusiveZelle"');
-  } else {
-    html += fuss("", `Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}`, "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
-  }
+  html += fuss("", totalBeschriftung(), "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
 
   document.getElementById("bkBody").innerHTML = html;
   document.getElementById("bkTable").className = "bk-table" + (ansicht.dichte === "kompakt" ? " kompakt" : "");
   autoGrowAlle();
   letzterStatus = status;
-  return { gesamt, gesamtZusatz };
+  return { gesamt };
 }
 
 // Die Höhe des oben klebenden Blocks (Titel, Kennzahlen, Werkzeugleiste)
@@ -874,8 +839,8 @@ function messeSticky() {
 }
 
 function renderEditor() {
-  const { gesamt, gesamtZusatz } = renderTabelle();
-  renderKpis(gesamt, gesamtZusatz);
+  const { gesamt } = renderTabelle();
+  renderKpis(gesamt);
 
   const meta = [projektLabel(offen), offen.genauigkeit, offen.kostenstand ? `Stand ${offen.kostenstand}` : ""]
     .filter(Boolean)
@@ -905,12 +870,11 @@ function render() {
 // nachgeführt werden -- kein kompletter Neuaufbau, der den Cursor aus der
 // Tabelle werfen würde.
 function refreshSummen() {
-  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
+  const { summen, gesamt } = alleSummen();
   document.querySelectorAll("[data-total-for]").forEach((el) => {
     const summe = summen[el.dataset.totalFor] || 0;
-    const zusatz = summenZusatz[el.dataset.totalFor] || 0;
-    el.innerHTML = totalZelleInhalt(summe, zusatz);
-    el.closest("tr").classList.toggle("leer", !summe && !zusatz);
+    el.innerHTML = totalZelleInhalt(summe);
+    el.closest("tr").classList.toggle("leer", !summe);
   });
   document.querySelectorAll("[data-kosten-for]").forEach((el) => {
     const zeile = zeileSuchen(offen, el.dataset.kostenFor);
@@ -918,18 +882,7 @@ function refreshSummen() {
   });
   const gesamtZelle = document.getElementById("gesamtTotalZelle");
   if (gesamtZelle) gesamtZelle.textContent = "CHF " + franken(gesamt);
-  // Die Options-Zeilen im Tabellenfuss hängen ebenfalls an den Summen --
-  // ohne das hier blieben sie nach einer reinen Wertänderung stehen
-  // (die Kennzahl-Kachel oben stimmte dann, der Fuss nicht).
-  const inklZelle = document.getElementById("gesamtInklusiveZelle");
-  if (inklZelle) {
-    const { summen: ms } = modulSummen();
-    inklZelle.textContent = "CHF " + franken(gesamt + gesamtZusatz);
-    document.querySelectorAll("[data-option-total]").forEach((el) => {
-      el.innerHTML = `<span class="bk-zusatz">+ ${franken(ms[el.dataset.optionTotal] || 0)}</span>`;
-    });
-  }
-  renderKpis(gesamt, gesamtZusatz);
+  renderKpis(gesamt);
   renderPanelKosten();
 }
 
@@ -990,8 +943,9 @@ function renderPanel() {
              <div style="flex:2;"><label>Bemessungsgrundlage</label><input type="text" value="${franken(basisBetrag(zeile.basis))}" readonly></div>
            </div>
            <div class="hint" style="margin:6px 0 0; font-size:11px;">
-             Ohne Hauptgruppe 0 (Grundstück), ohne Optionen und ohne andere
-             Prozent-Zeilen – sonst würde sich das Honorar selbst mitrechnen.
+             Ohne Hauptgruppe 0 (Grundstück) und ohne andere Prozent-Zeilen –
+             sonst würde sich das Honorar selbst mitrechnen. Die Grundlage ist
+             exklusive MwSt; der Prozentbetrag wird wie jede Zeile versteuert.
            </div>`
         : `<div class="bk-panel-dreispalt">
              <div><label>Ausmass</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
@@ -1136,7 +1090,13 @@ function migriere(data) {
   if (!data.positionen) data.positionen = {};
   if (!data.eigenePositionen) data.eigenePositionen = [];
   if (!data.module) data.module = [];
+  // "Zusätzlich"-Module (Positionen ausserhalb des Totals) gibt es nicht
+  // mehr -- ihre Positionen zählen jetzt wie alle anderen ins Total.
+  data.module.forEach((m) => delete m.zusatz);
   if (!data.status) data.status = {};
+  // Vor dem MwSt-Satz waren die Kennwerte inklusive erfasst; für solche
+  // Dateien ist 0 der richtige Startwert, sonst käme die MwSt doppelt drauf.
+  if (typeof data.mwst !== "number") data.mwst = 0;
   // basis (Prozent-Berechnung) kam später dazu -- fehlt sie, ist die Zeile
   // eine ganz normale "Ausmass × Kennwert"-Zeile.
   Object.values(data.positionen).forEach((zeilen) => {
@@ -1156,6 +1116,7 @@ function leereSchaetzung({ titel, projekt, projektName, genauigkeit, kostenstand
     projektName: projektName || "",
     genauigkeit: genauigkeit || "",
     kostenstand: kostenstand || "",
+    mwst: MWST_DEFAULT,
     grundlagen: "",
     positionen: {},
     eigenePositionen: [],
@@ -1347,10 +1308,9 @@ function setzeFeld(nr, rowId, feld, wert, quelle) {
     const el = document.querySelector(`#detailPanel [data-panel-feld="${feld}"]`);
     if (el) el.value = wert;
   }
-  // Die Bemerkungs-Punkte in der Beschrieb-Spalte hängen am Inhalt, und
-  // ein Modulwechsel kann die Fusszeilen umbauen (sobald die erste Zeile
-  // in ein Zusatz-Modul wandert, kommen "Option"- und "Total inklusive"-
-  // Zeilen dazu) -- beides ist strukturell, refreshSummen() genügt nicht.
+  // Die Bemerkungs-Punkte in der Beschrieb-Spalte hängen am Inhalt, ein
+  // Wechsel der Berechnungsart an der Struktur -- beides ist mehr als eine
+  // Wertänderung, refreshSummen() genügt dafür nicht.
   if (feld === "basis") {
     // Die Einheit gehört zur Berechnungsart: Prozent-Zeilen rechnen in "%",
     // beim Zurückschalten bleibt das Feld frei zum Neusetzen.
@@ -1398,8 +1358,8 @@ function uebernimmOffeneEingabe() {
 function renderTabelleErhalten() {
   uebernimmOffeneEingabe();
   const scroll = window.scrollY;
-  const { gesamt, gesamtZusatz } = renderTabelle();
-  renderKpis(gesamt, gesamtZusatz);
+  const { gesamt } = renderTabelle();
+  renderKpis(gesamt);
   window.scrollTo(0, scroll);
 }
 
@@ -1446,6 +1406,16 @@ function naechsteUnterteilung(nr) {
   return `${nr}.${vergeben.length ? Math.max(...vergeben) + 1 : 1}`;
 }
 
+// Alle Blätter (Knoten ohne Kinder) unterhalb einer Gruppe -- nur dort wird
+// der Status gespeichert, der Stand der Gruppe ergibt sich daraus.
+function blattNummernUnter(nr) {
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  return knoten
+    .filter((k) => k.nr !== nr && vorfahren(k.nr).includes(nr) && !(kinder[k.nr] || []).length)
+    .map((k) => k.nr);
+}
+
 function onBodyClick(e) {
   uebernimmOffeneEingabe(); // siehe Kommentar dort
   const btn = e.target.closest("[data-action]");
@@ -1460,27 +1430,19 @@ function onBodyClick(e) {
   const { action, nr, row } = btn.dataset;
 
   if (action === "status") {
-    // Auf Gruppen ist das Kästchen reine Anzeige (der Stand kommt aus den
-    // Kindern) -- dort soll der Klick wie überall sonst in der Zeile
-    // auf-/zuklappen statt ins Leere zu gehen.
-    if (!btn.dataset.blatt) {
-      const zeile = btn.closest("tr.bk-group.klappbar");
-      if (zeile) umklappen(zeile.dataset.nr);
-      return;
-    }
-    const jetzt = (offen.status || {})[nr] || "";
+    const istBlatt = !!btn.dataset.blatt;
+    // Auf einer Gruppe zeigt das Kästchen den abgeleiteten Stand -- von dem
+    // aus wird weitergeschaltet, damit der sichtbare Stand und der nächste
+    // Klick zusammenpassen.
+    const jetzt = istBlatt ? (offen.status || {})[nr] || "" : letzterStatus[nr] || "";
     const naechster = STATUS_FOLGE[(STATUS_RANG[jetzt] + 1) % STATUS_FOLGE.length];
+    const ziele = istBlatt ? [nr] : blattNummernUnter(nr);
     mutate((data) => {
       if (!data.status) data.status = {};
-  // basis (Prozent-Berechnung) kam später dazu -- fehlt sie, ist die Zeile
-  // eine ganz normale "Ausmass × Kennwert"-Zeile.
-  Object.values(data.positionen).forEach((zeilen) => {
-    (zeilen || []).forEach((z) => {
-      if (z.basis === undefined) z.basis = "";
-    });
-  });
-      if (naechster) data.status[nr] = naechster;
-      else delete data.status[nr];
+      ziele.forEach((ziel) => {
+        if (naechster) data.status[ziel] = naechster;
+        else delete data.status[ziel];
+      });
       return data;
     });
     renderTabelleErhalten();
@@ -1771,6 +1733,7 @@ function oeffneKopfDialog() {
   document.getElementById("kopfTitel").value = offen.titel || "";
   document.getElementById("kopfGenauigkeit").value = offen.genauigkeit || "";
   document.getElementById("kopfKostenstand").value = offen.kostenstand || "";
+  document.getElementById("kopfMwst").value = String(mwstSatz());
   kopfModule = module_().map((m) => ({ ...m }));
   renderKopfModule();
   document.getElementById("kopfGrundlagen").value = offen.grundlagen || "";
@@ -1782,11 +1745,11 @@ function uebernimmKopfDialog() {
   const titel = document.getElementById("kopfTitel").value.trim();
   const genauigkeit = document.getElementById("kopfGenauigkeit").value.trim();
   const kostenstand = document.getElementById("kopfKostenstand").value.trim();
+  const mwstEingabe = rechne(document.getElementById("kopfMwst").value);
+  const mwst = mwstEingabe === null || isNaN(mwstEingabe) || mwstEingabe < 0 ? 0 : mwstEingabe;
   const grundlagen = document.getElementById("kopfGrundlagen").value;
   lesKopfModulNamen();
-  const neueModule = kopfModule
-    .map((m) => ({ id: m.id, name: m.name.trim(), zusatz: !!m.zusatz }))
-    .filter((m) => m.name);
+  const neueModule = kopfModule.map((m) => ({ id: m.id, name: m.name.trim() })).filter((m) => m.name);
   const gueltigeIds = new Set(neueModule.map((m) => m.id));
   overlay("kopfOverlay", false);
   mutate(
@@ -1796,6 +1759,7 @@ function uebernimmKopfDialog() {
       data.titel = titel || data.titel;
       data.genauigkeit = genauigkeit;
       data.kostenstand = kostenstand;
+      data.mwst = mwst;
       data.grundlagen = grundlagen;
       data.module = neueModule;
       // Zuordnungen auf entfernte Module zurücksetzen, sonst bliebe eine
@@ -1876,21 +1840,18 @@ function starteDruck() {
 // oder zu einem Beschrieb zusammengefasst (wie es in der alten Excel die
 // TEXTJOIN-Formel in der Positionszeile tat).
 function renderDruck(opt) {
-  const { summen, summenZusatz, gesamt, gesamtZusatz } = alleSummen();
+  const { summen, gesamt } = alleSummen();
   const verwendet = verwendeteKnoten();
   const mods = opt.modulSpalten ? module_() : [];
-  const zIds = zusatzModulIds();
-  // Grundkosten und Optionsbeträge in einer Zelle: "45'820  +12'000"
-  const betragZelle = (basis, zusatz) =>
-    `${basis ? franken(basis) : ""}${zusatz ? ` <span class="pr-formel">+${franken(zusatz)}</span>` : ""}`;
+  const betragZelle = (summe) => (summe ? franken(summe) : "");
 
   const kopf = [
     `<th>BKP</th>`,
     `<th>Bezeichnung</th>`,
     `<th class="r">Ausmass</th>`,
     `<th>Einheit</th>`,
-    `<th class="r">Kennwert</th>`,
-    `<th class="r">Kosten</th>`,
+    `<th class="r">${mwstSatz() ? "Kennwert exkl." : "Kennwert"}</th>`,
+    `<th class="r">${mwstSatz() ? "Kosten inkl." : "Kosten"}</th>`,
     ...mods.map((m) => `<th class="r">${escapeHtml(m.name)}</th>`),
     ...(opt.bemerkungExtern ? ["<th>Bemerkungen</th>"] : [])
   ];
@@ -1935,7 +1896,7 @@ function renderDruck(opt) {
         <td>${escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
-        <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
+        <td class="r">${betragZelle(summe)}</td>
         ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
         ${opt.bemerkungExtern ? "<td></td>" : ""}
       </tr>`;
@@ -1949,7 +1910,7 @@ function renderDruck(opt) {
         <td>${escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
-        <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
+        <td class="r">${betragZelle(summe)}</td>
         ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
         ${opt.bemerkungExtern ? "<td></td>" : ""}
       </tr>`;
@@ -1964,7 +1925,7 @@ function renderDruck(opt) {
           <td class="r">${zahl(rechne(z.ausmass))}${!z.basis && istRechnung(z.ausmass) ? `<div class="pr-formel">${escapeHtml(z.ausmass)}</div>` : ""}</td>
           <td>${z.basis ? "%" : escapeHtml(z.einheit || "")}</td>
           <td class="r">${z.basis ? franken(basisBetrag(z.basis)) : zahl(rechne(z.kennwert))}</td>
-          <td class="r">${zeilenKosten(z) ? (istZusatzZeile(z, zIds) ? "+" : "") + franken(zeilenKosten(z)) : ""}</td>
+          <td class="r">${zeilenKosten(z) ? franken(zeilenKosten(z)) : ""}</td>
           ${mods.length ? modulZellen(anteile) : ""}
           ${opt.bemerkungExtern ? `<td>${escapeHtml(z.extern || "")}</td>` : ""}
         </tr>`;
@@ -1985,52 +1946,39 @@ function renderDruck(opt) {
       <td class="r">${einzeln ? zahl(rechne(einzeln.ausmass)) : ""}</td>
       <td>${einzeln ? (einzeln.basis ? "%" : escapeHtml(einzeln.einheit || "")) : ""}</td>
       <td class="r">${einzeln ? (einzeln.basis ? franken(basisBetrag(einzeln.basis)) : zahl(rechne(einzeln.kennwert))) : ""}</td>
-      <td class="r">${betragZelle(summe, summenZusatz[k.nr] || 0)}</td>
+      <td class="r">${betragZelle(summe)}</td>
       ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
       ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join("; "))}</td>` : ""}
     </tr>`;
   });
 
   const gesamtModule = mods.length ? modulZellen(modulAnteile("")) : "";
-  const leerZellen = `${mods.map(() => "<td></td>").join("")}${opt.bemerkungExtern ? "<td></td>" : ""}`;
   zeilen += `<tr class="pr-gesamt">
     <td></td>
-    <td>Total${offen.genauigkeit ? " " + escapeHtml(offen.genauigkeit) : ""}${gesamtZusatz ? " (ohne Optionen)" : ""}</td>
+    <td>${escapeHtml(totalBeschriftung())}</td>
     <td colspan="3"></td>
     <td class="r">CHF ${franken(gesamt)}</td>
     ${gesamtModule}
     ${opt.bemerkungExtern ? "<td></td>" : ""}
   </tr>`;
-  if (gesamtZusatz) {
-    const { summen: ms } = modulSummen();
-    module_()
-      .filter((m) => m.zusatz)
-      .forEach((m) => {
-        zeilen += `<tr><td></td><td>Option: ${escapeHtml(m.name)}</td><td colspan="3"></td><td class="r">+ ${franken(ms[m.id])}</td>${leerZellen}</tr>`;
-      });
-    zeilen += `<tr class="pr-gesamt"><td></td><td>Total inklusive Optionen</td><td colspan="3"></td><td class="r">CHF ${franken(
-      gesamt + gesamtZusatz
-    )}</td>${leerZellen}</tr>`;
-  }
-
   let modulBlock = "";
   if (opt.modulSummen && module_().length) {
     const { summen: ms, ohne } = modulSummen();
     const zeilenHtml =
       module_()
-        .filter((m) => !m.zusatz)
         .map((m) => `<tr><td>${escapeHtml(m.name)}</td><td class="r">${franken(ms[m.id])}</td></tr>`)
         .join("") +
       (ohne ? `<tr><td>Ohne Modul</td><td class="r">${franken(ohne)}</td></tr>` : "") +
-      module_()
-        .filter((m) => m.zusatz)
-        .map((m) => `<tr><td>Option: ${escapeHtml(m.name)}</td><td class="r">+ ${franken(ms[m.id])}</td></tr>`)
-        .join("") +
-      `<tr><td>Total${gesamtZusatz ? " inkl. Optionen" : ""}</td><td class="r">${franken(gesamt + gesamtZusatz)}</td></tr>`;
+      `<tr><td>Total</td><td class="r">${franken(gesamt)}</td></tr>`;
     modulBlock = `<div class="pr-module"><h3>Zusammenstellung nach Modulen</h3><table>${zeilenHtml}</table></div>`;
   }
 
-  const meta = [projektLabel(offen), offen.genauigkeit, offen.kostenstand ? `Kostenstand ${offen.kostenstand}` : ""]
+  const meta = [
+    projektLabel(offen),
+    offen.genauigkeit,
+    offen.kostenstand ? `Kostenstand ${offen.kostenstand}` : "",
+    mwstSatz() ? `Kosten inkl. ${zahl(mwstSatz())}% MwSt` : "Kosten exkl. MwSt"
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -2120,7 +2068,7 @@ function init() {
   document.getElementById("kopfModulListe").addEventListener("click", onKopfModulClick);
   document.getElementById("kopfModulAddBtn").addEventListener("click", () => {
     lesKopfModulNamen();
-    kopfModule.push({ id: uid(), name: "", zusatz: false });
+    kopfModule.push({ id: uid(), name: "" });
     renderKopfModule();
     const felder = document.querySelectorAll("#kopfModulListe .bk-modul-name");
     if (felder.length) felder[felder.length - 1].focus();

@@ -1347,8 +1347,17 @@ den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens
 erreicht haben (`statusBerechnen()`). Eine Elementgruppe wird also erst
 grün, wenn jede ihrer Positionen grün ist, und eine Hauptgruppe erst, wenn
 alle ihre Elementgruppen so weit sind — genau das macht sichtbar, wo noch
-niemand war. Auf Gruppen ist das Kästchen reine Anzeige; ein Klick darauf
-klappt die Zeile auf/zu wie überall sonst. Eine Kennzahl-Kachel
+niemand war.
+
+Das **Kästchen einer Gruppe lässt sich trotzdem anklicken**: es schaltet vom
+angezeigten (abgeleiteten) Stand aus weiter und setzt den neuen Stand auf
+**alle Positionen darunter** — eine fertig besprochene Elementgruppe ist so
+mit einem Klick abgehakt statt Zeile für Zeile. Weil der Gruppenstand aus
+den Kindern gerechnet wird, zeigt die Gruppe danach genau diesen Stand.
+Einzeln gesetzte Stände darunter werden dabei überschrieben; ein weiterer
+Durchlauf bis "offen" löscht sie wieder. Der **restliche Teil der Zeile
+klappt weiterhin auf und zu** — nur das Kästchen selbst setzt den Status.
+Eine Kennzahl-Kachel
 "Durchgegangen" zeigt, wie viele der 461 Positionen mindestens "erledigt"
 sind (erscheint, sobald etwas abgehakt wurde).
 
@@ -1358,8 +1367,7 @@ sind (erscheint, sobald etwas abgehakt wurde).
   automatisch zur Positionssumme zusammengezählt werden; die Summen laufen
   weiter auf Element-, Hauptgruppe und Gesamttotal hoch.
 - **Ausmass und Kennwert dürfen gerechnet werden**: "2x4x2" ergibt 16,
-  "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim Kennwert die MWST
-  auf. Angezeigt wird das Resultat; die eingetippte Rechnung erscheint wieder
+  "105*1.15+30*0.8" ergibt 144.75. Angezeigt wird das Resultat; die eingetippte Rechnung erscheint wieder
   im Feld, sobald man hineinklickt, und hängt zusätzlich als Tooltip daran —
   so bleibt nachvollziehbar, woher eine Zahl kommt. Gespeichert wird deshalb
   der eingetippte Text, nicht das Resultat. (Eine Zeit lang stand die Rechnung
@@ -1374,6 +1382,35 @@ sind (erscheint, sobald etwas abgehakt wurde).
   "1 Pl").
 - **Einheit** ist ein freies Feld mit Vorschlagsliste (Stk, m², m³, m, lfm,
   kg, t, h, Tag, Pausch., %).
+
+#### MwSt: Kennwerte exklusive, Kosten inklusive
+
+Kennwerte kommen aus Richtofferten und Kennwert-Sammlungen und werden
+deshalb **exklusive MwSt** erfasst. Die Spalte **"Kosten inkl."** und alle
+Summen darüber (Positions-, Gruppen- und Gesamttotal, Kennzahl-Kacheln,
+Modulsummen, Ausdruck) zeigen dagegen den Betrag **inklusive** — der
+Bauherr will wissen, was er am Schluss zahlt. Die Spaltentitel sagen das
+("Kennwert exkl." / "Kosten inkl."), ebenso die Total-Zeile ("Total ±25%
+inkl. 8.1% MwSt") und der Kopf des Ausdrucks.
+
+Der **Satz steht in den Kopfdaten** und gehört damit zur einzelnen
+Schätzung, nicht zum Programm — er gehört zum Kostenstand und ändert sich
+über die Jahre. Neue Schätzungen starten mit **8.1%**; **0** lässt die
+Schätzung durchgehend exklusive MwSt (dann heissen die Spalten wieder
+schlicht "Kennwert"/"Kosten" und die Total-Zeile sagt "exkl. MwSt").
+
+Der Zuschlag sitzt an genau einer Stelle (`zeilenKosten()` in
+`baukosten/app.js`): alles darunter rechnet netto, alles darüber ist
+inklusive. Das ist auch der Grund, warum die **Bemessungsgrundlage der
+Prozent-Zeilen netto bleibt** — das Architektenhonorar wird auf die
+Netto-Baukosten gerechnet und dann selbst versteuert, nicht auf einen
+Betrag, in dem die MwSt schon steckt.
+
+**Bestehende Dateien** (vor dieser Änderung) bekommen beim Öffnen **0%**,
+nicht 8.1%: dort waren die Kennwerte inklusive erfasst, ein automatischer
+Zuschlag würde die Schätzung still um 8.1% aufblähen. Wer eine solche
+Schätzung umstellt, setzt den Satz in den Kopfdaten und prüft die
+Kennwerte.
 
 #### Honorar als Prozentsatz der Baukosten
 
@@ -1396,7 +1433,6 @@ Prozentsatz bezieht. Zwei Varianten stehen zur Wahl:
 **Nicht** in der Grundlage enthalten sind in beiden Fällen:
 
 - die **Hauptgruppe 0** (Grundstück ist keine Baukost),
-- die **Optionen** (Zusatz-Module stehen auch nicht im Total),
 - **alle anderen Prozent-Zeilen**. Das ist kein Detail, sondern notwendig:
   BKP 291 liegt selbst in Hauptgruppe 2 und wäre sonst Teil seiner eigenen
   Bemessungsgrundlage — ein Zirkelschluss. Weil Prozent-Zeilen generell
@@ -1428,7 +1464,7 @@ Prozentsatz bezieht. Zwei Varianten stehen zur Wahl:
 - Wer die Bemerkungen lieber direkt in der Tabelle hat, schaltet
   **"Bemerkungsspalten"** ein — dann erscheinen beide als eigene Spalten.
 
-### Module: Teilbereiche und Optionen
+### Module: Teilbereiche
 
 In der alten Excel wurden Teilbereiche über zusätzliche Spalten
 ("Einsparpotential", "nur Dach", "UG & Fenster", "nur Wohnung") abgebildet,
@@ -1437,24 +1473,25 @@ Unterposition trägt höchstens eine Modul-Zuordnung**, die Teilsummen ergeben
 sich daraus. Soll eine Position auf zwei Module verteilt werden, teilt man
 sie in zwei Unterpositionen.
 
-Module werden in den **Kopfdaten** als Liste gepflegt (Name + Art, "+ Modul"
-legt eines an). Es gibt zwei Arten:
-
-- **Im Total** — eine *Aufteilung* der Schätzung ("nur Dach",
-  "UG & Fenster"): alle zusammen ergeben das Total. Oben erscheint je eine
-  Kachel mit Betrag und Anteil.
-- **Zusätzlich** — eine *Option*, die noch nicht beschlossen ist
-  ("Balkone vergrössern"). Ihre Positionen zählen **nicht** ins Total,
-  sondern werden überall separat ausgewiesen: in der Tabelle mit "+" und
-  abgesetzter Farbe (auch auf den Gruppenzeilen darüber), oben als eigene
-  Kachel neben einer Kachel "Total inkl. Optionen", im Tabellenfuss als
-  eigene Zeile zwischen "Total (ohne Optionen)" und "Total inklusive
-  Optionen", und im Ausdruck genauso. So lassen sich Grundkosten und Option
-  sauber auseinanderhalten, ohne eine zweite Schätzung anzulegen.
+Module werden in den **Kopfdaten** als Liste gepflegt (nur der Name,
+"+ Modul" legt eines an). Ein Modul ist eine **Auswertung** der Schätzung,
+keine Ausnahme davon: die Positionen zählen ganz normal ins Total, und das
+Modul bestimmt bloss, in welcher Teilsumme sie zusätzlich erscheinen —
+als eigene Kennzahl-Kachel oben (Betrag und Anteil am Total), wahlweise als
+Modulspalte im Ausdruck und als "Zusammenstellung nach Modulen" am Schluss
+des Ausdrucks. Alle Module plus die Positionen ohne Zuordnung ("Ohne
+Modul") ergeben zusammen das Total.
 
 Die Zuordnungen hängen an einer **ID**, nicht am Namen — ein Modul
 umbenennen behält sie, ein Modul löschen setzt die betroffenen Zuordnungen
 zurück (`uebernimmKopfDialog()`).
+
+Früher gab es dazu eine zweite Art Modul ("Zusätzlich"/Option), deren
+Positionen nicht ins Total zählten und überall mit einem violetten "+"
+ausgewiesen wurden. Das ist ersatzlos weggefallen: Module sind jetzt
+einheitlich Teilbereiche im Total. Bestehende Dateien verlieren das Merkmal
+beim Öffnen (`migriere()`), die betroffenen Positionen zählen also neu ins
+Total.
 
 ### Ausdruck
 
@@ -1473,22 +1510,19 @@ mitgespeichert.
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
-| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul am Schluss; Optionen stehen dort getrennt unter den Aufteilungen |
+| Module als Zusammenstellung | an | Kurze Tabelle mit der Summe pro Modul (plus "Ohne Modul") am Schluss |
 
-Zusatz-/Options-Module erscheinen im Ausdruck immer getrennt: in den
-Betragsspalten als kleines "+…" neben den Grundkosten, und unter dem Total
-als eigene Zeile je Option plus "Total inklusive Optionen".
-
-Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand und den
-"Grundlagen" aus den Kopfdaten als Kopfblock.
+Querformat A4, mit Titel, Projekt, Genauigkeit, Kostenstand, dem MwSt-Hinweis
+und den "Grundlagen" aus den Kopfdaten als Kopfblock.
 
 ### Kopfdaten und Varianten
 
 - **Kopfdaten** (Knopf oben): Projekt (aus der zentralen Projektliste),
   Titel, Genauigkeit (z.B. "±25%", erscheint auch in der Total-Zeile und
-  steuert die Bandbreiten-Kachel), Kostenstand (z.B. "September 2025"), die
-  Modulliste und ein Freitext "Grundlagen", der nur im Ausdruck erscheint.
-  Dort steckt auch das Löschen der ganzen Schätzung.
+  steuert die Bandbreiten-Kachel), Kostenstand (z.B. "September 2025"), der
+  MwSt-Satz (siehe unten), die Modulliste und ein Freitext "Grundlagen", der
+  nur im Ausdruck erscheint. Dort steckt auch das Löschen der ganzen
+  Schätzung.
 - **Varianten** (z.B. "Mini"/"Maxi" desselben Projekts) über
   **"Duplizieren"** in der Liste — die Kopie bekommt eigene Zeilen-IDs,
   die Ausgangsvariante bleibt unverändert; Module, Zuordnungen und

@@ -103,7 +103,19 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Architektenhonorar). Prozent-Zeilen zählen NIE in ihre eigene
   Bemessungsgrundlage — BKP 291 liegt selbst in Hauptgruppe 2, sonst gäbe
   es einen Zirkelschluss (`basisBetrag()`). Ebenfalls draussen: Hauptgruppe
-  0 und die Options-Module.
+  0.
+- **MwSt `baukosten/`**: Kennwerte werden exklusive erfasst, die
+  Kostenspalte und alle Summen zeigen inklusive. Der Zuschlag sitzt an
+  GENAU einer Stelle (`zeilenKosten()`) — alles darunter (`einfacheKosten`,
+  `basisBetrag`) rechnet netto, alles darüber ist inklusive. Der Satz steht
+  pro Schätzung in den Kopfdaten (`data.mwst`, neue Schätzungen 8.1);
+  Dateien ohne das Feld bekommen 0, weil dort die Kennwerte noch inklusive
+  erfasst waren.
+- **Module `baukosten/` zählen immer ins Total**: ein Modul ist eine
+  Auswertung (Teilsumme), keine Ausnahme vom Total. Die frühere zweite Art
+  ("Zusätzlich"/Option, nicht im Total, violettes "+") ist ersatzlos
+  entfernt — falls so etwas je wieder gewünscht wird, bewusst neu
+  entscheiden statt das alte Flag wiederzubeleben.
 - **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der

@@ -254,22 +254,20 @@
     "projektName": "Dachausbau Lindenweg",
     "genauigkeit": "±25%",
     "kostenstand": "Oktober 2026",
-    "grundlagen": "Alle Kennwerte inkl. MWST. Grundlage: Begehung vom 27.10.2026, Richtofferten Dachdecker und Fenster.",
+    "mwst": 8.1,
+    "grundlagen": "Alle Kennwerte exkl. MWST, Kosten inkl. 8.1% MWST. Grundlage: Begehung vom 27.10.2026, Richtofferten Dachdecker und Fenster.",
     "module": [
       {
         "id": "demo-m1",
-        "name": "Dach",
-        "zusatz": false
+        "name": "Dach"
       },
       {
         "id": "demo-m2",
-        "name": "Innenausbau",
-        "zusatz": false
+        "name": "Innenausbau"
       },
       {
         "id": "demo-m3",
-        "name": "Dachterrasse",
-        "zusatz": true
+        "name": "Dachterrasse"
       }
     ],
     "positionen": {

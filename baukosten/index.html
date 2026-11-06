@@ -247,23 +247,10 @@
   }
   .bk-bem-punkt.extern { background: var(--accent-primary); }
 
-  /* Zusatz-/Options-Module stehen NICHT im Grundtotal -- ihre Beträge
-     erscheinen überall mit "+" und zurückhaltender eingefärbt. */
-  .bk-zusatz { color: #8C6E86; font-variant-numeric: tabular-nums; }
-  .bk-group .bk-zusatz { font-size: 11px; margin-left: 6px; }
-  .bk-kpi-zusatz { border-left: 3px solid #8C6E86; }
-  .bk-kpi-inkl { background: var(--surface-2); }
-  .bk-gesamt.bk-gesamt-zusatz td {
-    background: var(--l2-bg); color: var(--text); font-size: 12.5px; padding: 6px 10px;
-    border-bottom: none;
-  }
-
   /* Modul-Editor in den Kopfdaten */
   .bk-modul-liste { display: flex; flex-direction: column; gap: 6px; }
   .bk-modul-row { display: flex; align-items: center; gap: 8px; }
   .bk-modul-row input { flex: 1; min-width: 0; }
-  .bk-modul-row .bk-seg { flex: none; }
-  .bk-modul-row .bk-seg button { font-size: 11.5px; padding: 5px 9px; }
   .bk-modul-leer { font-size: 12px; color: var(--text-muted); }
 
   .bk-modul-zelle { display: flex; align-items: center; gap: 0; }
@@ -558,28 +545,29 @@
           <input type="text" id="kopfKostenstand" placeholder="z.B. September 2025">
         </div>
       </div>
+      <label>MwSt-Satz (%) <span style="text-transform:none; letter-spacing:0;">— Kennwerte exkl., Kosten inkl.</span></label>
+      <input type="text" id="kopfMwst" placeholder="8.1" inputmode="decimal">
       <label>Module</label>
       <div class="bk-modul-liste" id="kopfModulListe"></div>
       <button type="button" id="kopfModulAddBtn" class="bk-toggle" style="align-self:flex-start; margin-top:6px;">+ Modul</button>
       <label>Grundlagen / Bemerkungen (erscheinen im Ausdruck)</label>
-      <textarea id="kopfGrundlagen" rows="3" placeholder="z.B. Alle Kennwerte inkl. MWST. Grundlage: Begehung vom …"></textarea>
+      <textarea id="kopfGrundlagen" rows="3" placeholder="z.B. Grundlage: Begehung vom 27.10., Richtofferten Dachdecker …"></textarea>
     </div>
     <div class="form-actions">
       <button id="kopfLoeschenBtn" class="btn-secondary">Löschen</button>
       <button id="kopfSpeichernBtn" class="btn-primary">Übernehmen</button>
     </div>
     <p class="hint">
-      <strong>Module</strong> sind frei wählbare Teilbereiche, denen sich jede
-      Unterposition zuordnen lässt. Die Kosten werden weiterhin nur einmal
-      erfasst — das Modul bestimmt, in welcher Teilsumme sie landen.
+      <strong>Module</strong> sind frei wählbare Teilbereiche (z.B. "nur
+      Dach", "UG &amp; Fenster"), denen sich jede Unterposition zuordnen
+      lässt. Die Kosten werden nur einmal erfasst und zählen ganz normal ins
+      Total — das Modul bestimmt bloss, in welcher Teilsumme sie zusätzlich
+      erscheinen: als eigene Kennzahl-Kachel oben, als Modulspalte und als
+      Zusammenstellung im Ausdruck.
       <br><br>
-      <strong>Im Total</strong>: eine Aufteilung der Schätzung (z.B. "nur
-      Dach", "UG &amp; Fenster") — die Summe aller Module ergibt das Total.
-      <br>
-      <strong>Zusätzlich</strong>: eine Option, die noch nicht beschlossen ist
-      (z.B. "Balkone vergrössern"). Ihre Positionen zählen NICHT ins Total,
-      sondern werden separat ausgewiesen — im Baum mit "+", oben als eigene
-      Kachel und im Ausdruck als eigener Block samt "Total inklusive".
+      Der <strong>MwSt-Satz</strong> gilt für die ganze Schätzung: Kennwerte
+      werden exklusive erfasst, die Kostenspalte und alle Summen zeigen den
+      Betrag inklusive. 0 lässt die Schätzung exklusive MwSt.
       <br><br>
       Umbenennen behält die Zuordnungen; ein Modul löschen setzt die
       betroffenen Zuordnungen zurück. "Löschen" unten links entfernt die
