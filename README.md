@@ -386,6 +386,13 @@ kein Tausendertrennzeichen.) Die Spalten werden so befüllt:
 | `Account` | Konto |
 | `VatCode` | MwSt/USt-Code |
 
+Die Datei wird als **UTF-8 mit BOM** geschrieben (die drei Bytes `EF BB BF`
+am Dateianfang). Banana erwartet laut Doku UTF-8, erkennt das ohne BOM aber
+nicht zuverlässig und liest die Datei dann je nach System als ANSI oder
+UTF-16 — aus `ä/ö/ü` werden dabei Kauderwelsch-Zeichen. Das BOM ist die
+Kennzeichnung in der Datei selbst; Banana (wie auch Excel oder Notepad)
+entfernt es beim Lesen wieder, es taucht also nirgends als Text auf.
+
 `buchungen.txt` ist bewusst **nicht** direkt die Banana-Buchhaltungsdatei
 (deren `.ac2`/natives Format ist proprietär), sondern eine Warteschlange zum
 Import: in Banana über **Datei → Import → Bewegungen importieren** einlesen.

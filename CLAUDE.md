@@ -87,6 +87,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
+- **Exportdateien für fremde Programme mit BOM**: `quittung/buchungen.txt`
+  (Banana-Import) wird als UTF-8 **mit** BOM geschrieben, sonst rät Banana
+  beim Import auf ANSI/UTF-16 und zerlegt die Umlaute. Beim Anhängen wird
+  ein vorhandenes BOM zuerst entfernt (`stripBom()`), damit es genau einmal
+  am Dateianfang steht. Gleiches gilt, falls je weitere Dateien für externe
+  Buchhaltungs-/Tabellenprogramme erzeugt werden.
 - **Kein öffentlicher Freigabelink mehr**: ALLE Module (seit neuem auch
   `zeiterfassung/dashboard/`, die Auswertung) lesen und schreiben
   ausschliesslich über den angemeldeten Zugang. Die Auswertung war die

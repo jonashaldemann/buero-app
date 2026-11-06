@@ -399,6 +399,19 @@ async function imageFileToPdfBlob(file) {
 // getestet/bestätigt, buchungen.txt importiert damit korrekt.)
 const BANANA_TXT_HEADER = "Date\tDescription\tIncome\tExpenses\tDoc\tCategory\tAccount\tVatCode";
 
+// Banana erwartet die Datei als UTF-8, erkennt das aber nicht zuverlässig
+// von selbst: ohne Byte Order Mark rät der Import je nach Plattform auf die
+// lokale ANSI-Codepage (oder gar UTF-16) und macht aus "ä/ö/ü" Kauderwelsch.
+// Das BOM ist die Kennzeichnung in der Datei selbst und wird von Banana (wie
+// von Excel/Notepad) beim Lesen wieder entfernt -- deshalb schreiben wir es
+// IMMER mit und entfernen es beim Anhängen vorher wieder, damit es nur genau
+// einmal am Dateianfang steht.
+const UTF8_BOM = "\uFEFF";
+
+function stripBom(text) {
+  return text.charAt(0) === UTF8_BOM ? text.slice(1) : text;
+}
+
 // Tabs/Zeilenumbrüche killen, da das Format (anders als CSV) kein Quoting
 // für eingebettete Tabs kennt -- sonst würde die Spaltenstruktur brechen.
 function tsvField(v) {
@@ -416,7 +429,10 @@ async function appendBananaBooking(entry) {
   let existingText = "";
   const getRes = await proxyFetch(relPath, { method: "GET", headers: authHeader() });
   if (getRes.status === 200) {
-    existingText = await getRes.text();
+    // Response.text() dekodiert immer als UTF-8 und entfernt ein BOM bereits
+    // selbst -- stripBom() ist die Absicherung für den Demomodus bzw. falls
+    // die Datei je anders eingelesen wird.
+    existingText = stripBom(await getRes.text());
   } else if (getRes.status === 404) {
     existingText = BANANA_TXT_HEADER + "\n";
   } else {
@@ -435,11 +451,11 @@ async function appendBananaBooking(entry) {
     entry.mwst
   ].map(tsvField).join("\t");
 
-  const updated = existingText.replace(/\n?$/, "\n") + row + "\n";
+  const updated = UTF8_BOM + existingText.replace(/\n?$/, "\n") + row + "\n";
 
   const putRes = await proxyFetch(relPath, {
     method: "PUT",
-    headers: { ...authHeader(), "Content-Type": "text/plain" },
+    headers: { ...authHeader(), "Content-Type": "text/plain; charset=utf-8" },
     body: updated
   });
   if (!putRes.ok) throw new Error(`Buchung schreiben fehlgeschlagen (${putRes.status})`);
