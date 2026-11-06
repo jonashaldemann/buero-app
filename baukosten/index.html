@@ -68,6 +68,11 @@
     position: sticky; top: 0; z-index: 30;
     background: var(--bg); padding-top: 6px;
   }
+  /* Dieses Modul hat als einziges klebende Ebenen (Kopfblock z-index 30,
+     Spaltentitel und Gesamttotal 20) -- die liegen sonst ÜBER den Dialogen
+     (.overlay aus css/style.css hat 20) und verdecken deren oberen Rand
+     samt Schliessen-Knopf und das untere Ende. Deshalb hier höher legen. */
+  .overlay { z-index: 60; }
   .bk-sticky.geklebt { box-shadow: 0 6px 12px -8px rgba(70,67,60,0.35); }
 
   .bk-head { display: flex; align-items: center; gap: 14px; padding: 0 0 12px; }
@@ -246,6 +251,14 @@
     background: var(--text-muted); margin-right: 5px; vertical-align: middle;
   }
   .bk-bem-punkt.extern { background: var(--accent-primary); }
+
+  /* Die zusammengezogenen Bemerkungen auf der Positionszeile: klar als
+     abgeleiteter Text erkennbar (kleiner, gedämpft) -- hier wird nichts
+     eingetippt, bearbeitet wird in den Unterpositionen. */
+  .bk-bem-zusammen {
+    font-size: 11px; color: var(--text-muted); line-height: 1.35;
+    font-family: var(--font-light);
+  }
 
   /* Modul-Editor in den Kopfdaten */
   .bk-modul-liste { display: flex; flex-direction: column; gap: 6px; }
@@ -621,8 +634,10 @@
     </label>
     <label class="bk-opt">
       <input type="checkbox" id="optBemerkungExtern">
-      <span>Externe Bemerkungen mitdrucken
-        <small>Die interne Spalte wird nie gedruckt.</small></span>
+      <span>Bemerkungen mitdrucken
+        <small>Die Spalte "Notizen" wird nie gedruckt. Auf der
+        Positionszeile stehen die Bemerkungen der Unterpositionen
+        zusammengezogen.</small></span>
     </label>
 
     <div id="druckModuleBlock">
@@ -697,16 +712,19 @@
     </p>
     <p class="hint">
       <strong>Detailfenster rechts:</strong> sobald der Cursor in einer
-      Unterposition steht, zeigt es diese Zeile gross — mit Modul und beiden
-      Bemerkungsfeldern. Die Tabelle bleibt dadurch schmal und lesbar. Wer die
-      Bemerkungen lieber direkt in der Tabelle hat, schaltet
-      "Bemerkungsspalten" ein. Ein Punkt in der Beschrieb-Spalte zeigt an,
-      dass eine Bemerkung hinterlegt ist (grau = intern, blau = extern).
+      Unterposition steht, zeigt es diese Zeile gross — mit Modul,
+      <strong>Notizen</strong> (nur intern, nie im Ausdruck) und
+      <strong>Bemerkungen</strong> (erscheinen im Ausdruck). Die Tabelle
+      bleibt dadurch schmal und lesbar. Wer beides direkt in der Tabelle
+      haben will, schaltet "Bemerkungsspalten" ein; auf der dreistelligen
+      Positionszeile stehen dann die Bemerkungen aller Unterpositionen
+      kommagetrennt zusammengezogen. Ein Punkt in der Beschrieb-Spalte
+      zeigt an, dass etwas hinterlegt ist (grau = Notiz, blau = Bemerkung).
     </p>
     <p class="hint">
       <strong>Ausmass und Kennwert</strong> dürfen gerechnet werden: "2x4x2"
-      ergibt 16, "105*1.15+30*0.8" ergibt 144.75, "136*1.08" rechnet beim
-      Kennwert die MWST auf. Angezeigt wird das Resultat; die eingetippte
+      ergibt 16, "105*1.15+30*0.8" ergibt 144.75. Die MwSt kommt zentral aus
+      den Kopfdaten dazu. Angezeigt wird das Resultat; die eingetippte
       Rechnung erscheint wieder, sobald man ins Feld klickt. Lässt sich eine
       Eingabe nicht rechnen, bleibt sie rot stehen. Ein leeres Ausmass zählt
       als 1 (Pauschalen brauchen also nur den Kennwert).

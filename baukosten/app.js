@@ -534,8 +534,8 @@ function spalten() {
   ];
   if (module_().length) cols.push({ key: "modul", label: "Modul", cls: "bk-col-modul" });
   if (ansicht.bemerkungen) {
-    cols.push({ key: "intern", label: "Bemerkung intern", cls: "bk-col-bem" });
-    cols.push({ key: "extern", label: "Bemerkung extern", cls: "bk-col-bem" });
+    cols.push({ key: "intern", label: "Notizen", cls: "bk-col-bem" });
+    cols.push({ key: "extern", label: "Bemerkungen", cls: "bk-col-bem" });
   }
   cols.push({ key: "aktion", label: "", cls: "bk-col-aktion" });
   return cols;
@@ -671,6 +671,20 @@ function statusHtml(nr, status, istBlatt) {
   } title="${escapeHtml(titel)}">${STATUS_ZEICHEN[status] || ""}</button>`;
 }
 
+// Die Bemerkungen der Unterpositionen, zu EINEM Text zusammengezogen --
+// auf der dreistelligen Positionszeile steht damit, was in der Position
+// insgesamt steckt ("Zumauern Türöffnungen, Neue Trennwände"), ohne sie
+// aufklappen zu müssen. Genau denselben Text druckt die zusammengefasste
+// Positionszeile im Ausdruck. Nur die EXTERNEN Bemerkungen: Notizen sind
+// Arbeitsmaterial und gehören niemandem sonst vor die Augen.
+function bemerkungenZusammen(nr) {
+  if (knotenEbene(nr) < 3) return "";
+  return zeilenUnter(nr)
+    .map((z) => (z.extern || "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 function totalZelleInhalt(summe) {
   return summe ? franken(summe) : "";
 }
@@ -689,9 +703,17 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
     }
   }
   // Titel spannt von "Beschrieb" bis vor "Kosten", danach folgen die
-  // optionalen Spalten und die Aktionsspalte.
+  // optionalen Spalten und die Aktionsspalte -- die Bemerkungsspalte
+  // bekommt dabei die zusammengezogenen Bemerkungen der Unterpositionen.
   const titelSpan = cols.findIndex((c) => c.key === "kosten") - 1;
-  const restSpan = cols.length - cols.findIndex((c) => c.key === "kosten") - 1;
+  const restZellen = cols
+    .slice(cols.findIndex((c) => c.key === "kosten") + 1)
+    .map((c) => {
+      if (c.key === "aktion") return `<td class="bk-col-aktion">${aktionen}</td>`;
+      if (c.key === "extern") return `<td class="bk-bem-zusammen">${escapeHtml(bemerkungenZusammen(knoten.nr))}</td>`;
+      return "<td></td>";
+    })
+    .join("");
   const klassen = [
     "bk-group",
     `bk-l${e}`,
@@ -705,8 +727,7 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
     <td class="bk-col-nr${indent}">${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
     <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe)}</td>
-    ${restSpan > 1 ? `<td colspan="${restSpan - 1}"></td>` : ""}
-    <td class="bk-col-aktion">${aktionen}</td>
+    ${restZellen}
   </tr>`;
 }
 
@@ -745,8 +766,8 @@ function unterpositionHtml(nr, zeile, cols) {
       // Die Punkte zeigen auch bei ausgeblendeten Bemerkungsspalten, dass
       // zu dieser Zeile etwas hinterlegt ist.
       const punkte =
-        (!ansicht.bemerkungen && zeile.intern ? '<span class="bk-bem-punkt" title="interne Bemerkung"></span>' : "") +
-        (!ansicht.bemerkungen && zeile.extern ? '<span class="bk-bem-punkt extern" title="externe Bemerkung"></span>' : "");
+        (!ansicht.bemerkungen && zeile.intern ? '<span class="bk-bem-punkt" title="Notiz (nicht im Ausdruck)"></span>' : "") +
+        (!ansicht.bemerkungen && zeile.extern ? '<span class="bk-bem-punkt extern" title="Bemerkung"></span>' : "");
       zellen += `<td>${punkte}<textarea rows="1" data-feld="beschrieb" placeholder="Beschrieb der Arbeiten">${escapeHtml(zeile.beschrieb || "")}</textarea></td>`;
     } else if (c.key === "ausmass") {
       // Bei einer Prozent-Zeile steht hier der Prozentsatz.
@@ -993,9 +1014,9 @@ function renderPanel() {
       <span class="wert" id="panelKosten">CHF ${franken(zeilenKosten(zeile))}</span>
     </div>
     ${modulFeld}
-    <label>Bemerkung intern <span style="text-transform:none; letter-spacing:0;">(nicht im Ausdruck)</span></label>
+    <label>Notizen <span style="text-transform:none; letter-spacing:0;">(nicht im Ausdruck)</span></label>
     <textarea rows="3" data-panel-feld="intern">${escapeHtml(zeile.intern || "")}</textarea>
-    <label>Bemerkung extern</label>
+    <label>Bemerkungen</label>
     <textarea rows="3" data-panel-feld="extern">${escapeHtml(zeile.extern || "")}</textarea>
     <div class="bk-panel-fuss">
       <button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>
@@ -1975,6 +1996,7 @@ function renderDruck(opt) {
     const beschriebe = posZeilen.map((z) => (z.beschrieb || "").trim()).filter(Boolean);
     const einzeln = posZeilen.length === 1 ? posZeilen[0] : null;
     const bemerkungen = posZeilen.map((z) => (z.extern || "").trim()).filter(Boolean);
+    // Trennzeichen wie am Bildschirm (bemerkungenZusammen()).
     zeilen += `<tr class="pr-pos${leerKlasse}">
       <td>${escapeHtml(k.nr)}</td>
       <td>${escapeHtml(k.titel)}${beschriebe.length ? `<div class="pr-formel">${escapeHtml(beschriebe.join("; "))}</div>` : ""}</td>
@@ -1983,7 +2005,7 @@ function renderDruck(opt) {
       <td class="r">${einzeln ? (einzeln.basis ? franken(basisBetrag(einzeln.basis)) : zahl(rechne(einzeln.kennwert))) : ""}</td>
       <td class="r">${betragZelle(summe)}</td>
       ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
-      ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join("; "))}</td>` : ""}
+      ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join(", "))}</td>` : ""}
     </tr>`;
   });
 

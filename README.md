@@ -1457,12 +1457,22 @@ Prozentsatz bezieht. Zwei Varianten stehen zur Wahl:
   gerechneten Kosten, das Modul und beide Bemerkungsfelder. Dadurch darf die
   Tabelle selbst schmal und ruhig bleiben. Beide Seiten schreiben in
   dieselbe Zeile und werden gegenseitig nachgeführt (`setzeFeld()`).
-- Zwei Bemerkungen pro Unterposition: **intern** (Annahmen, offene Fragen,
-  Notizen aus Sitzungen) und **extern**. Ein kleiner Punkt in der
-  Beschrieb-Spalte zeigt an, dass eine hinterlegt ist (grau = intern,
-  blau = extern).
-- Wer die Bemerkungen lieber direkt in der Tabelle hat, schaltet
+- Zwei Textfelder pro Unterposition: **Notizen** (Annahmen, offene Fragen,
+  Notizen aus Sitzungen — erscheinen **nie** im Ausdruck) und
+  **Bemerkungen** (für den Bauherrn, erscheinen im Ausdruck). Ein kleiner
+  Punkt in der Beschrieb-Spalte zeigt an, dass etwas hinterlegt ist
+  (grau = Notiz, blau = Bemerkung). Intern heissen die Felder weiterhin
+  `intern`/`extern` — die Dateien bleiben dadurch unverändert lesbar.
+- Wer beides lieber direkt in der Tabelle hat, schaltet
   **"Bemerkungsspalten"** ein — dann erscheinen beide als eigene Spalten.
+- **Zusammenzug auf der Positionszeile**: die dreistellige Zeile zeigt in
+  der Spalte "Bemerkungen" die Bemerkungen aller ihrer Unterpositionen
+  kommagetrennt hintereinander ("Zumauern Türöffnungen, Neue Trennwände,
+  Zumauern Fensteröffnungen") — man sieht also auch zugeklappt, was in der
+  Position steckt. Die Kosten einer eigenen Unterteilung ("211.1") zählen
+  in 211 hinein, ihre Bemerkungen deshalb auch. Nur die **Bemerkungen**
+  werden zusammengezogen, nie die Notizen; derselbe Text steht im Ausdruck
+  in der zusammengefassten Positionszeile (`bemerkungenZusammen()`).
 
 ### Module: Teilbereiche
 
@@ -1515,7 +1525,7 @@ mitgespeichert.
 | Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
 | Eigene Unterteilungen einzeln | **aus** | Aus: "211.1 Gerüste" wird in die Position 211 eingerechnet statt separat ausgewiesen (die Summe steckt dort ohnehin schon) |
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
-| Externe Bemerkungen | an | Die **interne** Spalte wird nie gedruckt |
+| Bemerkungen | an | Die Spalte **Notizen** wird nie gedruckt; auf der Positionszeile stehen die Bemerkungen der Unterpositionen zusammengezogen |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
 | Module als Aufstellung über dem Total | an | Unter der Tabelle das Total ohne Module, je Modul eine Zeile, dann das Gesamttotal — dieselbe Aufstellung wie am Bildschirm |
 
