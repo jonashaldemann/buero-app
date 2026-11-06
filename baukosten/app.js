@@ -70,7 +70,10 @@ let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
 let gewaehlteZeile = null; // { nr, id } der im Detailfenster gezeigten Unterposition
-let letzterStatus = {}; // zuletzt gerechneter Durchgeh-Status, für die Kennzahl-Kachel
+// Zuletzt gerechneter Durchgeh-Status je Knoten. Gebraucht beim Klick auf
+// das Kästchen einer Gruppe: dort wird vom ANGEZEIGTEN (abgeleiteten) Stand
+// aus weitergeschaltet, und der steht nur hier.
+let letzterStatus = {};
 
 // Gedämpfte Farbtöne für die Modul-Markierungen (Strich in der Tabelle,
 // Rand an der Kennzahl-Kachel) -- aus derselben Palette wie die
@@ -493,6 +496,8 @@ function statusBerechnen(knoten, kinder) {
   return ergebnis;
 }
 
+// Nur noch für den Einstiegshinweis unter der Werkzeugleiste: solange gar
+// nichts erfasst ist, erklärt er, wie man anfängt.
 function anzahlErfassterPositionen() {
   return Object.keys(offen.positionen || {}).filter((nr) => zeilenVon(nr).length).length;
 }
@@ -620,31 +625,13 @@ function renderKpis(gesamt) {
     }</div>
   </div>`);
 
+  // Unter- und Obergrenze stehen gleichwertig nebeneinander: es ist EINE
+  // Spanne, keine Zahl mit Zusatz.
   const prozent = genauigkeitProzent();
   if (prozent !== null && gesamt) {
     kacheln.push(`<div class="bk-kpi">
       <div class="bk-kpi-label">Bandbreite ${escapeHtml(offen.genauigkeit)}</div>
-      <div class="bk-kpi-wert">${franken(gesamt * (1 - prozent / 100))}</div>
-      <div class="bk-kpi-sub">bis ${franken(gesamt * (1 + prozent / 100))}</div>
-    </div>`);
-  }
-
-  kacheln.push(`<div class="bk-kpi">
-    <div class="bk-kpi-label">Erfasste Positionen</div>
-    <div class="bk-kpi-wert">${anzahlErfassterPositionen()}</div>
-    <div class="bk-kpi-sub">von ${BKP_KATALOG.filter(([nr]) => nr.length === 3).length} im BKP</div>
-  </div>`);
-
-  // Fortschritt beim gemeinsamen Durchgehen -- erscheint erst, sobald
-  // überhaupt etwas abgehakt wurde.
-  const abgehakt = Object.keys(offen.status || {}).length;
-  if (abgehakt) {
-    const dreistellig = BKP_KATALOG.filter(([nr]) => nr.length === 3).map(([nr]) => nr);
-    const fertig = dreistellig.filter((nr) => STATUS_RANG[letzterStatus[nr] || ""] >= 2).length;
-    kacheln.push(`<div class="bk-kpi">
-      <div class="bk-kpi-label">Durchgegangen</div>
-      <div class="bk-kpi-wert">${fertig}</div>
-      <div class="bk-kpi-sub">von ${dreistellig.length} Positionen</div>
+      <div class="bk-kpi-wert">${franken(gesamt * (1 - prozent / 100))} – ${franken(gesamt * (1 + prozent / 100))}</div>
     </div>`);
   }
 
