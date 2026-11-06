@@ -170,6 +170,21 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   eine neue Service-Worker-Version aktiv wird (wichtig, damit niemand
   nach einem Nextcloud-Pfad-Umzug versehentlich mit einer alten, gegen
   nicht mehr existierende Pfade laufenden Version weiterarbeitet).
+- **`cache: "reload"` beim Install JEDES Service Workers** (nicht
+  wegoptimieren): `cache.addAll()` holt die Dateien sonst durch den
+  HTTP-Cache, und GitHub Pages liefert alles mit
+  `Cache-Control: max-age=600`. Ein frisch deployter Worker legte dadurch
+  bis zu zehn Minuten alte Dateien in seinen eigenen, neuen Cache und
+  servierte sie anschliessend cache-first weiter -- eine neue Version kam
+  trotz Reload und trotz Auto-Update nicht an (genau so gemessen, siehe
+  unten). Mit `new Request(pfad, { cache: "reload" })` kommt sie sofort.
+  Getestet wird das mit einem kleinen Server, der die GitHub-Pages-Header
+  nachstellt: Seite laden, Dateien auf dem Server ändern, neu laden, prüfen
+  ob die neue Fassung läuft. Ohne `cache: "reload"` schlägt dieser Test
+  fehl, obwohl der neue Worker aktiv ist und der alte Cache gelöscht wurde.
+  (`updateViaCache: "none"` bei `register()` wurde ebenfalls probiert und
+  wieder verworfen -- es betrifft nur die Worker-Datei selbst und änderte
+  im Test nichts.)
 
 ## Bekannte offene Ideen (noch nicht umgesetzt)
 
