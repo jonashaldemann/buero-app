@@ -235,26 +235,30 @@ function modulAufstellung() {
 // 291), das sich damit automatisch mitbewegt, wenn sich die Schätzung
 // ändert. Die übrigen Honorare werden weiterhin pauschal erfasst.
 //
-// zeile.basis sagt, worauf sich der Prozentsatz bezieht; zeile.ausmass
-// hält dann den Prozentsatz (Einheit "%"), der Kennwert entfällt.
+// zeile.basis = "bkp19ohneHonorar" macht die Zeile zur Prozent-Zeile;
+// zeile.ausmass hält dann den Prozentsatz (Einheit "%"), der Kennwert
+// entfällt.
+//
+// Es gibt bewusst nur EINE Bemessungsgrundlage: die Baukosten BKP 1-9 ohne
+// die Honorar-Elementgruppen. Eine zweite Variante "mit Honoraren" gab es
+// kurz, sie ist aber nicht gebräuchlich -- ein Honorar auf Honorare zu
+// rechnen will niemand, und die Wahl war nur eine Stolperstelle.
 //
 // ZIRKELSCHLUSS: BKP 291 liegt selbst in Hauptgruppe 2 und wäre damit Teil
 // seiner eigenen Bemessungsgrundlage. Deshalb zählen Prozent-Zeilen NIE in
-// die Basis -- egal welche. Ebenfalls draussen: die Hauptgruppe 0
-// (Grundstück ist keine Baukost).
-const BASIS_ARTEN = {
-  bkp19: "% der Baukosten BKP 1–9",
-  bkp19ohneHonorar: "% der Baukosten BKP 1–9 ohne Honorare"
-};
+// die Basis. Ebenfalls draussen: die Hauptgruppe 0 (Grundstück ist keine
+// Baukost) und die Honorargruppen x9x.
+const BASIS_ART = "bkp19ohneHonorar";
+const BASIS_LABEL = "% der Baukosten (BKP 1–9 ohne Honorare)";
 
-function basisBetrag(art, data) {
+function basisBetrag(data) {
   const quelle = data || offen;
   if (!quelle) return 0;
   let summe = 0;
   Object.keys(quelle.positionen || {}).forEach((nr) => {
     if (nr[0] === "0") return; // Grundstück
     // Die Honorar-Elementgruppen enden auf 9 (09, 19, 29, ... 99).
-    if (art === "bkp19ohneHonorar" && nr[1] === "9") return;
+    if (nr[1] === "9") return;
     (quelle.positionen[nr] || []).forEach((z) => {
       if (z.basis) return; // siehe Zirkelschluss oben
       summe += einfacheKosten(z);
@@ -271,7 +275,7 @@ function basisBetrag(art, data) {
 // nicht auf einen Betrag, in dem die MwSt schon steckt.
 function zeilenKosten(zeile, data) {
   const netto = zeile.basis
-    ? ((rechne(zeile.ausmass) || 0) / 100) * basisBetrag(zeile.basis, data)
+    ? ((rechne(zeile.ausmass) || 0) / 100) * basisBetrag(data)
     : einfacheKosten(zeile);
   return (isNaN(netto) ? 0 : netto) * mwstFaktor(data);
 }
@@ -787,7 +791,7 @@ function unterpositionHtml(nr, zeile, cols) {
       // grundlage -- sonst wäre nicht nachvollziehbar, worauf sich der
       // Prozentsatz bezieht.
       zellen += zeile.basis
-        ? `<td class="bk-fest" title="${escapeHtml(BASIS_ARTEN[zeile.basis] || "")}">${franken(basisBetrag(zeile.basis))}</td>`
+        ? `<td class="bk-fest" title="${escapeHtml(BASIS_LABEL)}">${franken(basisBetrag())}</td>`
         : rechenZelle(zeile, "kennwert", "bk-kennwert");
     } else if (c.key === "kosten") {
       zellen += `<td class="bk-kosten" data-kosten-for="${zeile.id}">${zeilenKostenText(zeile)}</td>`;
@@ -994,20 +998,19 @@ function renderPanel() {
     <label>Berechnung</label>
     <select data-panel-feld="basis">
       <option value=""${zeile.basis ? "" : " selected"}>Ausmass × Kennwert</option>
-      ${Object.entries(BASIS_ARTEN)
-        .map(([k, label]) => `<option value="${k}"${zeile.basis === k ? " selected" : ""}>${escapeHtml(label)}</option>`)
-        .join("")}
+      <option value="${BASIS_ART}"${zeile.basis ? " selected" : ""}>${escapeHtml(BASIS_LABEL)}</option>
     </select>
     ${
       zeile.basis
         ? `<div class="bk-panel-dreispalt">
              <div><label>Prozentsatz</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
-             <div style="flex:2;"><label>Bemessungsgrundlage</label><input type="text" value="${franken(basisBetrag(zeile.basis))}" readonly></div>
+             <div style="flex:2;"><label>Bemessungsgrundlage</label><input type="text" value="${franken(basisBetrag())}" readonly></div>
            </div>
            <div class="hint" style="margin:6px 0 0; font-size:11px;">
-             Ohne Hauptgruppe 0 (Grundstück) und ohne andere Prozent-Zeilen –
-             sonst würde sich das Honorar selbst mitrechnen. Die Grundlage ist
-             exklusive MwSt; der Prozentbetrag wird wie jede Zeile versteuert.
+             Baukosten BKP 1–9 ohne die Honorargruppen (x9x), ohne Hauptgruppe
+             0 (Grundstück) und ohne andere Prozent-Zeilen – sonst würde sich
+             das Honorar selbst mitrechnen. Die Grundlage ist exklusive MwSt;
+             der Prozentbetrag wird wie jede Zeile versteuert.
            </div>`
         : `<div class="bk-panel-dreispalt">
              <div><label>Ausmass</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
@@ -1160,10 +1163,13 @@ function migriere(data) {
   // Dateien ist 0 der richtige Startwert, sonst käme die MwSt doppelt drauf.
   if (typeof data.mwst !== "number") data.mwst = 0;
   // basis (Prozent-Berechnung) kam später dazu -- fehlt sie, ist die Zeile
-  // eine ganz normale "Ausmass × Kennwert"-Zeile.
+  // eine ganz normale "Ausmass × Kennwert"-Zeile. Die kurzzeitig zweite
+  // Variante "bkp19" (mit Honoraren) gibt es nicht mehr: solche Zeilen
+  // rechnen neu auf dieselbe Grundlage wie alle anderen.
   Object.values(data.positionen).forEach((zeilen) => {
     (zeilen || []).forEach((z) => {
       if (z.basis === undefined) z.basis = "";
+      else if (z.basis && z.basis !== BASIS_ART) z.basis = BASIS_ART;
     });
   });
   data.druck = { ...DRUCK_DEFAULTS, ...(data.druck || {}) };
@@ -1996,7 +2002,7 @@ function druckSeite(opt, modul) {
           <td>${escapeHtml(z.beschrieb || "")}</td>
           <td class="r">${zahl(rechne(z.ausmass))}${!z.basis && istRechnung(z.ausmass) ? `<div class="pr-formel">${escapeHtml(z.ausmass)}</div>` : ""}</td>
           <td>${z.basis ? "%" : escapeHtml(z.einheit || "")}</td>
-          <td class="r">${z.basis ? franken(basisBetrag(z.basis)) : zahl(rechne(z.kennwert))}</td>
+          <td class="r">${z.basis ? franken(basisBetrag()) : zahl(rechne(z.kennwert))}</td>
           <td class="r">${zeilenKosten(z) ? franken(zeilenKosten(z)) : ""}</td>
           ${mods.length ? modulZellen(anteile) : ""}
           ${opt.bemerkungExtern ? `<td>${escapeHtml(z.extern || "")}</td>` : ""}
@@ -2018,7 +2024,7 @@ function druckSeite(opt, modul) {
       <td>${escapeHtml(k.titel)}${beschriebe.length ? `<div class="pr-formel">${escapeHtml(beschriebe.join("; "))}</div>` : ""}</td>
       <td class="r">${einzeln ? zahl(rechne(einzeln.ausmass)) : ""}</td>
       <td>${einzeln ? (einzeln.basis ? "%" : escapeHtml(einzeln.einheit || "")) : ""}</td>
-      <td class="r">${einzeln ? (einzeln.basis ? franken(basisBetrag(einzeln.basis)) : zahl(rechne(einzeln.kennwert))) : ""}</td>
+      <td class="r">${einzeln ? (einzeln.basis ? franken(basisBetrag()) : zahl(rechne(einzeln.kennwert))) : ""}</td>
       <td class="r">${betragZelle(summe)}</td>
       ${mods.length ? modulZellen(modulAnteile(k.nr)) : ""}
       ${opt.bemerkungExtern ? `<td>${escapeHtml(bemerkungen.join(", "))}</td>` : ""}

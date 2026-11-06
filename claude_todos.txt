@@ -1,0 +1,3 @@
+baukosten-Modul:
+Demodaten: Hauptteil der Kosten sind ohne Modul, Module sind wirklich nur separat zu prüfende Optionen, wie z.B. Balkone vergrössern, Küche ersetzen (weil die alte vielleicht noch recht gut ist). 
+Entsprechend sollten ganz oben nach "Durchgegangen" zuerst die Baukosten (ohne Module) aufgeführt sein und dann die Module.

@@ -110,10 +110,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Falls je wieder ein Freigabelink erwogen wird: nicht ins Repo.
 - **Prozent-Zeilen `baukosten/`**: eine Unterposition kann statt
   "Ausmass × Kennwert" ein Prozentsatz der Baukosten sein (fürs
-  Architektenhonorar). Prozent-Zeilen zählen NIE in ihre eigene
-  Bemessungsgrundlage — BKP 291 liegt selbst in Hauptgruppe 2, sonst gäbe
-  es einen Zirkelschluss (`basisBetrag()`). Ebenfalls draussen: Hauptgruppe
-  0.
+  Architektenhonorar). Es gibt bewusst nur EINE Bemessungsgrundlage
+  (`BASIS_ART`): BKP 1–9 ohne die Honorargruppen x9x. Prozent-Zeilen zählen
+  NIE in ihre eigene Grundlage — BKP 291 liegt selbst in Hauptgruppe 2,
+  sonst gäbe es einen Zirkelschluss (`basisBetrag()`). Ebenfalls draussen:
+  Hauptgruppe 0.
 - **MwSt `baukosten/`**: Kennwerte werden exklusive erfasst, die
   Kostenspalte und alle Summen zeigen inklusive. Der Zuschlag sitzt an
   GENAU einer Stelle (`zeilenKosten()`) — alles darunter (`einfacheKosten`,
