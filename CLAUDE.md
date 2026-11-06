@@ -122,9 +122,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   pro Schätzung in den Kopfdaten (`data.mwst`, neue Schätzungen 8.1);
   Dateien ohne das Feld bekommen 0, weil dort die Kennwerte noch inklusive
   erfasst waren.
-- **Module `baukosten/` werden separat ausgewiesen**: unter der Tabelle
-  steht das Total der Positionen OHNE Modul, darunter je Modul eine Zeile,
-  zuletzt das Gesamttotal. Die Beträge im Baum (Positions- und
+- **Module `baukosten/` werden separat ausgewiesen**: ein Modul ist ein
+  separat zu ENTSCHEIDENDER Teilbereich ("Küche ersetzen"), nicht eine
+  Aufteilung der ganzen Schätzung -- der Hauptteil der Kosten trägt kein
+  Modul. Unter der Tabelle steht deshalb das Total der Positionen OHNE
+  Modul, darunter je Modul eine Zeile, zuletzt das Gesamttotal; die
+  Kennzahl-Kacheln stehen in derselben Reihenfolge. Die Beträge im Baum (Positions- und
   Gruppenzeilen) bleiben dagegen vollständig — die Aufteilung passiert nur
   im Fuss, in den Kacheln und in den optionalen Modulspalten. Die frühere
   Unterscheidung "Im Total"/"Zusätzlich" samt violettem "+" ist entfernt;

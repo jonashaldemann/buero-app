@@ -645,8 +645,16 @@ function renderKpis(gesamt) {
     </div>`);
   }
 
+  // Erst die Baukosten ohne Module, dann die Module: ein Modul ist ein
+  // separat zu entscheidender Teilbereich ("Küche ersetzen"), der Rest ist
+  // das, was so oder so gebaut wird -- in dieser Reihenfolge liest man es.
   if (module_().length) {
     const { summen, ohne } = modulSummen();
+    kacheln.push(`<div class="bk-kpi bk-kpi-modul">
+      <div class="bk-kpi-label">Baukosten ohne Module</div>
+      <div class="bk-kpi-wert">${franken(ohne)}</div>
+      <div class="bk-kpi-sub">${gesamt ? Math.round((ohne / gesamt) * 100) : 0}% vom Total</div>
+    </div>`);
     module_().forEach((m) => {
       kacheln.push(`<div class="bk-kpi bk-kpi-modul" style="--modul-farbe:${modulFarbe(m.id)}">
         <div class="bk-kpi-label">${escapeHtml(m.name)}</div>
@@ -654,12 +662,6 @@ function renderKpis(gesamt) {
         <div class="bk-kpi-sub">${gesamt ? Math.round((summen[m.id] / gesamt) * 100) : 0}% vom Total</div>
       </div>`);
     });
-    if (ohne) {
-      kacheln.push(`<div class="bk-kpi bk-kpi-modul">
-        <div class="bk-kpi-label">Ohne Modul</div>
-        <div class="bk-kpi-wert">${franken(ohne)}</div>
-      </div>`);
-    }
   }
 
   document.getElementById("kpis").innerHTML = kacheln.join("");

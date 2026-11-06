@@ -44,6 +44,9 @@ ausprobieren, ohne echte Bürodaten zu sehen.
   gelb bleibt, was noch offen ist — Elektro, Heizung, Sanitär, ein paar
   Ausbaupositionen, das Geländer und der Honorarsatz. Die Kachel
   "Durchgegangen" zeigt dadurch einen plausiblen Stand statt 6 von 461.
+  Auch die **Module** sind so gesetzt, wie sie gemeint sind: der Hauptteil
+  der Kosten trägt keines, und die beiden Module ("Dachterrasse", "Küche
+  ersetzen") sind separat zu entscheidende Teilbereiche.
 - **Woher die Daten kommen**: `demo/seed.json` im Repo — ein Objekt
   `{ "<Nextcloud-Pfad>": <Inhalt> }`. JSON-Dateien stehen dort als echte
   Objekte (lesbar), Textdateien wie `projekte.txt` als String. Neue
@@ -1492,14 +1495,20 @@ Unterposition trägt höchstens eine Modul-Zuordnung**, die Teilsummen ergeben
 sich daraus. Soll eine Position auf zwei Module verteilt werden, teilt man
 sie in zwei Unterpositionen.
 
+Ein Modul ist ein **separat zu entscheidender Teilbereich** — "Dachterrasse",
+"Balkone vergrössern", "Küche ersetzen (die alte ist vielleicht noch gut)".
+Der **Hauptteil der Kosten trägt deshalb gar kein Modul**: das ist, was so
+oder so gebaut wird.
+
 Module werden in den **Kopfdaten** als Liste gepflegt (nur der Name,
 "+ Modul" legt eines an). **Jedes Modul wird separat gerechnet**: unter der
 Tabelle steht zuerst das Total der Positionen *ohne* Modulzuordnung
 ("Total ±25% ohne Module"), darunter je Modul eine eigene Zeile mit "+",
-zuletzt das Gesamttotal über alles. Oben erscheint je Modul eine
-Kennzahl-Kachel (Betrag und Anteil am Total) plus eine Kachel "Ohne Modul";
-im Ausdruck lässt sich dieselbe Aufstellung ein- und ausschalten und
-zusätzlich je Modul eine Spalte einblenden.
+zuletzt das Gesamttotal über alles. Dieselbe Reihenfolge haben die
+Kennzahl-Kacheln oben: nach "Durchgegangen" zuerst "Baukosten ohne Module",
+dann je Modul eine Kachel mit Betrag und Anteil am Total. Im Ausdruck lässt
+sich die Aufstellung ein- und ausschalten, je Modul eine Spalte einblenden
+und je Modul eine eigene Seite drucken.
 
 Die Beträge **im Baum bleiben vollständig**: eine Positions- oder
 Gruppenzeile zeigt, was diese BKP-Nummer kostet — unabhängig davon, welchem
