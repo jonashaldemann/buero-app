@@ -87,7 +87,10 @@ const STATUS_LABEL = {
   erledigt: "erledigt",
   verifiziert: "verifiziert – von der zweiten Person geprüft"
 };
-const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓" };
+// Ein Haken = erledigt, zwei = von der zweiten Person geprüft. Die Farbe
+// allein (hell- vs. dunkelgrün) wäre ein zu feiner Unterschied, seit der
+// Status nur noch im Kästchen steckt.
+const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓✓" };
 
 // MwSt: Kennwerte werden exklusive erfasst (so kommen sie aus Richtofferten
 // und Kennwert-Sammlungen), die Kostenspalte und alle Summen zeigen den
@@ -726,13 +729,9 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
       return "<td></td>";
     })
     .join("");
-  const klassen = [
-    "bk-group",
-    `bk-l${e}`,
-    summe ? "" : "leer",
-    status ? `st-${status}` : "",
-    klappbar ? "klappbar" : ""
-  ]
+  // Der Status färbt bewusst nur das Kästchen (siehe index.html) -- die
+  // Zeile trägt ihn nicht mehr als Klasse.
+  const klassen = ["bk-group", `bk-l${e}`, summe ? "" : "leer", klappbar ? "klappbar" : ""]
     .filter(Boolean)
     .join(" ");
   return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>

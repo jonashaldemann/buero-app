@@ -73,6 +73,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   deren oberen Rand samt Schliessen-Knopf — deshalb hebt `baukosten/`
   `.overlay` lokal auf `z-index: 60`. Bei neuen klebenden Ebenen daran
   denken.
+- **Durchgeh-Status `baukosten/`** färbt NUR das Kästchen vor der Nummer,
+  nie die ganze Zeile (das überdeckte die Ebenenfarben und machte die
+  Tabelle unruhig). "verifiziert" trägt deshalb zusätzlich einen
+  Doppelhaken -- hell- gegen dunkelgrün allein ist auf 19 x 15 Pixeln zu
+  fein.
 - **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
   Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
   (nur feine horizontale Trennlinien) + einblendbares Detailfenster rechts

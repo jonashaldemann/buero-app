@@ -169,19 +169,10 @@
   .bk-l1.leer td { color: rgba(255,255,255,0.68); }
   .bk-l1.leer .bk-titel, .bk-l1.leer .bk-nr-text { color: rgba(255,255,255,0.68); }
 
-  /* Status: gelb = pendent, hellgrün = erledigt, dunkelgrün = verifiziert.
-     Gilt auf allen Ebenen; auf der Hauptgruppe wird die Schrift dann
-     wieder dunkel, weil Weiss auf Hellgrün nicht lesbar wäre. */
-  .bk-group.st-pendent { --row-bg: var(--st-pendent); }
-  .bk-group.st-erledigt { --row-bg: var(--st-erledigt); }
-  .bk-group.st-verifiziert { --row-bg: var(--st-verifiziert); }
-  .bk-l1.st-pendent td, .bk-l1.st-erledigt td, .bk-l1.st-verifiziert td { color: var(--text); }
-  /* Sobald eine Zeile eine Statusfarbe trägt, wird ihre Schrift wieder
-     normal dunkel -- die gedämpfte "leer"-Schrift (bzw. Weiss auf der
-     Hauptgruppe) wäre auf Gelb/Grün kaum zu lesen. */
-  .bk-group.st-pendent .bk-titel, .bk-group.st-erledigt .bk-titel, .bk-group.st-verifiziert .bk-titel,
-  .bk-group.st-pendent .bk-nr-text, .bk-group.st-erledigt .bk-nr-text, .bk-group.st-verifiziert .bk-nr-text,
-  .bk-group.st-pendent .bk-total, .bk-group.st-erledigt .bk-total, .bk-group.st-verifiziert .bk-total { color: var(--text); }
+  /* Der Durchgeh-Status färbt NUR das Kästchen, nicht die Zeile: ganze
+     Zeilen in Gelb/Grün haben die Tabelle bei 500 Zeilen unruhig gemacht
+     und die Ebenenfarben (Haupt-/Elementgruppe) überdeckt. Siehe
+     .bk-status weiter unten. */
 
   .bk-group:hover td { filter: brightness(0.965); }
 
@@ -189,12 +180,16 @@
   .bk-indent-3 { padding-left: 28px !important; }
   .bk-indent-4 { padding-left: 42px !important; }
 
-  /* Statusfeld: durchklickbar leer -> pendent -> erledigt -> verifiziert */
+  /* Statusfeld: durchklickbar leer -> pendent (gelb) -> erledigt (hellgrün,
+     ein Haken) -> verifiziert (dunkelgrün, Doppelhaken). Es trägt den
+     Status allein, deshalb etwas breiter als hoch -- der Doppelhaken
+     braucht den Platz, und eine feste Breite hält die Nummern in Flucht. */
   .bk-status {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 15px; height: 15px; border-radius: 4px; margin-right: 7px;
+    width: 19px; height: 15px; border-radius: 4px; margin-right: 7px;
     border: 1px solid var(--feld-rand); background: var(--feld-bg);
-    font-size: 9px; line-height: 1; color: var(--text); cursor: pointer;
+    font-size: 8.5px; letter-spacing: -0.5px; line-height: 1;
+    color: var(--text); cursor: pointer;
     padding: 0; vertical-align: middle; flex: none;
   }
   .bk-status[disabled] { cursor: default; opacity: 0.85; }
@@ -202,7 +197,7 @@
   .bk-status.s-erledigt { background: var(--st-erledigt); border-color: #7FA173; }
   .bk-status.s-verifiziert { background: var(--st-verifiziert); border-color: #5E8352; }
   .bk-l1 .bk-status { border-color: rgba(255,255,255,0.45); }
-  .bk-status-platz { display: inline-block; width: 15px; margin-right: 7px; }
+  .bk-status-platz { display: inline-block; width: 19px; margin-right: 7px; }
 
   /* Unterpositionen: die eigentlichen Eingabezeilen */
   .bk-sub td { padding: 2px 6px; background: var(--surface); }
@@ -702,17 +697,18 @@
       <strong>Durchgehen zu zweit:</strong> das Kästchen links jeder
       BKP-Nummer lässt sich durchklicken:
       offen → <strong>pendent</strong> (gelb) → <strong>erledigt</strong>
-      (hellgrün) → <strong>verifiziert</strong> (dunkelgrün) → wieder offen.
+      (hellgrün, ✓) → <strong>verifiziert</strong> (dunkelgrün, ✓✓) →
+      wieder offen. Gefärbt wird nur das Kästchen, nie die ganze Zeile.
       Sobald alle Positionen einer Elementgruppe denselben Stand erreicht
-      haben, färbt sich die Elementgruppe mit — und ebenso die Hauptgruppe,
-      wenn all ihre Elementgruppen so weit sind. So sieht man auf einen
-      Blick, welche Bereiche noch niemand angeschaut hat.
+      haben, zeigt ihn auch deren Kästchen — und ebenso das der Hauptgruppe,
+      wenn all ihre Elementgruppen so weit sind. Ein Klick auf das Kästchen
+      einer Gruppe setzt den nächsten Stand auf alles darunter.
     </p>
     <div class="bk-legende">
       <span><i style="background:#FFFFFF"></i> offen</span>
       <span><i style="background:#EFDFAE; border-color:#C9A94F"></i> pendent</span>
-      <span><i style="background:#D3E4CC; border-color:#7FA173"></i> erledigt</span>
-      <span><i style="background:#A4C498; border-color:#5E8352"></i> verifiziert</span>
+      <span><i style="background:#D3E4CC; border-color:#7FA173"></i> erledigt ✓</span>
+      <span><i style="background:#A4C498; border-color:#5E8352"></i> verifiziert ✓✓</span>
     </div>
     <p class="hint">
       <strong>Suche</strong> mit <kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>
