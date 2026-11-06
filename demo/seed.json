@@ -255,19 +255,15 @@
     "genauigkeit": "±25%",
     "kostenstand": "Oktober 2026",
     "mwst": 8.1,
-    "grundlagen": "Alle Kennwerte exkl. MWST, Kosten inkl. 8.1% MWST. Grundlage: Begehung vom 27.10.2026, Richtofferten Dachdecker und Fenster.",
+    "grundlagen": "Alle Kennwerte exkl. MWST, Kosten inkl. 8.1% MWST. Grundlage: Begehung vom 27.10.2026, Richtofferten Dachdecker und Fenster. Dachterrasse und Küche sind separat zu entscheidende Module.",
     "module": [
-      {
-        "id": "demo-m1",
-        "name": "Dach"
-      },
-      {
-        "id": "demo-m2",
-        "name": "Innenausbau"
-      },
       {
         "id": "demo-m3",
         "name": "Dachterrasse"
+      },
+      {
+        "id": "demo-m4",
+        "name": "Küche ersetzen"
       }
     ],
     "positionen": {
@@ -278,7 +274,7 @@
           "ausmass": "1",
           "einheit": "Stk",
           "kennwert": "3800",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -291,7 +287,7 @@
           "ausmass": "18*2.6",
           "einheit": "m²",
           "kennwert": "80",
-          "modul": "demo-m2",
+          "modul": "",
           "intern": "Mengen grob geschätzt, vor Ausschreibung nachmessen",
           "extern": "",
           "basis": ""
@@ -304,7 +300,7 @@
           "ausmass": "11.5*42",
           "einheit": "m²",
           "kennwert": "25",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "Richtofferte Gerüstbau",
           "basis": ""
@@ -317,7 +313,7 @@
           "ausmass": "1.8*3",
           "einheit": "m²",
           "kennwert": "2100",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -341,7 +337,7 @@
           "ausmass": "38",
           "einheit": "lfm",
           "kennwert": "120",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -352,7 +348,7 @@
           "ausmass": "16",
           "einheit": "lfm",
           "kennwert": "54",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -365,7 +361,7 @@
           "ausmass": "215",
           "einheit": "m²",
           "kennwert": "158",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "Richtofferte Dachdecker",
           "extern": "",
           "basis": ""
@@ -376,7 +372,7 @@
           "ausmass": "215",
           "einheit": "m²",
           "kennwert": "190",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -387,10 +383,23 @@
           "ausmass": "215",
           "einheit": "m²",
           "kennwert": "146",
-          "modul": "demo-m1",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
+        }
+      ],
+      "258": [
+        {
+          "id": "demo-z20",
+          "beschrieb": "Küche ersetzen inkl. Geräte, Abbruch und Anschlüsse",
+          "ausmass": "",
+          "einheit": "Pausch.",
+          "kennwert": "26000",
+          "basis": "",
+          "modul": "demo-m4",
+          "intern": "Bestehende Küche ist noch brauchbar – Entscheid Bauherrschaft offen",
+          "extern": "Variante: bestehende Küche belassen"
         }
       ],
       "271": [
@@ -400,7 +409,7 @@
           "ausmass": "46",
           "einheit": "m²",
           "kennwert": "140",
-          "modul": "demo-m2",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -426,7 +435,7 @@
           "ausmass": "68",
           "einheit": "m²",
           "kennwert": "50",
-          "modul": "demo-m2",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -450,7 +459,7 @@
           "ausmass": "180",
           "einheit": "m²",
           "kennwert": "10",
-          "modul": "demo-m2",
+          "modul": "",
           "intern": "",
           "extern": "",
           "basis": ""
@@ -469,19 +478,6 @@
           "extern": ""
         }
       ],
-      "583": [
-        {
-          "id": "demo-bk17",
-          "beschrieb": "Reserve für Unvorhergesehenes",
-          "ausmass": "",
-          "einheit": "Pausch.",
-          "kennwert": "25000",
-          "modul": "",
-          "intern": "",
-          "extern": "",
-          "basis": ""
-        }
-      ],
       "292": [
         {
           "id": "demo-bk18",
@@ -493,6 +489,19 @@
           "modul": "",
           "intern": "",
           "extern": ""
+        }
+      ],
+      "583": [
+        {
+          "id": "demo-bk17",
+          "beschrieb": "Reserve für Unvorhergesehenes",
+          "ausmass": "",
+          "einheit": "Pausch.",
+          "kennwert": "25000",
+          "modul": "",
+          "intern": "",
+          "extern": "",
+          "basis": ""
         }
       ]
     },
@@ -686,7 +695,7 @@
       "255": "erledigt",
       "256": "erledigt",
       "257": "erledigt",
-      "258": "erledigt",
+      "258": "pendent",
       "259": "erledigt",
       "260": "erledigt",
       "261": "erledigt",
