@@ -84,6 +84,20 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   die zehn Hauptgruppen), `oeffne()` setzt das fest. Die Ebene wird also
   bewusst nicht gemerkt, die übrigen Ansichtseinstellungen schon. Tests,
   die an tiefere Zeilen wollen, müssen vorher `setzeEbene(4)` aufrufen.
+- **Schritt für Schritt `baukosten/`** (`wizard` in `app.js`): zeigt nur
+  eine zweistellige Gruppe samt Positionen, der Rest ist ausgeblendet
+  (`imWizardSichtbar()`). Schritte sind alle Ebene-2-Knoten plus die
+  Ebene-1-Knoten OHNE Kinder (6, 7, 8 "Reserve"). Der Modus wird wie die
+  Ebene bewusst nicht gemerkt.
+- **Keine Spaltentitel am Bildschirm `baukosten/`**: die Breiten tragen
+  `<col>`-Elemente (`#bkCols`), und die Tabelle braucht dafür zwingend
+  `table-layout: fixed` -- ohne Kopfzeile sind `<col>`-Breiten sonst nur
+  Vorschläge und die `colspan`-Gruppenzeilen ziehen die Spalten krumm.
+  Was in ein Feld gehört, steht als Platzhalter darin (`label` in
+  `spalten()` ist der Platzhaltertext). Der AUSDRUCK behält seine Titel.
+  Achtung bei neuen Zellen: `css/style.css` setzt `td { white-space:
+  nowrap }` -- Text, der umbrechen soll, braucht `white-space: normal`
+  (siehe `.bk-bem-zusammen`).
 - **Layout-Ausnahme `baukosten/`**: als einziges Modul bewusst NICHT im
   Karten-Layout der übrigen Apps, sondern Kennzahlen oben + dichte Tabelle
   (nur feine horizontale Trennlinien) + einblendbares Detailfenster rechts

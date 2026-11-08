@@ -65,9 +65,13 @@ let offenFilename = null;
 // ist der Überblick, mit dem man anfängt -- 541 Zeilen beim Öffnen sind
 // keiner. Aufklappen ist ein Klick, und die übrigen Einstellungen
 // ("Nur verwendete", Bemerkungsspalten, Dichte) bleiben gemerkt.
-const ansichtDefaults = { ebene: 1, nurVerwendet: false, bemerkungen: false, dichte: "komfortabel" };
+const ansichtDefaults = { ebene: 1, nurVerwendet: false, bemerkungen: false };
 let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
+// Schritt-für-Schritt-Modus: null = aus, sonst die Nummer der Gruppe, die
+// gerade allein dasteht ("22"). Wie die Ebene bewusst NICHT gemerkt -- eine
+// Schätzung öffnet immer im Überblick, nicht dort, wo jemand zuletzt war.
+let wizard = null;
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
 let gewaehlteZeile = null; // { nr, id } der im Detailfenster gezeigten Unterposition
 // Zuletzt gerechneter Durchgeh-Status je Knoten. Gebraucht beim Klick auf
@@ -505,6 +509,52 @@ function anzahlErfassterPositionen() {
   return Object.keys(offen.positionen || {}).filter((nr) => zeilenVon(nr).length).length;
 }
 
+// ---------- Schritt für Schritt ----------
+//
+// Wie beim Ausfüllen der Steuererklärung: eine Elementgruppe nach der
+// anderen, alles andere ausgeblendet. Ein Schritt ist eine zweistellige
+// Gruppe ("22 Rohbau 2") -- plus jene Hauptgruppen, die gar keine
+// zweistellige Unterteilung haben (6, 7, 8 "Reserve"), sonst käme man an
+// denen nie vorbei.
+function wizardSchritte() {
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  return knoten
+    .filter((k) => knotenEbene(k.nr) === 2 || (knotenEbene(k.nr) === 1 && !(kinder[k.nr] || []).length))
+    .map((k) => k.nr);
+}
+
+// Sichtbar ist die Gruppe selbst, alles darunter -- und ihre Hauptgruppe
+// als Kopfzeile, damit man weiss, wo man steckt.
+function imWizardSichtbar(nr) {
+  if (!wizard) return true;
+  if (nr === wizard) return true;
+  if (knotenEbene(wizard) === 1) return false; // kinderlose Hauptgruppe: nur sie selbst
+  return nr === wizard.slice(0, 1) || nr.startsWith(wizard);
+}
+
+function setzeWizard(nr) {
+  wizard = nr;
+  // Innerhalb der Gruppe alles offen: beim Durchgehen will man die
+  // erfassten Zeilen sehen, nicht erst aufklappen müssen.
+  zugeklappt = new Set();
+  renderToolbar();
+  render();
+}
+
+function wizardSchritt(richtung) {
+  const schritte = wizardSchritte();
+  const i = schritte.indexOf(wizard);
+  const ziel = schritte[Math.min(schritte.length - 1, Math.max(0, i + richtung))];
+  if (ziel && ziel !== wizard) setzeWizard(ziel);
+}
+
+function wizardBeenden() {
+  wizard = null;
+  renderToolbar();
+  setzeEbene(ansicht.ebene);
+}
+
 // ---------- Suche ----------
 
 // Trifft ein Knoten die Suche? Nummer-Anfang, Bezeichnung oder der Text
@@ -544,10 +594,16 @@ function sichtbarDurchSuche(knoten, q) {
 // Module definiert sind, Bemerkungsspalten nur auf Wunsch) -- deshalb
 // werden thead und die colspans aus dieser einen Liste abgeleitet statt
 // fest im HTML zu stehen.
+// Die Tabelle hat am Bildschirm KEINE Spaltentitel mehr: bei einer Liste,
+// die man den ganzen Tag vor sich hat, sind sie nach dem zweiten Blick
+// Dekoration. Was in ein Feld gehört, steht stattdessen als Platzhalter
+// darin -- also genau dort, wo man hinschaut, und nur solange das Feld
+// leer ist. "label" ist deshalb der Platzhaltertext; im AUSDRUCK gibt es
+// weiterhin Spaltentitel (dort liest jemand die Tabelle zum ersten Mal).
 function spalten() {
   const cols = [
     { key: "nr", label: "BKP", cls: "bk-col-nr" },
-    { key: "beschrieb", label: "Beschrieb", cls: "" },
+    { key: "beschrieb", label: "Beschrieb der Arbeiten", cls: "" },
     { key: "ausmass", label: "Ausmass", cls: "bk-col-ausmass bk-right" },
     { key: "einheit", label: "Einheit", cls: "bk-col-einheit" },
     { key: "kennwert", label: mwstSatz() ? "Kennwert exkl." : "Kennwert", cls: "bk-col-kennwert bk-right" },
@@ -560,6 +616,10 @@ function spalten() {
   }
   cols.push({ key: "aktion", label: "", cls: "bk-col-aktion" });
   return cols;
+}
+function spaltenPlatzhalter(cols, key) {
+  const c = cols.find((x) => x.key === key);
+  return c ? c.label : "";
 }
 
 // ---------- Rendering: Liste ----------
@@ -737,12 +797,12 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
 // hunderten Zeilen zu unruhig) -- sie erscheint beim Hineinklicken wieder
 // im Feld und hängt zusätzlich als Tooltip daran. Lässt sich eine Eingabe
 // nicht rechnen, bleibt sie stehen und wird rot markiert.
-function rechenZelle(zeile, feld, cssExtra) {
+function rechenZelle(zeile, feld, cssExtra, platzhalter) {
   const roh = zeile[feld] || "";
   const wert = rechne(roh);
   const ungueltig = isNaN(wert);
   const anzeige = wert === null ? "" : ungueltig ? roh : zahl(wert);
-  return `<td><input type="text" class="bk-num ${cssExtra}${ungueltig ? " ungueltig" : ""}" data-feld="${feld}" data-roh="${escapeHtml(roh)}" value="${escapeHtml(anzeige)}" title="${escapeHtml(roh)}"></td>`;
+  return `<td><input type="text" class="bk-num ${cssExtra}${ungueltig ? " ungueltig" : ""}" data-feld="${feld}" data-roh="${escapeHtml(roh)}" value="${escapeHtml(anzeige)}" placeholder="${escapeHtml(platzhalter || "")}" title="${escapeHtml(roh)}"></td>`;
 }
 
 function modulSelectHtml(zeile, cssKlasse) {
@@ -769,29 +829,29 @@ function unterpositionHtml(nr, zeile, cols) {
       const punkte =
         (!ansicht.bemerkungen && zeile.intern ? '<span class="bk-bem-punkt" title="Notiz (nicht im Ausdruck)"></span>' : "") +
         (!ansicht.bemerkungen && zeile.extern ? '<span class="bk-bem-punkt extern" title="Bemerkung"></span>' : "");
-      zellen += `<td>${punkte}<textarea rows="1" data-feld="beschrieb" placeholder="Beschrieb der Arbeiten">${escapeHtml(zeile.beschrieb || "")}</textarea></td>`;
+      zellen += `<td>${punkte}<textarea rows="1" data-feld="beschrieb" placeholder="${escapeHtml(c.label)}">${escapeHtml(zeile.beschrieb || "")}</textarea></td>`;
     } else if (c.key === "ausmass") {
       // Bei einer Prozent-Zeile steht hier der Prozentsatz.
-      zellen += rechenZelle(zeile, "ausmass", "bk-ausmass");
+      zellen += rechenZelle(zeile, "ausmass", "bk-ausmass", zeile.basis ? "%" : c.label);
     } else if (c.key === "einheit") {
       zellen += zeile.basis
         ? '<td class="bk-fest">%</td>'
-        : `<td><input type="text" data-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></td>`;
+        : `<td><input type="text" data-feld="einheit" list="einheitenListe" placeholder="${escapeHtml(c.label)}" value="${escapeHtml(zeile.einheit || "")}"></td>`;
     } else if (c.key === "kennwert") {
       // Statt eines Kennwerts zeigt die Prozent-Zeile ihre Bemessungs-
       // grundlage -- sonst wäre nicht nachvollziehbar, worauf sich der
       // Prozentsatz bezieht.
       zellen += zeile.basis
         ? `<td class="bk-fest" title="${escapeHtml(BASIS_LABEL)}">${franken(basisBetrag())}</td>`
-        : rechenZelle(zeile, "kennwert", "bk-kennwert");
+        : rechenZelle(zeile, "kennwert", "bk-kennwert", c.label);
     } else if (c.key === "kosten") {
       zellen += `<td class="bk-kosten" data-kosten-for="${zeile.id}">${zeilenKostenText(zeile)}</td>`;
     } else if (c.key === "modul") {
       zellen += `<td><span class="bk-modul-zelle"><span class="bk-modul-strich" style="--modul-farbe:${modulFarbe(zeile.modul)}"></span>${modulSelectHtml(zeile, "bk-modul-select")}</span></td>`;
     } else if (c.key === "intern") {
-      zellen += `<td><textarea class="bk-bem" rows="1" data-feld="intern">${escapeHtml(zeile.intern || "")}</textarea></td>`;
+      zellen += `<td><textarea class="bk-bem" rows="1" data-feld="intern" placeholder="${escapeHtml(c.label)}">${escapeHtml(zeile.intern || "")}</textarea></td>`;
     } else if (c.key === "extern") {
-      zellen += `<td><textarea class="bk-bem" rows="1" data-feld="extern">${escapeHtml(zeile.extern || "")}</textarea></td>`;
+      zellen += `<td><textarea class="bk-bem" rows="1" data-feld="extern" placeholder="${escapeHtml(c.label)}">${escapeHtml(zeile.extern || "")}</textarea></td>`;
     } else if (c.key === "aktion") {
       zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
     }
@@ -810,13 +870,14 @@ function renderTabelle() {
   const trefferSet = sucheAktiv ? sichtbarDurchSuche(knoten, q) : null;
   const verwendet = verwendeteKnoten();
 
-  document.getElementById("bkHead").innerHTML =
-    "<tr>" + cols.map((c) => `<th class="${c.cls}">${escapeHtml(c.label)}</th>`).join("") + "</tr>";
+  // Ohne Kopfzeile tragen die <col>-Elemente die Spaltenbreiten.
+  document.getElementById("bkCols").innerHTML = cols.map((c) => `<col class="${c.cls}">`).join("");
 
   let html = "";
   let sichtbareZeilen = 0;
 
   knoten.forEach((k) => {
+    if (wizard && !imWizardSichtbar(k.nr)) return;
     if (sucheAktiv) {
       if (!trefferSet.has(k.nr)) return;
     } else {
@@ -871,7 +932,6 @@ function renderTabelle() {
   html += fuss("", totalBeschriftung(), "CHF " + franken(gesamt), ' id="gesamtTotalZelle"');
 
   document.getElementById("bkBody").innerHTML = html;
-  document.getElementById("bkTable").className = "bk-table" + (ansicht.dichte === "kompakt" ? " kompakt" : "");
   autoGrowAlle();
   letzterStatus = status;
   return { gesamt };
@@ -1441,11 +1501,27 @@ function renderToolbar() {
   document.querySelectorAll("#ebeneSeg button").forEach((b) => {
     b.classList.toggle("active", Number(b.dataset.ebene) === ansicht.ebene);
   });
-  document.querySelectorAll("#dichteSeg button").forEach((b) => {
-    b.classList.toggle("active", b.dataset.dichte === ansicht.dichte);
-  });
   document.getElementById("nurVerwendetBtn").classList.toggle("active", ansicht.nurVerwendet);
   document.getElementById("bemerkungenBtn").classList.toggle("active", ansicht.bemerkungen);
+
+  // Im Schritt-für-Schritt-Modus bestimmt der Modus die Tiefe -- die
+  // Ebenen-Knöpfe weichen seiner Navigation.
+  const an = !!wizard;
+  document.getElementById("wizardBtn").classList.toggle("active", an);
+  document.getElementById("ebeneSeg").hidden = an;
+  document.getElementById("ebeneLabel").hidden = an;
+  document.getElementById("wizardNav").hidden = !an;
+  if (!an) return;
+
+  const schritte = wizardSchritte();
+  const i = schritte.indexOf(wizard);
+  const titel = (nr) => BKP_TITEL[nr] || (offen.eigenePositionen.find((p) => p.nr === nr) || {}).titel || "";
+  document.getElementById("wizardSelect").innerHTML = schritte
+    .map((nr) => `<option value="${nr}"${nr === wizard ? " selected" : ""}>${escapeHtml(nr)} ${escapeHtml(titel(nr))}</option>`)
+    .join("");
+  document.getElementById("wizardStand").textContent = `Schritt ${i + 1} von ${schritte.length}`;
+  document.getElementById("wizardZurueck").disabled = i <= 0;
+  document.getElementById("wizardVor").disabled = i >= schritte.length - 1;
 }
 
 function umklappen(nr) {
@@ -1744,6 +1820,8 @@ function oeffne(filename) {
   suche = "";
   gewaehlteZeile = null;
   document.getElementById("sucheInput").value = "";
+  wizard = null;
+  renderToolbar();
   setzeEbene(1); // immer mit dem Überblick anfangen, siehe ansichtDefaults
 }
 
@@ -2115,15 +2193,14 @@ function init() {
     const btn = e.target.closest("button[data-ebene]");
     if (btn) setzeEbene(Number(btn.dataset.ebene));
   });
-  document.getElementById("dichteSeg").addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-dichte]");
-    if (!btn) return;
-    ansicht.dichte = btn.dataset.dichte;
-    saveJSON(LS_KEYS.ansicht, ansicht);
-    renderToolbar();
-    document.getElementById("bkTable").className = "bk-table" + (ansicht.dichte === "kompakt" ? " kompakt" : "");
-    autoGrowAlle();
+  document.getElementById("wizardBtn").addEventListener("click", () => {
+    if (wizard) wizardBeenden();
+    // Beim Start dort anfangen, wo die erste Gruppe steht.
+    else setzeWizard(wizardSchritte()[0]);
   });
+  document.getElementById("wizardZurueck").addEventListener("click", () => wizardSchritt(-1));
+  document.getElementById("wizardVor").addEventListener("click", () => wizardSchritt(1));
+  document.getElementById("wizardSelect").addEventListener("change", (e) => setzeWizard(e.target.value));
   document.getElementById("nurVerwendetBtn").addEventListener("click", () => {
     ansicht.nurVerwendet = !ansicht.nurVerwendet;
     saveJSON(LS_KEYS.ansicht, ansicht);

@@ -1317,6 +1317,17 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
   gleichzeitig unterschiedlich anschauen). Leere Gruppen sind grau
   abgesetzt.
+- **Schritt für Schritt** (Knopf neben den Ebenen) geht die Schätzung durch
+  wie ein Steuerformular: sichtbar ist nur **eine Elementgruppe** — "22
+  Rohbau 2" mit allen dreistelligen Positionen darunter, plus die
+  Hauptgruppe als Kopfzeile — alles davor und danach ist ausgeblendet.
+  Erfassen, Abhaken und Aufklappen funktionieren dabei unverändert. Die
+  Ebenen-Knöpfe weichen solange einer Navigation: ‹ und › gehen eine Gruppe
+  weiter, eine Auswahl springt direkt irgendwohin, und daneben steht, der
+  wievielte von 73 Schritten gerade dran ist. Schritte sind alle
+  zweistelligen Gruppen plus die Hauptgruppen ohne Unterteilung (6, 7, 8
+  "Reserve") — sonst käme man an denen nie vorbei. Nochmals auf den Knopf
+  beendet den Modus und stellt die eingestellte Ebene wieder her.
 - **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
   "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
   diese. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
@@ -1325,7 +1336,17 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   Klapp-Dreiecke. Die Ebenen-Knöpfe sind nur eine Ausgangslage, die ein
   einzelner Klick für diese eine Zeile wieder aufhebt.
 - **"Nur verwendete"** blendet alles aus, worin noch nichts erfasst ist.
-- **Dichte** "Komfortabel"/"Kompakt" verdichtet die Zeilenhöhe.
+- **Keine Spaltentitel**: die Tabelle hat am Bildschirm bewusst keine
+  Kopfzeile. Bei einer Liste, die man den ganzen Tag vor sich hat, sind
+  Titel nach dem zweiten Blick Dekoration — was in ein Feld gehört, steht
+  stattdessen als **Platzhalter darin** ("Beschrieb der Arbeiten",
+  "Ausmass", "Einheit", "Kennwert exkl.", "Notizen", "Bemerkungen"), also
+  genau dort, wo man hinschaut, und nur solange das Feld leer ist. Die
+  Spaltenbreiten tragen seither `<col>`-Elemente, und die Tabelle läuft auf
+  `table-layout: fixed` — ohne Kopfzeile wären die `<col>`-Breiten nur
+  Vorschläge, und die Gruppenzeilen (mit ihrem `colspan` über den
+  Beschrieb) zögen die Spalten krumm. Im **Ausdruck** gibt es weiterhin
+  Spaltentitel: dort liest jemand die Tabelle zum ersten Mal.
 - Die **Suche** (<kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>; BKP-Nummer oder
   Stichwort, auch im Beschrieb und in den Bemerkungen) setzt Filter und
   Ein-/Ausklappen bewusst aus und zeigt auch noch leere Positionen — genau
