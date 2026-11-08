@@ -100,6 +100,10 @@
 
   .bk-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 10px; }
   .bk-seg { display: flex; background: var(--surface-2); border-radius: 9px; padding: 2px; }
+  /* display:flex schlägt das hidden-Attribut aus dem Browser-Stylesheet --
+     ohne diese Zeile bliebe die Ebenen-Auswahl im Schritt-für-Schritt-Modus
+     sichtbar. */
+  .bk-seg[hidden] { display: none; }
   .bk-seg button {
     background: none; border: none; color: var(--text-muted); font-family: var(--font-light);
     font-size: 12.5px; padding: 6px 11px; border-radius: 7px; cursor: pointer; white-space: nowrap;
@@ -120,6 +124,23 @@
     border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; pointer-events: none;
   }
   .bk-toolbar-hint { font-size: 11.5px; color: var(--text-muted); }
+
+  /* Schritt-für-Schritt: Pfeile, Sprung-Auswahl und Stand bilden eine
+     zusammenhängende Leiste -- sie ersetzt die Ebenen-Knöpfe, solange der
+     Modus läuft (die Tiefe bestimmt dort der Modus). */
+  .bk-wizard { display: flex; align-items: center; gap: 6px; }
+  .bk-wizard[hidden] { display: none; }
+  .bk-wizard-pfeil {
+    background: var(--accent-primary); border: none; color: #fff;
+    font-size: 15px; line-height: 1; width: 30px; height: 30px;
+    border-radius: 9px; cursor: pointer; flex: none;
+  }
+  .bk-wizard-pfeil:disabled { background: var(--surface-2); color: var(--text-muted); cursor: default; }
+  .bk-wizard select {
+    width: auto; min-width: 210px; padding: 6px 10px; font-size: 12.5px;
+    border-radius: 9px; background: var(--feld-bg); border: 1px solid var(--feld-rand);
+  }
+  .bk-wizard-stand { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
   .bk-einstieg { font-size: 12px; color: var(--text-muted); padding: 0 0 10px; }
   .bk-einstieg[hidden] { display: none; }
 
@@ -127,20 +148,21 @@
 
   .bk-main { display: flex; gap: 16px; align-items: flex-start; }
   .bk-table-wrap { flex: 1; min-width: 0; }
-  table.bk-table { font-size: 12.5px; border-collapse: separate; border-spacing: 0; width: 100%; }
+  /* table-layout: fixed, weil die Tabelle keine Kopfzeile mehr hat: sonst
+     sind die <col>-Breiten nur Vorschläge und die Gruppenzeilen (mit ihrem
+     colspan über den Beschrieb) ziehen die Spalten krumm. Spalten ohne
+     eigene Breite -- der Beschrieb -- teilen sich den Rest. */
+  table.bk-table { font-size: 12.5px; border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
 
   /* Keine vertikalen Linien -- nur feine horizontale. */
   .bk-table th, .bk-table td {
     padding: 0; border: none; border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
-  .bk-table thead th {
-    position: sticky; top: var(--bk-sticky-h, 0px); z-index: 20;
-    background: var(--bg); padding: 7px 10px; font-size: 10px;
-    letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;
-    color: var(--text-muted); border-bottom: 1.5px solid var(--l1-bg);
-  }
-  .bk-table th.bk-right, .bk-table td.bk-right { text-align: right; }
+  .bk-table td.bk-right { text-align: right; }
+  /* Platzhalter sagen, was in ein Feld gehört -- sie ersetzen die frühere
+     Kopfzeile und dürfen deshalb lesbar, aber ruhig sein. */
+  .bk-table ::placeholder { color: var(--text-muted); opacity: 0.75; }
 
   .bk-col-nr { width: 112px; }
   .bk-col-ausmass { width: 94px; }
@@ -176,9 +198,11 @@
 
   .bk-group:hover td { filter: brightness(0.965); }
 
-  .bk-indent-2 { padding-left: 14px !important; }
-  .bk-indent-3 { padding-left: 28px !important; }
-  .bk-indent-4 { padding-left: 42px !important; }
+  /* Gleich grosse Stufen: die Grundpolsterung der Zelle sind 10px
+     (Ebene 1), jede weitere Ebene rückt um dieselben 14px ein. */
+  .bk-indent-2 { padding-left: 24px !important; }
+  .bk-indent-3 { padding-left: 38px !important; }
+  .bk-indent-4 { padding-left: 52px !important; }
 
   /* Statusfeld: durchklickbar leer -> pendent (gelb) -> erledigt (hellgrün,
      ein Haken) -> Vieraugenprinzip (dunkelgrün, Doppelhaken). Es trägt den
@@ -232,13 +256,6 @@
   .bk-sub select { appearance: none; -webkit-appearance: none; font-size: 11.5px; }
 
   /* Kompakte Dichte */
-  .bk-table.kompakt { font-size: 11.5px; }
-  .bk-table.kompakt .bk-group td { padding: 3px 10px; }
-  .bk-table.kompakt .bk-l1 td { padding: 5px 10px; font-size: 12px; }
-  .bk-table.kompakt .bk-sub td { padding: 1px 6px; }
-  .bk-table.kompakt .bk-sub input, .bk-table.kompakt .bk-sub textarea, .bk-table.kompakt .bk-sub select {
-    padding: 2px 5px; font-size: 11.5px;
-  }
 
   /* Punkt als Hinweis, dass zu dieser Zeile eine Bemerkung hinterlegt ist */
   .bk-bem-punkt {
@@ -253,6 +270,9 @@
   .bk-bem-zusammen {
     font-size: 11px; color: var(--text-muted); line-height: 1.35;
     font-family: var(--font-light);
+    /* Der zusammengezogene Text ist oft lang -- er muss in der Spalte
+       umbrechen (eine geerbte Regel setzt sonst nowrap). */
+    white-space: normal; overflow-wrap: anywhere;
   }
 
   /* Modul-Editor in den Kopfdaten */
@@ -450,19 +470,24 @@
       <div class="bk-kpis" id="kpis"></div>
 
       <div class="bk-toolbar">
-        <span class="bk-toolbar-label">Ebene</span>
+        <span class="bk-toolbar-label" id="ebeneLabel">Ebene</span>
         <div class="bk-seg" id="ebeneSeg">
           <button type="button" data-ebene="1">1</button>
           <button type="button" data-ebene="2">2</button>
           <button type="button" data-ebene="3">3</button>
           <button type="button" data-ebene="4">Alles</button>
         </div>
+        <button type="button" id="wizardBtn" class="bk-toggle" title="Eine Elementgruppe nach der anderen durchgehen">Schritt für Schritt</button>
+        <!-- Nur im Schritt-für-Schritt-Modus sichtbar: zurück, Sprung-Auswahl,
+             vorwärts und der Stand ("Schritt 12 von 73"). -->
+        <div class="bk-wizard" id="wizardNav" hidden>
+          <button type="button" id="wizardZurueck" class="bk-wizard-pfeil" title="Vorherige Gruppe" aria-label="Vorherige Gruppe">‹</button>
+          <select id="wizardSelect" aria-label="Gruppe wählen"></select>
+          <button type="button" id="wizardVor" class="bk-wizard-pfeil" title="Nächste Gruppe" aria-label="Nächste Gruppe">›</button>
+          <span class="bk-wizard-stand" id="wizardStand"></span>
+        </div>
         <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
         <button type="button" id="bemerkungenBtn" class="bk-toggle">Bemerkungsspalten</button>
-        <div class="bk-seg" id="dichteSeg">
-          <button type="button" data-dichte="komfortabel">Komfortabel</button>
-          <button type="button" data-dichte="kompakt">Kompakt</button>
-        </div>
         <div class="bk-search">
           <input type="text" id="sucheInput" placeholder="BKP-Nummer oder Stichwort suchen">
           <kbd>⌘K</kbd>
@@ -483,7 +508,7 @@
     <div class="bk-main">
       <div class="bk-table-wrap">
         <table class="bk-table" id="bkTable">
-          <thead id="bkHead"></thead>
+          <colgroup id="bkCols"></colgroup>
           <tbody id="bkBody"></tbody>
         </table>
       </div>
@@ -704,6 +729,16 @@
       wenn all ihre Elementgruppen so weit sind. Ein Klick auf das Kästchen
       einer Gruppe setzt den nächsten Stand auf alles darunter.
     </p>
+    <p class="hint">
+      <strong>Schritt für Schritt</strong> (Knopf neben den Ebenen) geht die
+      Schätzung durch wie ein Steuerformular: sichtbar ist nur eine
+      Elementgruppe — z.B. "22 Rohbau 2" mit allen dreistelligen Positionen
+      darunter — alles davor und danach ist ausgeblendet. Erfassen,
+      Abhaken und Aufklappen funktionieren dabei genau gleich. Mit ‹ und ›
+      geht es eine Gruppe weiter, über die Auswahl springt man direkt
+      irgendwohin, und rechts daneben steht, der wievielte von 73 Schritten
+      gerade dran ist. Nochmals auf den Knopf beendet den Modus.
+    </p>
     <div class="bk-legende">
       <span><i style="background:#FFFFFF"></i> offen</span>
       <span><i style="background:#EFDFAE; border-color:#C9A94F"></i> pendent</span>
@@ -714,7 +749,6 @@
       <strong>Suche</strong> mit <kbd>⌘K</kbd> bzw. <kbd>Ctrl K</kbd>
       (BKP-Nummer oder Stichwort, auch im Beschrieb); sie setzt Filter und
       Klapp-Zustand aus, damit auch leere Positionen gefunden werden.
-      "Kompakt" verdichtet die Zeilen.
     </p>
     <p class="hint">
       <strong>Detailfenster rechts:</strong> sobald der Cursor in einer
