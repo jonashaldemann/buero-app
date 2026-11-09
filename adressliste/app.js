@@ -385,6 +385,47 @@ function chDateTime(iso) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// ---------- Bemerkungen als Verlauf ----------
+//
+// Eine Bemerkung ist ein EINTRAG mit Datum und Person, kein Freitextfeld:
+// { at: ISO-Zeitstempel, von: Name, text: "..." }. Wer etwas ergänzt,
+// überschreibt damit nichts, und man sieht, wann was von wem festgehalten
+// wurde -- bei einem Adressbuch, in dem zwei Leute über Jahre Notizen
+// hinterlassen ("Offerte angefragt", "zieht um"), ist genau das der Zweck.
+//
+// Gespeichert wird immer ein Array, gelesen aber auch der frühere
+// Freitext: bestehende Dateien bleiben lesbar und wandern beim nächsten
+// Speichern von selbst ins neue Format (bemerkungenListe()).
+function bemerkungenListe(data) {
+  const roh = data && data.bemerkungen;
+  if (Array.isArray(roh)) {
+    return roh
+      .filter((e) => e && (e.text || "").trim())
+      .map((e) => ({ at: e.at || null, von: e.von || "", text: String(e.text).trim() }));
+  }
+  const text = String(roh || "").trim();
+  if (!text) return [];
+  // Altbestand: das Datum der letzten Änderung ist die beste Näherung.
+  return [{ at: (data && data.updatedAt) || null, von: (data && data.updatedBy) || "", text }];
+}
+
+// Neueste zuoberst. Einträge ohne Datum (Altbestand) landen unten.
+function bemerkungenSortiert(data) {
+  return bemerkungenListe(data).sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+}
+
+// Einzeilig für Tabelle, Filter und CSV-Export -- dort ist kein Platz für
+// Datum und Person, aber der Text soll durchsuchbar bleiben.
+function bemerkungenText(data) {
+  return bemerkungenSortiert(data)
+    .map((e) => e.text)
+    .join(" · ");
+}
+
+function neueBemerkung(text) {
+  return { at: new Date().toISOString(), von: personName(), text: String(text).trim() };
+}
+
 function updatedInfoText(data) {
   if (!data.updatedAt) return "–";
   const who = data.updatedBy || "?";
@@ -465,6 +506,8 @@ function cellValue(data, key) {
       return data.weihnachtskarte ? "Ja" : "";
     case "updatedInfo":
       return updatedInfoText(data);
+    case "bemerkungen":
+      return bemerkungenText(data);
     case "distanz": {
       if (!distanzReferenceCoord()) return "";
       const km = contactDistanceKm(data);
@@ -932,7 +975,7 @@ function blankContact() {
     tel: "",
     mail: "",
     website: "",
-    bemerkungen: "",
+    bemerkungen: [],
     projekte: "",
     weihnachtskarte: false,
     updatedAt: null,
@@ -1006,9 +1049,52 @@ function fillEditorFields(data) {
   document.getElementById("inputTel").value = data.tel || "";
   document.getElementById("inputMail").value = data.mail || "";
   document.getElementById("inputWebsite").value = data.website || "";
-  document.getElementById("inputBemerkungen").value = data.bemerkungen || "";
+  document.getElementById("inputBemerkungNeu").value = "";
+  renderBemerkungen();
   document.getElementById("inputProjekte").value = data.projekte || "";
   document.getElementById("inputWeihnachtskarte").checked = !!data.weihnachtskarte;
+}
+
+// Der Verlauf im Editor: Bulletpoints, neueste zuoberst, je mit Datum und
+// Person. Das kleine "×" entfernt einen Eintrag -- Vertipper sollen sich
+// korrigieren lassen, ohne dass man die Datei von Hand anfassen muss.
+function renderBemerkungen() {
+  const ziel = document.getElementById("bemerkungListe");
+  const liste = bemerkungenSortiert(editingContact || {});
+  if (!liste.length) {
+    ziel.innerHTML = '<li class="adr-bem-leer">Noch keine Bemerkung erfasst.</li>';
+    return;
+  }
+  ziel.innerHTML = liste
+    .map(
+      (e) => `<li>
+      <div class="adr-bem-kopf">${escapeHtml([e.at ? chDateTime(e.at) : "ohne Datum", e.von].filter(Boolean).join(" · "))}</div>
+      <div class="adr-bem-text">${escapeHtml(e.text)}</div>
+      <button type="button" class="adr-bem-weg" data-bem-weg="${escapeHtml(e.at || "")}|${escapeHtml(e.text)}" title="Eintrag entfernen">&times;</button>
+    </li>`
+    )
+    .join("");
+}
+
+// Übernimmt, was im Eingabefeld steht, als neuen Eintrag (oben).
+function bemerkungUebernehmen() {
+  const feld = document.getElementById("inputBemerkungNeu");
+  const text = feld.value.trim();
+  const bisher = bemerkungenSortiert(editingContact);
+  if (!text) {
+    editingContact.bemerkungen = bisher;
+    return false;
+  }
+  editingContact.bemerkungen = [neueBemerkung(text), ...bisher];
+  feld.value = "";
+  return true;
+}
+
+function entferneBemerkung(schluessel) {
+  editingContact.bemerkungen = bemerkungenSortiert(editingContact).filter(
+    (e) => `${e.at || ""}|${e.text}` !== schluessel
+  );
+  renderBemerkungen();
 }
 
 function readEditorFields() {
@@ -1023,7 +1109,10 @@ function readEditorFields() {
   editingContact.tel = document.getElementById("inputTel").value.trim();
   editingContact.mail = document.getElementById("inputMail").value.trim();
   editingContact.website = document.getElementById("inputWebsite").value.trim();
-  editingContact.bemerkungen = document.getElementById("inputBemerkungen").value.trim();
+  // Was noch im Eingabefeld steht, wird beim Speichern zum Eintrag -- sonst
+  // ginge eine getippte Bemerkung verloren, nur weil "+ Eintrag" vergessen
+  // wurde.
+  bemerkungUebernehmen();
   editingContact.projekte = document.getElementById("inputProjekte").value.trim();
   editingContact.weihnachtskarte = document.getElementById("inputWeihnachtskarte").checked;
 }
@@ -1165,7 +1254,9 @@ async function importCsvText(text) {
         const field = CSV_FIELD_MAP[h];
         if (!field) return;
         const raw = (r[i] || "").trim();
-        contact[field] = field === "weihnachtskarte" ? raw.toLowerCase() === "ja" : raw;
+        if (field === "weihnachtskarte") contact[field] = raw.toLowerCase() === "ja";
+        else if (field === "bemerkungen") contact[field] = raw ? [neueBemerkung(raw)] : [];
+        else contact[field] = raw;
       });
       if (!contact.name && !contact.vorname && !contact.firma) continue;
       contact.updatedAt = new Date().toISOString();
@@ -1236,6 +1327,13 @@ function init() {
   document.getElementById("newContactBtn").addEventListener("click", () => openEditor(null));
   document.getElementById("closeEditor").addEventListener("click", closeEditor);
   document.getElementById("saveContactBtn").addEventListener("click", saveContact);
+  document.getElementById("bemerkungAddBtn").addEventListener("click", () => {
+    if (bemerkungUebernehmen()) renderBemerkungen();
+  });
+  document.getElementById("bemerkungListe").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-bem-weg]");
+    if (btn) entferneBemerkung(btn.dataset.bemWeg);
+  });
   document.getElementById("deleteContactBtn").addEventListener("click", deleteContact);
 
   document.getElementById("viewSelect").addEventListener("change", (e) => applyView(e.target.value || null));
