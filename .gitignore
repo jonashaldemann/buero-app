@@ -19,3 +19,12 @@ quittung/kategorien.txt
 # Repo. Lokal bleibt die Datei als Arbeitskopie bestehen (nur von git
 # ignoriert, nicht gelöscht).
 offerten/absender.json
+
+# Der vollständige BKP-Katalog nach SN 506 500:2017 ist urheberrechtlich
+# geschützt (CRB) und gehört NICHT ins (öffentliche!) Repo. Er liegt als
+# "_bkp_katalog.json" auf Nextcloud neben den Kostenschätzungen und wird von
+# baukosten/app.js nach dem Anmelden geladen (ladeKatalog()). Im Repo steht
+# nur der gröbere Grundkatalog baukosten/bkp.js. Diese Zeilen fangen eine
+# versehentlich hereinkopierte Arbeitskopie ab.
+_bkp_katalog.json
+_bkp_sn506500_2017.json

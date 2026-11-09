@@ -1,7 +1,17 @@
 /* ============================================================
-   BKP-Katalog (Baukostenplan, Ausgabe 2017) als flache Liste von
+   BKP-GRUNDKATALOG (Baukostenplan, Ausgabe 2017) als flache Liste von
    [Nummer, Bezeichnung], in der Reihenfolge, in der sie auch angezeigt
    werden.
+
+   ACHTUNG, das ist nur der RÜCKFALL. Die vollständige Norm liegt als
+   "_bkp_katalog.json" auf Nextcloud neben den Kostenschätzungen und wird
+   nach dem Anmelden geladen (ladeKatalog() in app.js); sie ist
+   urheberrechtlich geschützt und darf nicht ins Repo. Diese Datei hier
+   gilt im Demomodus und beim allerersten Start ohne Netz. Sie ist
+   nachweislich ungenauer: der Norm fehlen hier 57/58/59 bzw. rund 60
+   Gattungen, und 415.1-416.7 stehen drin, obwohl die Norm sie nicht
+   kennt. Wer etwas am Katalog ändern will, ändert die Datei auf
+   Nextcloud, nicht diese.
 
    Die Ebene ergibt sich allein aus der Nummer: 1 = Hauptgruppe ("2
    Gebäude"), 2 = Elementgruppe ("22 Rohbau 2"), 3 = Position ("224

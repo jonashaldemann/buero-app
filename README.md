@@ -159,7 +159,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
-| Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung) |
+| Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung, dazu `_bkp_katalog.json` mit dem BKP nach SN 506 500:2017) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
@@ -1315,16 +1315,55 @@ weiter**, ohne Nummern — siehe "Eigene Unterkapitel".
 - **Speicherort**: eine Kostenschätzung = eine JSON-Datei auf Nextcloud
   (`Buero/Admin/App/Baukosten/<Projekt> <Titel>.json`), Liste + Editor wie
   bei den Offerten/Protokollen.
-- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, 876
-  Nummern: 10 Hauptgruppen, 63 Elementgruppen, 450 Positionen und 353
-  Gattungen) und ist für alle Schätzungen identisch; die Datei einer
+- **Der BKP-Katalog ist für alle Schätzungen derselbe**, die Datei einer
   Schätzung enthält nur, was tatsächlich erfasst wurde. Dadurch bleiben die
   Dateien klein, und eine Korrektur am Katalog gilt sofort für alle
-  bestehenden Schätzungen.
+  bestehenden Schätzungen. Wo der Katalog liegt, steht gleich unten — kurz:
+  die **vollständige Norm auf Nextcloud**, ein gröberer **Grundkatalog im
+  Repo** als Rückfall.
+- **Eigenes Layout**: Dieses Modul weicht bewusst vom Karten-Layout der
+  übrigen Apps ab — Kennzahlen oben, darunter eine dichte Tabelle mit nur
+  feinen horizontalen Trennlinien; eine Zeile lässt sich in einem
+  Bearbeitungsfenster gross öffnen.
+  Eine Kostenschätzung ist eine sehr lange, sehr zahlenlastige Liste, bei
+  der die sonst verwendeten abgerundeten Karten die Lesbarkeit eher stören.
+  Farbpalette und Schriften bleiben dieselben wie überall
+  (`css/style.css`).
 
 #### Woher der Katalog stammt
 
-Die Norm SN 506 500 ist kostenpflichtig; der Katalog ist deshalb aus zwei
+Es gibt **zwei** Kataloge, und die App nimmt immer den besseren, den sie
+kriegen kann:
+
+1. **Die Norm selbst** (SN 506 500:2017, 920 Nummern) liegt als
+   `_bkp_katalog.json` auf Nextcloud **neben** den Kostenschätzungen, in
+   `Buero/Admin/App/Baukosten`. Sie ist urheberrechtlich geschützt (CRB) und
+   gehört deshalb **nicht ins Repo** — `.gitignore` fängt eine versehentlich
+   hereinkopierte Arbeitskopie ab. `ladeKatalog()` holt sie nach dem
+   Anmelden und legt sie zusätzlich im `localStorage` ab, damit sie auch
+   offline steht. Dateien mit `_` am Anfang gelten in diesem Ordner nicht als
+   Kostenschätzung (gleiche Konvention wie `_optionen.json` in der
+   Adressliste).
+2. **Der Grundkatalog** `baukosten/bkp.js` im Repo (876 Nummern) springt
+   ein, wenn die Norm fehlt: im **Demomodus** immer (dort soll bewusst der
+   öffentliche Katalog gelten), sonst beim allerersten Start ohne Netz. Er
+   ist gröber und weicht an ein paar Stellen ab; läuft die App auf ihm,
+   **sagt das die Sync-Zeile**.
+
+**Solange nur der Grundkatalog da ist, schreibt die App eine Schätzung nicht
+um** (`migriereAuf2017()` tut dann nichts) — sonst landeten Zeilen in eigenen
+Unterkapiteln, bloss weil die Norm gerade fehlt. Sichtbar bleiben sie
+trotzdem: jede Nummer, unter der Zeilen hängen, bekommt einen Knoten im Baum,
+notfalls mit Ersatztitel "BKP 354.2" (`unbekannteKnoten()`).
+
+Format der Nextcloud-Datei: `{ norm, titel, herausgeber, quelle, hinweis,
+ebenen, katalog }`, wobei `katalog` dieselbe flache Liste von
+`[Nummer, Bezeichnung]` ist wie `BKP_KATALOG` in `bkp.js` — von Hand
+ergänzbar, Reihenfolge beibehalten.
+
+##### Woher der Grundkatalog im Repo stammt
+
+Die Norm ist kostenpflichtig, deshalb ist `bkp.js` aus zwei öffentlichen
 Quellen zusammengesetzt (beide liegen lokal, nicht im Repo — der
 Dateikopf von `bkp.js` sagt im Detail, was bereinigt wurde):
 
@@ -1343,6 +1382,12 @@ Dateikopf von `bkp.js` sagt im Detail, was bereinigt wurde):
   übernommen sind dagegen 57 (MWSt — die rechnet die App selber, siehe
   unten) und 59 (Übergangskonten für Honorare, reine Buchhaltung).
 
+Der Grundkatalog ist also an mehreren Stellen nachweislich ungenau: die
+Norm **hat** 57, 58 und 59, sie kennt die Luzerner Unterteilungen 415.1
+bis 416.7 **nicht**, und sie führt rund 60 Gattungen mehr (354.1
+Kaltwasserleitungen, 003.1 Baugrund, 397.x Honorar-Spezialisten …). Genau
+deshalb ist er nur der Rückfall und nicht die Grundlage.
+
 **Bestehende Schätzungen** werden beim Öffnen automatisch nachgeführt
 (`migriereAuf2017()`): Zeilen unter Nummern, die es 2017 nicht mehr gibt
 (18, 241, 243, 267, 57x, 59x …), bleiben als eigenes Unterkapitel mit ihrem
@@ -1357,14 +1402,6 @@ Wärmeabzugsanlagen), 248 (Dämmungen HLK → Gebäudeautomation), 257
 Landschaftsarchitekt) und 298 (Gebäudeautomationsingenieur →
 Spezialisten 2). Dort stehen alte Zeilen plötzlich unter einem neuen Titel;
 das merkt die App nicht.
-- **Eigenes Layout**: Dieses Modul weicht bewusst vom Karten-Layout der
-  übrigen Apps ab — Kennzahlen oben, darunter eine dichte Tabelle mit nur
-  feinen horizontalen Trennlinien; eine Zeile lässt sich in einem
-  Bearbeitungsfenster gross öffnen.
-  Eine Kostenschätzung ist eine sehr lange, sehr zahlenlastige Liste, bei
-  der die sonst verwendeten abgerundeten Karten die Lesbarkeit eher stören.
-  Farbpalette und Schriften bleiben dieselben wie überall
-  (`css/style.css`).
 
 ### Startsicht und Ansicht
 
