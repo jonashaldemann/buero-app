@@ -104,20 +104,53 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
   offener Knoten werden wie die Ebene bewusst nicht gemerkt.
+- **Katalog `baukosten/bkp.js` ist die Ausgabe 2017** (876 Nummern, seit
+  November 2026; davor 1991). Ebene 4, die **Gattung** ("211.5 Beton- und
+  Stahlbetonarbeiten"), gehört damit zum KATALOG und ist nicht mehr
+  Büro-Eigenes. Der Dateikopf von `bkp.js` hält ausführlich fest, aus
+  welchen zwei Quellen er zusammengesetzt ist und was daran bereinigt wurde
+  (Hauptgruppe 7/8 bleiben Reserve statt Spital-Inventar, 57/59 bewusst
+  weg, 58 aus 1991 behalten) -- diesen Kommentar lesen, bevor jemand den
+  Katalog anfasst. Die Quelldateien liegen in `Claude outputs/Kapitelansicht/`
+  und sind NICHT im Repo.
+- **Bestehende Schätzungen fängt `migriereAuf2017()` auf** (app.js, läuft
+  aus `migriere()` bei jedem Öffnen, idempotent): Zeilen unter 2017
+  gestrichenen Nummern werden zu eigenen Unterkapiteln mit ihrem alten
+  Titel, eigene Unterteilungen, deren Nummer der Katalog heute selbst führt
+  ("211.1"), rücken auf eine freie Kennung. `BKP_ENTFALLEN_1991` in bkp.js
+  liefert die alten Titel. Nicht erkennbar und deshalb nur in der README
+  dokumentiert: die sechs Nummern mit anderer BEDEUTUNG (113, 245, 248,
+  257, 196/296, 298).
+- **Eigene Unterkapitel `baukosten/` tragen KEINE Nummer**: unterhalb der
+  Gattung hört die Norm auf, dort gliedert das Büro frei ("Wände" >
+  "Innenwände", wie im Architool-Printscreen). "+ Unterkapitel" fragt nur
+  nach dem Namen, die Kennung vergibt `naechsteUnterteilung()` -- ab **10**
+  aufwärts, damit sie nie mit einer Gattung (`.0`-`.9`) kollidiert, auch
+  wenn der Katalog wächst. Angezeigt wird sie nirgends: `knotenLabel()` ist
+  die einzige Stelle, die entscheidet, ob eine Nummer vor dem Titel steht
+  (`istEigen()`). Neue Anzeigeorte müssen darüber laufen.
+- **Nummern NICHT lexikografisch vergleichen** (`nummerVergleich()`): der
+  Stamm ist Text ("2" < "21" < "211"), die Abschnitte hinter den Punkten
+  sind ZAHLEN -- sonst landet ".10" vor ".2", und genau dort beginnt die
+  eigene Nummerierung.
 - **Baumtiefe `baukosten/` ist offen**: `knotenEbene()` ist drei Stellen
-  plus eine Ebene je Punkt ("211.1.2" = Ebene 5), `elterNummer()` schneidet
-  entsprechend. "+ Zeile" UND "+ Unterkapitel" (früher "+ Unterteilung")
-  gibt es deshalb auf JEDER Ebene ab der dreistelligen Position -- in der
-  Tabelle wie in der Kapitelansicht (`kapitelAktionen()`); ein Knoten darf
-  eigene Zeilen und Unterkapitel gleichzeitig haben. Ein neues Unterkapitel
-  entsteht OHNE erste Zeile (nur Gliederung). Die Einrückung in der Tabelle
-  setzt app.js als Stil statt über feste `bk-indent-*`-Klassen. Nichts darf wieder
-  gegen Ebene 4 als Maximum programmiert werden -- eigene Gliederungen
-  unterhalb der Norm sind ausdrücklich vorgesehen.
-  (`Claude outputs/Kapitelansicht/bkp_2017_gattungen.json` zeigt die Norm
-  2017 bis zur Gattung; sie ist NICHT in `bkp.js` übernommen -- die Ausgabe
-  1991 dort weicht bei rund 40 Titeln ab, teils mit anderer Bedeutung
-  derselben Nummer.)
+  plus eine Ebene je Punkt ("211.5.10" = Ebene 5), `elterNummer()` schneidet
+  entsprechend. "+ Zeile" UND "+ Unterkapitel" gibt es auf JEDER Ebene ab
+  der dreistelligen Position -- in der Tabelle wie in der Kapitelansicht
+  (`kapitelAktionen()`); ein Knoten darf eigene Zeilen und Unterkapitel
+  gleichzeitig haben. Ein neues Unterkapitel entsteht OHNE erste Zeile (nur
+  Gliederung), Löschen nimmt alles darunter mit. Die Einrückung in der
+  Tabelle setzt app.js als Stil statt über feste `bk-indent-*`-Klassen (ab
+  Ebene 6 gedeckelt, sonst läuft die 112px-Spalte über). Nichts darf wieder
+  gegen eine feste maximale Ebene programmiert werden.
+- **Ebenen-Umschalter `baukosten/` ist 1/2/3/4/Alles**, wobei "Alles" den
+  Wert **9** trägt (nicht 4): 4 ist die tiefste Ebene des Katalogs, 9 heisst
+  "auch die eigenen Unterkapitel".
+- **Druck `baukosten/` unterscheidet nach `eigenstaendig()`**, nicht nach
+  Ebene: Katalogknoten (inkl. Gattung) werden immer eigenständig gedruckt,
+  eigene Unterkapitel nur mit der Option. `zeilenDavon()` zieht deshalb nur
+  die Zeilen von Nachfahren hoch, die NICHT selber gedruckt werden -- sonst
+  stünde dieselbe Zeile zweimal da.
 - **Keine Spaltentitel am Bildschirm `baukosten/`**: die Breiten tragen
   `<col>`-Elemente (`#bkCols`), und die Tabelle braucht dafür zwingend
   `table-layout: fixed` -- ohne Kopfzeile sind `<col>`-Breiten sonst nur

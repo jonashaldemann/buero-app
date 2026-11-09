@@ -2,12 +2,12 @@
    Baukosten — Kostenschätzung nach BKP (Baukostenplan).
 
    Ablöser der bisherigen Excel-Vorlage des Büros. Der BKP-Katalog selbst
-   (ein-, zwei- und dreistellige Nummern) steht fix in bkp.js und ist für
-   alle Schätzungen identisch; eine Schätzung speichert nur das, was
-   tatsächlich erfasst wurde:
+   (Ausgabe 2017, bis zur vierstelligen Gattung) steht fix in bkp.js und
+   ist für alle Schätzungen identisch; eine Schätzung speichert nur das,
+   was tatsächlich erfasst wurde:
 
-     positionen: { "224": [ {Unterposition}, ... ], "211.1": [ ... ] }
-     eigenePositionen: [ { nr: "211.1", titel: "Gerüste" } ]
+     positionen: { "224": [ {Unterposition}, ... ], "211.5.10": [ ... ] }
+     eigenePositionen: [ { nr: "211.5.10", titel: "Wände" } ]
      module:           [ { id, name } ]
      druck:            { ...Druckoptionen, siehe DRUCK_DEFAULTS }
 
@@ -376,16 +376,15 @@ function onKopfModulClick(e) {
 
 // ---------- Baum aus Katalog + eigenen Positionen ----------
 
-// Eine Nummer mit Punkt ("211.1 Gerüste") ist im BKP ein TEIL der
-// dreistelligen Position, nicht deren Nachbar -- sie bekommt deshalb eine
-// eigene Ebene 4 und hängt unter "211". Im Katalog selbst kommt keine
-// solche Nummer vor (auch die alte Excel hatte nur die von Hand
-// ergänzte 211.1); sie entstehen ausschliesslich über "+ Unterteilung".
-// Die Tiefe ist bewusst NICHT auf vier Ebenen festgenagelt: "211.1" ist
-// Ebene 4, "211.1.2" Ebene 5 und so weiter. Eigene Unterteilungen lassen
-// sich damit beliebig tief anlegen -- gedacht für eigene Gliederungen
-// unterhalb der Norm (die Ausgabe 2017 kennt mit der "Gattung" selbst schon
-// eine vierte Stelle, darunter kommt Büro-Eigenes).
+// Eine Nummer mit Punkt ("211.5 Beton- und Stahlbetonarbeiten") ist im BKP
+// ein TEIL der dreistelligen Position, nicht deren Nachbar -- sie bekommt
+// deshalb eine eigene Ebene 4 und hängt unter "211". Seit der Ausgabe 2017
+// steht diese vierte Stelle (die "Gattung") im Katalog selbst.
+// Die Tiefe ist bewusst NICHT auf vier Ebenen festgenagelt: "211.5" ist
+// Ebene 4, "211.5.10" Ebene 5 und so weiter. Darunter liegen die eigenen
+// Unterkapitel dieser Schätzung, beliebig tief und ohne sichtbare Nummer
+// (siehe knotenLabel()) -- dort hört die Norm auf und die Gliederung des
+// Büros fängt an.
 function knotenEbene(nr) {
   const punkte = (String(nr).match(/\./g) || []).length;
   return punkte ? 3 + punkte : String(nr).length;
@@ -406,16 +405,50 @@ function vorfahren(nr) {
   return liste;
 }
 
-// Katalog + die eigenen Positionen dieser Schätzung, hierarchisch sortiert.
-// Lexikografisch sortierte Nummern ergeben genau die richtige Reihenfolge:
-// "2" < "21" < "211" < "211.1" < "212" < "22".
+// Hierarchische Reihenfolge zweier Nummern: "2" < "21" < "211" < "211.0" <
+// "211.9" < "211.10" < "212". Der Stamm vergleicht sich als TEXT -- daraus
+// ergibt sich die Verschachtelung von selbst --, die Abschnitte hinter den
+// Punkten dagegen als ZAHL, sonst käme "211.10" vor "211.2". Eigene
+// Unterkapitel zählen ab 10 aufwärts (siehe naechsteUnterteilung()), das
+// trifft also ständig zu.
+function nummerVergleich(a, b) {
+  const ta = String(a).split(".");
+  const tb = String(b).split(".");
+  if (ta[0] !== tb[0]) return ta[0] < tb[0] ? -1 : 1;
+  for (let i = 1; i < Math.max(ta.length, tb.length); i++) {
+    // Fehlender Abschnitt heisst "weiter oben im Baum" und kommt zuerst.
+    const x = ta[i] === undefined ? -1 : Number(ta[i]);
+    const y = tb[i] === undefined ? -1 : Number(tb[i]);
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
+// Ein Knoten gehört entweder dem Katalog oder dieser Schätzung allein.
+function istEigen(nr) {
+  return !!nr && !BKP_TITEL[nr];
+}
+
+// Wie ein Knoten angeschrieben wird. Katalogknoten tragen ihre Nummer vor
+// dem Titel ("211.5 Beton- und Stahlbetonarbeiten"), eigene Unterkapitel
+// nicht: sie sind frei benannte Gliederung unterhalb der Norm ("Wände" ›
+// "Innenwände") und hätten an einer Nummer nichts gewonnen -- sie tragen
+// intern zwar eine, aber nur als Kennung.
+function knotenLabel(nr) {
+  if (!nr) return "Übersicht";
+  const titel = knotenTitel(nr);
+  return istEigen(nr) ? titel : [nr, titel].filter(Boolean).join(" ");
+}
+
+// Katalog + die eigenen Unterkapitel dieser Schätzung, hierarchisch
+// sortiert (siehe nummerVergleich()).
 function alleKnoten() {
   const eigene = (offen && offen.eigenePositionen) || [];
   const knoten = BKP_KATALOG.map(([nr, titel]) => ({ nr, titel, eigen: false }));
   eigene.forEach((p) => {
     if (!BKP_TITEL[p.nr]) knoten.push({ nr: p.nr, titel: p.titel, eigen: true });
   });
-  knoten.sort((a, b) => (a.nr < b.nr ? -1 : a.nr > b.nr ? 1 : 0));
+  knoten.sort((a, b) => nummerVergleich(a.nr, b.nr));
   return knoten;
 }
 
@@ -423,9 +456,8 @@ function zeilenVon(nr) {
   return (offen.positionen && offen.positionen[nr]) || [];
 }
 
-// Zeilen einer Position samt denen ihrer eigenen Unterteilungen
-// ("211" liefert auch die Zeilen von "211.1") -- für den Ausdruck, wenn
-// die Unterteilungen nicht separat ausgewiesen werden.
+// Zeilen eines Knotens samt denen von allem darunter ("211" liefert auch
+// die Zeilen von "211.5" und dessen eigenen Unterkapiteln).
 function zeilenUnter(nr) {
   const alle = [];
   Object.keys(offen.positionen || {}).forEach((k) => {
@@ -486,7 +518,7 @@ function kinderMap(knoten) {
 // erreicht haben (das Minimum). Eine Elementgruppe wird also erst grün,
 // wenn jede ihrer Positionen grün ist -- genau das soll beim gemeinsamen
 // Durchgehen sichtbar machen, wo noch niemand war. Gespeichert wird nur an
-// den Blättern (dreistellige Positionen bzw. eigene Unterteilungen, und
+// den Blättern (Positionen, Gattungen bzw. eigene Unterkapitel, und
 // jene Reservegruppen, die gar keine Positionen haben).
 function statusBerechnen(knoten, kinder) {
   const gespeichert = (offen && offen.status) || {};
@@ -520,7 +552,7 @@ function anzahlErfassterPositionen() {
 // Wie beim Ausfüllen der Steuererklärung: man sieht immer nur EINE Ebene
 // und klickt sich hinein. Alles hier rechnet über den Baum
 // (alleKnoten()/kinderMap()), nicht über feste Ebenen 1-4 -- eigene
-// Unterteilungen dürfen beliebig tief werden (siehe knotenEbene()).
+// eigene Unterkapitel dürfen beliebig tief werden (siehe knotenEbene()).
 
 function kinderVon(nr) {
   const knoten = alleKnoten();
@@ -530,15 +562,14 @@ function kinderVon(nr) {
 }
 
 // Auf jedem Knoten ab der dreistelligen Position lassen sich BEIDES anlegen:
-// eigene Zeilen und eigene Unterkapitel ("101.1 Planaufnahmen", darunter
-// "101.1.1" …). Auf Haupt- und Elementgruppen nicht -- deren Gliederung gibt
-// die Norm vor.
+// eigene Zeilen und eigene Unterkapitel ("Wände", darunter "Innenwände" …).
+// Auf Haupt- und Elementgruppen nicht -- deren Gliederung gibt die Norm vor.
 function kapitelAktionen() {
   if (!kapitelKnoten || knotenEbene(kapitelKnoten) < 3) return "";
   const nr = escapeHtml(kapitelKnoten);
   return (
     `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${nr}">+ Zeile</button>` +
-    `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${nr}" title="Eigenes Unterkapitel wie &quot;101.1 Planaufnahmen&quot; ergänzen">+ Unterkapitel</button>`
+    `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${nr}" title="Eigenes Unterkapitel wie &quot;Wände&quot; ergänzen">+ Unterkapitel</button>`
   );
 }
 
@@ -552,10 +583,9 @@ function knotenTitel(nr) {
 }
 
 // Weiter/Zurück laufen der Reihe nach durch die BLÄTTER des Baums. Die
-// Nummern sind lexikografisch sortiert ("2" < "21" < "211" < "211.1"), das
-// ist genau die Tiefensuche-Reihenfolge. Mit "Nur verwendete" bleiben die
-// leeren Blätter aussen vor -- sonst klickt man sich durch 450 leere
-// Positionen.
+// Reihenfolge aus alleKnoten() (siehe nummerVergleich()) ist genau die
+// Tiefensuche-Reihenfolge. Mit "Nur verwendete" bleiben die leeren Blätter
+// aussen vor -- sonst klickt man sich durch über 800 leere Positionen.
 function kapitelSchritte() {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
@@ -579,8 +609,8 @@ function kapitelSchritt(richtung) {
   const i = schritte.indexOf(kapitelKnoten);
   if (i === -1) {
     const treffer = richtung > 0
-      ? schritte.find((nr) => nr > kapitelKnoten)
-      : [...schritte].reverse().find((nr) => nr < kapitelKnoten);
+      ? schritte.find((nr) => nummerVergleich(nr, kapitelKnoten) > 0)
+      : [...schritte].reverse().find((nr) => nummerVergleich(nr, kapitelKnoten) < 0);
     if (treffer) setzeKapitel(treffer);
     return;
   }
@@ -800,17 +830,18 @@ function totalZelleInhalt(summe) {
 
 function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
-  // Gleich grosse Stufen, beliebig tief -- als Stil statt als Klasse, weil
-  // der Baum keine feste maximale Tiefe mehr hat.
-  const indent = e === 1 ? "" : ` style="padding-left:${10 + (e - 1) * 14}px"`;
+  // Gleich grosse Stufen -- als Stil statt als Klasse, weil der Baum keine
+  // feste maximale Tiefe hat. Ab Ebene 6 wird nicht weiter eingerückt,
+  // sonst liefe die 112px schmale Nummernspalte über.
+  const indent = e === 1 ? "" : ` style="padding-left:${10 + Math.min(e - 1, 5) * 14}px"`;
   let aktionen = "";
   if (e >= 3) {
     aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
-    // Auch unter einer Unterteilung darf eine weitere entstehen
-    // ("211.1" -> "211.1.2"), siehe knotenEbene().
-    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel wie &quot;101.1 Planaufnahmen&quot; ergänzen">+ Unterkapitel</button>`;
+    // Auch unter einem eigenen Unterkapitel darf ein weiteres entstehen
+    // ("Wände" -> "Innenwände"), siehe knotenEbene().
+    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel wie &quot;Wände&quot; ergänzen">+ Unterkapitel</button>`;
     if (knoten.eigen) {
-      aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigene Unterteilung löschen">×</button>`;
+      aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel löschen">×</button>`;
     }
   }
   // Titel spannt von "Beschrieb" bis vor "Kosten", danach folgen die
@@ -831,7 +862,9 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
     .filter(Boolean)
     .join(" ");
   return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>
-    <td class="bk-col-nr"${indent}>${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
+    <td class="bk-col-nr"${indent}>${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${
+      knoten.eigen ? "" : escapeHtml(knoten.nr)
+    }</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
     <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe)}</td>
     ${restZellen}
@@ -1042,7 +1075,7 @@ function renderKapitel() {
       return `<button type="button" class="bk-kap-knopf${aktuell ? " aktuell" : ""}" data-kap-ziel="${escapeHtml(nr)}"${
         aktuell ? " disabled" : ""
       }>
-        <span class="nr">${escapeHtml([nr, knotenTitel(nr)].filter(Boolean).join(" "))}</span>
+        <span class="nr">${escapeHtml(knotenLabel(nr))}</span>
         <span class="summe">${franken(summeVon(nr))}</span>
       </button>`;
     })
@@ -1065,7 +1098,9 @@ function renderKapitel() {
   document.getElementById("kapKopf").innerHTML = `
     <div class="titel">
       <div class="bk-kap-meta">${escapeHtml(
-        [kapitelKnoten ? `Kapitel ${kapitelKnoten}` : "Ganze Schätzung", meta].filter(Boolean).join(" · ")
+        [kapitelKnoten ? (istEigen(kapitelKnoten) ? "Eigenes Unterkapitel" : `Kapitel ${kapitelKnoten}`) : "Ganze Schätzung", meta]
+          .filter(Boolean)
+          .join(" · ")
       )}</div>
       <div class="bk-kap-titel">${escapeHtml(knotenTitel(kapitelKnoten))}</div>
     </div>
@@ -1075,8 +1110,8 @@ function renderKapitel() {
     </div>`;
 
   // Mitte: die direkten Kinder und/oder die eigenen Positionen. Ein Knoten
-  // darf beides haben ("211.1" mit eigenen Zeilen UND der Unterteilung
-  // "211.1.2") -- dann steht beides untereinander, sonst wären die eigenen
+  // darf beides haben ("211.5" mit eigenen Zeilen UND dem Unterkapitel
+  // "Wände") -- dann steht beides untereinander, sonst wären die eigenen
   // Zeilen hier unsichtbar.
   const eigeneZeilen = zeilenVon(kapitelKnoten);
   const positionenHtml = (liste) =>
@@ -1118,7 +1153,7 @@ function renderKapitel() {
         return `<div class="bk-kap-zeile${verwendet.has(nr) ? "" : " leer"}" data-kap-ziel="${escapeHtml(nr)}">
           ${statusHtml(nr, status[nr], !kinderVon(nr).length)}
           <span class="bk-kap-zeile-haupt">
-            <span class="bk-kap-zeile-titel">${escapeHtml(`${nr} ${knotenTitel(nr)}`)}</span>
+            <span class="bk-kap-zeile-titel">${escapeHtml(knotenLabel(nr))}</span>
             <span class="bk-kap-zeile-sub">${escapeHtml(sub)}</span>
           </span>
           <span class="bk-kap-balken" title="${fertig} von ${blaetter.length} durchgegangen"><i style="width:${anteil}%"></i></span>
@@ -1133,12 +1168,12 @@ function renderKapitel() {
   // Fuss: der Reihe nach durch die Blätter des Baums.
   const schritte = kapitelSchritte();
   const i = schritte.indexOf(kapitelKnoten);
-  const vorheriges = i > 0 ? schritte[i - 1] : [...schritte].reverse().find((nr) => nr < kapitelKnoten);
-  const naechstes = i >= 0 ? schritte[i + 1] : schritte.find((nr) => nr > kapitelKnoten);
+  const vorheriges = i > 0 ? schritte[i - 1] : [...schritte].reverse().find((nr) => nummerVergleich(nr, kapitelKnoten) < 0);
+  const naechstes = i >= 0 ? schritte[i + 1] : schritte.find((nr) => nummerVergleich(nr, kapitelKnoten) > 0);
   const navKnopf = (nr, klasse, label) =>
     `<button type="button" class="bk-kap-nav${klasse}" data-kap-ziel="${escapeHtml(nr || "")}"${nr ? "" : " disabled"}>
       <span class="label">${label}</span>
-      <span class="ziel">${escapeHtml(nr ? `${nr} ${knotenTitel(nr)}` : "–")}</span>
+      <span class="ziel">${escapeHtml(nr ? knotenLabel(nr) : "–")}</span>
     </button>`;
   document.getElementById("kapFuss").innerHTML =
     navKnopf(vorheriges, "", "‹ Zurück") +
@@ -1204,12 +1239,12 @@ function renderPanel() {
     return;
   }
   const nr = gewaehlteZeile.nr;
-  const posTitel = BKP_TITEL[nr] || (offen.eigenePositionen.find((p) => p.nr === nr) || {}).titel || "";
+  const posTitel = knotenTitel(nr);
   const modulFeld = module_().length
     ? `<label>Modul</label>${modulSelectHtml(zeile, "bk-panel-modul")}`
     : `<label>Modul</label><div class="hint" style="margin:0; font-size:11.5px;">Noch keine Module definiert — in den Kopfdaten anlegen.</div>`;
   // Pfad klein oben: "2 Gebäude › 22 Rohbau 2 › 224 Bedachungsarbeiten"
-  const pfadText = [...vorfahren(nr)].reverse().concat(nr).map((n) => `${n} ${knotenTitel(n)}`).join(" › ");
+  const pfadText = [...vorfahren(nr)].reverse().concat(nr).map(knotenLabel).join(" › ");
   const geschwister = zeilenVon(nr);
   const idx = geschwister.findIndex((z) => z.id === zeile.id);
 
@@ -1219,7 +1254,7 @@ function renderPanel() {
     <div class="bk-panel-head">
       <div style="flex:1; min-width:0;">
         <div class="bk-panel-pos">${escapeHtml(pfadText)}</div>
-        <div class="bk-panel-nr">${escapeHtml(zeile.beschrieb || posTitel || `BKP ${nr}`)}</div>
+        <div class="bk-panel-nr">${escapeHtml(zeile.beschrieb || posTitel || knotenLabel(nr))}</div>
       </div>
       <button type="button" class="bk-row-action" data-panel-action="close" title="Schliessen (Esc)">×</button>
     </div>
@@ -1439,7 +1474,62 @@ function migriere(data) {
     });
   });
   data.druck = { ...DRUCK_DEFAULTS, ...(data.druck || {}) };
+  migriereAuf2017(data);
   return data;
+}
+
+// Bis November 2026 lief die App auf dem BKP der Ausgabe 1991, seither auf
+// 2017 (siehe bkp.js). Erfasste Zeilen hängen an der NUMMER, deshalb muss
+// beim Öffnen einer älteren Datei zweierlei aufgefangen werden. Beides ist
+// idempotent -- beim zweiten Mal findet die Funktion nichts mehr.
+function migriereAuf2017(data) {
+  const eigene = data.eigenePositionen;
+  const belegt = (nr) => !!BKP_TITEL[nr] || eigene.some((p) => p.nr === nr);
+
+  // Eine Nummer samt allem darunter umhängen.
+  const umbenennen = (alt, neu) => {
+    const passt = (n) => n === alt || n.startsWith(alt + ".");
+    const ersetzt = (n) => neu + n.slice(alt.length);
+    eigene.forEach((p) => {
+      if (passt(p.nr)) p.nr = ersetzt(p.nr);
+    });
+    [data.positionen, data.status].forEach((topf) => {
+      Object.keys(topf).forEach((n) => {
+        if (!passt(n)) return;
+        topf[ersetzt(n)] = topf[n];
+        delete topf[n];
+      });
+    });
+  };
+
+  // (1) Eigene Unterteilungen, deren Nummer der Katalog inzwischen selber
+  // führt: "211.1" war eine selbstgemachte Unterteilung, heute ist es die
+  // Gattung "Gerüste". Sie bekommen eine freie Kennung (ab .10) und stehen
+  // mit Titel und Zeilen neben der Gattung. Zusammenlegen ist Handarbeit --
+  // ob dasselbe gemeint war, darf die App nicht raten.
+  for (let schutz = 0; schutz < 500; schutz++) {
+    const treffer = eigene.find((p) => BKP_TITEL[p.nr]);
+    if (!treffer) break;
+    const eltern = elterNummer(treffer.nr);
+    let i = 10;
+    while (belegt(`${eltern}.${i}`)) i++;
+    umbenennen(treffer.nr, `${eltern}.${i}`);
+  }
+
+  // (2) Nummern, die 2017 ersatzlos gestrichen sind (18, 241, 243, 267,
+  // 57x, 59x ...). Ohne Knoten im Baum zählten ihre Zeilen zwar weiter ins
+  // Total, wären aber nirgends mehr zu sehen. Sie kommen als eigenes
+  // Unterkapitel zurück, angeschrieben mit ihrer alten Nummer -- sonst
+  // wüsste niemand, woher sie stammen.
+  Object.keys(data.positionen)
+    .filter((nr) => (data.positionen[nr] || []).length)
+    .forEach((nr) => {
+      [...vorfahren(nr), nr].forEach((n) => {
+        if (belegt(n)) return;
+        const titel = BKP_ENTFALLEN_1991[n];
+        eigene.push({ nr: n, titel: titel ? `${titel} (BKP ${n}, Ausgabe 1991)` : `Ohne Zuordnung (${n})` });
+      });
+    });
 }
 
 function leereSchaetzung({ titel, projekt, projektName, genauigkeit, kostenstand }) {
@@ -1709,8 +1799,9 @@ function setzeEbene(stufe) {
   ansicht.ebene = stufe;
   saveJSON(LS_KEYS.ansicht, ansicht);
   zugeklappt = new Set();
-  // Stufe 4 heisst "Alles" -- auch Ebene 5 und tiefer bleiben offen.
-  if (stufe < 4) {
+  // Stufe 9 heisst "Alles" -- auch die eigenen Unterkapitel (Ebene 5 und
+  // tiefer) bleiben offen. 4 ist die tiefste Ebene, die der Katalog führt.
+  if (stufe < 9) {
     alleKnoten().forEach((k) => {
       if (knotenEbene(k.nr) >= stufe) zugeklappt.add(k.nr);
     });
@@ -1743,15 +1834,18 @@ function umklappen(nr) {
   renderTabelleErhalten();
 }
 
-// Nächste freie Unterteilungsnummer einer Position: 211 -> "211.1", und
-// wenn die schon vergeben ist -> "211.2".
+// Kennung für ein neues eigenes Unterkapitel: 211 -> "211.10", dann
+// "211.11" und so fort. Sie wird nirgends angezeigt (knotenLabel()), sie
+// hält den Knoten nur im Baum an seinem Platz -- deshalb vergibt sie die
+// App selber, statt danach zu fragen.
+// Gezählt wird ab ZEHN: die Norm belegt die vierte Stelle einstellig
+// (211.0 bis 211.9), ab 10 kann eine eigene Gliederung also nie mit einer
+// Gattung kollidieren, auch wenn der Katalog später wächst.
 function naechsteUnterteilung(nr) {
-  const vergeben = ((offen && offen.eigenePositionen) || [])
-    .map((p) => p.nr)
-    .filter((n) => n.startsWith(nr + "."))
-    .map((n) => Number(n.slice(nr.length + 1)))
-    .filter((n) => !isNaN(n));
-  return `${nr}.${vergeben.length ? Math.max(...vergeben) + 1 : 1}`;
+  const vergeben = new Set(((offen && offen.eigenePositionen) || []).map((p) => p.nr));
+  let i = 10;
+  while (vergeben.has(`${nr}.${i}`) || BKP_TITEL[`${nr}.${i}`]) i++;
+  return `${nr}.${i}`;
 }
 
 // Alle Blätter (Knoten ohne Kinder) unterhalb einer Gruppe -- nur dort wird
@@ -1847,25 +1941,16 @@ function onBodyClick(e) {
   }
 
   if (action === "add-position") {
-    const vorschlag = naechsteUnterteilung(nr);
-    // Komma wird als Punkt gelesen -- im Büro wird "211,1" genauso
-    // geschrieben wie "211.1".
-    const eingabe = (prompt(`Eigene Unterteilung von BKP ${nr} – Nummer:`, vorschlag) || "").trim().replace(/,/g, ".");
-    if (!eingabe) return;
-    if (!eingabe.startsWith(nr + ".") || !/^\d{3}(\.\d+)+$/.test(eingabe)) {
-      alert(`Die Nummer muss mit "${nr}." beginnen und mit einer Ziffer enden, z.B. ${vorschlag}.`);
-      return;
-    }
-    if (BKP_TITEL[eingabe] || (offen.eigenePositionen || []).some((p) => p.nr === eingabe)) {
-      alert(`Die Nummer ${eingabe} gibt es bereits.`);
-      return;
-    }
-    const titel = (prompt(`Bezeichnung für ${eingabe}:`, "") || "").trim();
+    // Gefragt wird nur nach dem Namen -- die Kennung vergibt die App
+    // (siehe naechsteUnterteilung()), unterhalb der Norm gibt es keine
+    // Nummern mehr zu wählen.
+    const titel = (prompt(`Neues Unterkapitel in "${knotenLabel(nr)}":`, "") || "").trim();
     if (!titel) return;
+    const eingabe = naechsteUnterteilung(nr);
     // Nur die Gliederung anlegen, keine erste Zeile: wer gleich erfassen
     // will, nimmt "+ Zeile". So lässt sich auch bloss ein Kapitelbaum
-    // aufbauen ("101.1 Planaufnahmen", "101.2 Schadstoffuntersuchungen"),
-    // ohne jedes Mal eine leere Zeile wegräumen zu müssen.
+    // aufbauen ("Wände" › "Innenwände" › "Aussenwände"), ohne jedes Mal
+    // eine leere Zeile wegräumen zu müssen.
     vorfahren(eingabe).forEach((v) => zugeklappt.delete(v));
     zugeklappt.delete(eingabe);
     mutate(
@@ -1884,18 +1969,33 @@ function onBodyClick(e) {
   }
 
   if (action === "del-position") {
-    const anzahl = zeilenVon(nr).length;
-    if (!confirm(anzahl ? `Unterteilung ${nr} mit ${anzahl} Zeile(n) wirklich löschen?` : `Unterteilung ${nr} wirklich löschen?`)) return;
-    if (gewaehlteZeile && gewaehlteZeile.nr === nr) gewaehlteZeile = null;
+    // Mit dem Unterkapitel geht alles mit, was darunter hängt -- ein
+    // stehengelassenes Enkelkapitel wäre im Baum nicht mehr erreichbar.
+    const drunter = (n) => n === nr || n.startsWith(nr + ".");
+    const anzahl = zeilenUnter(nr).length;
+    const kapitel = (offen.eigenePositionen || []).filter((p) => drunter(p.nr)).length - 1;
+    const was = [
+      anzahl ? `${anzahl} Zeile(n)` : "",
+      kapitel > 0 ? `${kapitel} Unterkapitel` : ""
+    ].filter(Boolean).join(" und ");
+    if (!confirm(`"${knotenLabel(nr)}"${was ? ` mit ${was}` : ""} wirklich löschen?`)) return;
+    if (gewaehlteZeile && drunter(gewaehlteZeile.nr)) gewaehlteZeile = null;
     mutate(
       (data) => {
-        data.eigenePositionen = (data.eigenePositionen || []).filter((p) => p.nr !== nr);
-        delete data.positionen[nr];
-        if (data.status) delete data.status[nr];
+        data.eigenePositionen = (data.eigenePositionen || []).filter((p) => !drunter(p.nr));
+        Object.keys(data.positionen).forEach((n) => {
+          if (drunter(n)) delete data.positionen[n];
+        });
+        Object.keys(data.status || {}).forEach((n) => {
+          if (drunter(n)) delete data.status[n];
+        });
         return data;
       },
       { neuRendern: true }
     );
+    // In der Kapitelansicht stünde man sonst in einem Kapitel, das es
+    // nicht mehr gibt.
+    if (ansichtModus === "kapitel" && drunter(kapitelKnoten)) setzeKapitel(elterNummer(nr) || "");
   }
 }
 
@@ -2246,7 +2346,17 @@ function druckSeite(opt, modul) {
   // Sinn -- eine Modulseite IST schon die Aufteilung.
   const mods = !modul && opt.modulSpalten ? module_() : [];
   const betragZelle = (summe) => (summe ? franken(summe) : "");
-  const zeilenDavon = (nr) => (opt.unterteilungen ? zeilenVon(nr) : zeilenUnter(nr)).filter(filter);
+  // Katalogknoten bekommen immer eine eigene Zeile (die Gattung "211.5"
+  // gehört zur Norm), eigene Unterkapitel nur auf Wunsch.
+  const eigenstaendig = (nr) => !istEigen(nr) || opt.unterteilungen;
+  // Was auf der Zeile eines Knotens erscheint: seine eigenen Zeilen plus
+  // die aller Nachfahren, die NICHT selber gedruckt werden -- sonst stünde
+  // dieselbe Zeile zweimal da.
+  const zeilenDavon = (nr) =>
+    Object.keys(offen.positionen || {})
+      .filter((n) => n === nr || (n.startsWith(nr + ".") && !eigenstaendig(n)))
+      .flatMap((n) => zeilenVon(n))
+      .filter(filter);
 
   const kopf = [
     `<th>BKP</th>`,
@@ -2283,10 +2393,10 @@ function druckSeite(opt, modul) {
     const summe = summen[k.nr] || 0;
     const istVerwendet = verwendet.has(k.nr);
 
-    // Eigene Unterteilungen (211.1, 211.1.1, beliebig tief) werden
-    // standardmässig nicht separat ausgewiesen -- ihre Kosten stecken über
-    // die Summen ohnehin schon in der dreistelligen Position.
-    if (e >= 4 && !opt.unterteilungen) return;
+    // Eigene Unterkapitel (beliebig tief) werden standardmässig nicht
+    // separat ausgewiesen -- ihre Kosten stecken über die Summen ohnehin
+    // schon im Katalogknoten darüber.
+    if (!eigenstaendig(k.nr)) return;
     if (e === 1) {
       if (!opt.alleHauptgruppen && !istVerwendet) return;
     } else if (opt.nurVerwendete && !istVerwendet) {
@@ -2294,9 +2404,12 @@ function druckSeite(opt, modul) {
     }
 
     const leerKlasse = istVerwendet ? "" : " pr-leer";
+    // Gattungen und eigene Unterkapitel rücken ein, sonst sähen sie aus
+    // wie die dreistellige Position darüber.
+    const einzug = e > 3 ? ` style="padding-left:${(e - 3) * 10}px"` : "";
     if (e < 3) {
       zeilen += `<tr class="pr-l${e}${leerKlasse}">
-        <td>${escapeHtml(k.nr)}</td>
+        <td>${k.eigen ? "" : escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
         <td class="r">${betragZelle(summe)}</td>
@@ -2306,11 +2419,11 @@ function druckSeite(opt, modul) {
       return;
     }
 
-    // Position (dreistellig) bzw. eine separat ausgewiesene Unterteilung
+    // Position, Gattung bzw. ein separat ausgewiesenes eigenes Unterkapitel
     const posZeilen = zeilenDavon(k.nr);
     if (opt.unterpositionen && posZeilen.length) {
       zeilen += `<tr class="pr-pos">
-        <td>${escapeHtml(k.nr)}</td>
+        <td${einzug}>${k.eigen ? "" : escapeHtml(k.nr)}</td>
         <td>${escapeHtml(k.titel)}</td>
         <td colspan="3"></td>
         <td class="r">${betragZelle(summe)}</td>
@@ -2345,7 +2458,7 @@ function druckSeite(opt, modul) {
     const bemerkungen = posZeilen.map((z) => (z.extern || "").trim()).filter(Boolean);
     // Trennzeichen wie am Bildschirm (bemerkungenZusammen()).
     zeilen += `<tr class="pr-pos${leerKlasse}">
-      <td>${escapeHtml(k.nr)}</td>
+      <td${einzug}>${k.eigen ? "" : escapeHtml(k.nr)}</td>
       <td>${escapeHtml(k.titel)}${beschriebe.length ? `<div class="pr-formel">${escapeHtml(beschriebe.join("; "))}</div>` : ""}</td>
       <td class="r">${einzeln ? zahl(rechne(einzeln.ausmass)) : ""}</td>
       <td>${einzeln ? (einzeln.basis ? "%" : escapeHtml(einzeln.einheit || "")) : ""}</td>

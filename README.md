@@ -1305,21 +1305,58 @@ berechnet der Saldo pro Monat.
 
 ## Baukosten
 
-Kostenschätzung nach **BKP** (Baukostenplan, Ausgabe 1991) — der Ersatz für
-die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
+Kostenschätzung nach **BKP** (Baukostenplan, Ausgabe 2017) — der Ersatz für
+die bisherige Excel-Vorlage des Büros. Die Gliederung ist vierstufig:
 1-stellig Hauptgruppe ("2 Gebäude"), 2-stellig Elementgruppe ("22 Rohbau 2"),
-3-stellig Position ("224 Bedachungsarbeiten").
+3-stellig Position ("224 Bedachungsarbeiten"), 4-stellig Gattung
+("211.5 Beton- und Stahlbetonarbeiten"). Darunter gliedert man **frei
+weiter**, ohne Nummern — siehe "Eigene Unterkapitel".
 
 - **Speicherort**: eine Kostenschätzung = eine JSON-Datei auf Nextcloud
   (`Buero/Admin/App/Baukosten/<Projekt> <Titel>.json`), Liste + Editor wie
   bei den Offerten/Protokollen.
-- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, 541
-  Nummern, davon 461 dreistellige Positionen) und ist für alle Schätzungen
-  identisch; die Datei einer Schätzung enthält nur, was tatsächlich erfasst
-  wurde. Dadurch bleiben die Dateien klein, und eine Korrektur am Katalog
-  gilt sofort für alle bestehenden Schätzungen. (Der Katalog stammt aus der
-  alten Excel-Vorlage, deren Sortier-Artefakte — "1411" statt "141" — und
-  Tippfehler sind dabei korrigiert, die Reservegruppen 7 und 8 ergänzt.)
+- **Der BKP-Katalog selbst steht im Repo** (`baukosten/bkp.js`, 876
+  Nummern: 10 Hauptgruppen, 63 Elementgruppen, 450 Positionen und 353
+  Gattungen) und ist für alle Schätzungen identisch; die Datei einer
+  Schätzung enthält nur, was tatsächlich erfasst wurde. Dadurch bleiben die
+  Dateien klein, und eine Korrektur am Katalog gilt sofort für alle
+  bestehenden Schätzungen.
+
+#### Woher der Katalog stammt
+
+Die Norm SN 506 500 ist kostenpflichtig; der Katalog ist deshalb aus zwei
+Quellen zusammengesetzt (beide liegen lokal, nicht im Repo — der
+Dateikopf von `bkp.js` sagt im Detail, was bereinigt wurde):
+
+- **Hauptgruppe 1 und 2** aus der Ausgabe 2017, abgeglichen gegen einen
+  Scan des Verzeichnisses (Kap. 5.1) — die verlässlichste Quelle.
+- **Hauptgruppe 0, 3, 4, 5 und 9** aus dem Gesamtkatalog "BKP cbr 2017"
+  der Dienststelle Immobilien Luzern. Das ist ein Hauskatalog, kein
+  Normabdruck: seine Spital-Belegung von Hauptgruppe 7 und 8 ist nicht
+  übernommen (die bleiben wie 6 "Reserve"), seine leeren
+  Platzhalter-Gattungen und seine eigene Gliederung unter Hauptgruppe 9
+  ebenfalls nicht.
+- **Aus der Ausgabe 1991 behalten**: die Übergangspositionen (`x_0`) ab
+  Hauptgruppe 3 und die Elementgruppe **58** (Rückstellungen, Reserven für
+  Teuerung und Unvorhergesehenes) — der Luzerner Katalog führt sie nicht,
+  ohne sie liesse sich keine Kostenschätzung abschliessen. **Nicht**
+  übernommen sind dagegen 57 (MWSt — die rechnet die App selber, siehe
+  unten) und 59 (Übergangskonten für Honorare, reine Buchhaltung).
+
+**Bestehende Schätzungen** werden beim Öffnen automatisch nachgeführt
+(`migriereAuf2017()`): Zeilen unter Nummern, die es 2017 nicht mehr gibt
+(18, 241, 243, 267, 57x, 59x …), bleiben als eigenes Unterkapitel mit ihrem
+alten Titel und der alten Nummer im Namen stehen statt zu verschwinden.
+Eigene Unterteilungen, deren Nummer der Katalog heute selbst führt
+("211.1" war von Hand gemacht, heute ist es die Gattung "Gerüste"), rücken
+mit Titel und Zeilen daneben — ob dasselbe gemeint war, entscheidet man von
+Hand. Achtung bei **sechs Nummern, die 2017 anders belegt sind**: 113
+(Demontagen → Sanierung Altlasten), 245 (Klimaanlagen → Rauch- und
+Wärmeabzugsanlagen), 248 (Dämmungen HLK → Gebäudeautomation), 257
+(Elektro-/Pneumatiktafeln → Löschanlagen), 196/296 (Spezialisten →
+Landschaftsarchitekt) und 298 (Gebäudeautomationsingenieur →
+Spezialisten 2). Dort stehen alte Zeilen plötzlich unter einem neuen Titel;
+das merkt die App nicht.
 - **Eigenes Layout**: Dieses Modul weicht bewusst vom Karten-Layout der
   übrigen Apps ab — Kennzahlen oben, darunter eine dichte Tabelle mit nur
   feinen horizontalen Trennlinien; eine Zeile lässt sich in einem
@@ -1332,7 +1369,7 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
 ### Startsicht und Ansicht
 
 - **Beim Öffnen steht immer Ebene 1**: die zehn Hauptgruppen und sonst
-  nichts. Das ist der Überblick, mit dem man anfängt — 541 Zeilen beim
+  nichts. Das ist der Überblick, mit dem man anfängt — 876 Zeilen beim
   Öffnen sind keiner. Aufklappen ist ein Klick (auf die Zeile oder über die
   Ebenen-Knöpfe), und das gilt **bei jedem Öffnen neu**: die Ebene wird
   bewusst nicht gemerkt. Die übrigen Ansichtseinstellungen ("Nur
@@ -1340,9 +1377,10 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
   gleichzeitig unterschiedlich anschauen). Leere Gruppen sind grau
   abgesetzt.
-- **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
-  "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
-  diese. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
+- **Ebene 1 / 2 / 3 / 4 / Alles** klappt den ganzen Baum auf diese Tiefe
+  auf. "3" zeigt die Positionen, "4" zusätzlich die Gattungen (die tiefste
+  Ebene, die der Katalog führt); "Alles" auch die eigenen Unterkapitel und
+  die Unterpositionen. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
   Positionszeile** genau diese auf und zu — in der Zeile selbst gibt es
   sonst nichts anzuklicken, deshalb braucht es keine eigenen
   Klapp-Dreiecke. Die Ebenen-Knöpfe sind nur eine Ausgangslage, die ein
@@ -1409,15 +1447,15 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   Positionen, ein Fortschrittsbalken (Anteil der Blätter darunter mit
   "erledigt" oder "Vieraugenprinzip"), die Summe und ein "›". Ein Klick auf
   die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
-- Auf einem **Blatt** (dreistellige Position ohne eigenes Unterkapitel,
-  oder ein eigenes Unterkapitel wie "101.1") stehen dort die
+- Auf einem **Blatt** (Position oder Gattung ohne eigenes Unterkapitel,
+  oder ein eigenes Unterkapitel wie "Wände") stehen dort die
   **Unterpositionen** — Beschrieb, Bemerkung, Ausmass, Summe. Ein Klick
   öffnet das Bearbeitungsfenster.
 - Unter der Liste stehen auf jeder Position **"+ Zeile"** und
   **"+ Unterkapitel"** (siehe unten) — auch auf einem Knoten, der schon
   Unterkapitel hat.
 - Hat ein Knoten **beides** (Unterkapitel *und* eigene Positionen, z.B.
-  "211.1" mit einer eigenen Zeile und dem Unterkapitel "211.1.1"), stehen
+  "211.5" mit einer eigenen Zeile und dem Unterkapitel "Wände"), stehen
   beide Listen untereinander — sonst wären die eigenen Zeilen hier
   unsichtbar.
 - **Unten** "‹ Zurück" und "Weiter ›" mit dem Namen des vorherigen bzw.
@@ -1562,10 +1600,17 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   draussen bleiben, sehen auch mehrere davon dieselbe Grundlage und
   beeinflussen sich nicht gegenseitig (`basisBetrag()` in
   `baukosten/app.js`).
-- **Eigene Unterkapitel**: "+ Unterkapitel" ergänzt unter einer Position
-  eine Nummer wie "101.1 Planaufnahmen", wenn der Standard-BKP zu grob ist —
-  und darunter bei Bedarf "101.1.1" und so weiter, **beliebig tief**. Das
-  gilt nur für diese eine Kostenschätzung.
+- **Eigene Unterkapitel**: Der Katalog hört bei der vierstelligen Gattung
+  auf ("211.5 Beton- und Stahlbetonarbeiten"). Darunter gliedert man frei:
+  "+ Unterkapitel" fragt nur nach einem **Namen** — "Wände", darunter
+  "Innenwände", "Aussenwände" und so weiter, **beliebig tief**. Das gilt nur
+  für diese eine Kostenschätzung.
+  - **Diese Kapitel tragen keine Nummer.** Intern hat jedes eine (sonst
+    liesse es sich nicht einhängen), angezeigt wird sie nirgends —
+    unterhalb der Norm gibt es nichts zu nummerieren, und eine erfundene
+    Nummer sähe aus wie eine echte. Gezählt wird intern ab 10, damit eine
+    eigene Gliederung nie mit einer Gattung (`.0` bis `.9`) kollidiert,
+    auch wenn der Katalog später wächst.
   - **"+ Zeile" und "+ Unterkapitel" stehen auf jeder Ebene ab der
     dreistelligen Position nebeneinander**: jedes Kapitel kann eigene Zeilen
     *und* weitere Unterkapitel haben. Auf Haupt- und Elementgruppen gibt es
@@ -1574,18 +1619,15 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
     will, nimmt "+ Zeile"), damit sich auch bloss ein Kapitelbaum aufbauen
     lässt, ohne jedes Mal eine leere Zeile wegzuräumen. In der
     Kapitelansicht springt die Ansicht gleich hinein.
+  - **Löschen nimmt alles darunter mit** (Zeilen und Enkelkapitel) und fragt
+    vorher nach — ein stehengelassenes Enkelkapitel wäre im Baum nicht mehr
+    erreichbar.
   - Die Ebene rechnet sich aus der Nummer (`knotenEbene()`: drei Stellen
-    plus eine Ebene je Punkt), nirgends steht eine feste maximale Tiefe —
-    gedacht für eigene Gliederungen unterhalb der Norm (die BKP-Ausgabe 2017
-    kennt mit der "Gattung" selbst schon eine vierte Stelle, darunter kommt
-    Büro-Eigenes).
+    plus eine Ebene je Punkt), nirgends steht eine feste maximale Tiefe.
   Eine Nummer mit Punkt ist im BKP ein **Teil** der dreistelligen Position,
   nicht deren Nachbar — sie bekommt deshalb eine eigene Ebene 4 und hängt
   unter "211": ihre Kosten zählen in 211 hinein, von dort in 21 und 2
-  (`elterNummer()`/`vorfahren()`). Im Katalog selbst kommt keine solche
-  Nummer vor; auch die alte Excel hatte nur die von Hand ergänzte 211.1.
-  Beim Anlegen wird die nächste freie Nummer vorgeschlagen, und ein
-  eingetipptes Komma ("211,1") wird als Punkt gelesen.
+  (`elterNummer()`/`vorfahren()`).
 
 ### Bearbeitungsfenster und Bemerkungen
 
@@ -1620,8 +1662,8 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   der Spalte "Bemerkungen" die Bemerkungen aller ihrer Unterpositionen
   kommagetrennt hintereinander ("Zumauern Türöffnungen, Neue Trennwände,
   Zumauern Fensteröffnungen") — man sieht also auch zugeklappt, was in der
-  Position steckt. Die Kosten eines eigenen Unterkapitels ("211.1") zählen
-  in 211 hinein, ihre Bemerkungen deshalb auch. Nur die **Bemerkungen**
+  Position steckt. Die Kosten eines eigenen Unterkapitels ("Wände") zählen
+  in den Knoten darüber hinein, ihre Bemerkungen deshalb auch. Nur die **Bemerkungen**
   werden zusammengezogen, nie die Notizen; derselbe Text steht im Ausdruck
   in der zusammengefassten Positionszeile (`bemerkungenZusammen()`).
 
@@ -1678,9 +1720,9 @@ mitgespeichert.
 
 | Option | Standard | Wirkung |
 |---|---|---|
-| Nur verwendete Positionen | an | Dreistellige Positionen ohne Eintrag weglassen |
+| Nur verwendete Positionen | an | Positionen und Gattungen ohne Eintrag weglassen |
 | Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
-| Eigene Unterkapitel einzeln | **aus** | Aus: "101.1 Planaufnahmen" (und alles darunter, z.B. "101.1.1") wird in die Position 101 eingerechnet statt separat ausgewiesen — die Summe steckt dort ohnehin schon |
+| Eigene Unterkapitel einzeln | **aus** | Aus: ein frei benanntes Kapitel wie "Wände" (und alles darunter) wird in den Katalogknoten darüber eingerechnet statt separat ausgewiesen — die Summe steckt dort ohnehin schon. Die **Gattungen der Norm** ("211.5") erscheinen unabhängig davon immer |
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Bemerkungen | an | Die Spalte **Notizen** wird nie gedruckt; auf der Positionszeile stehen die Bemerkungen der Unterpositionen zusammengezogen |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |
