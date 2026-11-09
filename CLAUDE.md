@@ -67,6 +67,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
   BKP-Katalog selbst liegt als `baukosten/bkp.js` im Repo und ist für alle
   Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
+- **Bearbeitungsfenster `baukosten/` ist ein Overlay** (`#detailPanel`,
+  `renderPanel()`), kein Fenster rechts mehr: in der Kapitelansicht gäbe es
+  dafür keinen Platz. Es öffnet nur ABSICHTLICH -- über "⋯" in der
+  Tabellenzeile oder einen Klick auf eine Position in der Kapitelansicht;
+  der Fokus in ein Feld öffnet es bewusst nicht mehr (das störte beim
+  schnellen Erfassen). Geschlossen wird mit ✕/Esc/Klick daneben, gespeichert
+  dabei automatisch (`schliessePanel()` ruft `uebernimmOffeneEingabe()`).
+  z-index 70, also über Kopfblock (30) und Dialogen (60). Es ist modal:
+  solange es offen ist, ist die Toolbar nicht bedienbar -- Tests müssen es
+  vorher schliessen.
 - **Dialoge `baukosten/`**: dieses Modul hat als einziges klebende Ebenen
   (Kopfblock `z-index: 30`, Spaltentitel und Gesamttotal `20`). Die lagen
   über den Dialogen (`.overlay` in `css/style.css` hat 20) und verdeckten
@@ -84,11 +94,25 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   die zehn Hauptgruppen), `oeffne()` setzt das fest. Die Ebene wird also
   bewusst nicht gemerkt, die übrigen Ansichtseinstellungen schon. Tests,
   die an tiefere Zeilen wollen, müssen vorher `setzeEbene(4)` aufrufen.
-- **Schritt für Schritt `baukosten/`** (`wizard` in `app.js`): zeigt nur
-  eine zweistellige Gruppe samt Positionen, der Rest ist ausgeblendet
-  (`imWizardSichtbar()`). Schritte sind alle Ebene-2-Knoten plus die
-  Ebene-1-Knoten OHNE Kinder (6, 7, 8 "Reserve"). Der Modus wird wie die
-  Ebene bewusst nicht gemerkt.
+- **Ansicht "Kapitel" `baukosten/`** (`ansichtModus`/`kapitelKnoten` in
+  `app.js`, `renderKapitel()`): zeigt eine Ebene des Baums auf einmal, wie
+  ein Steuerformular. Links der Pfad als Knöpfe, in der Mitte die direkten
+  Kinder UND (falls vorhanden) die eigenen Positionen des Knotens, unten
+  Weiter/Zurück durch die BLÄTTER des Baums. Sie hat den früheren Modus
+  "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
+  `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
+  offener Knoten werden wie die Ebene bewusst nicht gemerkt.
+- **Baumtiefe `baukosten/` ist offen**: `knotenEbene()` ist drei Stellen
+  plus eine Ebene je Punkt ("211.1.2" = Ebene 5), `elterNummer()` schneidet
+  entsprechend. "+ Unterteilung" gibt es deshalb auf JEDER Ebene ab der
+  dreistelligen Position, und die Einrückung in der Tabelle setzt app.js
+  als Stil statt über feste `bk-indent-*`-Klassen. Nichts darf wieder
+  gegen Ebene 4 als Maximum programmiert werden -- eigene Gliederungen
+  unterhalb der Norm sind ausdrücklich vorgesehen.
+  (`Claude outputs/Kapitelansicht/bkp_2017_gattungen.json` zeigt die Norm
+  2017 bis zur Gattung; sie ist NICHT in `bkp.js` übernommen -- die Ausgabe
+  1991 dort weicht bei rund 40 Titeln ab, teils mit anderer Bedeutung
+  derselben Nummer.)
 - **Keine Spaltentitel am Bildschirm `baukosten/`**: die Breiten tragen
   `<col>`-Elemente (`#bkCols`), und die Tabelle braucht dafür zwingend
   `table-layout: fixed` -- ohne Kopfzeile sind `<col>`-Breiten sonst nur

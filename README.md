@@ -1322,7 +1322,8 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   Tippfehler sind dabei korrigiert, die Reservegruppen 7 und 8 ergänzt.)
 - **Eigenes Layout**: Dieses Modul weicht bewusst vom Karten-Layout der
   übrigen Apps ab — Kennzahlen oben, darunter eine dichte Tabelle mit nur
-  feinen horizontalen Trennlinien, rechts ein einblendbares Detailfenster.
+  feinen horizontalen Trennlinien; eine Zeile lässt sich in einem
+  Bearbeitungsfenster gross öffnen.
   Eine Kostenschätzung ist eine sehr lange, sehr zahlenlastige Liste, bei
   der die sonst verwendeten abgerundeten Karten die Lesbarkeit eher stören.
   Farbpalette und Schriften bleiben dieselben wie überall
@@ -1339,17 +1340,6 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
   gleichzeitig unterschiedlich anschauen). Leere Gruppen sind grau
   abgesetzt.
-- **Schritt für Schritt** (Knopf neben den Ebenen) geht die Schätzung durch
-  wie ein Steuerformular: sichtbar ist nur **eine Elementgruppe** — "22
-  Rohbau 2" mit allen dreistelligen Positionen darunter, plus die
-  Hauptgruppe als Kopfzeile — alles davor und danach ist ausgeblendet.
-  Erfassen, Abhaken und Aufklappen funktionieren dabei unverändert. Die
-  Ebenen-Knöpfe weichen solange einer Navigation: ‹ und › gehen eine Gruppe
-  weiter, eine Auswahl springt direkt irgendwohin, und daneben steht, der
-  wievielte von 73 Schritten gerade dran ist. Schritte sind alle
-  zweistelligen Gruppen plus die Hauptgruppen ohne Unterteilung (6, 7, 8
-  "Reserve") — sonst käme man an denen nie vorbei. Nochmals auf den Knopf
-  beendet den Modus und stellt die eingestellte Ebene wieder her.
 - **Ebene 1 / 2 / 3 / Alles** klappt den ganzen Baum auf diese Tiefe auf.
   "3" zeigt die Positionen, aber noch keine Unterpositionen; "Alles" auch
   diese. Zusätzlich klappt ein **Klick irgendwo auf eine Gruppen- oder
@@ -1398,6 +1388,54 @@ die bisherige Excel-Vorlage des Büros. Die Gliederung ist dreistufig:
   jeder davon das Auffälligste auf dem Bildschirm. Solange noch nichts
   erfasst ist, erklärt stattdessen ein Hinweis unter der Werkzeugleiste den
   Einstieg.
+
+### Ansicht "Kapitel"
+
+Oben rechts schaltet **[Tabelle] [Kapitel]** zwischen zwei Ansichten
+derselben Schätzung um. Die **Kapitelansicht** geht sie durch wie ein
+Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
+
+- **Links der Pfad als Knöpfe** untereinander, alle gleich breit und ohne
+  Einrückung: "Übersicht", "2 Gebäude", "21 Rohbau 1", … Jeder zeigt links
+  Nummer und Bezeichnung, rechts die Summe dieser Stufe; der aktuelle
+  Knoten ist der letzte und blau gefüllt. Es erscheinen **nur die Stufen
+  des Pfads** — keine Nachbarn, keine Unterkapitel (die stehen in der
+  Mitte).
+- **Rechts** Titel und Summe des aktuellen Knotens, darüber eine Zeile wie
+  "Kapitel 22 · 10 Unterkapitel · 3 verwendet".
+- **Darunter die direkten Kinder**, eine Zeile pro Kind: Statuskästchen
+  (dieselbe Logik wie in der Tabelle, anklickbar), Nummer und Bezeichnung,
+  darunter klein die Titel der nächsten Ebene bzw. die Zahl der
+  Positionen, ein Fortschrittsbalken (Anteil der Blätter darunter mit
+  "erledigt" oder "Vieraugenprinzip"), die Summe und ein "›". Ein Klick auf
+  die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
+- Auf einem **Blatt** (dreistellige Position ohne eigene Unterteilung, oder
+  eine eigene Unterteilung wie "211.1") stehen dort die **Unterpositionen**
+  — Beschrieb, Bemerkung, Ausmass, Summe — plus "+ Zeile". Ein Klick öffnet
+  das Bearbeitungsfenster.
+- Hat ein Knoten **beides** (Unterkapitel *und* eigene Positionen, z.B.
+  "211.1" mit einer eigenen Zeile und der Unterteilung "211.1.1"), stehen
+  beide Listen untereinander — sonst wären die eigenen Zeilen hier
+  unsichtbar.
+- **Unten** "‹ Zurück" und "Weiter ›" mit dem Namen des vorherigen bzw.
+  nächsten Kapitels und "Schritt x von y". Beide laufen der Reihe nach
+  durch die **Blätter** des Baums (Tiefensuche — die Nummern sind
+  lexikografisch sortiert, das ist genau diese Reihenfolge). Ist "Nur
+  verwendete" an, überspringen sie die leeren Blätter; sonst klickt man
+  sich durch 450 leere Positionen.
+- Leere Knoten sind grau wie in der Tabelle, "Nur verwendete" wirkt auch
+  hier. Unter etwa 900 px Breite rücken die Pfadknöpfe als Zeile über die
+  Liste.
+- Eine **Suche** schaltet zurück in die Tabelle — dort steht die
+  Trefferliste.
+- Ansichtsmodus und offener Knoten werden wie die Ebene bewusst **nicht**
+  gemerkt; beim Öffnen gilt die Startsicht (Tabelle, Ebene 1).
+
+Die Navigation rechnet durchgehend über den Baum (`alleKnoten()`,
+`kinderMap()`), nicht über feste Ebenen 1–4 — eigene Unterteilungen dürfen
+beliebig tief werden (siehe unten). Diese Ansicht hat den früheren Modus
+"Schritt für Schritt" abgelöst, der immer eine ganze zweistellige Gruppe
+zeigte.
 
 ### Durchgehen zu zweit (Status)
 
@@ -1494,7 +1532,7 @@ Kennwerte.
 
 #### Honorar als Prozentsatz der Baukosten
 
-Im Detailfenster lässt sich die **Berechnung** einer Unterposition von
+Im Bearbeitungsfenster lässt sich die **Berechnung** einer Unterposition von
 "Ausmass × Kennwert" auf einen **Prozentsatz der Baukosten** umstellen —
 gedacht fürs Architektenhonorar (BKP 291), das sich damit automatisch
 mitbewegt, wenn sich die Schätzung ändert. Die übrigen Honorare
@@ -1521,9 +1559,14 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   draussen bleiben, sehen auch mehrere davon dieselbe Grundlage und
   beeinflussen sich nicht gegenseitig (`basisBetrag()` in
   `baukosten/app.js`).
-- **Eigene Unterteilung einer Position**: "+ Unterteilung" auf einer
-  dreistelligen Position ergänzt eine Nummer wie "211.1 Gerüste", wenn der
-  Standard-BKP zu grob ist. Sie gilt nur für diese eine Kostenschätzung.
+- **Eigene Unterteilung einer Position**: "+ Unterteilung" ergänzt eine
+  Nummer wie "211.1 Gerüste", wenn der Standard-BKP zu grob ist. Sie gilt
+  nur für diese eine Kostenschätzung. Das geht **beliebig tief**: unter
+  "211.1" lässt sich "211.1.1" anlegen und so weiter — gedacht für eigene
+  Gliederungen unterhalb der Norm (die BKP-Ausgabe 2017 kennt mit der
+  "Gattung" selbst schon eine vierte Stelle, darunter kommt Büro-Eigenes).
+  Die Ebene rechnet sich aus der Nummer (`knotenEbene()`: drei Stellen plus
+  eine Ebene je Punkt), nirgends steht eine feste maximale Tiefe.
   Eine Nummer mit Punkt ist im BKP ein **Teil** der dreistelligen Position,
   nicht deren Nachbar — sie bekommt deshalb eine eigene Ebene 4 und hängt
   unter "211": ihre Kosten zählen in 211 hinein, von dort in 21 und 2
@@ -1532,13 +1575,27 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   Beim Anlegen wird die nächste freie Nummer vorgeschlagen, und ein
   eingetipptes Komma ("211,1") wird als Punkt gelesen.
 
-### Detailfenster und Bemerkungen
+### Bearbeitungsfenster und Bemerkungen
 
-- Sobald der Cursor in einer Unterposition steht, zeigt das **Detailfenster
-  rechts** diese Zeile gross: Beschrieb, Ausmass/Einheit/Kennwert, die
-  gerechneten Kosten, das Modul und beide Bemerkungsfelder. Dadurch darf die
-  Tabelle selbst schmal und ruhig bleiben. Beide Seiten schreiben in
-  dieselbe Zeile und werden gegenseitig nachgeführt (`setzeFeld()`).
+- Eine Unterposition lässt sich in einem **zentrierten Fenster** gross
+  bearbeiten: Pfad klein oben, Beschrieb, Berechnung,
+  Ausmass/Einheit/Kennwert bzw. Prozentsatz, Kosten inkl. MwSt, Modul,
+  Status, Notizen und Bemerkungen. Dadurch darf die Tabelle selbst schmal
+  und ruhig bleiben; beide Seiten schreiben in dieselbe Zeile und werden
+  gegenseitig nachgeführt (`setzeFeld()`).
+  - **Geöffnet** wird es absichtlich: über das **"⋯"** in der Zeile
+    (Tabelle) oder einen Klick auf die Position (Kapitelansicht). Der Fokus
+    in ein Feld öffnet es bewusst **nicht** — in der Tabelle wird getippt,
+    und ein Fenster, das dabei aufspringt, stört genau dann.
+  - **Geschlossen** wird mit ✕, Esc oder einem Klick neben das Fenster;
+    **gespeichert wird dabei automatisch** (jede Änderung läuft ohnehin über
+    `setzeFeld()`/`mutate()`, beim Schliessen holt `uebernimmOffeneEingabe()`
+    noch das gerade offene Feld ab). Kein Speichern-Knopf, keine Rückfrage —
+    unten steht "Änderungen werden beim Schliessen gespeichert".
+  - Unten rechts führen **"‹ vorherige · nächste ›"** zur Nachbarzeile
+    derselben Position, ohne zu schliessen.
+  - Es ist **modal**: es liegt über der ganzen Seite (z-index 70, also auch
+    über den Dialogen), die Werkzeugleiste ist solange nicht bedienbar.
 - Zwei Textfelder pro Unterposition: **Notizen** (Annahmen, offene Fragen,
   Notizen aus Sitzungen — erscheinen **nie** im Ausdruck) und
   **Bemerkungen** (für den Bauherrn, erscheinen im Ausdruck). Ein kleiner
@@ -1611,7 +1668,7 @@ mitgespeichert.
 |---|---|---|
 | Nur verwendete Positionen | an | Dreistellige Positionen ohne Eintrag weglassen |
 | Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
-| Eigene Unterteilungen einzeln | **aus** | Aus: "211.1 Gerüste" wird in die Position 211 eingerechnet statt separat ausgewiesen (die Summe steckt dort ohnehin schon) |
+| Eigene Unterteilungen einzeln | **aus** | Aus: "211.1 Gerüste" (und alles darunter, z.B. "211.1.1") wird in die Position 211 eingerechnet statt separat ausgewiesen — die Summe steckt dort ohnehin schon |
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Bemerkungen | an | Die Spalte **Notizen** wird nie gedruckt; auf der Positionszeile stehen die Bemerkungen der Unterpositionen zusammengezogen |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |

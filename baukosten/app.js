@@ -68,12 +68,14 @@ let offenFilename = null;
 const ansichtDefaults = { ebene: 1, nurVerwendet: false, bemerkungen: false };
 let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
-// Schritt-für-Schritt-Modus: null = aus, sonst die Nummer der Gruppe, die
-// gerade allein dasteht ("22"). Wie die Ebene bewusst NICHT gemerkt -- eine
-// Schätzung öffnet immer im Überblick, nicht dort, wo jemand zuletzt war.
-let wizard = null;
+// Ansicht: "tabelle" (die lange Liste) oder "kapitel" (eine Ebene auf
+// einmal, wie ein Steuerformular). Der Modus und der gerade offene Knoten
+// werden wie die Ebene bewusst NICHT gemerkt -- eine Schätzung öffnet immer
+// im Überblick, nicht dort, wo jemand zuletzt war.
+let ansichtModus = "tabelle";
+let kapitelKnoten = ""; // "" = Übersicht (alle Hauptgruppen)
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
-let gewaehlteZeile = null; // { nr, id } der im Detailfenster gezeigten Unterposition
+let gewaehlteZeile = null; // { nr, id } der im Bearbeitungsfenster gezeigten Unterposition
 // Zuletzt gerechneter Durchgeh-Status je Knoten. Gebraucht beim Klick auf
 // das Kästchen einer Gruppe: dort wird vom ANGEZEIGTEN (abgeleiteten) Stand
 // aus weitergeschaltet, und der steht nur hier.
@@ -379,15 +381,19 @@ function onKopfModulClick(e) {
 // eigene Ebene 4 und hängt unter "211". Im Katalog selbst kommt keine
 // solche Nummer vor (auch die alte Excel hatte nur die von Hand
 // ergänzte 211.1); sie entstehen ausschliesslich über "+ Unterteilung".
+// Die Tiefe ist bewusst NICHT auf vier Ebenen festgenagelt: "211.1" ist
+// Ebene 4, "211.1.2" Ebene 5 und so weiter. Eigene Unterteilungen lassen
+// sich damit beliebig tief anlegen -- gedacht für eigene Gliederungen
+// unterhalb der Norm (die Ausgabe 2017 kennt mit der "Gattung" selbst schon
+// eine vierte Stelle, darunter kommt Büro-Eigenes).
 function knotenEbene(nr) {
-  if (nr.includes(".")) return 4;
-  return nr.length === 1 ? 1 : nr.length === 2 ? 2 : 3;
+  const punkte = (String(nr).match(/\./g) || []).length;
+  return punkte ? 3 + punkte : String(nr).length;
 }
 function elterNummer(nr) {
-  const e = knotenEbene(nr);
-  if (e === 1) return null;
-  if (e === 4) return nr.slice(0, nr.lastIndexOf("."));
-  return e === 2 ? nr.slice(0, 1) : nr.slice(0, 2);
+  if (nr.includes(".")) return nr.slice(0, nr.lastIndexOf("."));
+  if (nr.length <= 1) return null;
+  return nr.slice(0, nr.length - 1);
 }
 // Alle Vorfahren einer Nummer, von innen nach aussen: "211.1" -> 211, 21, 2
 function vorfahren(nr) {
@@ -509,50 +515,75 @@ function anzahlErfassterPositionen() {
   return Object.keys(offen.positionen || {}).filter((nr) => zeilenVon(nr).length).length;
 }
 
-// ---------- Schritt für Schritt ----------
+// ---------- Kapitelansicht: Navigation über den Baum ----------
 //
-// Wie beim Ausfüllen der Steuererklärung: eine Elementgruppe nach der
-// anderen, alles andere ausgeblendet. Ein Schritt ist eine zweistellige
-// Gruppe ("22 Rohbau 2") -- plus jene Hauptgruppen, die gar keine
-// zweistellige Unterteilung haben (6, 7, 8 "Reserve"), sonst käme man an
-// denen nie vorbei.
-function wizardSchritte() {
+// Wie beim Ausfüllen der Steuererklärung: man sieht immer nur EINE Ebene
+// und klickt sich hinein. Alles hier rechnet über den Baum
+// (alleKnoten()/kinderMap()), nicht über feste Ebenen 1-4 -- eigene
+// Unterteilungen dürfen beliebig tief werden (siehe knotenEbene()).
+
+function kinderVon(nr) {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
+  const liste = nr ? kinder[nr] || [] : knoten.filter((k) => knotenEbene(k.nr) === 1).map((k) => k.nr);
+  return liste;
+}
+
+function istBlattKnoten(nr) {
+  return !!nr && kinderVon(nr).length === 0;
+}
+
+function knotenTitel(nr) {
+  if (!nr) return "Übersicht";
+  return BKP_TITEL[nr] || ((offen.eigenePositionen || []).find((p) => p.nr === nr) || {}).titel || "";
+}
+
+// Weiter/Zurück laufen der Reihe nach durch die BLÄTTER des Baums. Die
+// Nummern sind lexikografisch sortiert ("2" < "21" < "211" < "211.1"), das
+// ist genau die Tiefensuche-Reihenfolge. Mit "Nur verwendete" bleiben die
+// leeren Blätter aussen vor -- sonst klickt man sich durch 450 leere
+// Positionen.
+function kapitelSchritte() {
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  const verwendet = ansicht.nurVerwendet ? verwendeteKnoten() : null;
   return knoten
-    .filter((k) => knotenEbene(k.nr) === 2 || (knotenEbene(k.nr) === 1 && !(kinder[k.nr] || []).length))
+    .filter((k) => !(kinder[k.nr] || []).length)
+    .filter((k) => !verwendet || verwendet.has(k.nr))
     .map((k) => k.nr);
 }
 
-// Sichtbar ist die Gruppe selbst, alles darunter -- und ihre Hauptgruppe
-// als Kopfzeile, damit man weiss, wo man steckt.
-function imWizardSichtbar(nr) {
-  if (!wizard) return true;
-  if (nr === wizard) return true;
-  if (knotenEbene(wizard) === 1) return false; // kinderlose Hauptgruppe: nur sie selbst
-  return nr === wizard.slice(0, 1) || nr.startsWith(wizard);
+function setzeKapitel(nr) {
+  kapitelKnoten = nr || "";
+  gewaehlteZeile = null;
+  render();
+  window.scrollTo(0, 0);
 }
 
-function setzeWizard(nr) {
-  wizard = nr;
-  // Innerhalb der Gruppe alles offen: beim Durchgehen will man die
-  // erfassten Zeilen sehen, nicht erst aufklappen müssen.
-  zugeklappt = new Set();
+function kapitelSchritt(richtung) {
+  const schritte = kapitelSchritte();
+  // Steht man auf einer Gruppe, ist der nächste Schritt ihr erstes Blatt.
+  const i = schritte.indexOf(kapitelKnoten);
+  if (i === -1) {
+    const treffer = richtung > 0
+      ? schritte.find((nr) => nr > kapitelKnoten)
+      : [...schritte].reverse().find((nr) => nr < kapitelKnoten);
+    if (treffer) setzeKapitel(treffer);
+    return;
+  }
+  const ziel = schritte[i + richtung];
+  if (ziel) setzeKapitel(ziel);
+}
+
+function setzeModus(modus) {
+  ansichtModus = modus;
+  if (modus === "kapitel") {
+    suche = "";
+    document.getElementById("sucheInput").value = "";
+    document.getElementById("sucheHinweis").textContent = "";
+  }
   renderToolbar();
   render();
-}
-
-function wizardSchritt(richtung) {
-  const schritte = wizardSchritte();
-  const i = schritte.indexOf(wizard);
-  const ziel = schritte[Math.min(schritte.length - 1, Math.max(0, i + richtung))];
-  if (ziel && ziel !== wizard) setzeWizard(ziel);
-}
-
-function wizardBeenden() {
-  wizard = null;
-  renderToolbar();
-  setzeEbene(ansicht.ebene);
 }
 
 // ---------- Suche ----------
@@ -756,13 +787,15 @@ function totalZelleInhalt(summe) {
 
 function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
-  const indent = e === 1 ? "" : ` bk-indent-${e}`;
+  // Gleich grosse Stufen, beliebig tief -- als Stil statt als Klasse, weil
+  // der Baum keine feste maximale Tiefe mehr hat.
+  const indent = e === 1 ? "" : ` style="padding-left:${10 + (e - 1) * 14}px"`;
   let aktionen = "";
   if (e >= 3) {
     aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
-    if (e === 3) {
-      aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigene Unterteilung wie &quot;211.1 Gerüste&quot; ergänzen">+ Unterteilung</button>`;
-    }
+    // Auch unter einer Unterteilung darf eine weitere entstehen
+    // ("211.1" -> "211.1.2"), siehe knotenEbene().
+    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigene Unterteilung wie &quot;211.1 Gerüste&quot; ergänzen">+ Unterteilung</button>`;
     if (knoten.eigen) {
       aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigene Unterteilung löschen">×</button>`;
     }
@@ -785,7 +818,7 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
     .filter(Boolean)
     .join(" ");
   return `<tr class="${klassen}" data-nr="${knoten.nr}"${klappbar ? "" : ' data-fest="1"'}>
-    <td class="bk-col-nr${indent}">${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
+    <td class="bk-col-nr"${indent}>${statusHtml(knoten.nr, status, istBlatt)}<span class="bk-nr-text">${escapeHtml(knoten.nr)}</span></td>
     <td class="bk-titel" colspan="${titelSpan}">${escapeHtml(knoten.titel)}</td>
     <td class="bk-total bk-right" data-total-for="${knoten.nr}">${totalZelleInhalt(summe)}</td>
     ${restZellen}
@@ -853,7 +886,7 @@ function unterpositionHtml(nr, zeile, cols) {
     } else if (c.key === "extern") {
       zellen += `<td><textarea class="bk-bem" rows="1" data-feld="extern" placeholder="${escapeHtml(c.label)}">${escapeHtml(zeile.extern || "")}</textarea></td>`;
     } else if (c.key === "aktion") {
-      zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
+      zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="bearbeiten" data-nr="${nr}" data-row="${zeile.id}" title="Zeile im Fenster bearbeiten">⋯</button><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
     }
   });
   return `<tr class="bk-sub${gewaehlt}" data-nr="${nr}" data-row="${zeile.id}">${zellen}</tr>`;
@@ -877,7 +910,6 @@ function renderTabelle() {
   let sichtbareZeilen = 0;
 
   knoten.forEach((k) => {
-    if (wizard && !imWizardSichtbar(k.nr)) return;
     if (sucheAktiv) {
       if (!trefferSet.has(k.nr)) return;
     } else {
@@ -948,7 +980,10 @@ function messeSticky() {
 }
 
 function renderEditor() {
-  const { gesamt } = renderTabelle();
+  const kapitel = ansichtModus === "kapitel";
+  document.getElementById("kapitelView").hidden = !kapitel;
+  document.getElementById("tabelleView").hidden = kapitel;
+  const { gesamt } = kapitel ? (renderKapitel(), alleSummen()) : renderTabelle();
   renderKpis(gesamt);
 
   const meta = [projektLabel(offen), offen.genauigkeit, offen.kostenstand ? `Stand ${offen.kostenstand}` : ""]
@@ -973,6 +1008,131 @@ function render() {
   document.getElementById("editorView").style.display = imEditor ? "" : "none";
   if (imEditor) renderEditor();
   else renderList();
+}
+
+// Die Kapitelansicht rechnet ihre Summen und Stände selbst -- sie rendert
+// die Tabelle nicht, die sonst letzterStatus füllt.
+function renderKapitel() {
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  const status = statusBerechnen(knoten, kinder);
+  letzterStatus = status;
+  const { summen, gesamt } = alleSummen();
+  const verwendet = verwendeteKnoten();
+  const summeVon = (nr) => (nr ? summen[nr] || 0 : gesamt);
+
+  // Pfad: nur die Stufen bis hierher, Übersicht zuoberst.
+  const pfad = ["", ...[...vorfahren(kapitelKnoten)].reverse(), ...(kapitelKnoten ? [kapitelKnoten] : [])];
+  document.getElementById("kapPfad").innerHTML = pfad
+    .map((nr, i) => {
+      const aktuell = i === pfad.length - 1;
+      return `<button type="button" class="bk-kap-knopf${aktuell ? " aktuell" : ""}" data-kap-ziel="${escapeHtml(nr)}"${
+        aktuell ? " disabled" : ""
+      }>
+        <span class="nr">${escapeHtml([nr, knotenTitel(nr)].filter(Boolean).join(" "))}</span>
+        <span class="summe">${franken(summeVon(nr))}</span>
+      </button>`;
+    })
+    .join("");
+
+  // Kopf: Titel, Summe und eine Zeile darüber, was hier drinsteckt.
+  const kinderListe = kinderVon(kapitelKnoten).filter((nr) => !ansicht.nurVerwendet || verwendet.has(nr));
+  const blatt = istBlattKnoten(kapitelKnoten);
+  const zeilen = blatt ? zeilenVon(kapitelKnoten) : [];
+  const meta = blatt
+    ? `${zeilen.length} ${zeilen.length === 1 ? "Position" : "Positionen"}`
+    : [
+        `${kinderListe.length} Unterkapitel · ${kinderListe.filter((nr) => verwendet.has(nr)).length} verwendet`,
+        zeilenVon(kapitelKnoten).length
+          ? `${zeilenVon(kapitelKnoten).length} eigene ${zeilenVon(kapitelKnoten).length === 1 ? "Position" : "Positionen"}`
+          : ""
+      ]
+        .filter(Boolean)
+        .join(" · ");
+  document.getElementById("kapKopf").innerHTML = `
+    <div class="titel">
+      <div class="bk-kap-meta">${escapeHtml(
+        [kapitelKnoten ? `Kapitel ${kapitelKnoten}` : "Ganze Schätzung", meta].filter(Boolean).join(" · ")
+      )}</div>
+      <div class="bk-kap-titel">${escapeHtml(knotenTitel(kapitelKnoten))}</div>
+    </div>
+    <div class="bk-kap-summe">
+      <div class="bk-kap-meta">${kapitelKnoten ? "Summe Kapitel" : "Total"}</div>
+      <div class="wert">CHF ${franken(summeVon(kapitelKnoten))}</div>
+    </div>`;
+
+  // Mitte: die direkten Kinder und/oder die eigenen Positionen. Ein Knoten
+  // darf beides haben ("211.1" mit eigenen Zeilen UND der Unterteilung
+  // "211.1.2") -- dann steht beides untereinander, sonst wären die eigenen
+  // Zeilen hier unsichtbar.
+  const eigeneZeilen = zeilenVon(kapitelKnoten);
+  const positionenHtml = (liste) =>
+    liste
+        .map(
+          (z) => `<div class="bk-kap-pos" data-kap-zeile="${z.id}">
+          <span class="bk-kap-zeile-haupt">
+            <span class="bk-kap-zeile-titel">${escapeHtml(z.beschrieb || "(ohne Beschrieb)")}</span>
+            ${z.extern ? `<span class="bk-kap-zeile-sub">${escapeHtml(z.extern)}</span>` : ""}
+          </span>
+          <span class="mass">${escapeHtml(
+            z.basis ? `${zahl(rechne(z.ausmass))} %` : [zahl(rechne(z.ausmass)), z.einheit].filter(Boolean).join(" ")
+          )}</span>
+          <span class="bk-kap-betrag">${zeilenKostenText(z)}</span>
+          <span class="bk-kap-pfeil">›</span>
+        </div>`
+        )
+        .join("") +
+    `<div class="bk-kap-neu"><button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${escapeHtml(
+      kapitelKnoten
+    )}">+ Zeile</button></div>`;
+
+  const ziel = document.getElementById("kapListe");
+  if (blatt) {
+    ziel.innerHTML = positionenHtml(eigeneZeilen);
+  } else if (!kinderListe.length && !eigeneZeilen.length) {
+    ziel.innerHTML = `<div class="bk-kap-leer-hinweis">${
+      ansicht.nurVerwendet ? 'Nichts erfasst — "Nur verwendete" ausschalten.' : "Keine Unterkapitel."
+    }</div>`;
+  } else {
+    ziel.innerHTML = kinderListe
+      .map((nr) => {
+        const blaetter = (kinderVon(nr).length ? blattNummernUnter(nr) : [nr]).filter(Boolean);
+        const fertig = blaetter.filter((b) => STATUS_RANG[status[b] || ""] >= 2).length;
+        const anteil = blaetter.length ? Math.round((fertig / blaetter.length) * 100) : 0;
+        const enkel = kinderVon(nr);
+        const sub = enkel.length
+          ? enkel.slice(0, 3).map((e) => knotenTitel(e)).join(" · ") + (enkel.length > 3 ? " …" : "")
+          : `${zeilenVon(nr).length} ${zeilenVon(nr).length === 1 ? "Position" : "Positionen"}`;
+        return `<div class="bk-kap-zeile${verwendet.has(nr) ? "" : " leer"}" data-kap-ziel="${escapeHtml(nr)}">
+          ${statusHtml(nr, status[nr], !kinderVon(nr).length)}
+          <span class="bk-kap-zeile-haupt">
+            <span class="bk-kap-zeile-titel">${escapeHtml(`${nr} ${knotenTitel(nr)}`)}</span>
+            <span class="bk-kap-zeile-sub">${escapeHtml(sub)}</span>
+          </span>
+          <span class="bk-kap-balken" title="${fertig} von ${blaetter.length} durchgegangen"><i style="width:${anteil}%"></i></span>
+          <span class="bk-kap-betrag">${summen[nr] ? franken(summen[nr]) : "–"}</span>
+          <span class="bk-kap-pfeil">›</span>
+        </div>`;
+      })
+      .join("") + (eigeneZeilen.length ? positionenHtml(eigeneZeilen) : "");
+  }
+
+  // Fuss: der Reihe nach durch die Blätter des Baums.
+  const schritte = kapitelSchritte();
+  const i = schritte.indexOf(kapitelKnoten);
+  const vorheriges = i > 0 ? schritte[i - 1] : [...schritte].reverse().find((nr) => nr < kapitelKnoten);
+  const naechstes = i >= 0 ? schritte[i + 1] : schritte.find((nr) => nr > kapitelKnoten);
+  const navKnopf = (nr, klasse, label) =>
+    `<button type="button" class="bk-kap-nav${klasse}" data-kap-ziel="${escapeHtml(nr || "")}"${nr ? "" : " disabled"}>
+      <span class="label">${label}</span>
+      <span class="ziel">${escapeHtml(nr ? `${nr} ${knotenTitel(nr)}` : "–")}</span>
+    </button>`;
+  document.getElementById("kapFuss").innerHTML =
+    navKnopf(vorheriges, "", "‹ Zurück") +
+    `<span class="bk-kap-stand">${
+      i >= 0 ? `Schritt ${i + 1} von ${schritte.length}` : `${schritte.length} Positionen`
+    }</span>` +
+    navKnopf(naechstes, " weiter", "Weiter ›");
 }
 
 // Nach einer reinen Wertänderung müssen nur die gerechneten Zellen
@@ -1011,19 +1171,20 @@ function autoGrowAlle() {
   document.querySelectorAll("#bkBody textarea").forEach(autoGrow);
 }
 
-// ---------- Detailfenster rechts ----------
-
-// Zeigt die Zeile, in der gerade der Cursor steht, gross an -- inklusive
-// Modul und beider Bemerkungsfelder. Dadurch darf die Tabelle selbst
-// schmal und ruhig bleiben (siehe Layout-Kommentar in index.html).
+// ---------- Bearbeitungsfenster ----------
+//
+// Die Zeile wird in einem zentrierten Overlay bearbeitet statt in einem
+// Fenster rechts: in der Kapitelansicht gäbe es dafür keinen Platz, und in
+// der Tabelle schob sich das Fenster bisher beim blossen Hineinklicken ins
+// Bild. Geöffnet wird es jetzt absichtlich -- über das "⋯" in der Zeile
+// (Tabelle) oder einen Klick auf die Position (Kapitelansicht).
+//
+// Gespeichert wird beim Schliessen: jede Änderung läuft ohnehin schon über
+// setzeFeld()/mutate(), uebernimmOffeneEingabe() holt zusätzlich das gerade
+// offene Feld ab. Deshalb kein Speichern-Knopf und keine Rückfrage.
 function renderPanel() {
   const panel = document.getElementById("detailPanel");
-  if (!gewaehlteZeile) {
-    panel.hidden = true;
-    panel.innerHTML = "";
-    return;
-  }
-  const zeile = zeileSuchen(offen, gewaehlteZeile.id);
+  const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
   if (!zeile) {
     panel.hidden = true;
     panel.innerHTML = "";
@@ -1034,15 +1195,20 @@ function renderPanel() {
   const modulFeld = module_().length
     ? `<label>Modul</label>${modulSelectHtml(zeile, "bk-panel-modul")}`
     : `<label>Modul</label><div class="hint" style="margin:0; font-size:11.5px;">Noch keine Module definiert — in den Kopfdaten anlegen.</div>`;
+  // Pfad klein oben: "2 Gebäude › 22 Rohbau 2 › 224 Bedachungsarbeiten"
+  const pfadText = [...vorfahren(nr)].reverse().concat(nr).map((n) => `${n} ${knotenTitel(n)}`).join(" › ");
+  const geschwister = zeilenVon(nr);
+  const idx = geschwister.findIndex((z) => z.id === zeile.id);
 
   panel.hidden = false;
   panel.innerHTML = `
+    <div class="bk-panel-box">
     <div class="bk-panel-head">
       <div style="flex:1; min-width:0;">
-        <div class="bk-panel-nr">BKP ${escapeHtml(nr)}</div>
-        <div class="bk-panel-pos">${escapeHtml(posTitel)}</div>
+        <div class="bk-panel-pos">${escapeHtml(pfadText)}</div>
+        <div class="bk-panel-nr">${escapeHtml(zeile.beschrieb || posTitel || `BKP ${nr}`)}</div>
       </div>
-      <button type="button" class="bk-row-action" data-panel-action="close" title="Schliessen">×</button>
+      <button type="button" class="bk-row-action" data-panel-action="close" title="Schliessen (Esc)">×</button>
     </div>
     <label>Beschrieb</label>
     <textarea rows="4" data-panel-feld="beschrieb">${escapeHtml(zeile.beschrieb || "")}</textarea>
@@ -1078,9 +1244,46 @@ function renderPanel() {
     <textarea rows="3" data-panel-feld="intern">${escapeHtml(zeile.intern || "")}</textarea>
     <label>Bemerkungen</label>
     <textarea rows="3" data-panel-feld="extern">${escapeHtml(zeile.extern || "")}</textarea>
+    <label>Status</label>
+    <select data-panel-feld="status">
+      ${STATUS_FOLGE.map(
+        (st) =>
+          `<option value="${st}"${(offen.status || {})[nr] === st || (!st && !(offen.status || {})[nr]) ? " selected" : ""}>${escapeHtml(
+            STATUS_LABEL[st]
+          )}</option>`
+      ).join("")}
+    </select>
     <div class="bk-panel-fuss">
       <button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>
+      <span class="bk-panel-hinweis">Änderungen werden beim Schliessen gespeichert · Esc</span>
+      <span class="bk-panel-bl">
+        <button type="button" class="bk-toggle" data-panel-action="prev"${idx <= 0 ? " disabled" : ""}>‹ vorherige</button>
+        <button type="button" class="bk-toggle" data-panel-action="next"${
+          idx < 0 || idx >= geschwister.length - 1 ? " disabled" : ""
+        }>nächste ›</button>
+      </span>
+    </div>
     </div>`;
+}
+
+// Das Overlay schliessen -- offene Eingabe übernehmen, dann neu zeichnen.
+function schliessePanel() {
+  uebernimmOffeneEingabe();
+  gewaehlteZeile = null;
+  document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
+  renderTabelleErhalten();
+}
+
+// Zur vorherigen/nächsten Position derselben BKP-Nummer, ohne zu schliessen.
+function panelNachbar(richtung) {
+  if (!gewaehlteZeile) return;
+  uebernimmOffeneEingabe();
+  const geschwister = zeilenVon(gewaehlteZeile.nr);
+  const i = geschwister.findIndex((z) => z.id === gewaehlteZeile.id);
+  const ziel = geschwister[i + richtung];
+  if (!ziel) return;
+  gewaehlteZeile = { nr: gewaehlteZeile.nr, id: ziel.id };
+  renderTabelleErhalten();
 }
 
 function renderPanelKosten() {
@@ -1091,7 +1294,6 @@ function renderPanelKosten() {
 }
 
 function waehleZeile(nr, rowId) {
-  if (gewaehlteZeile && gewaehlteZeile.id === rowId) return;
   gewaehlteZeile = { nr, id: rowId };
   document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
   const tr = document.querySelector(`#bkBody tr.bk-sub[data-row="${rowId}"]`);
@@ -1396,7 +1598,7 @@ function neueZeile() {
 }
 
 // Einziger Weg, ein Feld einer Unterposition zu ändern -- egal ob die
-// Eingabe aus der Tabelle oder aus dem Detailfenster kam. Danach wird die
+// Eingabe aus der Tabelle oder aus dem Bearbeitungsfenster kam. Danach wird die
 // jeweils ANDERE Darstellung derselben Zeile nachgeführt, damit beide
 // nicht auseinanderlaufen.
 function setzeFeld(nr, rowId, feld, wert, quelle) {
@@ -1477,8 +1679,14 @@ function uebernimmOffeneEingabe() {
 function renderTabelleErhalten() {
   uebernimmOffeneEingabe();
   const scroll = window.scrollY;
-  const { gesamt } = renderTabelle();
-  renderKpis(gesamt);
+  if (ansichtModus === "kapitel") {
+    renderKapitel();
+    renderKpis(alleSummen().gesamt);
+  } else {
+    const { gesamt } = renderTabelle();
+    renderKpis(gesamt);
+  }
+  renderPanel();
   window.scrollTo(0, scroll);
 }
 
@@ -1488,6 +1696,7 @@ function setzeEbene(stufe) {
   ansicht.ebene = stufe;
   saveJSON(LS_KEYS.ansicht, ansicht);
   zugeklappt = new Set();
+  // Stufe 4 heisst "Alles" -- auch Ebene 5 und tiefer bleiben offen.
   if (stufe < 4) {
     alleKnoten().forEach((k) => {
       if (knotenEbene(k.nr) >= stufe) zugeklappt.add(k.nr);
@@ -1504,24 +1713,15 @@ function renderToolbar() {
   document.getElementById("nurVerwendetBtn").classList.toggle("active", ansicht.nurVerwendet);
   document.getElementById("bemerkungenBtn").classList.toggle("active", ansicht.bemerkungen);
 
-  // Im Schritt-für-Schritt-Modus bestimmt der Modus die Tiefe -- die
-  // Ebenen-Knöpfe weichen seiner Navigation.
-  const an = !!wizard;
-  document.getElementById("wizardBtn").classList.toggle("active", an);
-  document.getElementById("ebeneSeg").hidden = an;
-  document.getElementById("ebeneLabel").hidden = an;
-  document.getElementById("wizardNav").hidden = !an;
-  if (!an) return;
-
-  const schritte = wizardSchritte();
-  const i = schritte.indexOf(wizard);
-  const titel = (nr) => BKP_TITEL[nr] || (offen.eigenePositionen.find((p) => p.nr === nr) || {}).titel || "";
-  document.getElementById("wizardSelect").innerHTML = schritte
-    .map((nr) => `<option value="${nr}"${nr === wizard ? " selected" : ""}>${escapeHtml(nr)} ${escapeHtml(titel(nr))}</option>`)
-    .join("");
-  document.getElementById("wizardStand").textContent = `Schritt ${i + 1} von ${schritte.length}`;
-  document.getElementById("wizardZurueck").disabled = i <= 0;
-  document.getElementById("wizardVor").disabled = i >= schritte.length - 1;
+  document.querySelectorAll("#modusSeg button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.modus === ansichtModus);
+  });
+  // In der Kapitelansicht bestimmt der offene Knoten die Tiefe, und
+  // Bemerkungsspalten gibt es dort nicht -- beides weicht.
+  const kapitel = ansichtModus === "kapitel";
+  document.getElementById("ebeneSeg").hidden = kapitel;
+  document.getElementById("ebeneLabel").hidden = kapitel;
+  document.getElementById("bemerkungenBtn").hidden = kapitel;
 }
 
 function umklappen(nr) {
@@ -1549,6 +1749,20 @@ function blattNummernUnter(nr) {
   return knoten
     .filter((k) => k.nr !== nr && vorfahren(k.nr).includes(nr) && !(kinder[k.nr] || []).length)
     .map((k) => k.nr);
+}
+
+// Klicks in der Kapitelansicht: Statuskästchen und "+ Zeile" laufen über
+// dieselbe Logik wie in der Tabelle (onBodyClick), eine Unterposition öffnet
+// die Bearbeitung, alles andere mit data-kap-ziel navigiert.
+function onKapitelClick(e) {
+  if (e.target.closest("[data-action]")) return onBodyClick(e);
+  const pos = e.target.closest("[data-kap-zeile]");
+  if (pos) {
+    waehleZeile(kapitelKnoten, pos.dataset.kapZeile);
+    return;
+  }
+  const ziel = e.target.closest("[data-kap-ziel]");
+  if (ziel && !ziel.disabled) setzeKapitel(ziel.dataset.kapZiel);
 }
 
 function onBodyClick(e) {
@@ -1603,6 +1817,11 @@ function onBodyClick(e) {
     );
     const neuesFeld = document.querySelector(`#bkBody tr.bk-sub[data-row="${zeile.id}"] textarea[data-feld="beschrieb"]`);
     if (neuesFeld) neuesFeld.focus();
+    return;
+  }
+
+  if (action === "bearbeiten") {
+    waehleZeile(nr, row);
     return;
   }
 
@@ -1676,8 +1895,8 @@ function loescheZeile(nr, rowId) {
 // Beim Hineinklicken in ein Ausmass-/Kennwert-Feld erscheint wieder die
 // eingetippte Rechnung statt des Resultats.
 function onBodyFocusIn(e) {
-  const tr = e.target.closest("tr.bk-sub");
-  if (tr) waehleZeile(tr.dataset.nr, tr.dataset.row);
+  // Bewusst KEIN waehleZeile() mehr: das Bearbeitungsfenster soll nicht
+  // aufspringen, nur weil jemand in ein Feld tippt (siehe renderPanel()).
   const input = e.target.closest("input.bk-num");
   if (!input) return;
   input.value = input.dataset.roh || "";
@@ -1717,24 +1936,38 @@ function onBodyInput(e) {
   if (e.target.tagName === "TEXTAREA") autoGrow(e.target);
 }
 
-// ---------- Interaktion: Detailfenster ----------
+// ---------- Interaktion: Bearbeitungsfenster ----------
 
 function onPanelChange(e) {
   const el = e.target.closest("[data-panel-feld]");
   if (!el || !gewaehlteZeile) return;
+  // Der Status gehört zur BKP-Nummer, nicht zur einzelnen Zeile -- er geht
+  // deshalb nicht über setzeFeld().
+  if (el.dataset.panelFeld === "status") {
+    const nr = gewaehlteZeile.nr;
+    const wert = el.value;
+    mutate((data) => {
+      if (!data.status) data.status = {};
+      if (wert) data.status[nr] = wert;
+      else delete data.status[nr];
+      return data;
+    });
+    renderTabelleErhalten();
+    return;
+  }
   setzeFeld(gewaehlteZeile.nr, gewaehlteZeile.id, el.dataset.panelFeld, el.value, "panel");
 }
 
 function onPanelClick(e) {
+  // Klick neben das Fenster schliesst ebenfalls.
+  if (e.target.id === "detailPanel") return schliessePanel();
   const btn = e.target.closest("[data-panel-action]");
   if (!btn || !gewaehlteZeile) return;
-  if (btn.dataset.panelAction === "close") {
-    gewaehlteZeile = null;
-    document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
-    renderPanel();
-  } else if (btn.dataset.panelAction === "delete") {
-    loescheZeile(gewaehlteZeile.nr, gewaehlteZeile.id);
-  }
+  const was = btn.dataset.panelAction;
+  if (was === "close") schliessePanel();
+  else if (was === "delete") loescheZeile(gewaehlteZeile.nr, gewaehlteZeile.id);
+  else if (was === "prev") panelNachbar(-1);
+  else if (was === "next") panelNachbar(1);
 }
 
 // ---------- Interaktion: Liste ----------
@@ -1820,7 +2053,8 @@ function oeffne(filename) {
   suche = "";
   gewaehlteZeile = null;
   document.getElementById("sucheInput").value = "";
-  wizard = null;
+  ansichtModus = "tabelle";
+  kapitelKnoten = "";
   renderToolbar();
   setzeEbene(1); // immer mit dem Überblick anfangen, siehe ansichtDefaults
 }
@@ -2027,10 +2261,10 @@ function druckSeite(opt, modul) {
     const summe = summen[k.nr] || 0;
     const istVerwendet = verwendet.has(k.nr);
 
-    // Eigene Unterteilungen (211.1) werden standardmässig nicht separat
-    // ausgewiesen -- ihre Kosten stecken über die Summen ohnehin schon
-    // in der dreistelligen Position.
-    if (e === 4 && !opt.unterteilungen) return;
+    // Eigene Unterteilungen (211.1, 211.1.1, beliebig tief) werden
+    // standardmässig nicht separat ausgewiesen -- ihre Kosten stecken über
+    // die Summen ohnehin schon in der dreistelligen Position.
+    if (e >= 4 && !opt.unterteilungen) return;
     if (e === 1) {
       if (!opt.alleHauptgruppen && !istVerwendet) return;
     } else if (opt.nurVerwendete && !istVerwendet) {
@@ -2193,14 +2427,11 @@ function init() {
     const btn = e.target.closest("button[data-ebene]");
     if (btn) setzeEbene(Number(btn.dataset.ebene));
   });
-  document.getElementById("wizardBtn").addEventListener("click", () => {
-    if (wizard) wizardBeenden();
-    // Beim Start dort anfangen, wo die erste Gruppe steht.
-    else setzeWizard(wizardSchritte()[0]);
+  document.getElementById("modusSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-modus]");
+    if (btn && btn.dataset.modus !== ansichtModus) setzeModus(btn.dataset.modus);
   });
-  document.getElementById("wizardZurueck").addEventListener("click", () => wizardSchritt(-1));
-  document.getElementById("wizardVor").addEventListener("click", () => wizardSchritt(1));
-  document.getElementById("wizardSelect").addEventListener("change", (e) => setzeWizard(e.target.value));
+  document.getElementById("kapitelView").addEventListener("click", onKapitelClick);
   document.getElementById("nurVerwendetBtn").addEventListener("click", () => {
     ansicht.nurVerwendet = !ansicht.nurVerwendet;
     saveJSON(LS_KEYS.ansicht, ansicht);
@@ -2215,6 +2446,12 @@ function init() {
   });
   document.getElementById("sucheInput").addEventListener("input", (e) => {
     suche = e.target.value;
+    // Gesucht wird in der Tabelle -- dort steht die Trefferliste.
+    if (suche.trim() && ansichtModus === "kapitel") {
+      ansichtModus = "tabelle";
+      renderToolbar();
+      render();
+    }
     renderTabelleErhalten();
     document.getElementById("sucheHinweis").textContent = suche.trim()
       ? "Suche aktiv – Filter und Ein-/Ausklappen ausgesetzt"
@@ -2242,7 +2479,7 @@ function init() {
   document.getElementById("helpBtn").addEventListener("click", () => overlay("helpOverlay", true));
   document.getElementById("closeHelp").addEventListener("click", () => overlay("helpOverlay", false));
 
-  // ⌘K / Ctrl+K springt ins Suchfeld, Escape schliesst das Detailfenster
+  // ⌘K / Ctrl+K springt ins Suchfeld, Escape schliesst das Bearbeitungsfenster
   // bzw. leert die Suche.
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && offen) {
@@ -2258,9 +2495,7 @@ function init() {
         suche = "";
         renderTabelleErhalten();
       } else if (gewaehlteZeile) {
-        gewaehlteZeile = null;
-        document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
-        renderPanel();
+        schliessePanel();
       }
     }
   });
