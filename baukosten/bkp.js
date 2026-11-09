@@ -26,17 +26,16 @@
 
    ----- Woher die Daten stammen -----
 
-   Beide Quellen liegen im Ordner "Claude outputs/Kapitelansicht/", der
-   NICHT im Repo ist (.git/info/exclude) -- sie liegen nur lokal.
+   Die Quelldateien lagen nur lokal und sind nach dem Umstieg auf die
+   Nextcloud-Fassung gelöscht worden; der Katalog hier ist das Ergebnis.
 
-   Hauptgruppe 1 und 2: SN 506 500:2017, abgeglichen gegen den Scan des
-   Verzeichnisses (Kap. 5.1) -- die verlässlichste Quelle, die wir haben.
-   Siehe "Claude outputs/Kapitelansicht/bkp_2017_gattungen.json".
+   Hauptgruppe 1 und 2: SN 506 500:2017, aus der öffentlich zugänglichen
+   gekürzten CRB-Fassung, abgeglichen gegen einen Scan des Verzeichnisses
+   (Kap. 5.1).
 
    Hauptgruppe 0, 3, 4, 5 und 9: "gesamtes BKP cbr 2017" der Dienststelle
-   Immobilien Luzern (26.11.2024), siehe
-   "Claude outputs/Kapitelansicht/23_032_W_Gesamt_Katalog_BKP_IMMO.pdf".
-   Das ist ein Hauskatalog, kein Normabdruck -- deshalb bewusst bereinigt:
+   Immobilien Luzern (26.11.2024, öffentliches PDF). Das ist ein
+   Hauskatalog, kein Normabdruck -- deshalb bewusst bereinigt:
 
    - Die Übergangspositionen (x_0) fehlen dort ab Hauptgruppe 3; sie sind
      aus der Ausgabe 1991 ergänzt, weil die geprüfte Norm sie in

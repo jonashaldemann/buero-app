@@ -1364,8 +1364,8 @@ ergänzbar, Reihenfolge beibehalten.
 ##### Woher der Grundkatalog im Repo stammt
 
 Die Norm ist kostenpflichtig, deshalb ist `bkp.js` aus zwei öffentlichen
-Quellen zusammengesetzt (beide liegen lokal, nicht im Repo — der
-Dateikopf von `bkp.js` sagt im Detail, was bereinigt wurde):
+Quellen zusammengesetzt (der Dateikopf von `bkp.js` sagt im Detail, was
+bereinigt wurde):
 
 - **Hauptgruppe 1 und 2** aus der Ausgabe 2017, abgeglichen gegen einen
   Scan des Verzeichnisses (Kap. 5.1) — die verlässlichste Quelle.
