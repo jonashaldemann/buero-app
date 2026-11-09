@@ -65,8 +65,8 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Leere laufen), `finanzplanung/` (Liquiditätsplanung pro Kalenderjahr, ein
   File pro Jahr statt einer gemeinsamen Datei — siehe README),
   `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
-  BKP-Katalog selbst liegt als `baukosten/bkp.js` im Repo und ist für alle
-  Schätzungen gleich, die Datei enthält nur das tatsächlich Erfasste).
+  BKP-Katalog ist für alle Schätzungen gleich und liegt auf Nextcloud,
+  siehe unten -- die Datei enthält nur das tatsächlich Erfasste).
 - **Bearbeitungsfenster `baukosten/` ist ein Overlay** (`#detailPanel`,
   `renderPanel()`), kein Fenster rechts mehr: in der Kapitelansicht gäbe es
   dafür keinen Platz. Es öffnet nur ABSICHTLICH -- über "⋯" in der
@@ -104,15 +104,30 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
   offener Knoten werden wie die Ebene bewusst nicht gemerkt.
-- **Katalog `baukosten/bkp.js` ist die Ausgabe 2017** (876 Nummern, seit
-  November 2026; davor 1991). Ebene 4, die **Gattung** ("211.5 Beton- und
-  Stahlbetonarbeiten"), gehört damit zum KATALOG und ist nicht mehr
-  Büro-Eigenes. Der Dateikopf von `bkp.js` hält ausführlich fest, aus
-  welchen zwei Quellen er zusammengesetzt ist und was daran bereinigt wurde
-  (Hauptgruppe 7/8 bleiben Reserve statt Spital-Inventar, 57/59 bewusst
-  weg, 58 aus 1991 behalten) -- diesen Kommentar lesen, bevor jemand den
-  Katalog anfasst. Die Quelldateien liegen in `Claude outputs/Kapitelansicht/`
-  und sind NICHT im Repo.
+- **Der BKP-Katalog liegt auf NEXTCLOUD, nicht im Repo**: die vollständige
+  Norm SN 506 500:2017 (920 Nummern) ist urheberrechtlich geschützt (CRB)
+  und steht als `_bkp_katalog.json` in `Buero/Admin/App/Baukosten`, neben
+  den Kostenschätzungen. `ladeKatalog()` holt sie nach dem Anmelden und
+  legt sie im `localStorage` ab (Offline). Sie darf NIE ins Repo --
+  `.gitignore` fängt eine Arbeitskopie ab. Format: `{ norm, ..., katalog:
+  [[nr, titel], ...] }`, also dieselbe flache Liste wie `BKP_KATALOG`.
+  Dateien mit `_` am Anfang werden in diesem Ordner nicht als Schätzung
+  aufgelistet (`listFilenames()`), wie `_optionen.json`/`_absender.json`.
+- **`baukosten/bkp.js` ist nur der GRUNDKATALOG** (876 Nummern, Ausgabe
+  2017, aus öffentlichen Quellen zusammengesetzt -- sein Dateikopf sagt
+  woher und was bereinigt wurde). Er gilt im Demomodus (dort bewusst, die
+  Demodaten passen dazu) und beim allerersten Start ohne Netz; dann warnt
+  die Sync-Zeile. Er ist nachweislich ungenauer als die Norm (ihm fehlen
+  57/58/59 und rund 60 Gattungen, dafür hat er die Luzerner 415.1-416.7,
+  die es gar nicht gibt). Änderungen am Katalog gehören auf Nextcloud.
+- **Ohne die Norm wird NICHT migriert** (`katalogIstVollstaendig()`):
+  `migriereAuf2017()` würde sonst Zeilen in eigene Unterkapitel umhängen,
+  bloss weil die Datei gerade fehlt. Sichtbar bleiben sie trotzdem --
+  `unbekannteKnoten()` hängt jede Nummer mit Zeilen in den Baum, notfalls
+  mit Ersatztitel. Dieses Sicherheitsnetz speichert nichts.
+- **Ebene 4, die Gattung** ("211.5 Beton- und Stahlbetonarbeiten"), gehört
+  zum Katalog und ist nicht mehr Büro-Eigenes (seit November 2026, davor
+  lief alles auf der Ausgabe 1991).
 - **Bestehende Schätzungen fängt `migriereAuf2017()` auf** (app.js, läuft
   aus `migriere()` bei jedem Öffnen, idempotent): Zeilen unter 2017
   gestrichenen Nummern werden zu eigenen Unterkapiteln mit ihrem alten

@@ -45,10 +45,61 @@
 
 const LS_KEYS = {
   cache: "baukosten_cache",
-  ansicht: "baukosten_ansicht"
+  ansicht: "baukosten_ansicht",
+  katalog: "baukosten_katalog_cache" // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
 };
 
 const BAUKOSTEN_TARGET_FOLDER_PATH = appModuleFolderPath("Baukosten");
+
+// ---------- BKP-Katalog: Norm von Nextcloud, Grundkatalog aus dem Repo ----------
+//
+// Die vollständige Norm SN 506 500:2017 ist urheberrechtlich geschützt und
+// darf nicht ins öffentliche Repo. Sie liegt deshalb als "_bkp_katalog.json"
+// neben den Kostenschätzungen auf Nextcloud und wird nach dem Anmelden
+// geladen. Ohne sie (Demomodus, erster Start ohne Netz) gilt der
+// mitgelieferte Grundkatalog aus bkp.js -- gröber und an ein paar Stellen
+// abweichend, aber brauchbar.
+//
+// Woher der gerade gültige Katalog stammt, entscheidet zweierlei: ob die
+// Sync-Zeile warnt, und ob migriereAuf2017() laufen darf. Gegen einen
+// unvollständigen Katalog zu migrieren würde Zeilen in eigene Unterkapitel
+// umhängen, nur weil die Norm gerade nicht da ist.
+const KATALOG_FILENAME = "_bkp_katalog.json";
+let katalogListe = BKP_KATALOG;
+let katalogTitel = BKP_TITEL;
+let katalogQuelle = "repo"; // "repo" | "cache" | "nextcloud"
+
+function setzeKatalog(liste, quelle) {
+  if (!Array.isArray(liste) || !liste.length) return false;
+  katalogListe = liste;
+  katalogTitel = Object.fromEntries(liste);
+  katalogQuelle = quelle;
+  return true;
+}
+
+// Nur mit der echten Norm (frisch oder aus dem Cache) darf eine Schätzung
+// umgeschrieben werden.
+function katalogIstVollstaendig() {
+  return katalogQuelle !== "repo" || istDemo();
+}
+
+// Erst den Cache (sofort da, auch offline), dann die Datei auf Nextcloud.
+// Schlägt beides fehl, bleibt der Grundkatalog aus bkp.js stehen.
+async function ladeKatalog() {
+  // Der Demomodus zeigt bewusst den öffentlichen Grundkatalog -- sonst
+  // sähe er nach einem früheren Login plötzlich anders aus als bei allen
+  // anderen, und die Demodaten passen zu bkp.js.
+  if (istDemo()) return;
+  const zwischenstand = loadJSON(LS_KEYS.katalog, null);
+  if (zwischenstand) setzeKatalog(zwischenstand.katalog, "cache");
+  if (!isConfigured()) return;
+  try {
+    const daten = await fetchFile(KATALOG_FILENAME); // 404 -> null, kein Fehlerfall
+    if (daten && setzeKatalog(daten.katalog, "nextcloud")) saveJSON(LS_KEYS.katalog, daten);
+  } catch (e) {
+    /* offline o.ä. -- Cache bzw. Grundkatalog bleibt stehen */
+  }
+}
 
 let schaetzungen = loadJSON(LS_KEYS.cache, []); // [{ filename, data }]
 let projectList = appConfig.projekte;
@@ -426,7 +477,7 @@ function nummerVergleich(a, b) {
 
 // Ein Knoten gehört entweder dem Katalog oder dieser Schätzung allein.
 function istEigen(nr) {
-  return !!nr && !BKP_TITEL[nr];
+  return !!nr && !katalogTitel[nr];
 }
 
 // Wie ein Knoten angeschrieben wird. Katalogknoten tragen ihre Nummer vor
@@ -444,12 +495,38 @@ function knotenLabel(nr) {
 // sortiert (siehe nummerVergleich()).
 function alleKnoten() {
   const eigene = (offen && offen.eigenePositionen) || [];
-  const knoten = BKP_KATALOG.map(([nr, titel]) => ({ nr, titel, eigen: false }));
-  eigene.forEach((p) => {
-    if (!BKP_TITEL[p.nr]) knoten.push({ nr: p.nr, titel: p.titel, eigen: true });
-  });
+  const knoten = katalogListe.map(([nr, titel]) => ({ nr, titel, eigen: false }));
+  const belegt = new Set(knoten.map((k) => k.nr));
+  const ergaenze = (nr, titel) => {
+    if (belegt.has(nr)) return;
+    belegt.add(nr);
+    knoten.push({ nr, titel, eigen: true });
+  };
+  eigene.forEach((p) => ergaenze(p.nr, p.titel));
+  Object.entries(unbekannteKnoten()).forEach(([nr, titel]) => ergaenze(nr, titel));
   knoten.sort((a, b) => nummerVergleich(a.nr, b.nr));
   return knoten;
+}
+
+// Sicherheitsnetz: Nummern, unter denen Zeilen hängen, die aber weder der
+// Katalog noch die eigenen Unterkapitel kennen -- samt ihren fehlenden
+// Vorfahren. Das passiert, wenn die Norm von Nextcloud gerade nicht da ist
+// und der gröbere Grundkatalog aus bkp.js gilt, oder bei einer Datei aus
+// der Ausgabe 1991. Ohne Knoten wären solche Zeilen unsichtbar, würden
+// aber weiter ins Total zählen. Gespeichert wird hier NICHTS -- das macht
+// migriereAuf2017(), und nur mit vollständigem Katalog.
+function unbekannteKnoten() {
+  const map = {};
+  if (!offen) return map;
+  const eigene = offen.eigenePositionen || [];
+  Object.keys(offen.positionen || {}).forEach((nr) => {
+    if (!zeilenVon(nr).length) return;
+    [...vorfahren(nr), nr].forEach((n) => {
+      if (katalogTitel[n] || eigene.some((p) => p.nr === n)) return;
+      map[n] = BKP_ENTFALLEN_1991[n] ? `${BKP_ENTFALLEN_1991[n]} (BKP ${n})` : `BKP ${n}`;
+    });
+  });
+  return map;
 }
 
 function zeilenVon(nr) {
@@ -579,7 +656,12 @@ function istBlattKnoten(nr) {
 
 function knotenTitel(nr) {
   if (!nr) return "Übersicht";
-  return BKP_TITEL[nr] || ((offen.eigenePositionen || []).find((p) => p.nr === nr) || {}).titel || "";
+  return (
+    katalogTitel[nr] ||
+    ((offen.eigenePositionen || []).find((p) => p.nr === nr) || {}).titel ||
+    unbekannteKnoten()[nr] ||
+    ""
+  );
 }
 
 // Weiter/Zurück laufen der Reihe nach durch die BLÄTTER des Baums. Die
@@ -1375,7 +1457,10 @@ async function listFilenames() {
   const doc = new DOMParser().parseFromString(await res.text(), "application/xml");
   return Array.from(doc.getElementsByTagNameNS("DAV:", "href"))
     .map((el) => decodeURIComponent(el.textContent.replace(/\/$/, "").split("/").pop() || ""))
-    .filter((name) => name.toLowerCase().endsWith(".json"));
+    // Dateien mit "_" am Anfang sind Stammdaten, keine Kostenschätzung
+    // (hier "_bkp_katalog.json") -- gleiche Konvention wie "_optionen.json"
+    // in der Adressliste und "_absender.json" bei den Offerten.
+    .filter((name) => name.toLowerCase().endsWith(".json") && !name.startsWith("_"));
 }
 
 async function fetchFile(filename) {
@@ -1421,6 +1506,9 @@ async function refreshAlle() {
   setSyncLine("Lädt…");
   try {
     await ensureBkFolder();
+    // Der Katalog MUSS vor den Schätzungen stehen: migriere() entscheidet
+    // anhand von ihm, was eine unbekannte Nummer ist.
+    await ladeKatalog();
     const filenames = await listFilenames();
     const geladen = await Promise.all(
       filenames.map(async (filename) => {
@@ -1436,7 +1524,11 @@ async function refreshAlle() {
     );
     schaetzungen = geladen.filter(Boolean);
     saveJSON(LS_KEYS.cache, schaetzungen);
-    setSyncLine("Synchronisiert");
+    setSyncLine(
+      katalogQuelle === "repo"
+        ? `Synchronisiert · BKP-Katalog fehlt (${KATALOG_FILENAME}) — es gilt der gröbere Grundkatalog`
+        : "Synchronisiert"
+    );
     // Eine offene Schätzung auf den frischen Serverstand heben (z.B. nach
     // dem Zurückkehren aus einem anderen Tab).
     if (offenFilename) {
@@ -1483,8 +1575,12 @@ function migriere(data) {
 // beim Öffnen einer älteren Datei zweierlei aufgefangen werden. Beides ist
 // idempotent -- beim zweiten Mal findet die Funktion nichts mehr.
 function migriereAuf2017(data) {
+  // Ohne die Norm von Nextcloud würde hier gegen den gröberen Grundkatalog
+  // migriert -- Zeilen landeten in eigenen Unterkapiteln, bloss weil die
+  // Datei gerade fehlt. Sichtbar bleiben sie auch so (unbekannteKnoten()).
+  if (!katalogIstVollstaendig()) return;
   const eigene = data.eigenePositionen;
-  const belegt = (nr) => !!BKP_TITEL[nr] || eigene.some((p) => p.nr === nr);
+  const belegt = (nr) => !!katalogTitel[nr] || eigene.some((p) => p.nr === nr);
 
   // Eine Nummer samt allem darunter umhängen.
   const umbenennen = (alt, neu) => {
@@ -1508,7 +1604,7 @@ function migriereAuf2017(data) {
   // mit Titel und Zeilen neben der Gattung. Zusammenlegen ist Handarbeit --
   // ob dasselbe gemeint war, darf die App nicht raten.
   for (let schutz = 0; schutz < 500; schutz++) {
-    const treffer = eigene.find((p) => BKP_TITEL[p.nr]);
+    const treffer = eigene.find((p) => katalogTitel[p.nr]);
     if (!treffer) break;
     const eltern = elterNummer(treffer.nr);
     let i = 10;
@@ -1844,7 +1940,7 @@ function umklappen(nr) {
 function naechsteUnterteilung(nr) {
   const vergeben = new Set(((offen && offen.eigenePositionen) || []).map((p) => p.nr));
   let i = 10;
-  while (vergeben.has(`${nr}.${i}`) || BKP_TITEL[`${nr}.${i}`]) i++;
+  while (vergeben.has(`${nr}.${i}`) || katalogTitel[`${nr}.${i}`]) i++;
   return `${nr}.${i}`;
 }
 
@@ -2642,6 +2738,10 @@ function init() {
   messeSticky();
 
   window.addEventListener("online", refreshAlle);
+
+  // Der Katalog aus dem localStorage steht sofort, auch offline und bevor
+  // refreshAlle() ihn frisch holt.
+  ladeKatalog();
 
   render();
   refreshAppData();
