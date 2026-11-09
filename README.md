@@ -1409,12 +1409,15 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   Positionen, ein Fortschrittsbalken (Anteil der Blätter darunter mit
   "erledigt" oder "Vieraugenprinzip"), die Summe und ein "›". Ein Klick auf
   die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
-- Auf einem **Blatt** (dreistellige Position ohne eigene Unterteilung, oder
-  eine eigene Unterteilung wie "211.1") stehen dort die **Unterpositionen**
-  — Beschrieb, Bemerkung, Ausmass, Summe — plus "+ Zeile". Ein Klick öffnet
-  das Bearbeitungsfenster.
+- Auf einem **Blatt** (dreistellige Position ohne eigenes Unterkapitel,
+  oder ein eigenes Unterkapitel wie "101.1") stehen dort die
+  **Unterpositionen** — Beschrieb, Bemerkung, Ausmass, Summe. Ein Klick
+  öffnet das Bearbeitungsfenster.
+- Unter der Liste stehen auf jeder Position **"+ Zeile"** und
+  **"+ Unterkapitel"** (siehe unten) — auch auf einem Knoten, der schon
+  Unterkapitel hat.
 - Hat ein Knoten **beides** (Unterkapitel *und* eigene Positionen, z.B.
-  "211.1" mit einer eigenen Zeile und der Unterteilung "211.1.1"), stehen
+  "211.1" mit einer eigenen Zeile und dem Unterkapitel "211.1.1"), stehen
   beide Listen untereinander — sonst wären die eigenen Zeilen hier
   unsichtbar.
 - **Unten** "‹ Zurück" und "Weiter ›" mit dem Namen des vorherigen bzw.
@@ -1432,7 +1435,7 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   gemerkt; beim Öffnen gilt die Startsicht (Tabelle, Ebene 1).
 
 Die Navigation rechnet durchgehend über den Baum (`alleKnoten()`,
-`kinderMap()`), nicht über feste Ebenen 1–4 — eigene Unterteilungen dürfen
+`kinderMap()`), nicht über feste Ebenen 1–4 — eigene Unterkapitel dürfen
 beliebig tief werden (siehe unten). Diese Ansicht hat den früheren Modus
 "Schritt für Schritt" abgelöst, der immer eine ganze zweistellige Gruppe
 zeigte.
@@ -1462,7 +1465,7 @@ allein wäre ein zu feiner Unterschied, wenn nur noch ein 19 × 15 Pixel
 grosses Kästchen den Stand zeigt.
 
 Nach dem Vieraugenprinzip geht es wieder auf "offen". Gespeichert wird der Stand
-nur an den **Blättern** (dreistellige Positionen, eigene Unterteilungen und
+nur an den **Blättern** (dreistellige Positionen, eigene Unterkapitel und
 jene Reservegruppen ohne Positionen). Eine **Gruppe rechnet ihren Stand aus
 den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens
 erreicht haben (`statusBerechnen()`). Das Kästchen einer Elementgruppe wird
@@ -1559,14 +1562,23 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   draussen bleiben, sehen auch mehrere davon dieselbe Grundlage und
   beeinflussen sich nicht gegenseitig (`basisBetrag()` in
   `baukosten/app.js`).
-- **Eigene Unterteilung einer Position**: "+ Unterteilung" ergänzt eine
-  Nummer wie "211.1 Gerüste", wenn der Standard-BKP zu grob ist. Sie gilt
-  nur für diese eine Kostenschätzung. Das geht **beliebig tief**: unter
-  "211.1" lässt sich "211.1.1" anlegen und so weiter — gedacht für eigene
-  Gliederungen unterhalb der Norm (die BKP-Ausgabe 2017 kennt mit der
-  "Gattung" selbst schon eine vierte Stelle, darunter kommt Büro-Eigenes).
-  Die Ebene rechnet sich aus der Nummer (`knotenEbene()`: drei Stellen plus
-  eine Ebene je Punkt), nirgends steht eine feste maximale Tiefe.
+- **Eigene Unterkapitel**: "+ Unterkapitel" ergänzt unter einer Position
+  eine Nummer wie "101.1 Planaufnahmen", wenn der Standard-BKP zu grob ist —
+  und darunter bei Bedarf "101.1.1" und so weiter, **beliebig tief**. Das
+  gilt nur für diese eine Kostenschätzung.
+  - **"+ Zeile" und "+ Unterkapitel" stehen auf jeder Ebene ab der
+    dreistelligen Position nebeneinander**: jedes Kapitel kann eigene Zeilen
+    *und* weitere Unterkapitel haben. Auf Haupt- und Elementgruppen gibt es
+    beides nicht — deren Gliederung gibt die Norm vor.
+  - Ein neues Unterkapitel wird **ohne Zeile** angelegt (wer gleich erfassen
+    will, nimmt "+ Zeile"), damit sich auch bloss ein Kapitelbaum aufbauen
+    lässt, ohne jedes Mal eine leere Zeile wegzuräumen. In der
+    Kapitelansicht springt die Ansicht gleich hinein.
+  - Die Ebene rechnet sich aus der Nummer (`knotenEbene()`: drei Stellen
+    plus eine Ebene je Punkt), nirgends steht eine feste maximale Tiefe —
+    gedacht für eigene Gliederungen unterhalb der Norm (die BKP-Ausgabe 2017
+    kennt mit der "Gattung" selbst schon eine vierte Stelle, darunter kommt
+    Büro-Eigenes).
   Eine Nummer mit Punkt ist im BKP ein **Teil** der dreistelligen Position,
   nicht deren Nachbar — sie bekommt deshalb eine eigene Ebene 4 und hängt
   unter "211": ihre Kosten zählen in 211 hinein, von dort in 21 und 2
@@ -1608,7 +1620,7 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   der Spalte "Bemerkungen" die Bemerkungen aller ihrer Unterpositionen
   kommagetrennt hintereinander ("Zumauern Türöffnungen, Neue Trennwände,
   Zumauern Fensteröffnungen") — man sieht also auch zugeklappt, was in der
-  Position steckt. Die Kosten einer eigenen Unterteilung ("211.1") zählen
+  Position steckt. Die Kosten eines eigenen Unterkapitels ("211.1") zählen
   in 211 hinein, ihre Bemerkungen deshalb auch. Nur die **Bemerkungen**
   werden zusammengezogen, nie die Notizen; derselbe Text steht im Ausdruck
   in der zusammengefassten Positionszeile (`bemerkungenZusammen()`).
@@ -1668,7 +1680,7 @@ mitgespeichert.
 |---|---|---|
 | Nur verwendete Positionen | an | Dreistellige Positionen ohne Eintrag weglassen |
 | Alle Hauptgruppen, auch leere | an | Die einstelligen Gruppen 0–9 erscheinen immer, damit die Gliederung vollständig bleibt |
-| Eigene Unterteilungen einzeln | **aus** | Aus: "211.1 Gerüste" (und alles darunter, z.B. "211.1.1") wird in die Position 211 eingerechnet statt separat ausgewiesen — die Summe steckt dort ohnehin schon |
+| Eigene Unterkapitel einzeln | **aus** | Aus: "101.1 Planaufnahmen" (und alles darunter, z.B. "101.1.1") wird in die Position 101 eingerechnet statt separat ausgewiesen — die Summe steckt dort ohnehin schon |
 | Unterpositionen einzeln | **aus** | Aus: nur die Positionssummen; die Beschriebe der Unterpositionen werden in der Positionszeile zusammengefasst (wie es in der Excel die `TEXTJOIN`-Formel tat). Ausmass/Einheit/Kennwert bleiben dann leer, sobald mehr als eine Unterposition dahintersteckt — eine Summe aus "m²" und "Stk" wäre schlicht falsch |
 | Bemerkungen | an | Die Spalte **Notizen** wird nie gedruckt; auf der Positionszeile stehen die Bemerkungen der Unterpositionen zusammengezogen |
 | Module als Spalten | aus | Je Modul eine Kostenspalte; die Spalte "Kosten" bleibt die Gesamtsumme |

@@ -72,7 +72,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   dafür keinen Platz. Es öffnet nur ABSICHTLICH -- über "⋯" in der
   Tabellenzeile oder einen Klick auf eine Position in der Kapitelansicht;
   der Fokus in ein Feld öffnet es bewusst nicht mehr (das störte beim
-  schnellen Erfassen). Geschlossen wird mit ✕/Esc/Klick daneben, gespeichert
+  schnellen Erfassen). "+ Zeile" öffnet es NUR in der Kapitelansicht (dort
+  gibt es keine Eingabefelder in der Liste); in der Tabelle würde es die
+  neue Zeile zudecken, in die man gerade tippt. Geschlossen wird mit ✕/Esc/Klick daneben, gespeichert
   dabei automatisch (`schliessePanel()` ruft `uebernimmOffeneEingabe()`).
   z-index 70, also über Kopfblock (30) und Dialogen (60). Es ist modal:
   solange es offen ist, ist die Toolbar nicht bedienbar -- Tests müssen es
@@ -104,9 +106,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   offener Knoten werden wie die Ebene bewusst nicht gemerkt.
 - **Baumtiefe `baukosten/` ist offen**: `knotenEbene()` ist drei Stellen
   plus eine Ebene je Punkt ("211.1.2" = Ebene 5), `elterNummer()` schneidet
-  entsprechend. "+ Unterteilung" gibt es deshalb auf JEDER Ebene ab der
-  dreistelligen Position, und die Einrückung in der Tabelle setzt app.js
-  als Stil statt über feste `bk-indent-*`-Klassen. Nichts darf wieder
+  entsprechend. "+ Zeile" UND "+ Unterkapitel" (früher "+ Unterteilung")
+  gibt es deshalb auf JEDER Ebene ab der dreistelligen Position -- in der
+  Tabelle wie in der Kapitelansicht (`kapitelAktionen()`); ein Knoten darf
+  eigene Zeilen und Unterkapitel gleichzeitig haben. Ein neues Unterkapitel
+  entsteht OHNE erste Zeile (nur Gliederung). Die Einrückung in der Tabelle
+  setzt app.js als Stil statt über feste `bk-indent-*`-Klassen. Nichts darf wieder
   gegen Ebene 4 als Maximum programmiert werden -- eigene Gliederungen
   unterhalb der Norm sind ausdrücklich vorgesehen.
   (`Claude outputs/Kapitelansicht/bkp_2017_gattungen.json` zeigt die Norm
