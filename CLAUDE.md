@@ -157,6 +157,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   im Fuss, in den Kacheln und in den optionalen Modulspalten. Die frühere
   Unterscheidung "Im Total"/"Zusätzlich" samt violettem "+" ist entfernt;
   alle Module sind gleich.
+- **Bemerkungen `adressliste/` sind ein Verlauf**: `bemerkungen` ist ein
+  Array `[{ at, von, text }]`, neueste zuoberst -- kein Freitextfeld mehr.
+  Gelesen wird über `bemerkungenListe()`, das den FRÜHEREN Freitext-String
+  weiterhin akzeptiert und als einen Eintrag liefert (Datum/Person aus
+  `updatedAt`/`updatedBy`); bestehende Dateien wandern beim nächsten
+  Speichern von selbst ins neue Format, es muss keine angefasst werden.
+  Tabelle, Filter und CSV-Export gehen über `bemerkungenText()`.
 - **Demomodus**: ohne gespeicherte Zugangsdaten antwortet statt des
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der

@@ -898,6 +898,26 @@ das Browserfenster.
   Ansicht (die ursprüngliche bleibt unverändert erhalten) — nur bei einem
   Namen, der bereits einer anderen Ansicht gehört, fragt die App vor dem
   Überschreiben nach.
+- **Bemerkungen sind ein Verlauf**, kein Freitextfeld: jeder Eintrag hält
+  fest, **wann** und von **wem** er stammt. Im Editor steht oben ein Feld für
+  die neue Bemerkung ("+ Eintrag"), darunter die bisherigen als
+  Bulletpoints, **neueste zuoberst** ("04.11.2026, 10:15 · Anna — Vorprojekt
+  besprochen"). Wer etwas ergänzt, überschreibt damit nichts — bei einem
+  Adressbuch, in dem zwei Leute über Jahre Notizen hinterlassen ("Offerte
+  angefragt", "zieht um"), ist genau das der Zweck. Ein kleines "×" entfernt
+  einen Eintrag wieder (Vertipper sollen sich korrigieren lassen). Steht
+  beim Speichern noch Text im Eingabefeld, wird er automatisch als Eintrag
+  übernommen, damit nichts verloren geht.
+  - In der **Tabelle**, im **Filter** und im **CSV-Export** erscheinen die
+    Texte einzeilig hintereinander (neueste zuerst, mit " · " getrennt) —
+    dort ist kein Platz für Datum und Person, der Text bleibt aber
+    durchsuchbar.
+  - **Gespeichert** wird ein Array `[{ at, von, text }]`. Eine frühere
+    Freitext-Bemerkung wird weiterhin gelesen und als ein Eintrag gezeigt
+    (mit `updatedAt`/`updatedBy` als bester Näherung für Datum und Person);
+    beim nächsten Speichern wandert sie von selbst ins neue Format
+    (`bemerkungenListe()` in `adressliste/app.js`). Es muss also keine
+    bestehende Datei angefasst werden.
 - **Gleichzeitige Bearbeitung**: weil jeder Kontakt eine eigene Datei ist,
   können zwei Personen problemlos gleichzeitig verschiedene Einträge
   bearbeiten. Für den selteneren Fall, dass zwei Personen genau denselben
@@ -911,7 +931,9 @@ das Browserfenster.
   verhindert aber, dass eine fremde Änderung stillschweigend verloren geht.
 - **CSV-Import**: am Ende der Seite lässt sich eine CSV-Datei importieren
   (Spalten Kategorie, Status, Kontaktperson, Vorname, Name, Firma, Strasse,
-  Ort, Tel, Mail, Website, Bemerkungen, Projekte, Weihnachtskarte). Jede
+  Ort, Tel, Mail, Website, Bemerkungen, Projekte, Weihnachtskarte; eine
+  importierte Bemerkung wird zum ersten Verlaufseintrag, mit dem
+  Importdatum und der importierenden Person). Jede
   Zeile wird als **neuer** Kontakt angelegt, ohne Abgleich mit bestehenden
   Einträgen — für den einmaligen Start mit einer bestehenden Liste gedacht,
   nicht für wiederholte Abgleiche.

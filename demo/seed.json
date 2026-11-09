@@ -1006,7 +1006,18 @@
     "tel": "044 123 45 67",
     "mail": "m.degen@example.ch",
     "website": "",
-    "bemerkungen": "Bauherrin Wohnhaus Seestrasse",
+    "bemerkungen": [
+      {
+        "at": "2026-10-22T10:00:00.000Z",
+        "von": "Demo",
+        "text": "Bauherrin Wohnhaus Seestrasse"
+      },
+      {
+        "at": "2026-11-04T09:15:00.000Z",
+        "von": "Anna",
+        "text": "Vorprojekt besprochen, Budget bestätigt"
+      }
+    ],
     "projekte": "014 Wohnhaus Seestrasse",
     "weihnachtskarte": true,
     "updatedAt": "2026-10-22T10:00:00.000Z",
@@ -1024,7 +1035,18 @@
     "tel": "044 234 56 78",
     "mail": "info@example.ch",
     "website": "www.example.ch",
-    "bemerkungen": "Richtofferte Dach Lindenweg erhalten",
+    "bemerkungen": [
+      {
+        "at": "2026-10-22T10:00:00.000Z",
+        "von": "Demo",
+        "text": "Richtofferte Dach Lindenweg erhalten"
+      },
+      {
+        "at": "2026-11-02T16:40:00.000Z",
+        "von": "Demo",
+        "text": "Nachfrage Liefertermin Ziegel – meldet sich nächste Woche"
+      }
+    ],
     "projekte": "027 Dachausbau Lindenweg",
     "weihnachtskarte": false,
     "updatedAt": "2026-10-22T10:00:00.000Z",
@@ -1042,7 +1064,13 @@
     "tel": "044 345 67 89",
     "mail": "c.steiner@example.ch",
     "website": "",
-    "bemerkungen": "Statik Werkhof",
+    "bemerkungen": [
+      {
+        "at": "2026-10-22T10:00:00.000Z",
+        "von": "Demo",
+        "text": "Statik Werkhof"
+      }
+    ],
     "projekte": "021 Werkhof Riedmatt",
     "weihnachtskarte": true,
     "updatedAt": "2026-10-22T10:00:00.000Z",
@@ -1060,7 +1088,18 @@
     "tel": "044 456 78 90",
     "mail": "bauamt@example.ch",
     "website": "",
-    "bemerkungen": "Baueingaben",
+    "bemerkungen": [
+      {
+        "at": "2026-10-22T10:00:00.000Z",
+        "von": "Demo",
+        "text": "Baueingaben"
+      },
+      {
+        "at": "2026-10-30T11:05:00.000Z",
+        "von": "Anna",
+        "text": "Neue Ansprechperson ab November"
+      }
+    ],
     "projekte": "",
     "weihnachtskarte": false,
     "updatedAt": "2026-10-22T10:00:00.000Z",
@@ -1078,7 +1117,13 @@
     "tel": "044 567 89 01",
     "mail": "b.hofer@example.ch",
     "website": "",
-    "bemerkungen": "Geländer, Treppen",
+    "bemerkungen": [
+      {
+        "at": "2026-10-22T10:00:00.000Z",
+        "von": "Demo",
+        "text": "Geländer, Treppen"
+      }
+    ],
     "projekte": "",
     "weihnachtskarte": false,
     "updatedAt": "2026-10-22T10:00:00.000Z",

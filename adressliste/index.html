@@ -51,6 +51,34 @@
     align-items: center;
     gap: 8px;
   }
+  /* Bemerkungen als Verlauf: Eingabefeld + Knopf nebeneinander, darunter
+     die bisherigen Einträge als Bulletpoints (neueste zuoberst). */
+  .adr-bem-neu { display: flex; gap: 8px; align-items: flex-start; }
+  .adr-bem-neu textarea { flex: 1; min-width: 0; }
+  .adr-bem-neu .btn-secondary { flex: none; white-space: nowrap; }
+  .adr-bem-liste {
+    list-style: none; margin: 8px 0 0; padding: 0;
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 180px; overflow-y: auto;
+  }
+  .adr-bem-liste li {
+    position: relative; padding: 6px 28px 6px 12px;
+    background: var(--surface-2); border-radius: 9px;
+  }
+  .adr-bem-liste li::before {
+    content: "•"; position: absolute; left: 4px; top: 6px; color: var(--text-muted);
+  }
+  .adr-bem-kopf { font-size: 11px; color: var(--text-muted); }
+  .adr-bem-text { font-size: 13px; white-space: pre-wrap; }
+  .adr-bem-leer { color: var(--text-muted); font-size: 12.5px; padding: 2px 0; background: none; }
+  .adr-bem-leer::before { content: none; }
+  .adr-bem-weg {
+    position: absolute; right: 4px; top: 4px;
+    background: none; border: none; color: var(--text-muted);
+    font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px;
+  }
+  .adr-bem-weg:hover { color: var(--text); }
+
   .toolbar-row .btn-primary, .toolbar-row .btn-secondary {
     flex: none;
     padding: 10px 16px;
@@ -240,6 +268,10 @@
     Ansichten liegen genauso als einzelne Dateien im Unterordner
     "Ansichten". Spalten lassen sich per Drag &amp; Drop am Spaltentitel
     umsortieren, jede Spalte hat ihr eigenes Filterfeld direkt darunter.
+    <strong>Bemerkungen</strong> werden im Editor als Verlauf geführt: jeder
+    Eintrag hält Datum und Person fest, die neuesten stehen zuoberst, und ein
+    neuer Eintrag überschreibt nichts. In der Tabelle und im CSV-Export
+    stehen die Texte einzeilig hintereinander.
     Kategorie und Status kommen aus einer gemeinsamen Auswahlliste (Button
     "⚙ Optionen"), die für alle mit Zugriff auf den Ordner gleich ist.
     Kontaktperson kommt stattdessen direkt aus den Mitarbeitenden der
@@ -392,7 +424,11 @@
       <input type="text" id="inputWebsite">
 
       <label>Bemerkungen</label>
-      <textarea id="inputBemerkungen" rows="2"></textarea>
+      <div class="adr-bem-neu">
+        <textarea id="inputBemerkungNeu" rows="2" placeholder="Neue Bemerkung – wird mit Datum und Name festgehalten"></textarea>
+        <button type="button" id="bemerkungAddBtn" class="btn-secondary">+ Eintrag</button>
+      </div>
+      <ul class="adr-bem-liste" id="bemerkungListe"></ul>
 
       <label>Projekte</label>
       <textarea id="inputProjekte" rows="2"></textarea>
