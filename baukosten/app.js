@@ -529,6 +529,19 @@ function kinderVon(nr) {
   return liste;
 }
 
+// Auf jedem Knoten ab der dreistelligen Position lassen sich BEIDES anlegen:
+// eigene Zeilen und eigene Unterkapitel ("101.1 Planaufnahmen", darunter
+// "101.1.1" …). Auf Haupt- und Elementgruppen nicht -- deren Gliederung gibt
+// die Norm vor.
+function kapitelAktionen() {
+  if (!kapitelKnoten || knotenEbene(kapitelKnoten) < 3) return "";
+  const nr = escapeHtml(kapitelKnoten);
+  return (
+    `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${nr}">+ Zeile</button>` +
+    `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${nr}" title="Eigenes Unterkapitel wie &quot;101.1 Planaufnahmen&quot; ergänzen">+ Unterkapitel</button>`
+  );
+}
+
 function istBlattKnoten(nr) {
   return !!nr && kinderVon(nr).length === 0;
 }
@@ -795,7 +808,7 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
     aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
     // Auch unter einer Unterteilung darf eine weitere entstehen
     // ("211.1" -> "211.1.2"), siehe knotenEbene().
-    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigene Unterteilung wie &quot;211.1 Gerüste&quot; ergänzen">+ Unterteilung</button>`;
+    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel wie &quot;101.1 Planaufnahmen&quot; ergänzen">+ Unterkapitel</button>`;
     if (knoten.eigen) {
       aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigene Unterteilung löschen">×</button>`;
     }
@@ -1082,17 +1095,16 @@ function renderKapitel() {
         </div>`
         )
         .join("") +
-    `<div class="bk-kap-neu"><button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${escapeHtml(
-      kapitelKnoten
-    )}">+ Zeile</button></div>`;
+    `<div class="bk-kap-neu">${kapitelAktionen()}</div>`;
 
   const ziel = document.getElementById("kapListe");
   if (blatt) {
     ziel.innerHTML = positionenHtml(eigeneZeilen);
   } else if (!kinderListe.length && !eigeneZeilen.length) {
-    ziel.innerHTML = `<div class="bk-kap-leer-hinweis">${
-      ansicht.nurVerwendet ? 'Nichts erfasst — "Nur verwendete" ausschalten.' : "Keine Unterkapitel."
-    }</div>`;
+    ziel.innerHTML =
+      `<div class="bk-kap-leer-hinweis">${
+        ansicht.nurVerwendet ? 'Nichts erfasst — "Nur verwendete" ausschalten.' : "Noch nichts erfasst."
+      }</div>` + (kapitelAktionen() ? `<div class="bk-kap-neu">${kapitelAktionen()}</div>` : "");
   } else {
     ziel.innerHTML = kinderListe
       .map((nr) => {
@@ -1114,7 +1126,8 @@ function renderKapitel() {
           <span class="bk-kap-pfeil">›</span>
         </div>`;
       })
-      .join("") + (eigeneZeilen.length ? positionenHtml(eigeneZeilen) : "");
+      .join("") +
+      (eigeneZeilen.length ? positionenHtml(eigeneZeilen) : kapitelAktionen() ? `<div class="bk-kap-neu">${kapitelAktionen()}</div>` : "");
   }
 
   // Fuss: der Reihe nach durch die Blätter des Baums.
@@ -1806,7 +1819,10 @@ function onBodyClick(e) {
     // einem uid() im Innern bekäme die Zeile dort eine andere ID -- alle
     // späteren Feldänderungen würden sie auf dem Server nicht mehr finden.
     const zeile = neueZeile();
-    gewaehlteZeile = { nr, id: zeile.id };
+    // In der Kapitelansicht gibt es keine Eingabefelder in der Liste -- dort
+    // geht die neue Zeile gleich im Bearbeitungsfenster auf. In der Tabelle
+    // wird direkt in der Zeile getippt; ein Fenster würde sie zudecken.
+    if (ansichtModus === "kapitel") gewaehlteZeile = { nr, id: zeile.id };
     mutate(
       (data) => {
         if (!data.positionen[nr]) data.positionen[nr] = [];
@@ -1846,18 +1862,24 @@ function onBodyClick(e) {
     }
     const titel = (prompt(`Bezeichnung für ${eingabe}:`, "") || "").trim();
     if (!titel) return;
-    const ersteZeile = neueZeile(); // siehe Kommentar bei "add-zeile"
-    gewaehlteZeile = { nr: eingabe, id: ersteZeile.id };
+    // Nur die Gliederung anlegen, keine erste Zeile: wer gleich erfassen
+    // will, nimmt "+ Zeile". So lässt sich auch bloss ein Kapitelbaum
+    // aufbauen ("101.1 Planaufnahmen", "101.2 Schadstoffuntersuchungen"),
+    // ohne jedes Mal eine leere Zeile wegräumen zu müssen.
     vorfahren(eingabe).forEach((v) => zugeklappt.delete(v));
+    zugeklappt.delete(eingabe);
     mutate(
       (data) => {
         if (!data.eigenePositionen) data.eigenePositionen = [];
         if (!data.eigenePositionen.some((p) => p.nr === eingabe)) data.eigenePositionen.push({ nr: eingabe, titel });
-        if (!data.positionen[eingabe]) data.positionen[eingabe] = [{ ...ersteZeile }];
+        if (!data.positionen[eingabe]) data.positionen[eingabe] = [];
         return data;
       },
       { neuRendern: true }
     );
+    // In der Kapitelansicht gleich hineinspringen -- dort ist das neue
+    // Kapitel der Ort, an dem es weitergeht.
+    if (ansichtModus === "kapitel") setzeKapitel(eingabe);
     return;
   }
 

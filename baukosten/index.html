@@ -733,9 +733,10 @@
     </label>
     <label class="bk-opt">
       <input type="checkbox" id="optUnterteilungen">
-      <span>Eigene Unterteilungen einzeln aufführen
-        <small>Aus (Standard): eine Nummer wie "211.1 Gerüste" wird in ihre
-        dreistellige Position eingerechnet statt separat ausgewiesen.</small></span>
+      <span>Eigene Unterkapitel einzeln aufführen
+        <small>Aus (Standard): eine Nummer wie "101.1 Planaufnahmen" (und
+        alles darunter) wird in ihre dreistellige Position eingerechnet statt
+        separat ausgewiesen.</small></span>
     </label>
     <label class="bk-opt">
       <input type="checkbox" id="optBemerkungExtern">
@@ -875,11 +876,15 @@
       oder eigene Seite.
     </p>
     <p class="hint">
-      <strong>Eigene Unterteilung:</strong> "+ Unterteilung" auf einer
-      dreistelligen Position ergänzt eine Nummer wie "211.1 Gerüste" direkt
-      darunter. Ihre Kosten zählen in die Position hinein (211.1 ist Teil von
-      211), nicht daneben. Im Ausdruck wird sie standardmässig in die
-      Position eingerechnet statt separat ausgewiesen.
+      <strong>Eigene Unterkapitel:</strong> "+ Unterkapitel" ergänzt unter
+      einer Position eine Nummer wie "101.1 Planaufnahmen" — und darunter bei
+      Bedarf "101.1.1" und so weiter, beliebig tief. Jedes Kapitel kann
+      eigene Zeilen UND weitere Unterkapitel haben ("+ Zeile" und
+      "+ Unterkapitel" stehen auf jeder Ebene ab der dreistelligen Position
+      nebeneinander). Die Kosten zählen immer nach oben hinein (101.1 ist
+      Teil von 101), nicht daneben. Im Ausdruck werden eigene Unterkapitel
+      standardmässig in die Position eingerechnet statt separat
+      ausgewiesen.
     </p>
     <p class="hint">
       <strong>Drucken</strong> öffnet einen Dialog mit eigenen Optionen; der
