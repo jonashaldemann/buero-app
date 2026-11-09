@@ -125,28 +125,89 @@
   }
   .bk-toolbar-hint { font-size: 11.5px; color: var(--text-muted); }
 
-  /* Schritt-für-Schritt: Pfeile, Sprung-Auswahl und Stand bilden eine
-     zusammenhängende Leiste -- sie ersetzt die Ebenen-Knöpfe, solange der
-     Modus läuft (die Tiefe bestimmt dort der Modus). */
-  .bk-wizard { display: flex; align-items: center; gap: 6px; }
-  .bk-wizard[hidden] { display: none; }
-  .bk-wizard-pfeil {
-    background: var(--accent-primary); border: none; color: #fff;
-    font-size: 15px; line-height: 1; width: 30px; height: 30px;
-    border-radius: 9px; cursor: pointer; flex: none;
+  /* ---------- Kapitelansicht ----------
+     Eine Ebene des Baums auf einmal: links der Pfad als Knöpfe
+     untereinander (nur die Stufen des Pfads, keine Nachbarn), rechts der
+     aktuelle Knoten mit seinen direkten Kindern. */
+  .bk-kapitel { display: flex; gap: 24px; align-items: flex-start; padding-top: 4px; }
+  .bk-kapitel[hidden] { display: none; }
+  .bk-kap-pfad { width: 280px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+  .bk-kap-knopf {
+    display: flex; align-items: baseline; gap: 10px; width: 100%;
+    text-align: left; cursor: pointer; font-family: var(--font-light);
+    background: var(--l2-bg); border: none; color: var(--l1-bg);
+    padding: 9px 12px; border-radius: 10px; font-size: 13px;
   }
-  .bk-wizard-pfeil:disabled { background: var(--surface-2); color: var(--text-muted); cursor: default; }
-  .bk-wizard select {
-    width: auto; min-width: 210px; padding: 6px 10px; font-size: 12.5px;
-    border-radius: 9px; background: var(--feld-bg); border: 1px solid var(--feld-rand);
+  .bk-kap-knopf .nr { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bk-kap-knopf .summe { font-variant-numeric: tabular-nums; opacity: 0.75; }
+  .bk-kap-knopf.aktuell { background: var(--l1-bg); color: #fff; font-family: var(--font-medium); cursor: default; }
+  .bk-kap-knopf.aktuell .summe { opacity: 0.9; }
+
+  .bk-kap-inhalt { flex: 1; min-width: 0; }
+  .bk-kap-kopf { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 12px; }
+  .bk-kap-kopf .titel { flex: 1; min-width: 0; }
+  .bk-kap-meta { font-size: 11.5px; color: var(--text-muted); }
+  .bk-kap-titel { font-family: var(--font-medium); font-size: 21px; line-height: 1.15; }
+  .bk-kap-summe { text-align: right; white-space: nowrap; }
+  .bk-kap-summe .wert { font-family: var(--font-medium); font-size: 21px; font-variant-numeric: tabular-nums; }
+
+  .bk-kap-liste { display: flex; flex-direction: column; gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; }
+  .bk-kap-zeile {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); padding: 10px 14px; cursor: pointer;
   }
-  .bk-wizard-stand { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+  .bk-kap-zeile:hover { filter: brightness(0.98); }
+  .bk-kap-zeile.leer .bk-kap-zeile-titel { color: var(--text-muted); }
+  .bk-kap-zeile-haupt { flex: 1; min-width: 0; }
+  .bk-kap-zeile-titel { font-size: 13.5px; }
+  /* Der Untertitel bleibt EINE Zeile: sonst wachsen die Kapitelzeilen
+     unterschiedlich hoch und die Liste wird unruhig. */
+  .bk-kap-zeile-sub {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bk-kap-zeile-titel { display: block; }
+  .bk-kap-balken { width: 170px; height: 5px; border-radius: 3px; background: var(--surface-2); flex: none; overflow: hidden; }
+  .bk-kap-balken i { display: block; height: 100%; background: var(--st-verifiziert); }
+  .bk-kap-betrag { width: 110px; text-align: right; font-variant-numeric: tabular-nums; flex: none; }
+  .bk-kap-pfeil { color: var(--text-muted); flex: none; }
+  .bk-kap-leer-hinweis { background: var(--surface); padding: 20px 14px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  /* Unterpositionen eines Blatts: kompakte Zeilen, Klick öffnet die
+     Bearbeitung. */
+  .bk-kap-pos { display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 9px 14px; cursor: pointer; }
+  .bk-kap-pos:hover { filter: brightness(0.98); }
+  .bk-kap-pos .mass { width: 150px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; flex: none; }
+  .bk-kap-neu { background: var(--surface); padding: 9px 14px; }
+
+  .bk-kap-fuss { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .bk-kap-nav {
+    flex: 1; min-width: 0; text-align: left; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 9px 14px; font-family: var(--font-light); color: var(--text);
+  }
+  .bk-kap-nav.weiter { background: var(--l1-bg); border-color: var(--l1-bg); color: #fff; text-align: right; }
+  .bk-kap-nav:disabled { opacity: 0.4; cursor: default; }
+  .bk-kap-nav .label { display: block; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.7; }
+  .bk-kap-nav .ziel { display: block; font-size: 13px; }
+  .bk-kap-stand { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; text-align: center; }
+
+  @media (max-width: 900px) {
+    .bk-kapitel { flex-direction: column; gap: 12px; }
+    .bk-kap-pfad { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .bk-kap-knopf { width: auto; }
+    .bk-kap-knopf .summe { display: none; }
+    .bk-kap-balken { display: none; }
+  }
   .bk-einstieg { font-size: 12px; color: var(--text-muted); padding: 0 0 10px; }
   .bk-einstieg[hidden] { display: none; }
 
-  /* ---------- Tabelle + Detailfenster ---------- */
+  /* ---------- Tabelle ---------- */
 
   .bk-main { display: flex; gap: 16px; align-items: flex-start; }
+  /* display:flex schlägt das hidden-Attribut -- ohne diese Zeile bliebe die
+     Tabelle in der Kapitelansicht sichtbar (gleiche Falle wie bei .bk-seg). */
+  .bk-main[hidden] { display: none; }
   .bk-table-wrap { flex: 1; min-width: 0; }
   /* table-layout: fixed, weil die Tabelle keine Kopfzeile mehr hat: sonst
      sind die <col>-Breiten nur Vorschläge und die Gruppenzeilen (mit ihrem
@@ -186,7 +247,8 @@
   .bk-l1 td { color: var(--l1-fg); font-family: var(--font-medium); font-size: 13px; padding: 8px 10px; }
   .bk-l2 { --row-bg: var(--l2-bg); }
   .bk-l2 td { font-family: var(--font-medium); }
-  .bk-l3, .bk-l4 { --row-bg: var(--bg); }
+  /* Ebene 3 und alles darunter teilen dieselbe Farbe. */
+  .bk-l3, .bk-l4, .bk-l5, .bk-l6, .bk-l7, .bk-l8 { --row-bg: var(--bg); }
   .bk-group.leer .bk-titel, .bk-group.leer .bk-nr-text { color: var(--text-muted); }
   .bk-l1.leer td { color: rgba(255,255,255,0.68); }
   .bk-l1.leer .bk-titel, .bk-l1.leer .bk-nr-text { color: rgba(255,255,255,0.68); }
@@ -198,11 +260,8 @@
 
   .bk-group:hover td { filter: brightness(0.965); }
 
-  /* Gleich grosse Stufen: die Grundpolsterung der Zelle sind 10px
-     (Ebene 1), jede weitere Ebene rückt um dieselben 14px ein. */
-  .bk-indent-2 { padding-left: 24px !important; }
-  .bk-indent-3 { padding-left: 38px !important; }
-  .bk-indent-4 { padding-left: 52px !important; }
+  /* Die Einrückung je Ebene setzt app.js als Stil (gleich grosse Stufen,
+     beliebig tief) -- der Baum hat keine feste maximale Tiefe mehr. */
 
   /* Statusfeld: durchklickbar leer -> pendent (gelb) -> erledigt (hellgrün,
      ein Haken) -> Vieraugenprinzip (dunkelgrün, Doppelhaken). Es trägt den
@@ -305,6 +364,9 @@
     font-family: var(--font-light); opacity: 0;
   }
   .bk-group:hover .bk-add-btn, .bk-add-btn:focus { opacity: 1; }
+  /* In der Kapitelansicht steht "+ Zeile" fest da -- dort gibt es keine
+     hunderten Zeilen, auf denen der Knopf stören würde. */
+  .bk-kap-neu .bk-add-btn { opacity: 1; }
   .bk-add-btn:hover { background: rgba(0,0,0,0.06); }
 
   .bk-leer-hinweis { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
@@ -327,13 +389,23 @@
   .bk-gesamt-teil + .bk-gesamt-teil td { border-top: none; }
   .bk-modul-betrag { font-variant-numeric: tabular-nums; }
 
-  /* ---------- Detailfenster rechts ---------- */
+  /* ---------- Bearbeitungsfenster (Overlay) ---------- */
 
+  /* Das Bearbeitungsfenster ist ein zentriertes Overlay (früher ein Fenster
+     rechts): in der Kapitelansicht gäbe es dafür keinen Platz, und in der
+     Tabelle schob es sich beim blossen Hineinklicken ins Bild. z-index 70,
+     also über dem klebenden Kopfblock (30) und den Dialogen (60). */
   .bk-panel {
-    width: 310px; flex: none; background: var(--surface); border-radius: 14px;
-    padding: 16px; position: sticky; top: calc(var(--bk-sticky-h, 0px) + 10px);
-    max-height: calc(100vh - var(--bk-sticky-h, 0px) - 30px); overflow-y: auto;
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(58,54,47,0.45);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
   }
+  .bk-panel > .bk-panel-box {
+    background: var(--surface); border-radius: 16px; padding: 18px;
+    width: 100%; max-width: 620px; max-height: 88vh; overflow-y: auto;
+  }
+  .bk-panel-hinweis { flex: 1; font-size: 11px; color: var(--text-muted); }
+  .bk-panel-bl { display: flex; gap: 6px; }
   .bk-panel[hidden] { display: none; }
   .bk-panel-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
   .bk-panel-nr { font-family: var(--font-medium); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -357,7 +429,7 @@
     display: flex; justify-content: space-between; align-items: baseline;
   }
   .bk-panel-kosten .wert { font-family: var(--font-medium); font-size: 19px; font-variant-numeric: tabular-nums; }
-  .bk-panel-fuss { margin-top: 14px; }
+  .bk-panel-fuss { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
   /* ---------- Dialoge ---------- */
 
@@ -462,6 +534,10 @@
         </div>
         <div class="bk-head-spacer"></div>
         <div class="bk-head-actions">
+          <div class="bk-seg" id="modusSeg">
+            <button type="button" data-modus="tabelle">Tabelle</button>
+            <button type="button" data-modus="kapitel">Kapitel</button>
+          </div>
           <button id="kopfBtn" class="bk-toggle">Kopfdaten</button>
           <button id="druckBtn" class="bk-toggle">Drucken …</button>
         </div>
@@ -476,15 +552,6 @@
           <button type="button" data-ebene="2">2</button>
           <button type="button" data-ebene="3">3</button>
           <button type="button" data-ebene="4">Alles</button>
-        </div>
-        <button type="button" id="wizardBtn" class="bk-toggle" title="Eine Elementgruppe nach der anderen durchgehen">Schritt für Schritt</button>
-        <!-- Nur im Schritt-für-Schritt-Modus sichtbar: zurück, Sprung-Auswahl,
-             vorwärts und der Stand ("Schritt 12 von 73"). -->
-        <div class="bk-wizard" id="wizardNav" hidden>
-          <button type="button" id="wizardZurueck" class="bk-wizard-pfeil" title="Vorherige Gruppe" aria-label="Vorherige Gruppe">‹</button>
-          <select id="wizardSelect" aria-label="Gruppe wählen"></select>
-          <button type="button" id="wizardVor" class="bk-wizard-pfeil" title="Nächste Gruppe" aria-label="Nächste Gruppe">›</button>
-          <span class="bk-wizard-stand" id="wizardStand"></span>
         </div>
         <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
         <button type="button" id="bemerkungenBtn" class="bk-toggle">Bemerkungsspalten</button>
@@ -505,15 +572,28 @@
       </div>
     </div>
 
-    <div class="bk-main">
+    <!-- Kapitelansicht: links der Pfad als Knöpfe, rechts der aktuelle
+         Knoten mit seinen direkten Kindern (siehe renderKapitel()). -->
+    <section class="bk-kapitel" id="kapitelView" hidden>
+      <nav class="bk-kap-pfad" id="kapPfad"></nav>
+      <div class="bk-kap-inhalt">
+        <header class="bk-kap-kopf" id="kapKopf"></header>
+        <div class="bk-kap-liste" id="kapListe"></div>
+        <div class="bk-kap-fuss" id="kapFuss"></div>
+      </div>
+    </section>
+
+    <div class="bk-main" id="tabelleView">
       <div class="bk-table-wrap">
         <table class="bk-table" id="bkTable">
           <colgroup id="bkCols"></colgroup>
           <tbody id="bkBody"></tbody>
         </table>
       </div>
-      <aside class="bk-panel" id="detailPanel" hidden></aside>
     </div>
+
+    <!-- Bearbeitungsfenster: zentriertes Overlay, siehe renderPanel() -->
+    <div class="bk-panel" id="detailPanel" hidden></div>
   </section>
 </main>
 
@@ -730,14 +810,14 @@
       einer Gruppe setzt den nächsten Stand auf alles darunter.
     </p>
     <p class="hint">
-      <strong>Schritt für Schritt</strong> (Knopf neben den Ebenen) geht die
-      Schätzung durch wie ein Steuerformular: sichtbar ist nur eine
-      Elementgruppe — z.B. "22 Rohbau 2" mit allen dreistelligen Positionen
-      darunter — alles davor und danach ist ausgeblendet. Erfassen,
-      Abhaken und Aufklappen funktionieren dabei genau gleich. Mit ‹ und ›
-      geht es eine Gruppe weiter, über die Auswahl springt man direkt
-      irgendwohin, und rechts daneben steht, der wievielte von 73 Schritten
-      gerade dran ist. Nochmals auf den Knopf beendet den Modus.
+      <strong>Kapitel</strong> (Umschalter oben rechts) geht die Schätzung
+      durch wie ein Steuerformular: man sieht immer nur eine Ebene und klickt
+      sich hinein. Links steht der Pfad als Knöpfe mit der Summe je Stufe,
+      in der Mitte die Unterkapitel mit Statuskästchen, Fortschritt und
+      Summe, unten "‹ Zurück"/"Weiter ›" durch die Positionen. Auf einer
+      Position stehen dort ihre Zeilen; ein Klick darauf öffnet das
+      Bearbeitungsfenster. Erfassen und Abhaken funktionieren genau gleich
+      wie in der Tabelle.
     </p>
     <div class="bk-legende">
       <span><i style="background:#FFFFFF"></i> offen</span>
@@ -751,8 +831,9 @@
       Klapp-Zustand aus, damit auch leere Positionen gefunden werden.
     </p>
     <p class="hint">
-      <strong>Detailfenster rechts:</strong> sobald der Cursor in einer
-      Unterposition steht, zeigt es diese Zeile gross — mit Modul,
+      <strong>Bearbeitungsfenster:</strong> das "⋯" in einer Zeile (bzw. ein
+      Klick auf eine Position in der Kapitelansicht) öffnet sie gross in
+      einem Fenster — mit Modul,
       <strong>Notizen</strong> (nur intern, nie im Ausdruck) und
       <strong>Bemerkungen</strong> (erscheinen im Ausdruck). Die Tabelle
       bleibt dadurch schmal und lesbar. Wer beides direkt in der Tabelle
@@ -771,7 +852,7 @@
       Kosten = Ausmass × Kennwert.
     </p>
     <p class="hint">
-      <strong>Honorar als Prozentsatz:</strong> im Detailfenster lässt sich
+      <strong>Honorar als Prozentsatz:</strong> im Bearbeitungsfenster lässt sich
       die <strong>Berechnung</strong> einer Zeile von "Ausmass × Kennwert"
       auf einen Prozentsatz der Baukosten umstellen — gedacht fürs
       Architektenhonorar (BKP 291), das sich damit automatisch mitbewegt,

@@ -296,7 +296,7 @@
       "211.1": [
         {
           "id": "demo-bk3",
-          "beschrieb": "Fassadengerüst inkl. Spenglergang",
+          "beschrieb": "Fassadengerüst, vier Seiten",
           "ausmass": "11.5*42",
           "einheit": "m²",
           "kennwert": "25",
@@ -304,6 +304,19 @@
           "intern": "",
           "extern": "Richtofferte Gerüstbau",
           "basis": ""
+        }
+      ],
+      "211.1.1": [
+        {
+          "id": "demo-z21",
+          "beschrieb": "Spenglergang entlang Traufe, inkl. Auf- und Abbau",
+          "ausmass": "42",
+          "einheit": "lfm",
+          "kennwert": "38",
+          "basis": "",
+          "modul": "",
+          "intern": "",
+          "extern": "Separat offeriert, Gerüstbauer"
         }
       ],
       "221": [
@@ -509,6 +522,10 @@
       {
         "nr": "211.1",
         "titel": "Gerüste"
+      },
+      {
+        "nr": "211.1.1",
+        "titel": "Spenglergang"
       }
     ],
     "status": {
@@ -650,6 +667,7 @@
       "209": "erledigt",
       "210": "erledigt",
       "211.1": "verifiziert",
+      "211.1.1": "erledigt",
       "212": "erledigt",
       "213": "erledigt",
       "214": "erledigt",
