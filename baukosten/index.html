@@ -553,7 +553,8 @@
           <button type="button" data-ebene="1">1</button>
           <button type="button" data-ebene="2">2</button>
           <button type="button" data-ebene="3">3</button>
-          <button type="button" data-ebene="4">Alles</button>
+          <button type="button" data-ebene="4">4</button>
+          <button type="button" data-ebene="9">Alles</button>
         </div>
         <button type="button" id="nurVerwendetBtn" class="bk-toggle">Nur verwendete</button>
         <button type="button" id="bemerkungenBtn" class="bk-toggle">Bemerkungsspalten</button>
@@ -734,9 +735,10 @@
     <label class="bk-opt">
       <input type="checkbox" id="optUnterteilungen">
       <span>Eigene Unterkapitel einzeln aufführen
-        <small>Aus (Standard): eine Nummer wie "101.1 Planaufnahmen" (und
-        alles darunter) wird in ihre dreistellige Position eingerechnet statt
-        separat ausgewiesen.</small></span>
+        <small>Aus (Standard): ein frei benanntes Kapitel wie "Wände" (und
+        alles darunter) wird in den Katalogknoten darüber eingerechnet statt
+        separat ausgewiesen. Die Gattungen der Norm ("211.5 Beton- und
+        Stahlbetonarbeiten") erscheinen immer.</small></span>
     </label>
     <label class="bk-opt">
       <input type="checkbox" id="optBemerkungExtern">
@@ -784,16 +786,20 @@
       <button id="closeHelp" class="icon-btn" aria-label="Schliessen">&times;</button>
     </div>
     <p class="hint" style="margin-top:0;">
-      Gliederung nach BKP (Baukostenplan): <strong>1-stellig</strong>
-      Hauptgruppe ("2 Gebäude"), <strong>2-stellig</strong> Elementgruppe
-      ("22 Rohbau 2"), <strong>3-stellig</strong> Position
-      ("224 Bedachungsarbeiten"). Der ganze Katalog ist hinterlegt.
+      Gliederung nach BKP (Baukostenplan, Ausgabe 2017):
+      <strong>1-stellig</strong> Hauptgruppe ("2 Gebäude"),
+      <strong>2-stellig</strong> Elementgruppe ("22 Rohbau 2"),
+      <strong>3-stellig</strong> Position ("224 Bedachungsarbeiten"),
+      <strong>4-stellig</strong> Gattung ("211.5 Beton- und
+      Stahlbetonarbeiten"). Der ganze Katalog ist hinterlegt; darunter
+      gliedert man frei weiter (siehe "Eigene Unterkapitel").
     </p>
     <p class="hint">
       <strong>Beim Öffnen ist absichtlich alles sichtbar</strong> — auch die
       leeren Nummern, damit beim Durchgehen nichts vergessen geht. Erst wenn
       die Schätzung Form annimmt, lohnt es sich, mit "Nur verwendete" und den
-      Ebenen 1/2/3 auszudünnen. Die Einstellung wird pro Gerät gemerkt.
+      Ebenen 1 bis 4 auszudünnen ("Alles" zeigt zusätzlich die eigenen
+      Unterkapitel). Die Einstellung wird pro Gerät gemerkt.
     </p>
     <p class="hint">
       <strong>Ein- und Ausklappen</strong>: Klick irgendwo auf eine
@@ -876,15 +882,16 @@
       oder eigene Seite.
     </p>
     <p class="hint">
-      <strong>Eigene Unterkapitel:</strong> "+ Unterkapitel" ergänzt unter
-      einer Position eine Nummer wie "101.1 Planaufnahmen" — und darunter bei
-      Bedarf "101.1.1" und so weiter, beliebig tief. Jedes Kapitel kann
+      <strong>Eigene Unterkapitel:</strong> Der Katalog hört bei der
+      vierstelligen Gattung auf ("211.5 Beton- und Stahlbetonarbeiten").
+      Darunter gliedert man frei: "+ Unterkapitel" fragt nur nach einem
+      Namen — "Wände", darunter "Innenwände", "Aussenwände" und so weiter,
+      beliebig tief. Diese Kapitel tragen bewusst keine Nummer. Jedes kann
       eigene Zeilen UND weitere Unterkapitel haben ("+ Zeile" und
       "+ Unterkapitel" stehen auf jeder Ebene ab der dreistelligen Position
-      nebeneinander). Die Kosten zählen immer nach oben hinein (101.1 ist
-      Teil von 101), nicht daneben. Im Ausdruck werden eigene Unterkapitel
-      standardmässig in die Position eingerechnet statt separat
-      ausgewiesen.
+      nebeneinander). Die Kosten zählen immer nach oben hinein, nicht
+      daneben. Im Ausdruck werden eigene Unterkapitel standardmässig in den
+      Katalogknoten darüber eingerechnet statt separat ausgewiesen.
     </p>
     <p class="hint">
       <strong>Drucken</strong> öffnet einen Dialog mit eigenen Optionen; der
