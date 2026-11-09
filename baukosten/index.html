@@ -193,7 +193,9 @@
   .bk-kap-stand { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; text-align: center; }
 
   @media (max-width: 900px) {
-    .bk-kapitel { flex-direction: column; gap: 12px; }
+    /* align-items: stretch, sonst schrumpft der Inhalt in der
+       Spaltenrichtung auf seine Mindestbreite statt die Breite zu füllen. */
+    .bk-kapitel { flex-direction: column; gap: 12px; align-items: stretch; }
     .bk-kap-pfad { width: 100%; flex-direction: row; flex-wrap: wrap; }
     .bk-kap-knopf { width: auto; }
     .bk-kap-knopf .summe { display: none; }
