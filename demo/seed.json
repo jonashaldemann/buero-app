@@ -12,6 +12,16 @@
         "name": "Tobias Brunner",
         "datei": "tobias.csv"
       }
+    ],
+    "fahrzeuge": [
+      {
+        "name": "VW-Bus",
+        "satz": 0.7
+      },
+      {
+        "name": "Citroën",
+        "satz": 0.45
+      }
     ]
   },
   "Buero/Admin/App/projekte.txt": "001 Büro Allgemein\n002 Akquisition\n014 Wohnhaus Seestrasse\n021 Werkhof Riedmatt\n027 Dachausbau Lindenweg\n",

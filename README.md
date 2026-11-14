@@ -221,13 +221,17 @@ zugangsdatenfreien Lesezugriff mehr. Beide Dateien werden unabhängig
 voneinander geladen: ist eine (noch) nicht erreichbar, bleibt für die
 jeweils andere trotzdem der letzte bekannte Stand erhalten.
 
-**`Buero/Admin/App/config.json`** — Mitarbeitende + Büro-Name:
+**`Buero/Admin/App/config.json`** — Mitarbeitende, Büro-Name, Fahrzeuge:
 ```json
 {
   "bueroName": "Muster Architekten AG",
   "mitarbeitende": [
     { "key": "max", "name": "Max Muster", "datei": "Unterschrift_Max_Muster.png" },
     { "key": "erika", "name": "Erika Muster", "datei": "Unterschrift_Erika_Muster.png" }
+  ],
+  "fahrzeuge": [
+    { "name": "VW-Bus", "satz": 0.70 },
+    { "name": "Citroën", "satz": 0.45 }
   ]
 }
 ```
@@ -238,6 +242,12 @@ Fallback. `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name`
 (Anzeigename), `datei` (Dateiname der Unterschrift auf Nextcloud, siehe
 Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht, kann bei
 anderen Einträgen weggelassen werden).
+
+`fahrzeuge` (optional) sind die Geschäftsfahrzeuge mit ihrem
+Kilometeransatz in Franken — gebraucht von der Kilometer-Quittung in der
+Quittungs-App. Der Ansatz gehört dem Büro, nicht dem Programm: so lässt er
+sich ändern, ohne dass etwas deployt werden muss. Fehlt das Feld, gelten
+VW-Bus 0.70 und Citroën 0.45 aus dem Code.
 
 **`Buero/Admin/App/projekte.txt`** — Projekte, ein Eintrag pro Zeile,
 optional mit **dreistelliger Projektnummer, Leerschlag, Projekttitel** (der
@@ -380,6 +390,64 @@ nur in `buchungen.txt` und wäre gerade für ältere Belege oft nicht (mehr)
 auffindbar — Nummer und Bezeichnung reichen als schneller Überblick.
 Aktualisiert sich nach jedem gespeicherten Beleg sowie beim Zurückkehren in
 die App.
+
+### Kilometer-Quittung
+
+Das **Auto-Symbol** in der Kopfzeile öffnet ein Fenster, das aus einer
+gefahrenen Strecke einen Spesenbeleg macht:
+
+1. **Start- und Zieladresse** eingeben und suchen — die Treffer erscheinen
+   als Liste zum Anklicken (eine Adresse ist selten eindeutig).
+2. Die App holt die **Route**, meist mehrere Varianten ("Route 1 · 124.3 km ·
+   90 min"). Ein Klick wechselt die Variante; die Karte zeigt immer die
+   gewählte.
+3. **Strecke, Fahrzeug, Datum**: die Kilometer kommen aus der Route, lassen
+   sich aber überschreiben — gefahren wird selten genau die vorgeschlagene
+   Variante. "Hin- und Rückfahrt" verdoppelt sie. Darunter steht laufend
+   `124 km × 0.70 = CHF 86.80`.
+4. **PDF herunterladen** oder **als Beleg erfassen**. Letzteres öffnet die
+   normale Belegmaske mit dem PDF als Datei, dem Datum, dem Betrag und dem
+   Verwendungszweck ("Fahrt Thalwil – Chur, 124 km × 0.70 (VW-Bus)"); Konto,
+   Kategorie und MwSt-Code wählt man dort wie bei jedem anderen Beleg, und
+   der Beleg bekommt wie üblich seine Nummer, landet auf Nextcloud und als
+   Zeile in `buchungen.txt`.
+
+Das **PDF** ist A4 hoch: Titel mit Datum und Person, Von/Nach, darunter die
+Karte mit der eingezeichneten Route (Start grün, Ziel rot), unten die
+Abrechnung Strecke / Ansatz / Total.
+
+**Fahrzeuge und Ansätze** stehen in der zentralen `config.json` als
+`fahrzeuge: [{ name, satz }]` (siehe "Zentrale Konfiguration") — so lässt
+sich ein Ansatz ändern, ohne etwas zu deployen. Fehlt das Feld, gelten
+VW-Bus 0.70 und Citroën 0.45 Fr./km aus dem Code.
+
+#### Warum OpenStreetMap und nicht Google Maps
+
+Karte, Adresssuche und Route kommen von **OpenStreetMap**: Adresse →
+Koordinaten über **Nominatim**, die Route über **OSRM** (liefert auch
+Alternativen), die Kacheln von **tile.openstreetmap.org**. Drei Gründe:
+
+- Die Google-Maps-APIs brauchen alle einen **Schlüssel**, der in diesem
+  öffentlichen Repo stünde, plus ein Konto mit Kreditkarte.
+- Vom eingebetteten Google-Fenster käme **kein Bild ins PDF**: ein
+  Canvas-Export ist durch Cross-Origin-Inhalte gesperrt, und Googles
+  Bedingungen verbieten das Abgreifen der Kartendarstellung.
+- Die drei OSM-Dienste schicken **CORS-Header**. Nur deshalb lassen sich die
+  Kacheln auf ein Canvas zeichnen und von dort als JPEG ins PDF übernehmen —
+  ohne das wäre das Canvas "tainted" und nicht auslesbar.
+
+Die Karte wird bewusst **selbst auf ein Canvas gezeichnet** (Kacheln,
+Routenlinie, Start-/Zielpunkt, Quellenangabe) statt über eine
+Kartenbibliothek: so wandert genau das Bild ins PDF, das am Bildschirm
+steht, und es braucht keine weitere Abhängigkeit. Die
+Quellenangabe "© OpenStreetMap-Mitwirkende" steht auf dem Bild selbst, wie
+die Lizenz es verlangt. Die Dienste sind für gelegentliche Nutzung gedacht
+und erlauben sie ausdrücklich — ein paar Quittungen pro Woche sind das.
+Ohne Internet funktioniert dieses Fenster nicht (der Rest der App schon).
+
+Für das PDF kommt **pdf-lib** dazu (wie bei Offerten und Etiketten, per
+CDN): der kleine PDF-Schreiber in `quittung/app.js` kann nur ein Bild ohne
+Text. Der Code steht in `quittung/km.js`.
 
 ### Banana-Import-Format (buchungen.txt)
 

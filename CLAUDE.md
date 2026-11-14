@@ -199,6 +199,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
+- **Kilometer-Quittung `quittung/km.js`** nutzt OpenStreetMap (Nominatim,
+  OSRM, OSM-Kacheln), NICHT Google Maps: die Google-APIs brauchen einen
+  Schlüssel (der hier im öffentlichen Repo stünde) plus Billing, und vor
+  allem käme von einem eingebetteten Google-Fenster gar kein Bild ins PDF.
+  Die drei OSM-Dienste schicken CORS-Header -- nur deshalb lässt sich das
+  Canvas mit `crossOrigin="anonymous"`-Kacheln auslesen (`toDataURL`). Die
+  Karte wird selbst gezeichnet statt über eine Kartenbibliothek, damit genau
+  das Bildschirmbild ins PDF wandert. Die Quellenangabe gehört aufs Bild
+  (Lizenz). Fahrzeuge/Ansätze kommen aus `config.json` (`fahrzeuge`), mit
+  eingebautem Fallback. Tests mocken die drei Dienste -- die Mocks MÜSSEN
+  CORS-Header mitschicken, sonst ist das Canvas tainted und der PDF-Teil
+  schlägt fehl; zusätzlich gibt es einen Lauf gegen die echten Dienste.
 - **Exportdateien für fremde Programme mit BOM**: `quittung/buchungen.txt`
   (Banana-Import) wird als UTF-8 **mit** BOM geschrieben, sonst rät Banana
   beim Import auf ANSI/UTF-16 und zerlegt die Umlaute. Beim Anhängen wird

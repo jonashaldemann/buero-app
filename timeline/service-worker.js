@@ -1,4 +1,4 @@
-const CACHE_NAME = "timeline-v18";
+const CACHE_NAME = "timeline-v19";
 const ASSETS = [
   "./",
   "./index.html",

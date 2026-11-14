@@ -672,6 +672,8 @@ function init() {
     }
   });
 
+  initKmTool(); // Kilometer-Quittung, siehe km.js
+
   setInterval(refreshReceiptMasterData, 60000); // Kontenplan/Kategorien/MwSt-Codes alle 60s neu laden
   refreshReceiptMasterData();
   refreshRecentReceipts();
