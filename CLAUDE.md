@@ -160,6 +160,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Grundkatalog aus bkp.js mit den Demodaten. FREIWILLIG: fehlt sie,
   verschwindet nur der Vorlage-Block im Bearbeitungsfenster -- jede andere
   Stelle muss ohne sie weiterfunktionieren.
+- **Angestossen wird das Laden aus `renderPanel()`, nicht aus
+  `waehleZeile()`**: das Fenster geht auch ohne sie auf -- "+ Zeile" in der
+  Kapitelansicht setzt `gewaehlteZeile` selbst (siehe `onBodyClick()`).
+  Genau dort fehlte der Vorlage-Block komplett und das Fenster sah leer
+  aus. `renderPanel()` ist die EINZIGE Stelle, an der das Fenster eine
+  Zeile zeigt; mehrfaches Aufrufen kostet nichts. Jede neue Art, das
+  Fenster zu öffnen, ist damit automatisch versorgt.
+- **Ein gescheitertes Laden wird im Fenster GEMELDET** (`preislisteFehler`,
+  mit Knopf "Nochmals versuchen"): ohne das sieht ein Netzfehler genauso
+  aus wie "es gibt keine Vorlagen-Datei", und niemand kommt darauf,
+  es nochmals zu versuchen. Nur der 404 bleibt still (so soll es sein) --
+  er landet aber als `console.info` mit dem erwarteten Pfad.
 - **Der Export der Preisliste wird ERST beim Öffnen des Bearbeitungsfensters
   geholt und NIE im `localStorage` abgelegt**: der echte Export ist rund
   6 MB (4242 Positionen, 12620 Optionen). Beim Start wäre das bei jedem

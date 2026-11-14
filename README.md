@@ -1844,7 +1844,9 @@ Optionen), und die meisten Sitzungen brauchen ihn nie. Aus demselben Grund
 liegt er **nicht** im Zwischenspeicher des Browsers — 6 MB dort würden den
 Platz sprengen, den die Schätzungen selbst fürs Offline-Arbeiten brauchen.
 Offline gibt es deshalb keine Vorlagen; bereits übernommene Optionen stehen
-in der Schätzung und rechnen weiter.
+in der Schätzung und rechnen weiter. Geht das Laden schief, **sagt es das
+Fenster** und bietet "Nochmals versuchen" an — ein Netzfehler sah sonst
+genauso aus wie "es gibt keine Vorlagen".
 
 Die Liste ist **nach Ordnern gegliedert** und zeigt die Vorlagen in der
 Reihenfolge des Preislisten-Baums — unter einer Gattung hängen gern achtzig

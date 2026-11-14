@@ -131,6 +131,7 @@ let preislisteBaum = null; // Liste von Wurzelknoten, null = keine Datei
 let preislisteFlach = null; // Zwischenspeicher: alle Knoten samt Pfad
 let preislistePromise = null; // läuft der Ladevorgang gerade?
 let preislisteFehlt = false; // 404: das Büro führt keine Vorlagen-Datei
+let preislisteFehler = ""; // Netz-/Formatfehler, damit man nicht ins Leere schaut
 
 function setzePreisliste(baum) {
   // Die Datei darf eine Liste oder einen einzelnen Wurzelknoten enthalten.
@@ -153,14 +154,27 @@ function ladePreislisteBeiBedarf() {
   // haben in einer Demositzung nichts verloren.
   if (istDemo() || !isConfigured() || !navigator.onLine) return;
   if (preislistePromise) return;
+  preislisteFehler = "";
   preislistePromise = (async () => {
     try {
       const daten = await fetchFile(PREISLISTE_FILENAME); // 404 -> null, kein Fehlerfall
-      if (daten) setzePreisliste(daten.baum);
-      else preislisteFehlt = true; // gibt es nicht -- nicht bei jedem Öffnen neu fragen
+      if (daten && setzePreisliste(daten.baum)) {
+        /* da */
+      } else if (daten) {
+        // Datei da, aber ohne brauchbaren Baum -- das ist ein Fehler und
+        // kein "gibt es nicht".
+        preislisteFehler = "Datei enthält keinen Baum";
+        preislistePromise = null;
+      } else {
+        preislisteFehlt = true; // gibt es nicht -- nicht bei jedem Öffnen neu fragen
+        console.info(
+          `Keine Vorlagen: "${PREISLISTE_FILENAME}" liegt nicht in ${BAUKOSTEN_TARGET_FOLDER_PATH}.`
+        );
+      }
     } catch (e) {
       // Netzfehler: beim nächsten Öffnen noch einmal versuchen. Ohne das
       // bliebe der Hinweis "Vorlagen werden geladen …" für immer stehen.
+      preislisteFehler = (e && e.message) || "unbekannter Fehler";
       preislistePromise = null;
     }
     // Nur den Vorlage-Block nachziehen, nicht das ganze Fenster: der Fokus
@@ -1549,6 +1563,12 @@ function renderPanel() {
     panel.innerHTML = "";
     return;
   }
+  // Von HIER aus geholt, nicht aus waehleZeile(): das Fenster geht auch
+  // ohne sie auf -- "+ Zeile" in der Kapitelansicht setzt gewaehlteZeile
+  // selbst. Dort fehlte der Vorlage-Block deshalb komplett. renderPanel()
+  // ist die einzige Stelle, an der das Fenster eine Zeile zeigt, und
+  // mehrfaches Aufrufen kostet nichts (es läuft höchstens ein Ladevorgang).
+  ladePreislisteBeiBedarf();
   const nr = gewaehlteZeile.nr;
   const posTitel = knotenTitel(nr);
   const modulFeld = module_().length
@@ -1658,11 +1678,19 @@ function vorlageBlockHtml(zeile) {
   // Prozent-Zeilen haben keinen Kennwert, für sie gibt es nichts zu holen.
   if (zeile.basis) return "";
   if (!preislisteBaum) {
+    if (preislisteLaedt()) {
+      return `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen werden geladen …</div>`;
+    }
+    // Ein gescheitertes Laden muss man SEHEN -- sonst sieht es aus wie
+    // "gibt es nicht", und niemand kommt darauf, es nochmals zu versuchen.
+    if (preislisteFehler) {
+      return `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen konnten nicht geladen werden (${escapeHtml(
+        preislisteFehler
+      )}). <button type="button" class="bk-toggle" data-panel-action="vorlagen-neu">Nochmals versuchen</button></div>`;
+    }
     // Ohne die Datei gibt es den Block gar nicht: dann ist das Fenster
     // genau das, was es vorher war.
-    return preislisteLaedt()
-      ? `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen werden geladen …</div>`
-      : "";
+    return "";
   }
   const pfad = zeile.vorlage && zeile.vorlage.pfad;
   return `
@@ -1892,7 +1920,6 @@ function renderPanelKosten() {
 function waehleZeile(nr, rowId) {
   gewaehlteZeile = { nr, id: rowId };
   vorlageSuche = "";
-  ladePreislisteBeiBedarf();
   document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
   const tr = document.querySelector(`#bkBody tr.bk-sub[data-row="${rowId}"]`);
   if (tr) tr.classList.add("gewaehlt");
@@ -2948,7 +2975,14 @@ function onPanelClick(e) {
   else if (was === "prev") panelNachbar(-1);
   else if (was === "next") panelNachbar(1);
   else if (was === "vorlage") uebernimmVorlage(btn.dataset.pfad || "");
-  else if (was === "kennwert-manuell") setzeKennwertManuell(true);
+  else if (was === "vorlagen-neu") {
+    preislisteFehler = "";
+    preislistePromise = null;
+    const box = document.getElementById("panelVorlage");
+    const zeile = zeileSuchen(offen, gewaehlteZeile.id);
+    ladePreislisteBeiBedarf();
+    if (box && zeile) box.innerHTML = vorlageBlockHtml(zeile);
+  } else if (was === "kennwert-manuell") setzeKennwertManuell(true);
   else if (was === "kennwert-auto") setzeKennwertManuell(false);
 }
 
