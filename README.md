@@ -1081,6 +1081,21 @@ Einfache To-do-Liste, nach Projekt und Person filterbar.
   aktiven Personen-Filter, das deckt den Bedarf schon ab. In der Zeile
   selbst erscheint nur das Kürzel (Initialen), der volle Name als Tooltip
   bzw. im Bearbeiten-Modus.
+- **Mehrere Zuständige**: eine Pendenz kann auf mehrere Personen laufen.
+  Im Bearbeiten-Modus (Pendenz antippen) stehen dafür die Kürzel aller
+  Mitarbeitenden als Knöpfe — antippen schaltet eine Person dazu oder weg;
+  in der Zeile erscheint je zuständiger Person ein Kürzel. Es gibt nur eine
+  Pendenz und ein Häkchen: wer sie abhakt, hakt sie für alle ab (Pendenzen
+  werden deshalb auch aus Protokollen nie je Person dupliziert).
+- **Alle zuständig = kein Tag**: sind ALLE aktuellen Mitarbeitenden
+  angetippt, trägt die Pendenz bewusst keinen persönlichen Tag mehr — in
+  einem kleinen Büro unterscheiden Kürzel, die ohnehin alle nennen, nichts
+  und kosten nur Platz. Gespeichert wird dann `person: null`. Umgekehrt
+  gilt: eine Pendenz ohne Tag geht alle an und erscheint deshalb in **jedem**
+  Personenfilter, nicht nur unter "Alle". Im Bearbeiten-Modus stehen bei
+  einer solchen Pendenz alle Kürzel als gewählt da; ein Klick nimmt eines
+  weg und macht daraus wieder eine persönliche Zuweisung. "Niemand
+  zuständig" und "alle zuständig" sind damit derselbe Zustand.
 - **Erfassen**: Enter im Textfeld erfasst direkt -- ein `<form>` mit
   submit-Event deckt Klick auf "+" und Enter am Desktop ab, zusätzlich ein
   eigener keydown-Handler ausschliesslich fürs Textfeld: in als
@@ -1165,17 +1180,21 @@ Protokoll, wie bei den Offerten).
   Text aus dem Protokoll; als Projekt wird der reine **Name** des im Protokoll
   gewählten Projekts übernommen, nicht die Nummer — Pendenzen ordnet Projekte
   namensbasiert zu, siehe Abschnitt "Zentrale Konfiguration" oben). Sind
-  mehrere Büro-Personen angetippt, entsteht die Pendenz für **jede** von
-  ihnen — jede sieht sie in ihrer eigenen Liste und hakt sie für sich ab. Die
-  Pendenz-ID ist über Protokoll-, Stichpunkt- und Personen-ID stabil: ein erneutes
+  mehrere Büro-Personen angetippt, entsteht trotzdem **genau eine** Pendenz —
+  sie trägt dann alle Zuständigen (und, falls das alle Mitarbeitenden sind,
+  gar keinen Tag mehr; siehe "Pendenzen" oben). Derselbe Punkt steht also nie
+  mehrfach in der Liste. Die
+  Pendenz-ID ist über Protokoll- und Stichpunkt-ID stabil: ein erneutes
   Speichern aktualisiert denselben Eintrag (Textänderungen werden
   übernommen), statt zu duplizieren, und ein in der Pendenzen-App bereits
   gesetztes Häkchen bzw. eine manuell geänderte Reihenfolge bleiben dabei
   erhalten. Wird ein Kürzel wieder abgewählt oder der Stichpunkt gelöscht,
   verschwindet die zugehörige, vom Protokoll selbst angelegte Pendenz auch
-  wieder. Pendenzen aus der Zeit mit nur einem Kürzel je Punkt werden beim
-  nächsten Speichern auf die neue ID gehoben statt gelöscht und neu
-  angelegt — ein längst erledigter Punkt kommt also nicht als offen zurück. Kein Merge mit gleichzeitigen Änderungen aus der Pendenzen-App
+  wieder. Pendenzen, die in einer Zwischenfassung kurzzeitig je Person
+  angelegt wurden, führt der nächste Sync wieder zu der einen Pendenz des
+  Stichpunkts zusammen (erledigt bleibt sie nur, wenn sie es in allen
+  Einzeleinträgen war) — ein längst erledigter Punkt kommt also nicht als
+  offen zurück, und nichts wird gelöscht und neu angelegt. Kein Merge mit gleichzeitigen Änderungen aus der Pendenzen-App
   selbst (anders als deren eigener Sync) — Protokolle werden dafür deutlich
   seltener gespeichert als einzelne Pendenzen bearbeitet.
 - **Gleichzeitige Bearbeitung**: wie bei der Adressliste — vor dem Speichern

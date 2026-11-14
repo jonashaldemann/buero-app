@@ -685,30 +685,45 @@ async function putPendenzenFile(list) {
   if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
 }
 
-// Jedes Kürzel eines Bullet Points, das zu einer BÜRO-Person gehört
-// (personKey gesetzt -- externe Teilnehmende lösen keine Pendenz aus),
-// bekommt eine über Protokoll-, Bullet- und Personen-ID stabile Pendenz-ID.
-// Dieselbe ID bei einem erneuten Speichern sorgt dafür, dass
-// Text-Änderungen die bestehende Pendenz aktualisieren statt sie zu
-// duplizieren. Sind mehrere Personen getaggt, entsteht die Pendenz für
-// JEDE von ihnen -- jede sieht sie in ihrer eigenen Liste und hakt sie
-// für sich ab. `altId` ist die frühere ID aus der Zeit mit nur einem
-// Kürzel je Punkt, siehe syncInternePendenzen().
+// Sind ALLE aktuellen Mitarbeitenden zuständig, trägt die Pendenz keinen
+// persönlichen Tag mehr (null) -- identisch zu normalisierePersonen() in
+// pendenzen/app.js, bewusst kopiert wie der ganze Pendenzen-Zugriff hier.
+function normalisierePersonen(keys) {
+  const liste = [...new Set((keys || []).filter(Boolean))];
+  if (!liste.length) return null;
+  if (personen.length && personen.every((m) => liste.includes(m.key))) return null;
+  return liste;
+}
+
+// Ein Bullet Point mit Kürzeln von BÜRO-Personen (personKey gesetzt --
+// externe Teilnehmende lösen keine Pendenz aus) wird zu GENAU EINER
+// Pendenz. Sind mehrere zuständig, trägt diese eine Pendenz sie alle; sie
+// wird nie je Person dupliziert. Die ID ist über Protokoll- und Bullet-ID
+// stabil, ein erneutes Speichern aktualisiert also denselben Eintrag.
+// `altIds` sind die kurzlebigen IDs je Person aus der Fassung davor, siehe
+// syncInternePendenzen().
 function internePendenzKandidaten(protokoll, filename) {
   const byKuerzel = new Map(protokoll.teilnehmende.filter((t) => t.kuerzel).map((t) => [t.kuerzel, t]));
-  const kandidaten = [];
-  protokoll.abschnitte
+  return protokoll.abschnitte
     .filter((a) => a.typ === "bullet" && a.text && a.text.trim())
-    .forEach((a) => {
-      kuerzelListe(a).forEach((kuerzel) => {
-        const teilnehmer = byKuerzel.get(kuerzel);
-        if (!teilnehmer || !teilnehmer.personKey) return;
-        const id = `protokoll:${filename}:${a.id}:${teilnehmer.personKey}`;
-        if (kandidaten.some((k) => k.id === id)) return;
-        kandidaten.push({ id, altId: `protokoll:${filename}:${a.id}`, text: a.text.trim(), person: teilnehmer.personKey });
-      });
-    });
-  return kandidaten;
+    .map((a) => ({
+      abschnitt: a,
+      keys: [
+        ...new Set(
+          kuerzelListe(a)
+            .map((kuerzel) => byKuerzel.get(kuerzel))
+            .filter((t) => t && t.personKey)
+            .map((t) => t.personKey)
+        )
+      ]
+    }))
+    .filter((x) => x.keys.length)
+    .map(({ abschnitt, keys }) => ({
+      id: `protokoll:${filename}:${abschnitt.id}`,
+      altIds: keys.map((key) => `protokoll:${filename}:${abschnitt.id}:${key}`),
+      text: abschnitt.text.trim(),
+      person: normalisierePersonen(keys)
+    }));
 }
 
 // Best-effort-Sync (kein Merge mit gleichzeitigen Änderungen aus der
@@ -729,17 +744,27 @@ async function syncInternePendenzen(protokoll, filename) {
     const byId = new Map(serverList.map((p) => [p.id, p]));
     const now = new Date().toISOString();
 
-    // Pendenzen aus der Zeit vor dem Mehrfach-Tagging tragen noch die ID
-    // ohne Person. Sie werden auf die neue ID gehoben statt gelöscht und
-    // neu angelegt -- sonst käme ein längst erledigter Punkt wieder als
-    // offen zurück.
+    // Kurzzeitig entstand je zuständiger Person eine eigene Pendenz
+    // (`...:<personKey>`). Die werden hier wieder zu der einen Pendenz des
+    // Stichpunkts zusammengeführt statt gelöscht und neu angelegt -- sonst
+    // stünde derselbe Punkt mehrfach in der Liste und ein bereits
+    // gesetztes Häkchen ginge verloren. Erledigt ist der Punkt nur, wenn
+    // er es in ALLEN Einzeleinträgen war.
     kandidaten.forEach((k) => {
-      if (byId.has(k.id)) return;
-      const alt = byId.get(k.altId);
-      if (alt && alt.person === k.person) {
-        byId.set(k.id, { ...alt, id: k.id });
-        byId.delete(k.altId);
-      }
+      const einzeln = k.altIds.map((id) => byId.get(id)).filter(Boolean);
+      if (!einzeln.length) return;
+      const bestehend = byId.get(k.id);
+      const alle = bestehend ? [bestehend, ...einzeln] : einzeln;
+      const erledigt = alle.every((p) => p.erledigt);
+      byId.set(k.id, {
+        ...(bestehend || einzeln[0]),
+        id: k.id,
+        erledigt,
+        erledigtAt: erledigt ? alle.map((p) => p.erledigtAt).filter(Boolean).sort().pop() || null : null,
+        order: Math.min(...alle.map((p) => p.order ?? 0)),
+        createdAt: alle.map((p) => p.createdAt).filter(Boolean).sort()[0] || null
+      });
+      k.altIds.forEach((id) => byId.delete(id));
     });
 
     kandidaten.forEach((k) => {

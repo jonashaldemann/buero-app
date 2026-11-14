@@ -84,9 +84,9 @@
     padding: 12px 14px;
   }
   .pendenz-row.erledigt { opacity: 0.55; }
-  /* Im Bearbeiten-Modus reicht eine Zeile nicht mehr (Textfeld + zwei
-     Dropdowns + Fertig-Knopf) -- dann bricht die Zeile in zwei Zeilen um:
-     oben Text, darunter die Auswahllisten. */
+  /* Im Bearbeiten-Modus reicht eine Zeile nicht mehr (Textfeld + Projekt +
+     Kürzel + Fertig-Knopf) -- dann bricht die Zeile in zwei Zeilen um:
+     oben Text, darunter Projekt und Zuständige. */
   .pendenz-row.editing { flex-wrap: wrap; }
   .pendenz-row.editing .pendenz-main,
   .pendenz-row.editing .pendenz-meta-edit {
@@ -169,6 +169,28 @@
     border-radius: 8px;
     color: var(--text);
   }
+  /* Zuständige im Bearbeiten-Modus: antippbare Kürzel statt Auswahlliste,
+     weil eine Pendenz auf mehrere Personen laufen kann (siehe app.js,
+     renderMeta()). */
+  .person-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .person-chip {
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font-medium);
+    font-size: 12px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .person-chip.an {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
+  }
+  .pendenz-row.on-dark .person-chip { background: rgba(255, 255, 255, 0.25); color: #fff; }
+  .pendenz-row.on-dark .person-chip.an { background: #fff; color: var(--text); }
   .row-action {
     background: none;
     border: none;

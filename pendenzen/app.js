@@ -61,7 +61,8 @@ const FALLBACK_COLOR = "#B7AFA0";
 let projectList = appConfig.projekte;
 let personen = appConfig.mitarbeitende;
 
-// { id, text, projekt (Projektname oder null), person (key oder null),
+// { id, text, projekt (Projektname oder null), person (Liste von Keys,
+//   null = alle/niemand -- siehe personenListe()/normalisierePersonen()),
 //   erledigt, erledigtAt, order, createdAt, updatedAt, updatedBy,
 //   geloescht (Tombstone, siehe TOMBSTONE_RETENTION_DAYS) }
 let pendenzen = loadJSON(LS_KEYS.cache, []);
@@ -126,6 +127,36 @@ function isDarkColor(hex) {
   const b = n & 255;
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness < 150;
+}
+
+// Eine Pendenz kann auf MEHRERE Personen laufen: `person` ist eine Liste
+// von Keys. Ältere Dateien haben dort einen einzelnen Key (oder null) --
+// gelesen wird über personenListe(), das beides akzeptiert, geschrieben
+// wird immer eine Liste (bzw. null). Keys, die nicht mehr in der zentralen
+// Konfiguration stehen (ausgetretene Personen), bleiben erhalten und
+// werden hier bewusst nicht weggeworfen.
+function personenListe(p) {
+  const wert = p ? p.person : null;
+  if (Array.isArray(wert)) return wert.filter(Boolean);
+  return wert ? [wert] : [];
+}
+
+// Beim SCHREIBEN: leere Auswahl -> null. Sind ALLE aktuellen Mitarbeitenden
+// getaggt, ist das dasselbe wie "geht alle an" -- dann trägt die Pendenz
+// bewusst keinen persönlichen Tag mehr (null), statt die halbe Zeile mit
+// Kürzeln zu füllen, die nichts unterscheiden.
+function normalisierePersonen(keys) {
+  const liste = [...new Set((keys || []).filter(Boolean))];
+  if (!liste.length) return null;
+  if (personen.length && personen.every((m) => liste.includes(m.key))) return null;
+  return liste;
+}
+
+// Für die Bearbeiten-Ansicht: null (= geht alle an) wird hier zur vollen
+// Liste, damit die Kürzel zeigen, wer zuständig ist.
+function pendenzPersonen(p) {
+  const liste = personenListe(p);
+  return liste.length ? liste : personen.map((m) => m.key);
 }
 
 function personLabel(key) {
@@ -264,7 +295,7 @@ function handleAdd() {
   // Kein eigenes Personen-Dropdown fürs Erfassen (mehr) -- wie beim Projekt
   // kommt die Person rein aus dem aktiven Filter. Sich nachträglich ändern
   // lässt sie trotzdem jederzeit (Pendenz anklicken, siehe updatePendenzField()).
-  const person = filterPerson !== "ALL" ? filterPerson : null;
+  const person = normalisierePersonen(filterPerson !== "ALL" ? [filterPerson] : []);
   const projekt = filterProjekt === "ALL" ? null : filterProjekt;
   const now = new Date().toISOString();
   // Neue Pendenz landet immer zuoberst (kleinster order-Wert) -- danach per
@@ -301,6 +332,18 @@ function toggleErledigt(id, erledigt) {
 function updatePendenzField(id, field, value) {
   const now = new Date().toISOString();
   syncPendenzen((list) => list.map((p) => (p.id === id ? { ...p, [field]: value, updatedAt: now, updatedBy: personName() } : p)));
+}
+
+// Eine Person zur Pendenz dazu- oder wegnehmen (die Kürzel im
+// Bearbeiten-Modus, siehe renderMeta()).
+function togglePendenzPerson(id, key) {
+  const pendenz = pendenzen.find((p) => p.id === id);
+  if (!pendenz) return;
+  const liste = pendenzPersonen(pendenz);
+  const i = liste.indexOf(key);
+  if (i === -1) liste.push(key);
+  else liste.splice(i, 1);
+  updatePendenzField(id, "person", normalisierePersonen(liste));
 }
 
 // Übernimmt die per Drag & Drop neu angeordnete DOM-Reihenfolge der offenen
@@ -343,7 +386,12 @@ function filteredPendenzen() {
   return pendenzen.filter((p) => {
     if (p.geloescht) return false;
     if (filterProjekt !== "ALL" && (p.projekt || null) !== filterProjekt) return false;
-    if (filterPerson !== "ALL" && (p.person || null) !== filterPerson) return false;
+    // Eine Pendenz ohne persönlichen Tag geht alle an und erscheint
+    // deshalb in JEDEM Personenfilter, nicht nur unter "Alle".
+    if (filterPerson !== "ALL") {
+      const liste = personenListe(p);
+      if (liste.length && !liste.includes(filterPerson)) return false;
+    }
     return true;
   });
 }
@@ -391,12 +439,22 @@ function renderMeta(p) {
     const projektOptions =
       `<option value="">Kein Projekt</option>` +
       projectList.map((proj) => `<option value="${escapeHtml(proj.name)}" ${p.projekt === proj.name ? "selected" : ""}>${escapeHtml(proj.name)}</option>`).join("");
-    const personOptions =
-      `<option value="">Keine Person</option>` +
-      personen.map((per) => `<option value="${escapeHtml(per.key)}" ${p.person === per.key ? "selected" : ""}>${escapeHtml(per.name)}</option>`).join("");
+    // Personen als antippbare Kürzel statt als Auswahlliste -- eine
+    // Pendenz kann auf mehrere laufen, und ein <select multiple> wäre dafür
+    // in der schmalen Zeile unbedienbar.
+    // Ohne Eintrag geht die Pendenz alle an -- dann stehen auch alle Kürzel
+    // als gewählt da (und ein Klick nimmt eines wieder weg). "Niemand" und
+    // "alle" sind derselbe Zustand, es gibt also bewusst keine leere Auswahl.
+    const gewaehlt = pendenzPersonen(p);
+    const personChips = personen
+      .map(
+        (per) =>
+          `<button type="button" class="person-chip${gewaehlt.includes(per.key) ? " an" : ""}" data-action="toggle-person" data-id="${p.id}" data-person-key="${escapeHtml(per.key)}" aria-pressed="${gewaehlt.includes(per.key)}" title="${escapeHtml(per.name)}">${escapeHtml(personInitials(per.key) || per.name)}</button>`
+      )
+      .join("");
     return `<span class="pendenz-meta pendenz-meta-edit">
       <select data-action="edit-projekt" data-id="${p.id}">${projektOptions}</select>
-      <select data-action="edit-person" data-id="${p.id}">${personOptions}</select>
+      <span class="person-chips">${personChips}</span>
       <button type="button" class="row-action" data-action="edit-done" data-id="${p.id}" aria-label="Fertig">✓</button>
     </span>`;
   }
@@ -404,10 +462,14 @@ function renderMeta(p) {
   // Farbrand der Zeile zeigt es schon, ein Tag daneben wäre nur
   // Platzverschwendung (siehe Todo). Person als Kürzel (Initialen), voller
   // Name im title-Attribut -- den ganzen Namen zeigt nur der Bearbeiten-Modus.
-  const initials = p.person ? personInitials(p.person) : "";
-  return `<span class="pendenz-meta">
-    ${initials ? `<span class="pendenz-tag" title="${escapeHtml(personLabel(p.person))}">${escapeHtml(initials)}</span>` : ""}
-  </span>`;
+  // Mehrere Zuständige: je ein Kürzel. Ist die Pendenz allen (oder
+  // niemandem) zugewiesen, steht hier bewusst gar nichts.
+  const tags = personenListe(p)
+    .map((key) => ({ key, initials: personInitials(key) }))
+    .filter((x) => x.initials)
+    .map((x) => `<span class="pendenz-tag" title="${escapeHtml(personLabel(x.key))}">${escapeHtml(x.initials)}</span>`)
+    .join("");
+  return `<span class="pendenz-meta">${tags}</span>`;
 }
 
 // canMove: nur in der offenen Liste sinnvoll -- Reihenfolge erledigter
@@ -481,8 +543,8 @@ function render() {
   document.querySelectorAll('[data-action="edit-projekt"]').forEach((sel) => {
     sel.addEventListener("change", () => updatePendenzField(sel.dataset.id, "projekt", sel.value || null));
   });
-  document.querySelectorAll('[data-action="edit-person"]').forEach((sel) => {
-    sel.addEventListener("change", () => updatePendenzField(sel.dataset.id, "person", sel.value || null));
+  document.querySelectorAll('[data-action="toggle-person"]').forEach((btn) => {
+    btn.addEventListener("click", () => togglePendenzPerson(btn.dataset.id, btn.dataset.personKey));
   });
   document.querySelectorAll('[data-action="edit-text"]').forEach((input) => {
     const commit = () => {
