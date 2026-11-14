@@ -462,25 +462,34 @@
   .bk-panel input.bk-vorlage-suche { margin-bottom: 6px; }
   .bk-vorlage-quelle { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
   .bk-vorlage-leer { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+  /* Die Liste ist das Herz des Blocks: unter einer Gattung hängen gern
+     achtzig Vorlagen. Sie bekommt deshalb so viel Höhe, wie das Fenster
+     hergibt -- mit 260px sah man vier von achtzig und hielt den Rest für
+     nicht vorhanden. */
   .bk-vorlage-liste {
     list-style: none; margin: 0; padding: 0;
-    max-height: 260px; overflow-y: auto;
+    max-height: min(440px, 46vh); overflow-y: auto;
     border: 1px solid var(--border); border-radius: 10px;
   }
   .bk-vorlage-liste li + li { border-top: 1px solid var(--border); }
+  /* Ordnerzeile: klebt beim Scrollen oben, sonst weiss man nach dreissig
+     Containern nicht mehr, in welchem Ordner man gerade ist. */
+  .bk-vorlage-gruppe {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface-2); color: var(--text-muted);
+    font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase;
+    padding: 5px 10px; line-height: 1.35;
+  }
   .bk-vorlage-liste button {
-    display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+    display: flex; align-items: baseline; gap: 10px;
     width: 100%; text-align: left; background: none; border: none; cursor: pointer;
-    padding: 8px 10px; font-family: var(--font-light); color: var(--text);
+    padding: 7px 10px; font-family: var(--font-light); color: var(--text);
   }
   .bk-vorlage-liste button:hover, .bk-vorlage-liste button:focus-visible { background: var(--surface-2); outline: none; }
-  .bk-vorlage-titel { font-family: var(--font-medium); font-size: 12.5px; line-height: 1.3; }
-  .bk-vorlage-pfad { font-size: 10.5px; color: var(--text-muted); line-height: 1.3; }
+  .bk-vorlage-titel { flex: 1; font-size: 12.5px; line-height: 1.35; }
   .bk-vorlage-preis {
-    /* Spalte ausdrücklich setzen: ein Element mit fester ZEILE wird sonst
-       vor den automatisch platzierten eingeordnet und landet links. */
-    grid-column: 2; grid-row: 1 / span 2; align-self: center;
-    font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap;
+    flex: none; font-size: 12.5px; font-variant-numeric: tabular-nums;
+    color: var(--text-muted); white-space: nowrap;
   }
 
   /* ---------- Optionen ---------- */

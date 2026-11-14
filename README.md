@@ -1846,6 +1846,13 @@ Platz sprengen, den die Schätzungen selbst fürs Offline-Arbeiten brauchen.
 Offline gibt es deshalb keine Vorlagen; bereits übernommene Optionen stehen
 in der Schätzung und rechnen weiter.
 
+Die Liste ist **nach Ordnern gegliedert** und zeigt die Vorlagen in der
+Reihenfolge des Preislisten-Baums — unter einer Gattung hängen gern achtzig
+Positionen in einem Dutzend Ordnern ("Büro, WC, Aufenthalts-, Wohn- und
+Lagerraum", "Materialcontainer", "Baukran"), bis vier Ebenen tief. Die
+Ordnerzeile klebt beim Scrollen oben, damit man weiss, wo man gerade ist,
+und die Anzahl steht in der Zeile darüber.
+
 **Angeboten** werden die Positionen unter dem passenden Knoten der Preisliste:
 die tiefste BKP-Nummer, die der Baum selbst führt. Liegt die Katalognummer
 tiefer (ein eigenes Unterkapitel unter 201.0), wird von dort über die

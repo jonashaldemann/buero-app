@@ -1689,7 +1689,7 @@ function vorlageListeHtml() {
     // Beim Suchen bewusst im GANZEN Baum: wer tippt, sucht etwas
     // Bestimmtes, und das steht oft unter einer anderen Nummer.
     liste = alle.filter((e) => e.pfadText.toLowerCase().includes(such));
-    hinweis = `${liste.length} ${liste.length === 1 ? "Treffer" : "Treffer"} im ganzen Preislisten-Baum`;
+    hinweis = `Gesucht im ganzen Preislisten-Baum`;
   } else {
     const knoten = preislisteKnotenFuer(gewaehlteZeile.nr);
     if (!knoten) {
@@ -1704,23 +1704,39 @@ function vorlageListeHtml() {
   }
   if (!liste.length) return `<div class="bk-vorlage-leer">Keine Vorlage gefunden.</div>`;
   const gezeigt = liste.slice(0, VORLAGEN_MAX);
+
+  // Nach Ordner gruppieren statt eine flache Liste: unter einer Gattung
+  // hängen gern achtzig Positionen in einem Dutzend Ordnern ("Büro, WC,
+  // Aufenthalts-, Wohn- und Lagerraum", "Materialcontainer", "Baukran").
+  // Flach untereinander stünde unter jedem Eintrag derselbe lange Pfad, und
+  // man fände nichts wieder. Eine Map behält die Reihenfolge des Baums.
+  const gruppen = new Map();
+  gezeigt.forEach((e) => {
+    const rel = e.pfad.slice(schnitt, -1).join(PFAD_TRENNER);
+    if (!gruppen.has(rel)) gruppen.set(rel, []);
+    gruppen.get(rel).push(e);
+  });
+
+  const eintragHtml = (e) => `<li><button type="button" data-panel-action="vorlage" data-pfad="${escapeHtml(
+    e.pfadText
+  )}">
+      <span class="bk-vorlage-titel">${escapeHtml(e.knoten.bezeichnung || "(ohne Bezeichnung)")}</span>
+      <span class="bk-vorlage-preis">${
+        (e.knoten.optionen || []).length
+          ? zahl(vorlageEinheitspreis(e.knoten)) + (e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : "")
+          : "<span title=\"Diese Position führt in der Preisliste keine Preisoptionen\">ohne Preis</span>"
+      }</span>
+    </button></li>`;
+
   return `
-    <div class="bk-vorlage-quelle">${hinweis}</div>
+    <div class="bk-vorlage-quelle">${hinweis} · ${liste.length} ${liste.length === 1 ? "Vorlage" : "Vorlagen"}</div>
     <ul class="bk-vorlage-liste">
-      ${gezeigt
-        .map((e) => {
-          const eltern = e.pfad.slice(schnitt, -1).join(PFAD_TRENNER);
-          return `<li><button type="button" data-panel-action="vorlage" data-pfad="${escapeHtml(e.pfadText)}">
-            <span class="bk-vorlage-titel">${escapeHtml(e.knoten.bezeichnung || "(ohne Bezeichnung)")}</span>
-            ${eltern ? `<span class="bk-vorlage-pfad">${escapeHtml(eltern)}</span>` : ""}
-            <span class="bk-vorlage-preis">${
-              (e.knoten.optionen || []).length
-                ? zahl(vorlageEinheitspreis(e.knoten)) +
-                  (e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : "")
-                : "<span title=\"Diese Position führt in der Preisliste keine Preisoptionen\">ohne Preis</span>"
-            }</span>
-          </button></li>`;
-        })
+      ${[...gruppen]
+        .map(
+          ([rel, eintraege]) =>
+            (rel ? `<li class="bk-vorlage-gruppe">${escapeHtml(rel)}</li>` : "") +
+            eintraege.map(eintragHtml).join("")
+        )
         .join("")}
     </ul>
     ${

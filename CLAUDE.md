@@ -182,6 +182,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   BEZEICHNUNG weiter (`preislisteKnotenFuer()`) -- unterhalb der Gattung hat
   Preisliste Ordner mit denselben Titeln wie der Katalog. Das Suchfeld sucht
   dagegen im ganzen Baum, bewusst: wer tippt, sucht etwas Bestimmtes.
+- **Die Vorlagenliste ist nach ORDNERN gegliedert und hoch genug**: unter
+  einer Gattung hängen bis zu 145 Positionen in einem Dutzend Ordnern, bis
+  vier Ebenen tief. Flach und in einem 260px-Kasten sah man vier davon --
+  der Rest wirkte schlicht nicht vorhanden (genau so gemeldet). Die Höhe ist
+  deshalb `min(440px, 46vh)`, die Ordnerzeile klebt oben, und die Zahl der
+  Vorlagen steht in der Quellenzeile. Der Deckel `VORLAGEN_MAX` (150) greift
+  praktisch nur beim Suchen über alles.
 - **Optionen `baukosten/` kennen drei Arten** (`OPTION_ARTEN`: variante /
   bestandteil / zuschlag), Preisliste nur "aktiv ja/nein". Die Art wird beim
   Übernehmen aus dem Muster abgeleitet (`mitVorbelegtenArten()`) und ist
