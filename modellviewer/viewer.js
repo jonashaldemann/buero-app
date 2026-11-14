@@ -14,6 +14,12 @@
    Die Bedienleiste baut der Viewer selbst in den übergebenen Container --
    so sehen Vorschau (Büro) und Kundenansicht garantiert gleich aus und es
    gibt die Schnitt-Logik nur einmal.
+
+   Himmelsrichtungen in der Szene: oben ist +Y, Osten +X, NORDEN -Z. Das
+   passt zu beiden Wegen, auf denen ein Modell hier ankommt: glTF ist auf
+   Y-oben festgelegt (nach vorne zeigt dort -Z), und ein Z-oben-Export wird
+   mit -90° um X gedreht -- das in Schweizer Plänen nach Norden zeigende +Y
+   wird dabei zu -Z. Daran hängt der Sonnenstand (siehe sonnenstand()).
    ============================================================ */
 
 import * as THREE from "three";
@@ -51,6 +57,104 @@ function pufferVon(inhalt) {
   return inhalt instanceof ArrayBuffer ? inhalt : inhalt.buffer;
 }
 
+// ---------- Sonnenstand (Ort: immer Zürich) ----------
+
+// Ein anderer Ort käme nur in Frage, wenn das Büro je ausserhalb baut --
+// dann gehörte er in modell.json, nicht hierher.
+const ORT_BREITE = 47.3769;
+const ORT_LAENGE = 8.5417;
+
+function gradInBogen(g) {
+  return (g * Math.PI) / 180;
+}
+
+function bogenInGrad(b) {
+  return (b * 180) / Math.PI;
+}
+
+// Letzter Sonntag eines Monats (1-12) -- Anfang und Ende der Sommerzeit.
+function letzterSonntag(jahr, monat) {
+  const letzter = new Date(Date.UTC(jahr, monat, 0));
+  return letzter.getUTCDate() - letzter.getUTCDay();
+}
+
+// Abstand der Zürcher Ortszeit zur Weltzeit in Stunden (1 oder 2). Bewusst
+// selbst gerechnet statt über die Zeitzone des Browsers: eingegeben wird
+// immer Zürcher Zeit, auch wenn ein Kunde die Seite anderswo öffnet.
+function zonenOffset(jahr, monat, tag, minuten) {
+  const sommerAb = Date.UTC(jahr, 2, letzterSonntag(jahr, 3), 1); // 01:00 Weltzeit
+  const sommerBis = Date.UTC(jahr, 9, letzterSonntag(jahr, 10), 1);
+  // Zum Antesten die Winterzeit annehmen: in der einen Umstellungsstunde
+  // ist die Stunde dann daneben, die Sonne steht dort aber gleich.
+  const probe = Date.UTC(jahr, monat - 1, tag, 0, minuten - 60);
+  return probe >= sommerAb && probe < sommerBis ? 2 : 1;
+}
+
+/* Sonnenstand über Zürich nach dem Verfahren der NOAA (Abweichung rund ein
+   Zehntelgrad -- für Licht und Schatten mehr als genug).
+     minuten: Minuten seit Mitternacht ORTSZEIT
+   Rückgabe in Grad: hoehe über dem Horizont, azimut im Uhrzeigersinn ab
+   Norden (90 = Osten, 180 = Süden, 270 = Westen). */
+export function sonnenstand(jahr, monat, tag, minuten) {
+  const ms = Date.UTC(jahr, monat - 1, tag, 0, minuten - zonenOffset(jahr, monat, tag, minuten) * 60);
+  const jt = ms / 86400000 + 2440587.5; // julianisches Datum
+  const t = (jt - 2451545) / 36525; // julianische Jahrhunderte seit 2000
+  // Mitternacht Weltzeit liegt bei einem julianischen Datum mit Bruchteil
+  // 0.5 -- daraus die Minuten des Weltzeit-Tages.
+  const minutenUtc = ((jt + 0.5) % 1) * 1440;
+
+  const mittlereLaenge = (280.46646 + t * (36000.76983 + t * 0.0003032)) % 360;
+  const mittlereAnomalie = 357.52911 + t * (35999.05029 - 0.0001537 * t);
+  const exzentrizitaet = 0.016708634 - t * (0.000042037 + 0.0000001267 * t);
+  const mittelpunktsgleichung =
+    Math.sin(gradInBogen(mittlereAnomalie)) * (1.914602 - t * (0.004817 + 0.000014 * t)) +
+    Math.sin(gradInBogen(2 * mittlereAnomalie)) * (0.019993 - 0.000101 * t) +
+    Math.sin(gradInBogen(3 * mittlereAnomalie)) * 0.000289;
+  const omega = 125.04 - 1934.136 * t;
+  const scheinbareLaenge = mittlereLaenge + mittelpunktsgleichung - 0.00569 - 0.00478 * Math.sin(gradInBogen(omega));
+  const schiefe = 23 + (26 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60) / 60;
+  const schiefeKorr = schiefe + 0.00256 * Math.cos(gradInBogen(omega));
+  const deklination = Math.asin(Math.sin(gradInBogen(schiefeKorr)) * Math.sin(gradInBogen(scheinbareLaenge)));
+
+  const y = Math.tan(gradInBogen(schiefeKorr / 2)) ** 2;
+  const l = gradInBogen(mittlereLaenge);
+  const m = gradInBogen(mittlereAnomalie);
+  const zeitgleichung =
+    4 *
+    bogenInGrad(
+      y * Math.sin(2 * l) -
+        2 * exzentrizitaet * Math.sin(m) +
+        4 * exzentrizitaet * y * Math.sin(m) * Math.cos(2 * l) -
+        0.5 * y * y * Math.sin(4 * l) -
+        1.25 * exzentrizitaet * exzentrizitaet * Math.sin(2 * m)
+    );
+  // Wahre Ortszeit der Sonne; daraus der Stundenwinkel (negativ vormittags).
+  const wahreSonnenzeit = (minutenUtc + zeitgleichung + 4 * ORT_LAENGE + 1440) % 1440;
+  const stundenwinkel = wahreSonnenzeit / 4 - 180;
+
+  const breite = gradInBogen(ORT_BREITE);
+  const cosZenit = Math.max(
+    -1,
+    Math.min(
+      1,
+      Math.sin(breite) * Math.sin(deklination) +
+        Math.cos(breite) * Math.cos(deklination) * Math.cos(gradInBogen(stundenwinkel))
+    )
+  );
+  const zenit = Math.acos(cosZenit);
+  const sinZenit = Math.sin(zenit);
+  let azimut = 180;
+  if (sinZenit > 1e-6) {
+    const c = Math.max(
+      -1,
+      Math.min(1, (Math.sin(breite) * cosZenit - Math.sin(deklination)) / (Math.cos(breite) * sinZenit))
+    );
+    const w = bogenInGrad(Math.acos(c));
+    azimut = stundenwinkel > 0 ? (w + 180) % 360 : (540 - w) % 360;
+  }
+  return { hoehe: 90 - bogenInGrad(zenit), azimut };
+}
+
 function svg(d, viewBox = "0 0 24 24") {
   return `<svg viewBox="${viewBox}" width="18" height="18" aria-hidden="true"><path d="${d}" fill="currentColor"/></svg>`;
 }
@@ -85,9 +189,20 @@ export function erstelleViewer(container) {
           <button type="button" class="mv-btn" data-mv-achse="z" title="Schnitt quer zur Z-Achse">Z</button>
         </div>
         <button type="button" class="mv-btn" data-mv="boden" title="Boden und Schatten ein-/ausblenden">${svg("M2 18h20v2H2v-2zm4-4h12v2H6v-2zm3-4h6v2H9v-2z")}</button>
+        <button type="button" class="mv-btn" data-mv="sonne" title="Sonnenstand und Helligkeit">${svg("M11 1h2v3.6h-2V1zm0 18.4h2V23h-2v-3.6zM1 11h3.6v2H1v-2zm18.4 0H23v2h-3.6v-2zM4.2 5.6l1.4-1.4 2.6 2.6-1.4 1.4-2.6-2.6zm11 11l1.4-1.4 2.6 2.6-1.4 1.4-2.6-2.6zm2.6-12.4l1.4 1.4-2.6 2.6-1.4-1.4 2.6-2.6zm-12.4 11l1.4 1.4-2.6 2.6-1.4-1.4 2.6-2.6zM12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z")}</button>
         <button type="button" class="mv-btn" data-mv="gitter" title="Drahtgitter ein-/ausblenden">${svg("M3 3h18v18H3V3zm2 2v5h5V5H5zm7 0v5h5V5h-5zM5 12v5h5v-5H5zm7 0v5h5v-5h-5z")}</button>
         <button type="button" class="mv-btn" data-mv="bild" title="Bild speichern">${svg("M12 15.5L7 10.5l1.4-1.4 2.6 2.6V3h2v8.7l2.6-2.6L17 10.5l-5 5zM5 19h14v2H5v-2z")}</button>
         <button type="button" class="mv-btn" data-mv="vollbild" title="Vollbild">${svg("M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z")}</button>
+      </div>
+      <div class="mv-bar-zeile mv-sonne" hidden>
+        <span class="mv-label">Datum</span>
+        <input type="date" class="mv-datum" aria-label="Datum (Ort: Zürich)">
+        <input type="range" class="mv-schieber mv-schieber-klein mv-zeit" min="0" max="1435" step="5" aria-label="Uhrzeit (Zürcher Zeit)">
+        <span class="mv-wert mv-sonne-wert"></span>
+        <span class="mv-label">Stärke</span>
+        <input type="range" class="mv-schieber mv-schieber-klein mv-staerke" min="0" max="100" aria-label="Stärke der Sonne">
+        <span class="mv-label">Aufhellung</span>
+        <input type="range" class="mv-schieber mv-schieber-klein mv-aufhellung" min="0" max="100" aria-label="Aufhellung im Schatten und in Innenräumen">
       </div>
       <div class="mv-bar-zeile mv-schnitt" hidden>
         <input type="range" class="mv-schieber" min="0" max="1000" value="500" aria-label="Schnitt verschieben">
@@ -99,7 +214,8 @@ export function erstelleViewer(container) {
   const canvasBox = container.querySelector(".mv-canvas");
   const statusBox = container.querySelector(".mv-status");
   const schnittZeile = container.querySelector(".mv-schnitt");
-  const schieber = container.querySelector(".mv-schieber");
+  const sonnenZeile = container.querySelector(".mv-sonne");
+  const schieber = container.querySelector(".mv-schnitt .mv-schieber");
 
   // ---------- Szene ----------
 
@@ -130,17 +246,26 @@ export function erstelleViewer(container) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-  // Die Umgebung (oben) liefert das diffuse Licht und die Spiegelungen, die
-  // Sonne nur noch Richtung und Schlagschatten -- deshalb ist sie bewusst
-  // schwach eingestellt, sonst brennen helle Fassaden aus.
+  // Die Umgebung und das Himmelslicht liefern das diffuse Licht und die
+  // Spiegelungen, die Sonne Richtung und Schlagschatten. Beide Stärken
+  // stehen in der Bedienleiste; die Startwerte setzt wendeHelligkeitAn().
   const sonne = new THREE.DirectionalLight(0xfff3e2, 1.6);
-  sonne.position.set(1, 1.6, 0.8);
   sonne.castShadow = true;
   sonne.shadow.mapSize.set(2048, 2048);
   sonne.shadow.bias = -0.0004;
   scene.add(sonne);
   scene.add(sonne.target);
-  scene.add(new THREE.HemisphereLight(0xf2efea, 0x8a8178, 0.35));
+  const himmel = new THREE.HemisphereLight(0xf2efea, 0x8a8178, 0.35);
+  scene.add(himmel);
+
+  // Stand der Sonne: Datum und Uhrzeit statt einer festen Richtung. Der
+  // 21. Juni um 15 Uhr steht fast genau dort, wo die Sonne früher fest
+  // eingebaut war (rund 60° hoch, aus Südwesten) -- ein festes Datum statt
+  // "heute", damit ein Modell im Dezember nicht im Streiflicht aufgeht.
+  let sonneDatum = { jahr: new Date().getFullYear(), monat: 6, tag: 21 };
+  let sonneMinuten = 15 * 60;
+  let sonneStaerke = 0.5; // 0..1, Schieber "Stärke"
+  let aufhellung = 0.6; // 0..1, Schieber "Aufhellung"
 
   let kameraP = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
   let kameraO = new THREE.OrthographicCamera(-1, 1, 1, -1, -1000, 1000);
@@ -455,21 +580,7 @@ export function erstelleViewer(container) {
     scene.add(raster);
     boden.visible = bodenAn;
 
-    // Die Sonne steht links VOR dem Modell, die Standardkamera (Axo)
-    // rechts davor: so fällt der Schlagschatten nach hinten rechts und ist
-    // im Bild zu sehen. Stünde sie wie die Kamera rechts vorne, läge der
-    // Schatten komplett hinter dem Haus und man sähe gar keinen.
-    sonne.position.copy(mitte).add(new THREE.Vector3(-radius * 1.3, radius * 2.0, radius * 0.9));
-    sonne.target.position.copy(mitte);
-    const s = sonne.shadow.camera;
-    s.left = -radius * 1.4;
-    s.right = radius * 1.4;
-    s.top = radius * 1.4;
-    s.bottom = -radius * 1.4;
-    s.near = radius * 0.1;
-    s.far = radius * 8;
-    s.updateProjectionMatrix();
-    sonne.shadow.normalBias = radius * 0.01;
+    wendeSonnenstandAn();
 
     schnittAchse = null;
     schnittZeile.hidden = true;
@@ -674,6 +785,95 @@ export function erstelleViewer(container) {
     setzeSchnittPosition(min + ((max - min) * Number(schieber.value)) / 1000);
   });
 
+  // ---------- Sonne und Helligkeit ----------
+
+  function zeitText(minuten) {
+    return `${String(Math.floor(minuten / 60)).padStart(2, "0")}:${String(minuten % 60).padStart(2, "0")}`;
+  }
+
+  // Stand der Sonne auf Lichtrichtung und Schattenkamera umlegen. Hängt an
+  // mitte/radius und läuft deshalb auch nach jedem Modellwechsel.
+  function wendeSonnenstandAn() {
+    const { hoehe, azimut } = sonnenstand(sonneDatum.jahr, sonneDatum.monat, sonneDatum.tag, sonneMinuten);
+    const h = gradInBogen(hoehe);
+    const a = gradInBogen(azimut);
+    // Norden ist -Z, Osten +X (siehe Kopf der Datei): der Azimut läuft im
+    // Uhrzeigersinn ab Norden.
+    const richtung = new THREE.Vector3(Math.sin(a) * Math.cos(h), Math.sin(h), -Math.cos(a) * Math.cos(h));
+    // Unter dem Horizont wirft die Sonne nichts mehr; das Himmelslicht
+    // allein ergibt die Dämmerung.
+    sonne.visible = hoehe > 0.5;
+    sonne.position.copy(mitte).add(richtung.multiplyScalar(radius * 3));
+    sonne.target.position.copy(mitte);
+    sonne.target.updateMatrixWorld();
+
+    // Je flacher die Sonne, desto länger die Schatten -- bliebe der
+    // Schattenbereich fest, hörte der Schatten mitten auf dem Boden auf.
+    const weite = radius * Math.min(4, 1.4 / Math.max(0.35, Math.sin(Math.max(h, 0.05))));
+    const s = sonne.shadow.camera;
+    s.left = -weite;
+    s.right = weite;
+    s.top = weite;
+    s.bottom = -weite;
+    s.near = radius * 0.1;
+    s.far = radius * 8;
+    s.updateProjectionMatrix();
+    sonne.shadow.normalBias = radius * 0.01;
+
+    sonnenWert.textContent =
+      hoehe > 0.5 ? `${zeitText(sonneMinuten)} · ${Math.round(hoehe)}°` : `${zeitText(sonneMinuten)} · unter dem Horizont`;
+  }
+
+  // "Aufhellung" ist die Helligkeit dort, wo die Sonne nicht hinkommt:
+  // Schatten und Innenräume. Ein Schlagschatten wird nicht heller, indem
+  // man die Sonne dreht, sondern indem das übrige Licht zulegt.
+  //
+  // Der Schieber hängt bewusst nur am HIMMELSLICHT, nicht an der Umgebung
+  // (scene.environment): die wirkt nur auf Standardmaterial, also auf
+  // glTF-Modelle. Die Phong-Materialien aus einer MTL-Datei (OBJ) sehen von
+  // ihr nichts und leben ganz vom Himmelslicht -- genau dort waren
+  // Innenräume bisher fast schwarz. Deshalb steht es neu bei 1.28 statt bei
+  // 0.35; wem das zu flach ist, der zieht den Schieber zurück.
+  function wendeHelligkeitAn() {
+    sonne.intensity = sonneStaerke * 3.2;
+    himmel.intensity = 0.2 + aufhellung * 1.8;
+    // Ein heller Raum verträgt keinen pechschwarzen Schlagschatten auf dem
+    // Boden -- der Boden ist nur ein Schattenfänger, seine Deckkraft ist
+    // die Schattenstärke.
+    bodenMaterial.opacity = 0.3 - aufhellung * 0.16;
+  }
+
+  const datumFeld = container.querySelector(".mv-datum");
+  const zeitFeld = container.querySelector(".mv-zeit");
+  const sonnenWert = container.querySelector(".mv-sonne-wert");
+  const staerkeFeld = container.querySelector(".mv-staerke");
+  const aufhellungFeld = container.querySelector(".mv-aufhellung");
+
+  datumFeld.value = `${sonneDatum.jahr}-${String(sonneDatum.monat).padStart(2, "0")}-${String(sonneDatum.tag).padStart(2, "0")}`;
+  zeitFeld.value = String(sonneMinuten);
+  staerkeFeld.value = String(Math.round(sonneStaerke * 100));
+  aufhellungFeld.value = String(Math.round(aufhellung * 100));
+
+  datumFeld.addEventListener("change", () => {
+    const teile = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datumFeld.value);
+    // Ein leeres oder halb getipptes Feld lässt den bisherigen Tag stehen.
+    if (!teile) return;
+    sonneDatum = { jahr: Number(teile[1]), monat: Number(teile[2]), tag: Number(teile[3]) };
+    wendeSonnenstandAn();
+  });
+  zeitFeld.addEventListener("input", () => {
+    sonneMinuten = Number(zeitFeld.value);
+    wendeSonnenstandAn();
+  });
+  staerkeFeld.addEventListener("input", () => {
+    sonneStaerke = Number(staerkeFeld.value) / 100;
+    wendeHelligkeitAn();
+  });
+  aufhellungFeld.addEventListener("input", () => {
+    aufhellung = Number(aufhellungFeld.value) / 100;
+    wendeHelligkeitAn();
+  });
+
   // ---------- Bild speichern ----------
 
   function bildSpeichern(dateiname = "modell.png") {
@@ -726,6 +926,10 @@ export function erstelleViewer(container) {
         btn.classList.toggle("aktiv", !bodenAn);
         btn.title = bodenAn ? "Boden und Schatten ausblenden" : "Boden und Schatten einblenden";
         return;
+      case "sonne":
+        sonnenZeile.hidden = !sonnenZeile.hidden;
+        btn.classList.toggle("aktiv", !sonnenZeile.hidden);
+        return;
       case "gitter":
         gitterAn = !gitterAn;
         modellMaterialien.forEach((m) => {
@@ -746,6 +950,9 @@ export function erstelleViewer(container) {
   // Pfeiltasten verschieben den Schnitt fein -- am Desktop deutlich genauer
   // als Ziehen oder Schieber.
   container.addEventListener("keydown", (ev) => {
+    // Steht der Fokus auf einem Schieber, gehören die Pfeiltasten ihm --
+    // sonst verschöbe ein Druck auf die Sonnenzeile zugleich den Schnitt.
+    if (ev.target.closest("input")) return;
     if (!schnittAchse || (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight")) return;
     const { min, max } = schnittBereich();
     const schritt = ((max - min) / 200) * (ev.key === "ArrowRight" ? 1 : -1);
@@ -758,6 +965,8 @@ export function erstelleViewer(container) {
   // dort schlicht nichts, also weg damit.
   if (!document.fullscreenEnabled) container.querySelector('[data-mv="vollbild"]').remove();
 
+  wendeHelligkeitAn();
+  wendeSonnenstandAn();
   passeGroesseAn();
   schleife();
 

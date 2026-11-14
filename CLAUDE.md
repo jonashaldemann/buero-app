@@ -61,7 +61,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   sondern mit `gl.readPixels()` über die ganze Leinwand: DECKENDE Pixel
   (Alpha > 200) sind das Modell, teildeckende das Raster (0.55) und die
   eingeblendete Schnittfläche (0.1) -- mit einer Schwelle von 10 misst man
-  die mit und sieht den Schnitt nicht mehr. Damit lässt sich exakt prüfen,
+  die mit und sieht den Schnitt nicht mehr. Für HELLIGKEIT taugt der
+  Mittelwert nicht: das Demomodell ist fast weiss und liegt im oberen,
+  flachen Teil der ACES-Kurve, da bewegt selbst die ganze Sonne nur ein paar
+  Stufen. Perzentile über die deckenden Pixel nehmen (p25 = Innenraum und
+  Schattenseite, p90 = besonnte Flächen) und für Innenraum-Fragen ein
+  eigenes OBJ+MTL-Testmodell bauen -- die Phong-Materialien sind genau der
+  dunkle Fall. Damit lässt sich exakt prüfen,
   dass ein Schnitt am Rand das Modell auf 0 bringt und "umkehren" es
   zurückholt. Texturen sind erst nach `warteAufBeidateien()` da (siehe
   unten) -- misst man zu früh, ist das Modell schwarz.
@@ -319,6 +325,27 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Boden ebenso. Die Lage des Schnitts wird in `schnittPos` MITGEFÜHRT und
   nicht aus `plane.constant` zurückgerechnet (Vorzeichenfalle: die Normale
   dreht beim Umkehren mit).
+- **Norden ist -Z im `modellviewer/`** (Osten +X, oben +Y): daran hängt der
+  gerechnete Sonnenstand (`sonnenstand()` in `viewer.js`, Verfahren der
+  NOAA, Ort fest Zürich, Sommerzeit selbst gerechnet statt über die
+  Zeitzone des Browsers -- ein Kunde kann anderswo sitzen). Die Konvention
+  ist nicht frei gewählt: glTF ist auf Y-oben mit -Z nach vorne festgelegt,
+  und die Z-oben-Drehung (-90° um X) macht aus dem in Schweizer Plänen nach
+  Norden zeigenden +Y genau -Z. Start ist der 21. Juni, 15 Uhr -- dort steht
+  die Sonne fast genau dort, wo sie früher fest eingebaut war (rund 60° hoch
+  aus Südwesten); ein festes Datum statt "heute", sonst geht ein Modell im
+  Dezember im Streiflicht auf. Die Einstellungen leben nur in der Sitzung,
+  nichts davon steht in `modell.json`.
+- **Der Schieber "Aufhellung" hängt am HIMMELSLICHT, nicht an
+  `scene.environment`**: die Umgebung wirkt in three.js nur auf
+  `MeshStandardMaterial` (`material.isMeshStandardMaterial ? scene.environment
+  : null` im Renderer), also auf glTF. Ein OBJ bekommt vom `MTLLoader`
+  Phong-Material und sieht von ihr nichts -- dort hing alles Licht
+  ausserhalb der Sonne am Himmelslicht mit 0.35, und Innenräume waren
+  praktisch schwarz (gemessen: Grauwert 37 von 255). Es steht deshalb neu
+  bei 1.28. Wer die Helligkeit anders verteilen will, muss diesen
+  Unterschied mitdenken, sonst wirkt eine Änderung nur bei der Hälfte der
+  Modelle.
 - **Z-oben wird NICHT geraten** (`zUp` in `modell.json`): an den blossen
   Abmessungen sind ein hohes Haus und ein liegender Baukörper nicht zu
   unterscheiden. Das Büro setzt das Häkchen beim Hochladen, glTF ist auf

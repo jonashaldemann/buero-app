@@ -2134,9 +2134,10 @@ in der Vorschau falsch, Häkchen umstellen und neu speichern.
 - **Perspektive / Parallel**: schaltet zwischen perspektivischer und
   Parallelprojektion um — Letztere ist das, was Architekten als Axonometrie
   gewohnt sind (keine Fluchten, Höhen bleiben vergleichbar).
-- **Boden** blendet Bodenraster und Schlagschatten weg, **Drahtgitter**
-  zeigt die Maschen, **Bild** speichert das aktuelle Bild als PNG
-  (mitsamt dem Hintergrundverlauf), **Vollbild** nutzt den ganzen
+- **Boden** blendet Bodenraster und Schlagschatten weg, **Sonne** klappt
+  die Zeile für Sonnenstand und Helligkeit auf (siehe unten),
+  **Drahtgitter** zeigt die Maschen, **Bild** speichert das aktuelle Bild
+  als PNG (mitsamt dem Hintergrundverlauf), **Vollbild** nutzt den ganzen
   Bildschirm.
 - Hervorgehoben ist ein Knopf immer dann, wenn er **nicht** im Normalzustand
   steht; was der nächste Klick tut, steht im Tooltip.
@@ -2163,15 +2164,49 @@ dasselbe.
   hohlen Baukörper, statt auf eine farbige Schnittfläche wie in einer
   Werkplanung. Das ist eine bewusste Grenze (siehe "Bekannte Grenzen").
 
+### Sonnenstand und Helligkeit
+
+Der Knopf **Sonne** klappt eine zweite Zeile auf; sie gilt in der Vorschau
+wie in der Kundenansicht.
+
+- **Datum** und **Uhrzeit** (Schieber über den ganzen Tag) setzen den
+  **echten Sonnenstand über Zürich** — Höhe und Richtung werden nach dem
+  Verfahren der NOAA gerechnet, inklusive Sommerzeit. Rechts steht, wie hoch
+  die Sonne gerade steht; nachts "unter dem Horizont", dann wirft sie weder
+  Licht noch Schatten. Der Ort ist fest Zürich (47.3769° N, 8.5417° O):
+  innerhalb der Schweiz macht der Unterschied beim Sonnenstand weniger aus
+  als eine halbe Stunde Uhrzeit.
+- **Stärke** regelt, wie kräftig die Sonne scheint.
+- **Aufhellung** regelt die Helligkeit **dort, wo keine Sonne hinkommt** —
+  Schlagschatten und vor allem Innenräume. Ein Schatten wird nicht heller,
+  indem man die Sonne dreht, sondern indem das übrige Licht (Himmel)
+  zulegt. Steht sie hoch, wirkt das Bild flacher; steht sie tief, wird der
+  Kontrast hart.
+- Die Einstellungen gelten für die laufende Sitzung und werden nicht in
+  `modell.json` gespeichert. Beim Öffnen steht die Sonne auf **21. Juni,
+  15 Uhr** — ein festes Datum statt "heute", damit ein Modell im Dezember
+  nicht im Streiflicht aufgeht.
+
+Damit das stimmt, muss klar sein, wo Norden liegt: in der Szene ist **oben
++Y, Osten +X und Norden −Z**. Das passt zu beiden Wegen, auf denen ein
+Modell hereinkommt — glTF ist auf Y-oben festgelegt (vorne ist dort −Z), und
+ein Z-oben-Export wird um 90° gekippt, wodurch das in Schweizer Plänen nach
+Norden zeigende +Y zu −Z wird. Ein verdreht exportiertes Modell bekommt
+entsprechend eine verdrehte Sonne; gedreht wird es im CAD, nicht hier.
+
 ### Renderqualität
 
 Die Beleuchtung kommt aus einer gerechneten Innenraum-Umgebung
-(`RoomEnvironment`), die Sonne liefert nur noch Richtung und Schlagschatten
-— deshalb ist sie schwach eingestellt, sonst brennen helle Fassaden aus.
-Dazu ACES-Tonemapping und sRGB-Ausgabe, weiche Schatten und ein
-Bodenschatten ohne sichtbaren Boden. Die Sonne steht links **vor** dem
-Modell, die Standardansicht rechts davor: so fällt der Schatten sichtbar ins
-Bild statt hinter das Gebäude.
+(`RoomEnvironment`) plus einem Himmelslicht; die Sonne liefert Richtung und
+Schlagschatten. Dazu ACES-Tonemapping und sRGB-Ausgabe, weiche Schatten und
+ein Bodenschatten ohne sichtbaren Boden.
+
+Das **Himmelslicht** steht seit November 2026 deutlich heller (1.28 statt
+0.35) und hängt am Schieber "Aufhellung". Grund: die gerechnete Umgebung
+wirkt nur auf Standardmaterial, also auf glTF-Modelle. Ein **OBJ mit
+`.mtl`** bekommt von three.js Phong-Material und sieht von ihr nichts — dort
+hing alles Licht ausserhalb der Sonne am Himmelslicht, und Innenräume waren
+praktisch schwarz (gemessen: Grauwert 37 von 255, neu 90).
 
 Alle Materialien werden beidseitig gerendert (`DoubleSide`). Viele
 CAD-Exporte haben nach aussen gedrehte Einzelflächen, ohne das fehlen im
