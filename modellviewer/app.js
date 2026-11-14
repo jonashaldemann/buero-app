@@ -47,11 +47,157 @@ function ensureMvOrdner() {
   return ensureFolderPath(mvSegmente());
 }
 
+// ---------- Freigaben (Nextcloud-OCS) ----------
+//
+// Die Kundenansicht hängt an einem passwortgeschützten Freigabelink auf den
+// Modellordner. Angelegt wird der über Nextclouds OCS-Schnittstelle -- das
+// ist der einzige Ort im ganzen Repo, der nicht WebDAV spricht. Ohne den
+// Header "OCS-APIRequest" lehnt Nextcloud jeden solchen Aufruf ab; der
+// Worker-Proxy reicht ihn (und POST) erst seit November 2026 durch, deshalb
+// die ausdrückliche Fehlermeldung in freigabeFehlerText().
+//
+// Das Passwort selbst bekommt man aus Nextcloud NIE wieder heraus (es liegt
+// dort nur als Hash). Damit es sich nachschlagen lässt, merkt die App es in
+// _passwoerter.json -- im MODULORDNER, also eine Ebene über den einzelnen
+// Modellordnern und damit ausserhalb jeder Freigabe. Ein Kunde kann die
+// Datei nicht sehen.
+
+const OCS_SHARES = "ocs/v2.php/apps/files_sharing/api/v1/shares";
+const PW_DATEI = "_passwoerter.json";
+const SHARE_TYP_LINK = 3;
+
+class OcsFehler extends Error {
+  constructor(status, text) {
+    super(text || `Antwort ${status}`);
+    this.status = status;
+  }
+}
+
+function ocsFetch(pfadMitQuery, optionen = {}) {
+  return proxyFetch(pfadMitQuery, {
+    ...optionen,
+    headers: { ...authHeader(), "OCS-APIRequest": "true", ...(optionen.headers || {}) }
+  });
+}
+
+// Pfad, wie ihn die OCS-Schnittstelle erwartet: ab dem persönlichen
+// Dateibereich, OHNE den WebDAV-Vorspann und ohne Benutzernamen.
+function ordnerAufNextcloud(ordner) {
+  return `/${appModuleFolderPath(MODUL)}/${ordner}`;
+}
+
+async function ocsAntwort(res) {
+  let daten = null;
+  try {
+    daten = await res.json();
+  } catch (err) {
+    /* kein JSON -- fällt unten in die Fehlermeldung */
+  }
+  const meta = daten && daten.ocs && daten.ocs.meta;
+  // OCS v1 antwortet mit 100, v2 mit 200 -- beides heisst "hat geklappt".
+  if (res.ok && meta && (meta.statuscode === 100 || meta.statuscode === 200)) return daten.ocs.data;
+  throw new OcsFehler(res.status, meta && meta.message);
+}
+
+function freigabeFehlerText(err) {
+  if (err.status === 405) {
+    return "Dazu fehlt dem Worker-Proxy noch die neue Fassung (POST und OCS-APIRequest, siehe worker.js). Bis dahin: Freigabe in Nextcloud anlegen und die Kennung unten eintragen.";
+  }
+  if (err.status === 403) {
+    return `Nextcloud hat die Freigabe abgelehnt: ${err.message} (Passwortregeln? Freigaben erlaubt?)`;
+  }
+  return `Freigabe fehlgeschlagen: ${err.message}`;
+}
+
+async function freigabeSuchen(ordner) {
+  const daten = await ocsAntwort(
+    await ocsFetch(`${OCS_SHARES}?format=json&reshares=false&path=${ordnerAufNextcloud(ordner)}`)
+  );
+  const links = (Array.isArray(daten) ? daten : []).filter((f) => Number(f.share_type) === SHARE_TYP_LINK);
+  // Mehrere Links auf denselben Ordner sind möglich (von Hand angelegt) --
+  // dann gilt der neuste, denn der steckt auch in unserem Kundenlink.
+  return links.length ? links[links.length - 1] : null;
+}
+
+async function freigabeAnlegen(ordner, passwort, ablauf) {
+  const felder = new URLSearchParams({
+    path: ordnerAufNextcloud(ordner),
+    shareType: String(SHARE_TYP_LINK),
+    permissions: "1", // nur lesen
+    password: passwort
+  });
+  if (ablauf) felder.set("expireDate", ablauf);
+  return ocsAntwort(
+    await ocsFetch(`${OCS_SHARES}?format=json`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: felder.toString()
+    })
+  );
+}
+
+async function freigabeAendern(id, felder) {
+  return ocsAntwort(
+    await ocsFetch(`${OCS_SHARES}/${id}?format=json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(felder).toString()
+    })
+  );
+}
+
+async function freigabeLoeschen(id) {
+  return ocsAntwort(await ocsFetch(`${OCS_SHARES}/${id}?format=json`, { method: "DELETE" }));
+}
+
+// Sprechbares Passwort: muss am Telefon durchgegeben werden können und
+// trotzdem die üblichen Nextcloud-Passwortregeln erfüllen (Länge, Gross-
+// und Kleinbuchstaben, Ziffer).
+const SILBEN = "ba be bi bo da de di do fa fe fi ga ge gi ka ke ki ko la le li lo ma me mi mo na ne ni no pa pe pi ra re ri ro sa se si so ta te ti to va ve wa we za zo".split(" ");
+
+function zufallsZahl(grenze) {
+  const feld = new Uint32Array(1);
+  crypto.getRandomValues(feld);
+  return feld[0] % grenze;
+}
+
+function neuesPasswort() {
+  const wort = () => {
+    let w = "";
+    for (let i = 0; i < 3; i++) w += SILBEN[zufallsZahl(SILBEN.length)];
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  };
+  return `${wort()}-${wort()}-${100 + zufallsZahl(900)}`;
+}
+
+async function ladePasswoerter() {
+  try {
+    const res = await proxyFetch(mvPfad([PW_DATEI]), { method: "GET", headers: authHeader() });
+    if (!res.ok) return {};
+    return (await res.json()) || {};
+  } catch (err) {
+    return {};
+  }
+}
+
+async function merkePasswort(ordner, passwort) {
+  const alle = await ladePasswoerter();
+  if (passwort) alle[ordner] = { passwort, gesetzt: formatDate(new Date()), von: personName() };
+  else delete alle[ordner];
+  const res = await proxyFetch(mvPfad([PW_DATEI]), {
+    method: "PUT",
+    headers: { ...authHeader(), "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(alle, null, 2)
+  });
+  if (!res.ok) throw new Error(`Passwort merken fehlgeschlagen (${res.status})`);
+}
+
 // ---------- Zustand ----------
 
 let modelle = []; // [{ ordner, meta }]
 let aktuell = null; // im Dialog bearbeitetes Modell, null = neues
 let vorschau = null; // laufende Viewer-Instanz
+let aktuelleFreigabe = null; // Freigabe-Datensatz aus Nextcloud zum offenen Modell
 
 const el = (id) => document.getElementById(id);
 
@@ -155,12 +301,15 @@ function fuelleProjekte(gewaehlt) {
 
 function oeffneDialog(modell) {
   aktuell = modell || null;
+  aktuelleFreigabe = null;
   el("modellDialogTitel").textContent = modell ? "Modell bearbeiten" : "Modell hochladen";
   el("feldTitel").value = modell ? modell.meta.titel || modell.ordner : "";
   el("feldBeschreibung").value = modell ? modell.meta.beschreibung || "" : "";
   el("feldZup").checked = modell ? !!modell.meta.zUp : false;
   el("feldToken").value = modell ? modell.meta.token || "" : "";
   el("feldDateien").value = "";
+  el("feldAblauf").value = "";
+  el("feldPasswort").value = "";
   el("dateiListe").innerHTML = "";
   el("hauptdateiGruppe").hidden = true;
   el("loeschBtn").hidden = !modell;
@@ -168,7 +317,15 @@ function oeffneDialog(modell) {
   zeigeKundenlink();
   dialogMelde("");
   el("modellOverlay").classList.remove("hidden");
-  if (modell) zeigeDateien(modell);
+  if (modell) {
+    zeigeDateien(modell);
+    zeigeFreigabe(modell);
+  } else {
+    // Freigeben geht erst, wenn der Ordner existiert -- also nach dem
+    // ersten Speichern. Danach öffnet sich dieser Dialog gleich wieder.
+    setzeFreigabeKnoepfe(false, false);
+    el("freigabeStatus").textContent = "Nach dem Hochladen kannst du das Modell hier freigeben.";
+  }
 }
 
 function schliesseDialog() {
@@ -181,6 +338,136 @@ function zeigeKundenlink() {
   const link = kundenlink(token);
   el("linkGruppe").hidden = !link;
   el("feldKundenlink").value = link;
+}
+
+function setzeFreigabeKnoepfe(freigebenDa, freigabeDa) {
+  el("freigebenBtn").hidden = !freigebenDa;
+  el("neuesPwBtn").hidden = !freigabeDa;
+  el("freigabeWegBtn").hidden = !freigabeDa;
+}
+
+function freigabeStatusText() {
+  if (!aktuelleFreigabe) return "Noch nicht freigegeben.";
+  const bis = el("feldAblauf").value;
+  return bis ? `Freigegeben, gültig bis ${bis.split("-").reverse().join(".")}.` : "Freigegeben, unbefristet.";
+}
+
+// Sucht die bestehende Freigabe zum Modell und zeigt Link und Passwort an.
+async function zeigeFreigabe(modell) {
+  // Im Demomodus gibt es keine Nextcloud und damit keine Freigaben -- die
+  // einzige Stelle im Repo, die das wissen muss (sonst kennt kein Modul den
+  // Demomodus, siehe shared/common.js).
+  if (istDemo()) {
+    setzeFreigabeKnoepfe(false, false);
+    el("freigabeStatus").textContent = "Im Demomodus gibt es keine Nextcloud-Freigaben.";
+    return;
+  }
+  setzeFreigabeKnoepfe(false, false);
+  el("freigabeStatus").textContent = "Freigabe wird geprüft…";
+  try {
+    aktuelleFreigabe = await freigabeSuchen(modell.ordner);
+  } catch (err) {
+    console.warn("Freigabe nicht lesbar:", err);
+    el("freigabeStatus").textContent = freigabeFehlerText(err);
+    setzeFreigabeKnoepfe(false, false);
+    return;
+  }
+  if (aktuelleFreigabe) {
+    // expiration kommt als "2026-12-31 00:00:00"
+    el("feldAblauf").value = (aktuelleFreigabe.expiration || "").slice(0, 10);
+    el("feldToken").value = aktuelleFreigabe.token || el("feldToken").value;
+    const gemerkt = (await ladePasswoerter())[modell.ordner];
+    el("feldPasswort").value = gemerkt ? gemerkt.passwort : "";
+    zeigeKundenlink();
+  }
+  setzeFreigabeKnoepfe(!aktuelleFreigabe, !!aktuelleFreigabe);
+  el("freigabeStatus").textContent = freigabeStatusText();
+}
+
+// Schreibt NUR die Kennung in die modell.json -- der Kundenlink soll sofort
+// funktionieren, auch wenn niemand mehr auf "Speichern" drückt.
+async function merkeToken(token) {
+  if (!aktuell) return;
+  aktuell.meta = { ...aktuell.meta, token };
+  el("feldToken").value = token;
+  zeigeKundenlink();
+  await schreibeMeta(aktuell.ordner, aktuell.meta);
+}
+
+async function freigeben() {
+  if (!aktuell) return;
+  el("freigebenBtn").disabled = true;
+  try {
+    el("freigabeStatus").textContent = "Freigabe wird angelegt…";
+    const passwort = neuesPasswort();
+    aktuelleFreigabe = await freigabeAnlegen(aktuell.ordner, passwort, el("feldAblauf").value);
+    await merkePasswort(aktuell.ordner, passwort);
+    el("feldPasswort").value = passwort;
+    await merkeToken(aktuelleFreigabe.token);
+    setzeFreigabeKnoepfe(false, true);
+    el("freigabeStatus").textContent = freigabeStatusText();
+    dialogMelde("Freigegeben. Link und Passwort bitte getrennt verschicken.");
+    zeichneListe();
+  } catch (err) {
+    console.error(err);
+    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
+  } finally {
+    el("freigebenBtn").disabled = false;
+  }
+}
+
+async function passwortErneuern() {
+  if (!aktuelleFreigabe) return;
+  el("neuesPwBtn").disabled = true;
+  try {
+    const passwort = neuesPasswort();
+    await freigabeAendern(aktuelleFreigabe.id, { password: passwort });
+    await merkePasswort(aktuell.ordner, passwort);
+    el("feldPasswort").value = passwort;
+    dialogMelde("Neues Passwort gesetzt — der alte Link gilt weiter, das alte Passwort nicht mehr.");
+  } catch (err) {
+    console.error(err);
+    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
+  } finally {
+    el("neuesPwBtn").disabled = false;
+  }
+}
+
+async function freigabeAufheben() {
+  if (!aktuelleFreigabe) return;
+  if (!confirm("Freigabe aufheben? Ein bereits verschickter Kundenlink funktioniert danach nicht mehr.")) return;
+  el("freigabeWegBtn").disabled = true;
+  try {
+    await freigabeLoeschen(aktuelleFreigabe.id);
+    await merkePasswort(aktuell.ordner, null);
+    aktuelleFreigabe = null;
+    el("feldPasswort").value = "";
+    el("feldAblauf").value = "";
+    await merkeToken("");
+    setzeFreigabeKnoepfe(true, false);
+    el("freigabeStatus").textContent = freigabeStatusText();
+    dialogMelde("Freigabe aufgehoben.");
+    zeichneListe();
+  } catch (err) {
+    console.error(err);
+    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
+  } finally {
+    el("freigabeWegBtn").disabled = false;
+  }
+}
+
+// Das Ablaufdatum wirkt sofort -- ein eigener Knopf dafür wäre der dritte
+// in einer Reihe, die schon voll ist.
+async function ablaufUebernehmen() {
+  if (!aktuelleFreigabe) return;
+  try {
+    await freigabeAendern(aktuelleFreigabe.id, { expireDate: el("feldAblauf").value });
+    aktuelleFreigabe.expiration = el("feldAblauf").value;
+    el("freigabeStatus").textContent = freigabeStatusText();
+  } catch (err) {
+    console.error(err);
+    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
+  }
 }
 
 // Nextcloud zeigt den Freigabelink als ganze Adresse an -- die lässt sich
@@ -309,8 +596,16 @@ async function speichere() {
     dialogMelde("Angaben werden gespeichert…");
     await schreibeMeta(ordner, meta);
 
+    const warNeu = !aktuell;
     schliesseDialog();
     await ladeListe();
+    if (warNeu) {
+      const frisch = modelle.find((m) => m.ordner === ordner);
+      if (frisch) {
+        oeffneDialog(frisch);
+        dialogMelde("Hochgeladen. Jetzt noch freigeben, damit der Kunde es sehen kann.");
+      }
+    }
   } catch (err) {
     console.error(err);
     dialogMelde(err.message, true);
@@ -327,8 +622,12 @@ async function loesche() {
   try {
     // DELETE auf den Ordner nimmt den ganzen Inhalt mit. Die Nextcloud-
     // Freigabe verschwindet damit ebenfalls -- sie hängt an diesem Ordner.
-    const res = await proxyFetch(mvPfad([aktuell.ordner]), { method: "DELETE", headers: authHeader() });
+    const ordner = aktuell.ordner;
+    const res = await proxyFetch(mvPfad([ordner]), { method: "DELETE", headers: authHeader() });
     if (!res.ok && res.status !== 404) throw new Error(`Löschen fehlgeschlagen (${res.status})`);
+    // Die Nextcloud-Freigabe verschwindet mit dem Ordner; die gemerkte
+    // Passwortnotiz muss von Hand weg, sonst bleibt sie für immer stehen.
+    await merkePasswort(ordner, null).catch((err) => console.warn("Passwortnotiz:", err));
     schliesseDialog();
     await ladeListe();
   } catch (err) {
@@ -385,6 +684,21 @@ el("modellSchliessen").addEventListener("click", schliesseDialog);
 el("speichernBtn").addEventListener("click", speichere);
 el("loeschBtn").addEventListener("click", loesche);
 el("feldToken").addEventListener("input", zeigeKundenlink);
+el("freigebenBtn").addEventListener("click", freigeben);
+el("neuesPwBtn").addEventListener("click", passwortErneuern);
+el("freigabeWegBtn").addEventListener("click", freigabeAufheben);
+el("feldAblauf").addEventListener("change", ablaufUebernehmen);
+el("kopierPwBtn").addEventListener("click", async () => {
+  const pw = el("feldPasswort").value;
+  if (!pw) return;
+  try {
+    await navigator.clipboard.writeText(pw);
+    dialogMelde("Passwort kopiert.");
+  } catch (err) {
+    el("feldPasswort").select();
+    dialogMelde("Bitte von Hand kopieren.", true);
+  }
+});
 el("refreshBtn").addEventListener("click", () => {
   refreshAppConfig();
   ladeListe();

@@ -19,6 +19,13 @@
  *   - "s/AbCdEfGh123/download"
  *     (öffentlicher Freigabelink, z.B. für die zentrale Projektnamen-Datei,
  *     braucht keine Zugangsdaten)
+ *   - "ocs/v2.php/apps/files_sharing/api/v1/shares?format=json"
+ *     (Freigaben verwalten, braucht Authorization UND den Header
+ *     "OCS-APIRequest: true" -- siehe unten)
+ *   - "public.php/dav/files/<token>/..."
+ *     (passwortgeschützte Freigabe lesen: Benutzername = Token, Passwort =
+ *     Freigabepasswort; so kommt die Modellviewer-Kundenansicht ohne
+ *     Nextcloud-Konto an ein Modell)
  */
 
 const ALLOWED_ORIGIN = "https://jonashaldemann.github.io";
@@ -28,13 +35,15 @@ const NEXTCLOUD_ORIGIN = "https://231121p3noy7vr3b2no.nextcloud.hosting.zone";
 // Adressliste (Liste der gespeicherten Dateien lesen). DELETE wird für die
 // Wettbewerbsprogramme, Offerten und Adressliste gebraucht (einzelnen
 // Eintrag entfernen).
-const ALLOWED_METHODS = ["GET", "PUT", "MKCOL", "PROPFIND", "DELETE", "OPTIONS"];
+// POST kommt für die Freigabe-Schnittstelle (OCS) dazu, die der
+// Modellviewer benutzt, um Kundenfreigaben samt Passwort anzulegen.
+const ALLOWED_METHODS = ["GET", "POST", "PUT", "MKCOL", "PROPFIND", "DELETE", "OPTIONS"];
 
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": ALLOWED_METHODS.join(", "),
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Depth",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Depth, OCS-APIRequest",
     "Access-Control-Max-Age": "3600"
   };
 }
@@ -72,6 +81,11 @@ export default {
     // Depth-Header für PROPFIND (Ordnerinhalt lesen) durchreichen.
     const depth = request.headers.get("Depth");
     if (depth) forwardHeaders.set("Depth", depth);
+    // Ohne OCS-APIRequest lehnt Nextcloud jeden Aufruf seiner OCS-API ab
+    // (Schutz gegen CSRF). Der Modellviewer legt darüber die
+    // passwortgeschützten Kundenfreigaben an.
+    const ocs = request.headers.get("OCS-APIRequest");
+    if (ocs) forwardHeaders.set("OCS-APIRequest", ocs);
     // Ohne einen "normalen" User-Agent stufen manche Hosting-Firewalls
     // (z.B. bei hosting.de) den Request als Bot/Skript ein und blockieren ihn
     // mit "Suspicious traffic detected" -- deshalb hier ein Browser-UA.
@@ -82,7 +96,7 @@ export default {
     forwardHeaders.set("Accept", "*/*");
 
     const init = { method: request.method, headers: forwardHeaders };
-    if (request.method === "PUT" || request.method === "PROPFIND") {
+    if (request.method === "PUT" || request.method === "POST" || request.method === "PROPFIND") {
       init.body = await request.arrayBuffer();
     }
 

@@ -68,7 +68,9 @@ ausprobieren, ohne echte Bürodaten zu sehen.
   also ganz unten in der Schicht, genau dort, wo sonst der Worker-Proxy
   angesprochen wird (`demoFetch()`). GET, PUT, DELETE, MKCOL und PROPFIND
   werden nachgebildet. **Kein Modul kennt den Demomodus**: Laden,
-  Speichern, Ordner auflisten und Löschen funktionieren unverändert.
+  Speichern, Ordner auflisten und Löschen funktionieren unverändert. Genau
+  eine Ausnahme gibt es: der Modellviewer blendet das Freigeben aus, weil
+  eine Nextcloud-Freigabe nichts ist, was sich nachbilden liesse.
 - **Änderungen** landen ausschliesslich im `localStorage` dieses Browsers
   (Schlüssel `demo_overlay`) und überleben einen Reload. "Beispieldaten
   zurücksetzen" im Band verwirft sie. Hochgeladene Bilder/PDFs
@@ -118,6 +120,12 @@ CORS-Problem beim Weiterleiten, und ergänzt in der Antwort die fehlenden
 Header. Er speichert nichts — die Daten liegen weiterhin ausschliesslich auf
 eurer eigenen Nextcloud.
 
+**Wichtig:** `worker.js` wird nicht automatisch mit dem Repo veröffentlicht;
+nach Änderungen daran muss der Worker von Hand neu deployt werden (siehe
+unten). Zuletzt geändert im November 2026 für den Modellviewer: POST und der
+Header `OCS-APIRequest` kommen dazu, damit das Modul Kundenfreigaben anlegen
+kann.
+
 ### Worker deployen (einmalig, ca. 10 Minuten)
 
 1. Kostenloses Konto auf [dash.cloudflare.com](https://dash.cloudflare.com)
@@ -161,7 +169,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
 | Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung, dazu `_bkp_katalog.json` mit dem BKP nach SN 506 500:2017) |
-| Modellviewer | `Buero/Admin/App/Modellviewer` (ein ORDNER pro Modell, darin die Modelldatei(en) und `modell.json`) |
+| Modellviewer | `Buero/Admin/App/Modellviewer` (ein ORDNER pro Modell, darin die Modelldatei(en) und `modell.json`; dazu `_passwoerter.json` mit den Freigabepasswörtern) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
@@ -1960,27 +1968,52 @@ gleich aus.
 1. Im Modul **"+ Modell hochladen"**: Titel, Projekt, optional eine
    Bemerkung ("Stand 14.11.2026"), dann die Dateien wählen. Es entsteht ein
    eigener Ordner `Buero/Admin/App/Modellviewer/<titel-als-ordnername>`.
-2. In **Nextcloud** auf genau diesem Ordner einen **Freigabelink mit
-   Passwort** anlegen (Teilen → Link teilen → Passwort setzen; ein
-   Ablaufdatum ist sinnvoll). Schreibrechte braucht es nicht.
-3. Den Freigabelink im Modul beim Modell einfügen — das Feld nimmt die ganze
-   Adresse entgegen und zieht sich die Kennung selbst heraus. Darunter
-   erscheint der fertige **Kundenlink**.
-4. Kundenlink und Passwort **getrennt** verschicken (Link per Mail, Passwort
-   per Telefon/SMS) — dann ist ein weitergeleitetes Mail allein nutzlos.
+   Danach öffnet sich der Dialog gleich wieder — der nächste Schritt ist die
+   Freigabe, und die braucht den fertigen Ordner.
+2. Optional ein **"Gültig bis"**-Datum setzen, dann auf **"Freigeben"**. Die
+   App legt die Nextcloud-Freigabe auf diesen Ordner an (nur Leserecht),
+   würfelt ein Passwort und zeigt **Kundenlink und Passwort** an. Beide
+   lassen sich mit einem Klick kopieren.
+3. Link und Passwort **getrennt** verschicken (Link per Mail, Passwort per
+   Telefon/SMS) — dann ist ein weitergeleitetes Mail allein nutzlos.
 
-Zurücknehmen heisst: Freigabe in Nextcloud löschen (oder Passwort ändern).
-Der Link ist danach sofort tot, ohne dass am Modell etwas geändert werden
-muss. Modelle ohne eingetragene Kennung stehen in der Liste mit dem Hinweis
-"noch nicht freigegeben" — sonst verschickt man einen Link ins Leere.
+**Wo das Passwort steht:** Nextcloud speichert Freigabepasswörter nur als
+Hash und zeigt sie nie wieder an. Damit man es trotzdem nachschlagen kann,
+merkt die App es in `Buero/Admin/App/Modellviewer/_passwoerter.json` — also
+im Modulordner, eine Ebene **über** den Modellordnern und damit ausserhalb
+jeder Freigabe. Ein Kunde kann diese Datei nicht sehen; wer euren
+Nextcloud-Zugang hat, schon. Öffnet man ein freigegebenes Modell wieder,
+stehen Link und Passwort direkt da.
+
+Die Passwörter sind sprechbar aufgebaut ("Sirife-Wewede-982"), damit man sie
+am Telefon durchgeben kann, und erfüllen trotzdem die üblichen
+Nextcloud-Passwortregeln (Länge, Gross-/Kleinschreibung, Ziffern).
+
+**Ändern und zurücknehmen:**
+
+- **"Neues Passwort"** setzt ein frisches Passwort. Der Link bleibt
+  derselbe, das alte Passwort gilt sofort nicht mehr.
+- Das **Datum** wirkt sofort, sobald es geändert wird (eigener Knopf
+  unnötig).
+- **"Aufheben"** löscht die Freigabe in Nextcloud. Ein verschickter
+  Kundenlink ist danach tot; das Modell selbst bleibt liegen.
+- Ein **Modell löschen** nimmt Ordner, Freigabe und Passwortnotiz mit.
+
+Modelle ohne Freigabe stehen in der Liste mit dem Hinweis "noch nicht
+freigegeben" — sonst verschickt man einen Link ins Leere.
+
+**Von Hand geht es weiterhin:** Wer die Freigabe lieber in Nextcloud anlegt
+(Teilen → "Link teilen" → beim Link ⋯ → Passwortschutz), fügt den Link
+einfach ins Feld "Kennung der Freigabe" ein — das Feld nimmt die ganze
+Adresse entgegen und zieht sich die Kennung selbst heraus. Das Passwort
+kennt die App dann nicht und zeigt es auch nicht an.
 
 ### Warum ein Freigabelink und nicht unser Login
 
 Die Kundenseite muss ohne unsere Zugangsdaten auskommen, und im Repo (es ist
 öffentlich) darf nichts Geheimes stehen. Nextcloud kann eine
 passwortgeschützte Freigabe per WebDAV ausliefern, wenn man die **Kennung
-als Benutzernamen und das Freigabepasswort als Passwort** schickt — das geht
-durch den bestehenden Worker-Proxy, ohne eine Zeile an `worker.js` und ohne
+als Benutzernamen und das Freigabepasswort als Passwort** schickt — ohne
 dass irgendwo Zugangsdaten hinterlegt werden müssten. Angesprochen wird
 `public.php/dav/files/<Kennung>/`, mit Rückfall auf das ältere
 `public.php/webdav/` (je nach Nextcloud-Version gibt es nur eines von
@@ -2001,6 +2034,22 @@ Passwort nützt sie nichts.
 Das Passwort tippt der Kunde einmal ein; es bleibt nur im `sessionStorage`
 dieses Tabs (ein Neuladen fragt nicht nochmals, ein neuer Besuch schon) und
 wird nirgends gespeichert.
+
+### Freigaben anlegen braucht die neue Worker-Fassung
+
+Angelegt und geändert werden die Freigaben über Nextclouds
+**OCS-Schnittstelle** (`ocs/v2.php/apps/files_sharing/api/v1/shares`) — die
+einzige Stelle im ganzen Repo, die nicht WebDAV spricht. Dafür muss der
+Worker-Proxy zwei Dinge mehr durchlassen als früher: die Methode **POST**
+und den Header **`OCS-APIRequest`** (ohne den lehnt Nextcloud jeden
+OCS-Aufruf als CSRF-Versuch ab). Beides steht seit November 2026 in
+`worker.js`.
+
+Läuft noch die alte Fassung, sagt das Modul es im Klartext ("Dazu fehlt dem
+Worker-Proxy noch die neue Fassung…") und man kann die Freigabe weiterhin
+von Hand in Nextcloud anlegen. **Das Ansehen eines Modells ist davon nicht
+betroffen** — die Kundenseite liest nur, und das konnte der Worker schon
+immer.
 
 ### Dateiformate
 
@@ -2162,6 +2211,12 @@ Kundenlink gibt es dafür nicht: der bräuchte eine echte Nextcloud-Freigabe.
   Werkplanung. Das sauber zu machen (Stencil-Verfahren pro Material) ist bei
   beliebigen CAD-Exporten fehleranfällig — für "zeig mir das Erdgeschoss"
   reicht der offene Schnitt.
+- **Freigabepasswörter liegen im Klartext** in
+  `Buero/Admin/App/Modellviewer/_passwoerter.json`. Anders geht es nicht,
+  wenn man sie nachschlagen können will — Nextcloud selbst gibt sie nie
+  wieder heraus. Die Datei liegt ausserhalb jeder Freigabe, ist also nur mit
+  eurem Nextcloud-Zugang lesbar, und es sind Passwörter zum Anschauen eines
+  Modells, keine Konto-Passwörter.
 - **Kein Messen, keine Anmerkungen im Modell**: der Viewer zeigt, er
   dokumentiert nicht. Masse gehören in den Plan, Rückmeldungen ins Protokoll.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,

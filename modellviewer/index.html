@@ -24,6 +24,11 @@
 }
 </script>
 <style>
+  /* .form-group aus css/style.css setzt display:flex und schlägt damit die
+     eingebaute Browser-Regel [hidden]{display:none} -- ein ausgeblendeter
+     Block bliebe sonst sichtbar (dieselbe Falle wie in baukosten/). */
+  .form-group[hidden] { display: none; }
+
   .modell-liste {
     display: flex;
     flex-direction: column;
@@ -155,13 +160,11 @@
 
   <p class="hint">
     Modelle liegen auf Nextcloud unter "Buero/Admin/App/Modellviewer",
-    ein Ordner je Modell. Damit ein Kunde eines ansehen kann, braucht es
-    dort einen <strong>Freigabelink mit Passwort</strong> auf genau diesen
-    Ordner (Nextcloud: Ordner → Teilen → Link teilen → Passwort setzen,
-    optional mit Ablaufdatum). Die Kennung dieses Links trägst du beim
-    Modell ein; der Kundenlink entsteht daraus automatisch. Kunden brauchen
-    keinen Nextcloud-Zugang und sehen nur diesen einen Ordner. Freigabe in
-    Nextcloud löschen = Modell sofort nicht mehr erreichbar.
+    ein Ordner je Modell. Mit "Freigeben" legt die App auf genau diesem
+    Ordner einen <strong>Freigabelink mit Passwort</strong> an und zeigt dir
+    beides an — Kunden brauchen keinen Nextcloud-Zugang und sehen nur
+    diesen einen Ordner. "Aufheben" (oder die Freigabe in Nextcloud
+    löschen) macht den Link sofort unbrauchbar.
   </p>
 </main>
 
@@ -204,9 +207,16 @@
       <span>Z-Achse zeigt nach oben (bei vielen CAD-Exporten, z.B. aus Rhino/ArchiCAD)</span>
     </label>
 
-    <div class="form-group">
-      <label for="feldToken">Freigabelink aus Nextcloud</label>
-      <input type="text" id="feldToken" placeholder="Link einfügen oder Kennung eintippen" autocomplete="off">
+    <div class="form-group" id="freigabeGruppe">
+      <label>Freigabe für den Kunden</label>
+      <div class="file-name" id="freigabeStatus">Noch nicht freigegeben.</div>
+      <div class="form-actions" id="freigabeAktionen">
+        <button type="button" class="btn-secondary" id="freigebenBtn">Freigeben</button>
+        <button type="button" class="btn-secondary" id="neuesPwBtn" hidden>Neues Passwort</button>
+        <button type="button" class="btn-secondary" id="freigabeWegBtn" hidden>Aufheben</button>
+      </div>
+      <label for="feldAblauf">Gültig bis (leer = unbefristet)</label>
+      <input type="date" id="feldAblauf">
     </div>
 
     <div class="form-group" id="linkGruppe" hidden>
@@ -214,6 +224,28 @@
       <div class="kopierzeile">
         <input type="text" id="feldKundenlink" readonly>
         <button type="button" class="btn-secondary" id="kopierBtn">Kopieren</button>
+      </div>
+      <label for="feldPasswort">Passwort für den Kunden</label>
+      <div class="kopierzeile">
+        <input type="text" id="feldPasswort" readonly placeholder="nicht bekannt – mit &quot;Neues Passwort&quot; eines setzen">
+        <button type="button" class="btn-secondary" id="kopierPwBtn">Kopieren</button>
+      </div>
+      <div class="file-name">
+        Link und Passwort bitte <strong>getrennt</strong> verschicken (Link
+        per Mail, Passwort per Telefon oder SMS) — dann nützt ein
+        weitergeleitetes Mail allein nichts. Das Passwort merkt sich die App
+        in "_passwoerter.json" im Modellviewer-Ordner, also AUSSERHALB des
+        freigegebenen Ordners; Nextcloud selbst zeigt es nie wieder an.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="feldToken">Kennung der Freigabe</label>
+      <input type="text" id="feldToken" placeholder="wird beim Freigeben gesetzt" autocomplete="off">
+      <div class="file-name">
+        Füllt sich beim Freigeben von selbst. Von Hand geht auch: Freigabe in
+        Nextcloud anlegen (Teilen → "Link teilen" → beim Link ⋯ →
+        Passwortschutz) und den Link hier einfügen.
       </div>
     </div>
 

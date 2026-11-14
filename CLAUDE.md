@@ -226,14 +226,36 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   pro Modell ein Nextcloud-Freigabelink mit Passwort auf den Modellordner;
   gelesen wird mit `Authorization: Basic base64(<token>:<freigabepasswort>)`
   gegen `public.php/dav/files/<token>/`, mit Rückfall auf
-  `public.php/webdav/`. Das braucht KEINE Änderung an `worker.js` und
-  nirgends hinterlegte Zugangsdaten. Die Alternative (Worker bekommt ein
-  eigenes App-Passwort und prüft selbst) wurde verworfen: Nextcloud-
-  App-Passwörter lassen sich nicht auf einen Ordner einschränken, ein
-  Worker-Fehler wäre Vollzugriff gewesen. Das weicht bewusst von "kein
-  öffentlicher Freigabelink mehr" ab -- der Unterschied: dort stand ein
-  Token IM REPO, hier steht die Kennung nur im Link an den Kunden und ist
-  ohne Passwort wertlos. Tokens gehören weiterhin NIE ins Repo.
+  `public.php/webdav/`. Nirgends liegen dafür Zugangsdaten. Die Alternative
+  (Worker bekommt ein eigenes App-Passwort und prüft selbst) wurde
+  verworfen: Nextcloud-App-Passwörter lassen sich nicht auf einen Ordner
+  einschränken, ein Worker-Fehler wäre Vollzugriff gewesen. Das weicht
+  bewusst von "kein öffentlicher Freigabelink mehr" ab -- der Unterschied:
+  dort stand ein Token IM REPO, hier steht die Kennung nur im Link an den
+  Kunden und ist ohne Passwort wertlos. Tokens gehören weiterhin NIE ins
+  Repo.
+- **Freigaben legt das Modul selbst an** (OCS, `modellviewer/app.js`): die
+  einzige Stelle im Repo, die nicht WebDAV spricht
+  (`ocs/v2.php/apps/files_sharing/api/v1/shares`, `?format=json`, Erfolg ist
+  `ocs.meta.statuscode` 100 ODER 200). Dafür musste `worker.js` POST und den
+  Header `OCS-APIRequest` zulassen -- ohne den Header lehnt Nextcloud jeden
+  OCS-Aufruf ab. **`worker.js` wird von Hand deployt**: läuft noch die alte
+  Fassung, kommt beim Freigeben ein 405 zurück, und `freigabeFehlerText()`
+  erklärt genau das. Der Pfad für `path=` ist der Pfad AB dem persönlichen
+  Dateibereich (`/Buero/Admin/App/...`), nicht der DAV-Pfad -- `ncSegments()`
+  mit dem Benutzernamen wäre hier falsch.
+- **Freigabepasswörter stehen in `_passwoerter.json`** im MODULORDNER, also
+  eine Ebene über den Modellordnern und damit ausserhalb jeder Freigabe --
+  ein Kunde kann sie nicht lesen. Das ist nötig, weil Nextcloud
+  Freigabepasswörter nur als Hash hält und nie wieder herausgibt; ohne diese
+  Datei könnte das Büro ein einmal gesetztes Passwort nirgends nachschlagen.
+  Beim Löschen eines Modells muss der Eintrag mit weg (die Freigabe selbst
+  verschwindet mit dem Ordner von allein).
+- **`.form-group[hidden]` braucht eine eigene CSS-Zeile** (modellviewer/,
+  wie die `.bk-*[hidden]`-Regeln in baukosten/): `.form-group` aus
+  `css/style.css` setzt `display: flex` und schlägt damit die eingebaute
+  Browser-Regel `[hidden] { display: none }` -- ein ausgeblendeter Block
+  bleibt sonst sichtbar. Gilt für jede neue Klasse mit eigenem `display`.
 - **`modellviewer/app.js` ist ein ES-Modul**, läuft aber nach dem klassischen
   `shared/common.js` -- dessen `const`/`function` auf oberster Ebene sind in
   Modulen ganz normal sichtbar. Nur so lassen sich `dateien.js`/`viewer.js`
@@ -360,8 +382,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Worker-Proxys eine Attrappe (`demoFetch()` in `shared/common.js`, Daten
   aus `demo/seed.json`), Änderungen landen im `localStorage`. Der
   Einstiegspunkt sitzt bewusst auf Höhe von `proxyFetch()` — kein Modul
-  kennt den Demomodus, alle zehn funktionieren unverändert. `isConfigured()`
-  ist deshalb im Demomodus `true`. Siehe README.
+  kennt den Demomodus, alle elf funktionieren unverändert. `isConfigured()`
+  ist deshalb im Demomodus `true`. Siehe README. EINZIGE Ausnahme:
+  `zeigeFreigabe()` in `modellviewer/app.js` fragt `istDemo()` ab und
+  blendet das Freigeben aus -- eine Nextcloud-Freigabe lässt sich nicht
+  nachbilden, und ein Fehlerdialog wäre dort die schlechtere Antwort.
 - **Gemeinsamer Code**: `shared/common.js` (Nextcloud-Login/WebDAV,
   Einstellungen-Dialog, zentrale Konfiguration, Service-Worker-Registrierung
   mit Auto-Update). `localStorage` ist Origin-weit gültig — einmal
