@@ -29,9 +29,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 - **Gearbeitet wird auf `main`** (Stand November 2026, ausdrücklich so
   gewünscht) — ein anderer Branch nur, wenn der Nutzer ihn in genau diesem
   Auftrag verlangt. `development` existiert weiterhin, liegt aber brach.
-- **Nie pushen ohne frisches, explizites "ja"/"push mal" in genau dieser
-  Runde** — eine frühere Zustimmung gilt nicht automatisch für die nächste.
-  Nach dem Commit immer aktiv nachfragen.
+- **Pushen macht der Nutzer selbst** (seit November 2026, ausdrücklich so
+  gewünscht — von Hand geht es schneller): also committen und fertig, nicht
+  pushen und auch nicht danach fragen. Nur wenn der Nutzer in genau dieser
+  Runde "push mal"/"ja" sagt, wird gepusht — eine frühere Zustimmung gilt
+  nicht automatisch für die nächste.
 - Commits: neue Commits statt amend, Message auf Deutsch, endet mit
   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 - Bei grösseren, riskanten Umbauten (z.B. die Nextcloud-Ordner-Reorg) lohnt
