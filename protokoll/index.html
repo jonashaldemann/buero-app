@@ -51,7 +51,7 @@
 
   .bullet-row {
     display: grid;
-    grid-template-columns: 28px 1fr 150px 28px;
+    grid-template-columns: 28px 1fr 170px 28px;
     gap: 10px;
     align-items: center;
     background: var(--surface-2);
@@ -59,7 +59,23 @@
     padding: 10px 12px;
   }
   .bullet-text { background: var(--surface); font-size: 13px; min-height: 40px; resize: vertical; }
-  .bullet-kuerzel { background: var(--surface); font-size: 13px; }
+  .bullet-kuerzel { display: flex; flex-wrap: wrap; gap: 5px; }
+  .kuerzel-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font-medium);
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  .kuerzel-chip.an {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
+  }
+  .kuerzel-leer { color: var(--text-muted); font-size: 11px; }
 
   .mod-delete {
     background: none;
@@ -271,9 +287,9 @@
         Beim Namen einer neu hinzugefügten Person erscheinen live Vorschläge
         aus früheren Protokollen — mit Enter/Tab übernehmen (samt Kürzel).
         Büro-Personen bekommen ihr Kürzel automatisch (Initialen); bei
-        externen Teilnehmenden lässt es sich frei eintragen. Das Kürzel
-        wird bei den Stichpunkten unten verwendet, um einen Punkt als
-        Pendenz zu markieren.
+        externen Teilnehmenden lässt es sich frei eintragen. Die Kürzel
+        stehen bei jedem Stichpunkt unten zum Antippen bereit und machen
+        ihn zur Pendenz.
       </p>
     </div>
 
@@ -284,6 +300,12 @@
         <button type="button" class="add-mod-btn" id="addTitelBtn">+ Zwischentitel</button>
         <button type="button" class="add-mod-btn" id="addBulletBtn">+ Stichpunkt</button>
       </div>
+      <p class="hint">
+        Rechts an jedem Stichpunkt stehen die Kürzel der Teilnehmenden:
+        angetippt wird der Punkt zur Pendenz dieser Person. Es lassen sich
+        mehrere antippen — dann bekommt jede Büro-Person den Punkt in ihrer
+        eigenen Pendenzenliste und hakt ihn für sich ab.
+      </p>
     </div>
 
     <div id="editorResult" class="test-result"></div>

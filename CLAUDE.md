@@ -199,6 +199,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
+- **Pendenzen je Person `protokoll/`**: ein Stichpunkt trägt in `kuerzel`
+  eine LISTE von Kürzeln (ältere Protokolle einen einzelnen String --
+  `kuerzelListe()` akzeptiert beides, geschrieben wird immer das Array).
+  Jede angetippte Büro-Person bekommt eine eigene Pendenz; die ID lautet
+  `protokoll:<datei>:<bullet>:<personKey>`. Die frühere ID ohne Person
+  wird in `syncInternePendenzen()` auf die neue gehoben, sonst käme ein
+  erledigter Punkt wieder als offen zurück -- diese Migration darf nicht
+  wegfallen, solange noch alte `pendenzen.json` im Umlauf sind.
+  `protokoll/pdf.js` bleibt eigenständig und normalisiert die Liste selbst
+  (`kuerzelZeile()`).
 - **Kilometer-Quittung `quittung/km.js`** nutzt OpenStreetMap (Nominatim,
   OSRM, OSM-Kacheln), NICHT Google Maps: die Google-APIs brauchen einen
   Schlüssel (der hier im öffentlichen Repo stünde) plus Billing, und vor
@@ -208,7 +218,15 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Karte wird selbst gezeichnet statt über eine Kartenbibliothek, damit genau
   das Bildschirmbild ins PDF wandert. Die Quellenangabe gehört aufs Bild
   (Lizenz). Fahrzeuge/Ansätze kommen aus `config.json` (`fahrzeuge`), mit
-  eingebautem Fallback. Tests mocken die drei Dienste -- die Mocks MÜSSEN
+  eingebautem Fallback. Die Fahrt ist eine PUNKTFOLGE (`kmOrte`: Start,
+  beliebig viele Zwischenstopps, Ziel) -- `routeSuchen()` nimmt die ganze
+  Liste. OSRM liefert Alternativen nur bei genau zwei Punkten und auch dann
+  nur, wenn es wirklich eine ähnlich gute zweite Strecke gibt (gemessen:
+  Zürich -> Bönigen hat auch mit `alternatives=3` genau eine). Eine andere
+  Strecke erzwingt man deshalb über einen Zwischenstopp, nicht über mehr
+  Alternativen. Kurzadressen für Dateiname/Verwendungszweck kommen aus
+  Nominatims `addressdetails=1` (`kurzAdresse()`) -- aus `display_name` zu
+  raten geht schief, dessen erster Teil ist die Hausnummer. Tests mocken die drei Dienste -- die Mocks MÜSSEN
   CORS-Header mitschicken, sonst ist das Canvas tainted und der PDF-Teil
   schlägt fehl; zusätzlich gibt es einen Lauf gegen die echten Dienste.
 - **Exportdateien für fremde Programme mit BOM**: `quittung/buchungen.txt`

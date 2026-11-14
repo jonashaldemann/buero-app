@@ -293,7 +293,7 @@ function blankProtokoll() {
     zeitBis: "",
     ort: "",
     teilnehmende: [],
-    abschnitte: [{ typ: "bullet", id: uid(), text: "", kuerzel: "" }],
+    abschnitte: [{ typ: "bullet", id: uid(), text: "", kuerzel: [] }],
     syncedPendenzIds: [],
     updatedAt: null,
     updatedBy: null
@@ -524,16 +524,37 @@ const DRAG_HANDLE_SVG =
 const TRASH_SVG =
   '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>';
 
+// Ein Bullet Point kann MEHRERE Personen tragen: `kuerzel` ist ein Array
+// `["JH", "MM"]`. Ältere Protokolle haben dort einen einzelnen String --
+// gelesen wird über kuerzelListe(), das beides akzeptiert, geschrieben
+// wird immer das Array (bestehende Dateien wandern beim nächsten Speichern
+// von selbst mit, wie die Bemerkungen in der Adressliste).
+function kuerzelListe(abschnitt) {
+  const k = abschnitt ? abschnitt.kuerzel : null;
+  if (Array.isArray(k)) return k.filter(Boolean);
+  return k ? [k] : [];
+}
+function kuerzelText(abschnitt) {
+  return kuerzelListe(abschnitt).join(", ");
+}
+
 // Kürzel-Auswahl in einem Bullet Point: nur Teilnehmende mit gesetztem
 // Kürzel stehen zur Wahl -- die Auswahl selbst markiert den Punkt als
 // Pendenz (kein separates Häkchen nötig, siehe blankProtokoll()-Kommentar
-// im Todo).
-function kuerzelOptionsHtml(selected) {
+// im Todo). Als anklickbare Chips statt als Auswahlliste, damit mehrere
+// Personen mit je einem Klick getaggt werden können.
+function kuerzelChipsHtml(abschnitt) {
   const withKuerzel = editingProtokoll.teilnehmende.filter((t) => t.kuerzel);
-  const options = withKuerzel
-    .map((t) => `<option value="${escapeHtml(t.kuerzel)}" ${t.kuerzel === selected ? "selected" : ""}>${escapeHtml(t.kuerzel)} – ${escapeHtml(t.name)}</option>`)
+  if (withKuerzel.length === 0) {
+    return '<span class="kuerzel-leer">Kürzel bei Teilnehmenden setzen</span>';
+  }
+  const gewaehlt = kuerzelListe(abschnitt);
+  return withKuerzel
+    .map(
+      (t) =>
+        `<button type="button" class="kuerzel-chip${gewaehlt.includes(t.kuerzel) ? " an" : ""}" data-kuerzel="${escapeHtml(t.kuerzel)}" aria-pressed="${gewaehlt.includes(t.kuerzel)}" title="${escapeHtml(t.name)}">${escapeHtml(t.kuerzel)}</button>`
+    )
     .join("");
-  return `<option value="">– kein –</option>${options}`;
 }
 
 function renderAbschnitte() {
@@ -553,7 +574,7 @@ function renderAbschnitte() {
       return `<div class="bullet-row" data-index="${i}">
         ${handle}
         <textarea class="bullet-text" data-field="text" rows="1" placeholder="Stichpunkt">${escapeHtml(a.text || "")}</textarea>
-        <select class="bullet-kuerzel" data-field="kuerzel" title="Kürzel wählen, falls dieser Punkt eine Pendenz ist">${kuerzelOptionsHtml(a.kuerzel)}</select>
+        <div class="bullet-kuerzel" title="Kürzel antippen, falls dieser Punkt eine Pendenz ist – mehrere möglich">${kuerzelChipsHtml(a)}</div>
         <button type="button" class="mod-delete" data-action="delete" aria-label="Punkt löschen">${TRASH_SVG}</button>
       </div>`;
     })
@@ -573,6 +594,21 @@ function renderAbschnitte() {
           row.__abschnittRef[field] = el.value;
         });
       }
+    });
+
+    row.querySelectorAll(".kuerzel-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const abschnitt = row.__abschnittRef;
+        const kuerzel = chip.dataset.kuerzel;
+        const gewaehlt = kuerzelListe(abschnitt);
+        const idx = gewaehlt.indexOf(kuerzel);
+        if (idx === -1) gewaehlt.push(kuerzel);
+        else gewaehlt.splice(idx, 1);
+        abschnitt.kuerzel = gewaehlt;
+        const an = idx === -1;
+        chip.classList.toggle("an", an);
+        chip.setAttribute("aria-pressed", String(an));
+      });
     });
 
     row.querySelector('[data-action="delete"]')?.addEventListener("click", () => removeAbschnitt(abschnitte.indexOf(row.__abschnittRef)));
@@ -617,7 +653,7 @@ function wireAbschnitteListEndDrop() {
 function removeAbschnitt(index) {
   const abschnitte = editingProtokoll.abschnitte;
   abschnitte.splice(index, 1);
-  if (abschnitte.length === 0) abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: "" });
+  if (abschnitte.length === 0) abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: [] });
   renderAbschnitte();
 }
 
@@ -649,22 +685,30 @@ async function putPendenzenFile(list) {
   if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
 }
 
-// Jeder Bullet Point mit einem Kürzel, das zu einer BÜRO-Person gehört
+// Jedes Kürzel eines Bullet Points, das zu einer BÜRO-Person gehört
 // (personKey gesetzt -- externe Teilnehmende lösen keine Pendenz aus),
-// bekommt eine über Protokoll- und Bullet-ID stabile Pendenz-ID. Dieselbe
-// ID bei einem erneuten Speichern sorgt dafür, dass Text-Änderungen die
-// bestehende Pendenz aktualisieren statt sie zu duplizieren.
+// bekommt eine über Protokoll-, Bullet- und Personen-ID stabile Pendenz-ID.
+// Dieselbe ID bei einem erneuten Speichern sorgt dafür, dass
+// Text-Änderungen die bestehende Pendenz aktualisieren statt sie zu
+// duplizieren. Sind mehrere Personen getaggt, entsteht die Pendenz für
+// JEDE von ihnen -- jede sieht sie in ihrer eigenen Liste und hakt sie
+// für sich ab. `altId` ist die frühere ID aus der Zeit mit nur einem
+// Kürzel je Punkt, siehe syncInternePendenzen().
 function internePendenzKandidaten(protokoll, filename) {
   const byKuerzel = new Map(protokoll.teilnehmende.filter((t) => t.kuerzel).map((t) => [t.kuerzel, t]));
-  return protokoll.abschnitte
-    .filter((a) => a.typ === "bullet" && a.kuerzel && a.text && a.text.trim())
-    .map((a) => ({ abschnitt: a, teilnehmer: byKuerzel.get(a.kuerzel) }))
-    .filter((x) => x.teilnehmer && x.teilnehmer.personKey)
-    .map(({ abschnitt, teilnehmer }) => ({
-      id: `protokoll:${filename}:${abschnitt.id}`,
-      text: abschnitt.text.trim(),
-      person: teilnehmer.personKey
-    }));
+  const kandidaten = [];
+  protokoll.abschnitte
+    .filter((a) => a.typ === "bullet" && a.text && a.text.trim())
+    .forEach((a) => {
+      kuerzelListe(a).forEach((kuerzel) => {
+        const teilnehmer = byKuerzel.get(kuerzel);
+        if (!teilnehmer || !teilnehmer.personKey) return;
+        const id = `protokoll:${filename}:${a.id}:${teilnehmer.personKey}`;
+        if (kandidaten.some((k) => k.id === id)) return;
+        kandidaten.push({ id, altId: `protokoll:${filename}:${a.id}`, text: a.text.trim(), person: teilnehmer.personKey });
+      });
+    });
+  return kandidaten;
 }
 
 // Best-effort-Sync (kein Merge mit gleichzeitigen Änderungen aus der
@@ -684,6 +728,19 @@ async function syncInternePendenzen(protokoll, filename) {
     const serverList = await fetchPendenzenFile();
     const byId = new Map(serverList.map((p) => [p.id, p]));
     const now = new Date().toISOString();
+
+    // Pendenzen aus der Zeit vor dem Mehrfach-Tagging tragen noch die ID
+    // ohne Person. Sie werden auf die neue ID gehoben statt gelöscht und
+    // neu angelegt -- sonst käme ein längst erledigter Punkt wieder als
+    // offen zurück.
+    kandidaten.forEach((k) => {
+      if (byId.has(k.id)) return;
+      const alt = byId.get(k.altId);
+      if (alt && alt.person === k.person) {
+        byId.set(k.id, { ...alt, id: k.id });
+        byId.delete(k.altId);
+      }
+    });
 
     kandidaten.forEach((k) => {
       const existing = byId.get(k.id);
@@ -816,7 +873,7 @@ function init() {
   document.getElementById("deleteProtokollBtn").addEventListener("click", deleteCurrentProtokoll);
   document.getElementById("addTeilnehmerBtn").addEventListener("click", addFreierTeilnehmer);
   document.getElementById("addBulletBtn").addEventListener("click", () => {
-    editingProtokoll.abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: "" });
+    editingProtokoll.abschnitte.push({ typ: "bullet", id: uid(), text: "", kuerzel: [] });
     renderAbschnitte();
   });
   document.getElementById("addTitelBtn").addEventListener("click", () => {

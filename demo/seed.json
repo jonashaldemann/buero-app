@@ -1492,11 +1492,13 @@
     "teilnehmende": [
       {
         "name": "Anna Nussbaumer",
-        "kuerzel": "AN"
+        "kuerzel": "AN",
+        "personKey": "an"
       },
       {
         "name": "Tobias Brunner",
-        "kuerzel": "TB"
+        "kuerzel": "TB",
+        "personKey": "tb"
       },
       {
         "name": "Familie Keller",
@@ -1550,13 +1552,13 @@
         "typ": "bullet",
         "id": "demo-ab7",
         "text": "Kostenschätzung nach BKP erstellen und zustellen.",
-        "kuerzel": "AN"
+        "kuerzel": ["AN"]
       },
       {
         "typ": "bullet",
         "id": "demo-ab8",
         "text": "Richtofferten Dachdecker und Fenster einholen.",
-        "kuerzel": "TB"
+        "kuerzel": ["AN", "TB"]
       }
     ],
     "syncedPendenzIds": [],
