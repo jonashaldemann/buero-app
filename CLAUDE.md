@@ -272,13 +272,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Freigabepasswörter nur als Hash hält und nie wieder herausgibt; ohne diese
   Datei könnte das Büro ein einmal gesetztes Passwort nirgends nachschlagen.
   Beim Löschen eines Modells muss der Eintrag mit weg (die Freigabe selbst
-  verschwindet mit dem Ordner von allein). Das Feld ist BESCHREIBBAR (ein
-  readonly-Feld, das wie ein Eingabefeld aussieht, hat beim Nutzer genau die
-  erwartete Verwirrung ausgelöst): eigenes Passwort eintippen geht vor dem
-  Würfeln, eine Änderung wirkt beim `change`-Ereignis wie das Ablaufdatum.
-  Das Feld LEEREN hebt den Schutz bewusst NICHT auf -- `passwortUebernehmen()`
-  setzt den alten Wert zurück, sonst stünde ein Kundenmodell nach einem
-  Vertipper offen.
+  verschwindet mit dem Ordner von allein). Das Passwort setzt das Büro
+  IMMER selbst: `freigeben()` verlangt eines, eine Würfelfunktion gab es
+  kurzzeitig und ist auf Wunsch des Nutzers wieder raus. Eine Änderung wirkt
+  beim `change`-Ereignis wie das Ablaufdatum. Das Feld LEEREN hebt den
+  Schutz bewusst NICHT auf -- `passwortUebernehmen()` setzt den alten Wert
+  zurück, sonst stünde ein Kundenmodell nach einem Vertipper offen.
+- **Mindestlänge des Passworts gehört NEXTCLOUD**, nicht der App: die
+  Passwortrichtlinie (Verwaltung → Sicherheit) lehnt zu kurze Passwörter mit
+  OCS-Status 400/403 ab. Vom Browser aus ist das nicht umgehbar -- die App
+  schreibt deshalb KEINE eigene Mindestlänge vor und zeigt stattdessen
+  Nextclouds Wortlaut samt Herkunft an (`freigabeFehlerText()`). Wer kürzere
+  Passwörter will, ändert die Richtlinie dort.
 - **`.form-group[hidden]` braucht eine eigene CSS-Zeile** (modellviewer/,
   wie die `.bk-*[hidden]`-Regeln in baukosten/): `.form-group` aus
   `css/style.css` setzt `display: flex` und schlägt damit die eingebaute

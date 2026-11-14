@@ -218,15 +218,16 @@
       <div id="freigabeDetails">
         <label for="feldPasswort">Passwort</label>
         <div class="kopierzeile">
-          <input type="text" id="feldPasswort" autocomplete="off" placeholder="leer lassen = die App würfelt eines">
+          <input type="text" id="feldPasswort" autocomplete="off" placeholder="Passwort für den Kunden">
           <button type="button" class="btn-secondary" id="kopierPwBtn">Kopieren</button>
         </div>
         <div class="file-name">
-          Eigenes Passwort eintippen oder leer lassen. Bei einer bestehenden
-          Freigabe wirkt eine Änderung sofort, sobald du das Feld verlässt.
-          Die App merkt es sich in "_passwoerter.json" im
-          Modellviewer-Ordner, also AUSSERHALB des freigegebenen Ordners —
-          Nextcloud selbst zeigt es nie wieder an.
+          Bei einer bestehenden Freigabe wirkt eine Änderung sofort, sobald
+          du das Feld verlässt. Die App merkt sich das Passwort in
+          "_passwoerter.json" im Modellviewer-Ordner, also AUSSERHALB des
+          freigegebenen Ordners — Nextcloud selbst zeigt es nie wieder an.
+          Wie kurz ein Passwort sein darf, entscheidet Nextcloud
+          (Verwaltung → Sicherheit → Passwortrichtlinie), nicht diese App.
         </div>
 
         <label for="feldAblauf">Gültig bis (leer = unbefristet)</label>
@@ -234,7 +235,6 @@
 
         <div class="form-actions" id="freigabeAktionen">
           <button type="button" class="btn-secondary" id="freigebenBtn">Freigeben</button>
-          <button type="button" class="btn-secondary" id="neuesPwBtn" hidden>Neues Passwort</button>
           <button type="button" class="btn-secondary" id="pruefenBtn" hidden title="Link und Passwort genau so ausprobieren, wie es ein Kunde täte">Prüfen</button>
           <button type="button" class="btn-secondary" id="freigabeWegBtn" hidden>Aufheben</button>
         </div>

@@ -103,8 +103,13 @@ function freigabeFehlerText(err) {
   if (err.status === 405) {
     return "Dazu fehlt dem Worker-Proxy noch die neue Fassung (POST und OCS-APIRequest, siehe worker.js). Bis dahin: Freigabe in Nextcloud anlegen und die Kennung unten eintragen.";
   }
-  if (err.status === 403) {
-    return `Nextcloud hat die Freigabe abgelehnt: ${err.message} (Passwortregeln? Freigaben erlaubt?)`;
+  // Die Passwortrichtlinie (Mindestlänge, Zeichenarten) ist eine Einstellung
+  // DER NEXTCLOUD, nicht dieser App -- vom Browser aus lässt sie sich nicht
+  // umgehen. Deshalb Nextclouds eigenen Wortlaut zeigen und sagen, wo er
+  // herkommt, statt pauschal "fehlgeschlagen".
+  if (err.status === 400 || err.status === 403) {
+    const wortlaut = err.message ? `„${err.message}“ ` : "";
+    return `Nextcloud lehnt das ab: ${wortlaut}— das entscheidet die Passwortrichtlinie deiner Nextcloud (Verwaltung → Sicherheit), nicht diese App.`;
   }
   return `Freigabe fehlgeschlagen: ${err.message}`;
 }
@@ -148,26 +153,6 @@ async function freigabeAendern(id, felder) {
 
 async function freigabeLoeschen(id) {
   return ocsAntwort(await ocsFetch(`${OCS_SHARES}/${id}?format=json`, { method: "DELETE" }));
-}
-
-// Sprechbares Passwort: muss am Telefon durchgegeben werden können und
-// trotzdem die üblichen Nextcloud-Passwortregeln erfüllen (Länge, Gross-
-// und Kleinbuchstaben, Ziffer).
-const SILBEN = "ba be bi bo da de di do fa fe fi ga ge gi ka ke ki ko la le li lo ma me mi mo na ne ni no pa pe pi ra re ri ro sa se si so ta te ti to va ve wa we za zo".split(" ");
-
-function zufallsZahl(grenze) {
-  const feld = new Uint32Array(1);
-  crypto.getRandomValues(feld);
-  return feld[0] % grenze;
-}
-
-function neuesPasswort() {
-  const wort = () => {
-    let w = "";
-    for (let i = 0; i < 3; i++) w += SILBEN[zufallsZahl(SILBEN.length)];
-    return w.charAt(0).toUpperCase() + w.slice(1);
-  };
-  return `${wort()}-${wort()}-${100 + zufallsZahl(900)}`;
 }
 
 async function ladePasswoerter() {
@@ -345,7 +330,6 @@ function zeigeKundenlink() {
 
 function setzeFreigabeKnoepfe(freigebenDa, freigabeDa) {
   el("freigebenBtn").hidden = !freigebenDa;
-  el("neuesPwBtn").hidden = !freigabeDa;
   el("pruefenBtn").hidden = !freigabeDa;
   el("freigabeWegBtn").hidden = !freigabeDa;
 }
@@ -401,11 +385,16 @@ async function merkeToken(token) {
 
 async function freigeben() {
   if (!aktuell) return;
+  // Ohne Passwort wird nicht freigegeben: ein Modell ohne Schutz ins Netz
+  // zu stellen soll nicht aus Versehen passieren können.
+  if (!el("feldPasswort").value.trim()) {
+    el("feldPasswort").focus();
+    return dialogMelde("Bitte zuerst ein Passwort eintragen.", true);
+  }
   el("freigebenBtn").disabled = true;
   try {
     el("freigabeStatus").textContent = "Freigabe wird angelegt…";
-    // Eigenes Passwort hat Vorrang; leer heisst "würfle eines".
-    const passwort = el("feldPasswort").value.trim() || neuesPasswort();
+    const passwort = el("feldPasswort").value.trim();
     aktuelleFreigabe = await freigabeAnlegen(aktuell.ordner, passwort, el("feldAblauf").value);
     await merkePasswort(aktuell.ordner, passwort);
     aktuellesPasswort = passwort;
@@ -420,24 +409,6 @@ async function freigeben() {
     el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
   } finally {
     el("freigebenBtn").disabled = false;
-  }
-}
-
-async function passwortErneuern() {
-  if (!aktuelleFreigabe) return;
-  el("neuesPwBtn").disabled = true;
-  try {
-    const passwort = neuesPasswort();
-    await freigabeAendern(aktuelleFreigabe.id, { password: passwort });
-    await merkePasswort(aktuell.ordner, passwort);
-    aktuellesPasswort = passwort;
-    el("feldPasswort").value = passwort;
-    dialogMelde("Neues Passwort gesetzt — der alte Link gilt weiter, das alte Passwort nicht mehr.");
-  } catch (err) {
-    console.error(err);
-    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
-  } finally {
-    el("neuesPwBtn").disabled = false;
   }
 }
 
@@ -754,7 +725,6 @@ el("speichernBtn").addEventListener("click", speichere);
 el("loeschBtn").addEventListener("click", loesche);
 el("feldToken").addEventListener("input", zeigeKundenlink);
 el("freigebenBtn").addEventListener("click", freigeben);
-el("neuesPwBtn").addEventListener("click", passwortErneuern);
 el("freigabeWegBtn").addEventListener("click", freigabeAufheben);
 el("pruefenBtn").addEventListener("click", freigabePruefen);
 el("feldAblauf").addEventListener("change", ablaufUebernehmen);
