@@ -11,6 +11,45 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="../css/style.css">
+<style>
+  /* ---------- Kilometer-Quittung (km.js) ----------
+     Nur dieses Modul braucht die Karte, deshalb stehen die Regeln hier
+     statt in der gemeinsamen css/style.css. */
+  .km-sheet { max-width: 720px; }
+  .km-adresse { display: flex; gap: 8px; align-items: flex-start; }
+  .km-adresse input { flex: 1; min-width: 0; }
+  .km-adresse .btn-secondary { flex: none; white-space: nowrap; }
+
+  .km-treffer-liste { display: flex; flex-direction: column; gap: 4px; }
+  .km-treffer-liste:empty { display: none; }
+  .km-treffer {
+    text-align: left; background: var(--surface-2); border: none; border-radius: 9px;
+    padding: 7px 10px; font-family: var(--font-light); font-size: 12.5px;
+    color: var(--text); cursor: pointer;
+  }
+  .km-treffer:hover { filter: brightness(0.97); }
+  .km-treffer-lade { font-size: 12.5px; color: var(--text-muted); padding: 4px 2px; }
+
+  .km-routen { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .km-route {
+    background: var(--surface-2); border: 1px solid transparent; border-radius: 10px;
+    padding: 7px 12px; cursor: pointer; font-family: var(--font-light); text-align: left;
+    color: var(--text);
+  }
+  .km-route.aktiv { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+  .km-route-nr { display: block; font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; opacity: 0.75; }
+  .km-route-wert { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  /* Das Canvas ist 1200 Pixel breit (fürs PDF), am Bildschirm wird es
+     einfach heruntergerechnet. */
+  .km-karte-rahmen { border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+  .km-karte-rahmen canvas { display: block; width: 100%; height: auto; }
+
+  .km-total {
+    margin-top: 10px; text-align: right; font-family: var(--font-medium);
+    font-size: 17px; font-variant-numeric: tabular-nums;
+  }
+</style>
 </head>
 <body>
 
@@ -20,6 +59,9 @@
     <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
     </a>
+    <button id="kmBtn" class="icon-btn" aria-label="Kilometer-Quittung" title="Kilometer-Quittung">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11h.5a1.5 1.5 0 011.5 1.5V17a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H6v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-4.5A1.5 1.5 0 014.5 11H5zm2.1 0h9.8l-1.1-3.3a.5.5 0 00-.5-.35H8.7a.5.5 0 00-.5.35L7.1 11zM6.5 12.6a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2zm11 0a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2z" fill="currentColor"/></svg>
+    </button>
     <button id="helpBtn" class="icon-btn" aria-label="Hilfe" title="Hilfe">
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2zm0-3.6V14h-2v-1.4c0-.3.1-.5.4-.8l1.4-1.4c.3-.3.5-.6.5-1a1.5 1.5 0 00-3-.1H8.4a3.5 3.5 0 017-.3c0 .9-.4 1.5-1.1 2.2l-1 1z" fill="currentColor"/></svg>
     </button>
@@ -82,6 +124,17 @@
       eine PDF-Rechnung hochladen. Der Beleg wird nach Nextcloud übertragen und
       als Buchung für Banana vorbereitet.
     </p>
+    <p class="hint">
+      Das <strong>Auto-Symbol</strong> oben erstellt eine
+      <strong>Kilometer-Quittung</strong>: Start- und Zieladresse eingeben, die
+      App sucht die Route (bei mehreren Varianten kannst du wählen), zeichnet
+      sie auf eine Karte und macht daraus ein A4-PDF mit der Abrechnung
+      darunter — gefahrene Kilometer mal Ansatz des Fahrzeugs. Die Strecke
+      lässt sich überschreiben, "Hin- und Rückfahrt" verdoppelt sie. Das PDF
+      kannst du herunterladen oder direkt als Beleg erfassen; dann sind Datei,
+      Datum, Betrag und Verwendungszweck schon ausgefüllt. Karte und Route
+      kommen von OpenStreetMap, das braucht Internet.
+    </p>
   </div>
 </div>
 
@@ -117,6 +170,83 @@
       nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
       für "Zeiterfassung" und "Wettbewerbsprogramme" (einmal einrichten,
       überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<!-- Kilometer-Quittung: Strecke suchen, Karte, Abrechnung -->
+<div id="kmOverlay" class="overlay hidden">
+  <div class="sheet km-sheet">
+    <div class="sheet-head">
+      <h2>Kilometer-Quittung</h2>
+      <button id="closeKm" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Start</label>
+      <div class="km-adresse">
+        <input type="text" id="kmStart" placeholder="Strasse Nr, PLZ Ort" autocomplete="off">
+        <button type="button" id="kmStartBtn" class="btn-secondary">Suchen</button>
+      </div>
+      <div class="km-treffer-liste" id="kmStartTreffer"></div>
+
+      <label>Ziel</label>
+      <div class="km-adresse">
+        <input type="text" id="kmZiel" placeholder="Strasse Nr, PLZ Ort" autocomplete="off">
+        <button type="button" id="kmZielBtn" class="btn-secondary">Suchen</button>
+      </div>
+      <div class="km-treffer-liste" id="kmZielTreffer"></div>
+    </div>
+
+    <div id="kmKartenBlock" hidden>
+      <div class="km-routen" id="kmRouten"></div>
+      <div class="km-karte-rahmen">
+        <canvas id="kmKarte" width="1200" height="820"></canvas>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">
+        Kartendaten © OpenStreetMap-Mitwirkende, Route über OSRM. Genau dieses
+        Bild steht nachher im PDF.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <div class="two-col">
+        <div>
+          <label>Datum</label>
+          <input type="date" id="kmDatum">
+        </div>
+        <div>
+          <label>Fahrzeug</label>
+          <select id="kmFahrzeug"></select>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <label>Strecke (km)</label>
+          <input type="text" id="kmStrecke" inputmode="decimal" placeholder="z.B. 124">
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;gap:8px;flex-direction:row;margin-top:22px;">
+            <input type="checkbox" id="kmHinZurueck" style="width:auto;"> Hin- und Rückfahrt
+          </label>
+        </div>
+      </div>
+      <div class="km-total" id="kmTotal">–</div>
+    </div>
+
+    <div class="form-actions">
+      <button id="kmPdfBtn" class="btn-secondary" disabled>PDF herunterladen</button>
+      <button id="kmBelegBtn" class="btn-primary" disabled>Als Beleg erfassen</button>
+    </div>
+    <div id="kmErgebnis" class="test-result"></div>
+
+    <p class="hint">
+      Die Strecke kommt aus der gewählten Route, lässt sich aber überschreiben
+      — gefahren wird selten genau die vorgeschlagene Variante. "Als Beleg
+      erfassen" öffnet die normale Belegmaske mit dem PDF, dem Datum, dem
+      Betrag und dem Verwendungszweck; Konto, Kategorie und MwSt-Code wählst
+      du dort wie sonst auch.
     </p>
   </div>
 </div>
@@ -172,7 +302,9 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="../shared/common.js"></script>
 <script src="app.js"></script>
+<script src="km.js"></script>
 </body>
 </html>

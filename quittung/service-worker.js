@@ -1,8 +1,9 @@
-const CACHE_NAME = "quittung-v14";
+const CACHE_NAME = "quittung-v15";
 const ASSETS = [
   "./",
   "./index.html",
   "./app.js",
+  "./km.js",
   "./manifest.json",
   "../shared/common.js",
   "../css/style.css",

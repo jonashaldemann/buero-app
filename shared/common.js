@@ -303,6 +303,10 @@ async function refreshAppConfig() {
   appConfig = {
     mitarbeitende: configFile ? configFile.mitarbeitende || [] : appConfig.mitarbeitende,
     bueroName: configFile ? configFile.bueroName || DEFAULT_BUERO_NAME : appConfig.bueroName,
+    // Fahrzeuge samt Kilometeransatz für die Kilometer-Quittung
+    // (quittung/km.js). Fehlt das Feld, gilt dort eine eingebaute Liste --
+    // die Ansätze gehören dem Büro, nicht dem Programm.
+    fahrzeuge: configFile ? configFile.fahrzeuge || [] : appConfig.fahrzeuge || [],
     projekte: projekte !== null ? projekte : appConfig.projekte
   };
   saveJSON(LS_APP_CONFIG_CACHE, appConfig);
