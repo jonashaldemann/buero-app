@@ -218,16 +218,19 @@
       <div id="freigabeDetails">
         <label for="feldPasswort">Passwort</label>
         <div class="kopierzeile">
-          <input type="text" id="feldPasswort" autocomplete="off" placeholder="Passwort für den Kunden">
+          <input type="text" id="feldPasswort" autocomplete="off" placeholder="leer lassen = ohne Passwort">
           <button type="button" class="btn-secondary" id="kopierPwBtn">Kopieren</button>
         </div>
         <div class="file-name">
-          Bei einer bestehenden Freigabe wirkt eine Änderung sofort, sobald
-          du das Feld verlässt. Die App merkt sich das Passwort in
-          "_passwoerter.json" im Modellviewer-Ordner, also AUSSERHALB des
-          freigegebenen Ordners — Nextcloud selbst zeigt es nie wieder an.
-          Wie kurz ein Passwort sein darf, entscheidet Nextcloud
-          (Verwaltung → Sicherheit → Passwortrichtlinie), nicht diese App.
+          <strong>Freiwillig.</strong> Leer heisst: wer den Link hat, sieht
+          das Modell — bequem, aber ein weitergeleitetes Mail genügt dann.
+          Mit Passwort fragt die Kundenseite danach, ohne öffnet sie direkt.
+          Eine Änderung wirkt sofort, sobald du das Feld verlässt. Die App
+          merkt sich das Passwort in "_passwoerter.json" im
+          Modellviewer-Ordner, also AUSSERHALB des freigegebenen Ordners —
+          Nextcloud selbst zeigt es nie wieder an. Wie kurz es sein darf,
+          entscheidet Nextcloud (Verwaltung → Sicherheit →
+          Passwortrichtlinie), nicht diese App.
         </div>
 
         <label for="feldAblauf">Gültig bis (leer = unbefristet)</label>
@@ -248,8 +251,8 @@
         <button type="button" class="btn-secondary" id="kopierBtn">Kopieren</button>
       </div>
       <div class="file-name">
-        Link und Passwort bitte <strong>getrennt</strong> verschicken (Link
-        per Mail, Passwort per Telefon oder SMS) — dann nützt ein
+        Gibt es ein Passwort, bitte <strong>getrennt</strong> verschicken
+        (Link per Mail, Passwort per Telefon oder SMS) — dann nützt ein
         weitergeleitetes Mail allein nichts.
       </div>
     </div>

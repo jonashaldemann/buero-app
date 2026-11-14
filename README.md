@@ -1974,10 +1974,10 @@ gleich aus.
    eigener Ordner `Buero/Admin/App/Modellviewer/<titel-als-ordnername>`.
    Danach öffnet sich der Dialog gleich wieder — der nächste Schritt ist die
    Freigabe, und die braucht den fertigen Ordner.
-2. Ein **Passwort** eintippen (Pflicht — ohne gibt die App nichts frei) und
-   optional ein **"Gültig bis"**-Datum setzen, dann auf **"Freigeben"**. Die
-   App legt die Nextcloud-Freigabe auf diesen Ordner an (nur Leserecht) und
-   zeigt **Kundenlink und Passwort** an; beide lassen sich mit einem Klick
+2. Optional ein **Passwort** und ein **"Gültig bis"**-Datum eintragen, dann
+   auf **"Freigeben"**. Die App legt die Nextcloud-Freigabe auf diesen
+   Ordner an (nur Leserecht) und zeigt den **Kundenlink** an (und das
+   Passwort, falls eines gesetzt ist); beides lässt sich mit einem Klick
    kopieren.
 3. Link und Passwort **getrennt** verschicken (Link per Mail, Passwort per
    Telefon/SMS) — dann ist ein weitergeleitetes Mail allein nutzlos.
@@ -1990,22 +1990,28 @@ jeder Freigabe. Ein Kunde kann diese Datei nicht sehen; wer euren
 Nextcloud-Zugang hat, schon. Öffnet man ein freigegebenes Modell wieder,
 stehen Link und Passwort direkt da.
 
-Das Passwort setzt ihr immer selbst — eine Würfelfunktion gibt es bewusst
-nicht (mehr). **Wie kurz oder einfach ein Passwort sein darf, entscheidet
-eure Nextcloud, nicht diese App**: die Passwortrichtlinie (Verwaltung →
-Sicherheit) schreibt üblicherweise eine Mindestlänge vor. Lehnt Nextcloud
-ein Passwort ab, zeigt die App deren Wortlaut im Klartext an — vom Browser
-aus lässt sich die Regel nicht umgehen. Wer kürzere Passwörter will, ändert
-die Richtlinie dort.
+**Das Passwort ist freiwillig.** Lässt man das Feld leer, entsteht eine
+Freigabe ohne Passwort: der Kunde klickt den Link an und sieht das Modell
+sofort, ohne Abfrage. Bequem — aber dann ist der Link selbst der Schlüssel,
+und ein weitergeleitetes Mail genügt. Für alles, was ein Kunde nicht
+herumzeigen soll, gehört ein Passwort dazu; das Ablaufdatum ist in beiden
+Fällen ein sinnvoller zweiter Schutz. Die Liste und die Statuszeile sagen
+jeweils, woran man ist ("Freigegeben OHNE Passwort …").
+
+Gewürfelt wird nichts — das Passwort setzt ihr selbst. **Wie kurz oder
+einfach es sein darf, entscheidet eure Nextcloud, nicht diese App**: die
+Passwortrichtlinie (Verwaltung → Sicherheit) schreibt üblicherweise eine
+Mindestlänge vor, und manche Installationen erzwingen für Links überhaupt
+ein Passwort. Lehnt Nextcloud etwas ab, zeigt die App deren Wortlaut im
+Klartext an — vom Browser aus lässt sich die Regel nicht umgehen.
 
 **Ändern und zurücknehmen:**
 
 - Das **Passwortfeld** lässt sich jederzeit überschreiben: sobald du das
   Feld verlässt, geht das neue Passwort an Nextcloud und wird gemerkt. Der
-  Link bleibt derselbe, das alte Passwort gilt sofort nicht mehr. Das Feld
-  leeren hebt den Passwortschutz **nicht** auf — der alte Wert kommt zurück.
-  Ohne Passwort freigeben geht also nur von Hand in Nextcloud, und das ist
-  Absicht.
+  Link bleibt derselbe, das alte Passwort gilt sofort nicht mehr. Leert man
+  das Feld, fällt der Passwortschutz weg — das fragt vorher nach, damit es
+  nicht aus Versehen passiert.
 - Das **Datum** wirkt sofort, sobald es geändert wird (eigener Knopf
   unnötig).
 - **"Prüfen"** öffnet Link und Passwort genau so, wie es ein Kunde täte —
@@ -2034,6 +2040,10 @@ Die Kundenseite muss ohne unsere Zugangsdaten auskommen, und im Repo (es ist
 passwortgeschützte Freigabe per WebDAV ausliefern, wenn man die **Kennung
 als Benutzernamen und das Freigabepasswort als Passwort** schickt — ohne
 dass irgendwo Zugangsdaten hinterlegt werden müssten.
+
+Die Kundenseite probiert **immer zuerst ohne Passwort** und fragt nur dann
+danach, wenn die Freigabe eines verlangt. Eine Abfrage auf Verdacht wäre für
+den Kunden eine unnötige Hürde.
 
 **Wenn es klemmt**, unterscheidet die Seite drei Fälle, statt pauschal
 "Passwort falsch" zu sagen:

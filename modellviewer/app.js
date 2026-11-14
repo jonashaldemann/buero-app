@@ -128,9 +128,12 @@ async function freigabeAnlegen(ordner, passwort, ablauf) {
   const felder = new URLSearchParams({
     path: ordnerAufNextcloud(ordner),
     shareType: String(SHARE_TYP_LINK),
-    permissions: "1", // nur lesen
-    password: passwort
+    permissions: "1" // nur lesen
   });
+  // Ohne Passwort ist der Link selbst der Schlüssel -- erlaubt, solange die
+  // Nextcloud Passwörter für Links nicht erzwingt (dann lehnt sie ab, und
+  // freigabeFehlerText() zeigt ihren Wortlaut).
+  if (passwort) felder.set("password", passwort);
   if (ablauf) felder.set("expireDate", ablauf);
   return ocsAntwort(
     await ocsFetch(`${OCS_SHARES}?format=json`, {
@@ -337,7 +340,14 @@ function setzeFreigabeKnoepfe(freigebenDa, freigabeDa) {
 function freigabeStatusText() {
   if (!aktuelleFreigabe) return "Noch nicht freigegeben.";
   const bis = el("feldAblauf").value;
-  return bis ? `Freigegeben, gültig bis ${bis.split("-").reverse().join(".")}.` : "Freigegeben, unbefristet.";
+  const dauer = bis ? `gültig bis ${bis.split("-").reverse().join(".")}` : "unbefristet";
+  // Ob ein Passwort gilt, verrät Nextcloud nicht zuverlässig (manche
+  // Versionen geben das Feld gar nicht zurück) -- deshalb zählt auch, ob wir
+  // eines gemerkt haben. Die verlässliche Antwort gibt "Prüfen".
+  const geschuetzt = !!(aktuellesPasswort || aktuelleFreigabe.password);
+  return geschuetzt
+    ? `Freigegeben mit Passwort, ${dauer}.`
+    : `Freigegeben OHNE Passwort, ${dauer} — wer den Link hat, kommt hinein.`;
 }
 
 // Sucht die bestehende Freigabe zum Modell und zeigt Link und Passwort an.
@@ -385,12 +395,6 @@ async function merkeToken(token) {
 
 async function freigeben() {
   if (!aktuell) return;
-  // Ohne Passwort wird nicht freigegeben: ein Modell ohne Schutz ins Netz
-  // zu stellen soll nicht aus Versehen passieren können.
-  if (!el("feldPasswort").value.trim()) {
-    el("feldPasswort").focus();
-    return dialogMelde("Bitte zuerst ein Passwort eintragen.", true);
-  }
   el("freigebenBtn").disabled = true;
   try {
     el("freigabeStatus").textContent = "Freigabe wird angelegt…";
@@ -402,7 +406,11 @@ async function freigeben() {
     await merkeToken(aktuelleFreigabe.token);
     setzeFreigabeKnoepfe(false, true);
     el("freigabeStatus").textContent = freigabeStatusText();
-    dialogMelde("Freigegeben. Link und Passwort bitte getrennt verschicken.");
+    dialogMelde(
+      passwort
+        ? "Freigegeben. Link und Passwort bitte getrennt verschicken."
+        : "Freigegeben — ohne Passwort. Wer den Link hat, sieht das Modell."
+    );
     zeichneListe();
   } catch (err) {
     console.error(err);
@@ -441,9 +449,9 @@ async function freigabeAufheben() {
 async function passwortUebernehmen() {
   const eingetippt = el("feldPasswort").value.trim();
   if (!aktuelleFreigabe || eingetippt === aktuellesPasswort) return;
-  if (!eingetippt) {
-    // Leeren hiesse "Passwortschutz weg" -- das ist nie gemeint und wäre
-    // genau der gefährliche Fall. Also zurücksetzen.
+  // Das Feld zu leeren heisst "Schutz weg" -- möglich, aber nie aus
+  // Versehen: danach kommt jeder mit dem Link hinein.
+  if (!eingetippt && !confirm("Passwortschutz entfernen? Danach sieht jeder das Modell, der den Link hat.")) {
     el("feldPasswort").value = aktuellesPasswort;
     return;
   }
@@ -451,7 +459,10 @@ async function passwortUebernehmen() {
     await freigabeAendern(aktuelleFreigabe.id, { password: eingetippt });
     await merkePasswort(aktuell.ordner, eingetippt);
     aktuellesPasswort = eingetippt;
-    dialogMelde("Passwort gespeichert. Das alte gilt nicht mehr.");
+    el("freigabeStatus").textContent = freigabeStatusText();
+    dialogMelde(
+      eingetippt ? "Passwort gespeichert. Das alte gilt nicht mehr." : "Passwortschutz entfernt."
+    );
   } catch (err) {
     console.error(err);
     el("feldPasswort").value = aktuellesPasswort;
@@ -468,7 +479,6 @@ async function freigabePruefen() {
   const kennung = tokenAus(el("feldToken").value);
   const passwort = el("feldPasswort").value.trim();
   if (!kennung) return dialogMelde("Keine Kennung vorhanden – zuerst freigeben.", true);
-  if (!passwort) return dialogMelde("Kein Passwort bekannt – eines eintippen oder würfeln lassen.", true);
   el("pruefenBtn").disabled = true;
   dialogMelde("Wird geöffnet wie beim Kunden…");
   try {
@@ -751,7 +761,11 @@ el("kopierBtn").addEventListener("click", async () => {
   if (!link) return;
   try {
     await navigator.clipboard.writeText(link);
-    dialogMelde("Link kopiert. Das Passwort bitte separat mitteilen.");
+    dialogMelde(
+      el("feldPasswort").value.trim()
+        ? "Link kopiert. Das Passwort bitte separat mitteilen."
+        : "Link kopiert. Achtung: ohne Passwort — wer ihn hat, sieht das Modell."
+    );
   } catch (err) {
     el("feldKundenlink").select();
     dialogMelde("Bitte von Hand kopieren.", true);

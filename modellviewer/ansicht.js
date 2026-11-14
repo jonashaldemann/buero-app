@@ -178,19 +178,42 @@ document.getElementById("passwortForm").addEventListener("submit", (ev) => {
 
 // ---------- Start ----------
 
+// Nicht jede Freigabe hat ein Passwort. Deshalb wird IMMER zuerst ohne
+// eines versucht -- klappt es, öffnet das Modell ohne Abfrage; verlangt die
+// Freigabe eines, landen wir im 401-Zweig und fragen dann danach. Eine
+// Abfrage auf Verdacht wäre für den Kunden unnötige Hürde und für uns keine
+// Information.
+async function starte() {
+  const gemerkt = sessionStorage.getItem(SPEICHER_SCHLUESSEL);
+  if (gemerkt !== null) return versuche(gemerkt);
+  const btn = document.getElementById("passwortBtn");
+  btn.disabled = true;
+  try {
+    await oeffne("");
+    sessionStorage.setItem(SPEICHER_SCHLUESSEL, "");
+  } catch (err) {
+    const brauchtPasswort =
+      (err instanceof FreigabeFehler && err.grund === GRUND.passwort) ||
+      (err instanceof HttpFehler && err.status === 401);
+    if (brauchtPasswort) {
+      viewer.zeigeStatus("");
+      overlayPasswort.classList.remove("hidden");
+      feldPasswort.focus();
+    } else {
+      zeigeFehler(err);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 if (!TOKEN_MUSTER.test(token)) {
   viewer.zeigeStatus(
     "Dieser Link ist unvollständig. Bitte verwenden Sie den vollständigen Link aus unserer Nachricht (er endet mit einer Kennung nach dem #).",
     true
   );
 } else {
-  const gemerkt = sessionStorage.getItem(SPEICHER_SCHLUESSEL);
-  if (gemerkt) {
-    versuche(gemerkt);
-  } else {
-    overlayPasswort.classList.remove("hidden");
-    feldPasswort.focus();
-  }
+  starte();
 }
 
 // Ein anderer Modell-Link im selben Tab ändert nur den Teil hinter dem "#"

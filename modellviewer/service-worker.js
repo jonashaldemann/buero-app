@@ -1,4 +1,4 @@
-const CACHE_NAME = "modellviewer-v6";
+const CACHE_NAME = "modellviewer-v7";
 const ASSETS = [
   "./",
   "./index.html",

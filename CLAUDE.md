@@ -235,6 +235,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   nur 404 (`FreigabeFehler.passwortFalsch`). Basic Auth muss UTF-8 kodieren
   (`btoa()` allein wirft bei einem Passwort mit Umlaut). Nirgends liegen
   dafür Zugangsdaten.
+- **Die Kundenseite fragt NICHT auf Verdacht nach dem Passwort**
+  (`starte()` in `ansicht.js`): sie versucht es immer zuerst mit leerem
+  Passwort. Nur wenn das mit `GRUND.passwort` scheitert, erscheint die
+  Abfrage -- eine Freigabe ohne Passwort öffnet so direkt, und eine
+  unbekannte Kennung meldet sich sofort, statt den Kunden erst tippen zu
+  lassen.
 - **Drei Gründe statt "Passwort falsch"** (`GRUND` in `dateien.js`): bevor
   die Kundenseite etwas behauptet, fragt sie ohne Zugangsdaten `s/<token>`
   ab -- 404 heisst "diese Kennung gibt es nicht" (häufigster Fall: im Feld
@@ -272,12 +278,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Freigabepasswörter nur als Hash hält und nie wieder herausgibt; ohne diese
   Datei könnte das Büro ein einmal gesetztes Passwort nirgends nachschlagen.
   Beim Löschen eines Modells muss der Eintrag mit weg (die Freigabe selbst
-  verschwindet mit dem Ordner von allein). Das Passwort setzt das Büro
-  IMMER selbst: `freigeben()` verlangt eines, eine Würfelfunktion gab es
-  kurzzeitig und ist auf Wunsch des Nutzers wieder raus. Eine Änderung wirkt
-  beim `change`-Ereignis wie das Ablaufdatum. Das Feld LEEREN hebt den
-  Schutz bewusst NICHT auf -- `passwortUebernehmen()` setzt den alten Wert
-  zurück, sonst stünde ein Kundenmodell nach einem Vertipper offen.
+  verschwindet mit dem Ordner von allein). Das Passwort ist FREIWILLIG (seit
+  November 2026, ausdrücklich so gewünscht): leeres Feld = Freigabe ohne
+  Passwort, `freigabeAnlegen()` lässt das Feld dann ganz weg. Gewürfelt wird
+  nichts mehr. Eine Änderung wirkt beim `change`-Ereignis wie das
+  Ablaufdatum; das Feld zu LEEREN entfernt den Schutz und fragt deshalb
+  vorher nach (`confirm()` in `passwortUebernehmen()`). Die Statuszeile
+  benennt den Zustand ausdrücklich ("Freigegeben OHNE Passwort ..."), weil
+  man ihn der Freigabe sonst nicht ansieht -- Nextcloud gibt das Feld
+  `password` nicht in jeder Version zurück, deshalb zählt dort auch das
+  gemerkte Passwort; verlässlich ist nur "Prüfen".
 - **Mindestlänge des Passworts gehört NEXTCLOUD**, nicht der App: die
   Passwortrichtlinie (Verwaltung → Sicherheit) lehnt zu kurze Passwörter mit
   OCS-Status 400/403 ab. Vom Browser aus ist das nicht umgehbar -- die App
