@@ -8,8 +8,9 @@
    Font-Subsetting).
 
    Rechts neben jedem Stichpunkt bleibt eine schmale Spalte frei, in der
-   -- falls gesetzt -- das Kürzel der zuständigen Person steht (dort, wo
-   der Punkt eine Pendenz ist, siehe abschnitt.kuerzel in app.js).
+   -- falls gesetzt -- die Kürzel der zuständigen Personen stehen (dort, wo
+   der Punkt eine Pendenz ist, siehe abschnitt.kuerzel in app.js; das ist
+   eine Liste, ein Punkt kann auf mehrere Personen laufen).
 
    Eigenständig gehalten (keine Funktionen aus app.js verwendet, siehe
    Kommentar in offerten/pdf.js), nutzt aber proxyFetch/davPath/ncSegments/
@@ -24,8 +25,9 @@ const PDF_CONTENT_WIDTH = PDF_PAGE_WIDTH - PDF_MARGIN * 2;
 
 // Rechte Spalte für die Pendenzen-Kürzel -- der Stichpunkt-Text wird auf
 // die verbleibende Breite umgebrochen, damit das Kürzel nie mit langem
-// Text kollidiert.
-const KUERZEL_COL_WIDTH = 34;
+// Text kollidiert. Breit genug für zwei Kürzel nebeneinander; mehr
+// brechen in der Spalte um (ein Punkt kann auf mehrere Personen laufen).
+const KUERZEL_COL_WIDTH = 62;
 const BULLET_TEXT_WIDTH = PDF_CONTENT_WIDTH - KUERZEL_COL_WIDTH - 10;
 
 const GERMAN_MONTHS = [
@@ -176,9 +178,18 @@ function drawTitelRow(ctx, nr, text) {
   ctx.y -= 14;
 }
 
+// `kuerzel` ist am Abschnitt eine Liste (ältere Protokolle: ein einzelner
+// String) -- pdf.js bleibt eigenständig und normalisiert das hier selbst,
+// statt kuerzelText() aus app.js zu rufen.
+function kuerzelZeile(kuerzel) {
+  if (Array.isArray(kuerzel)) return kuerzel.filter(Boolean).join(", ");
+  return kuerzel || "";
+}
+
 function drawBulletRow(ctx, text, kuerzel) {
   const lines = wrapText(ctx.light, text || "", SIZE_BODY, BULLET_TEXT_WIDTH);
-  const blockHeight = lines.length * 15 + 4;
+  const kuerzelLines = kuerzel ? wrapText(ctx.medium, kuerzel, SIZE_SMALL, KUERZEL_COL_WIDTH) : [];
+  const blockHeight = Math.max(lines.length * 15, kuerzelLines.length * 13) + 4;
   ensureSpace(ctx, blockHeight);
   const startY = ctx.y;
 
@@ -191,14 +202,16 @@ function drawBulletRow(ctx, text, kuerzel) {
     ctx.y -= 15;
   });
 
-  if (kuerzel) {
-    drawText(ctx, kuerzel, PDF_PAGE_WIDTH - PDF_MARGIN, startY, {
+  kuerzelLines.forEach((line, i) => {
+    drawText(ctx, line, PDF_PAGE_WIDTH - PDF_MARGIN, startY - i * 13, {
       size: SIZE_SMALL,
       font: ctx.medium,
       color: PDF_COLOR_MUTED,
       align: "right"
     });
-  }
+  });
+  // Mehrere Kürzel können tiefer reichen als der Stichpunkt selbst.
+  ctx.y = Math.min(ctx.y, startY - kuerzelLines.length * 13);
 
   ctx.y -= 4;
 }
@@ -210,7 +223,7 @@ function drawAbschnitte(ctx, protokoll) {
       titelNr++;
       drawTitelRow(ctx, titelNr, a.text);
     } else if (a.text && a.text.trim()) {
-      drawBulletRow(ctx, a.text, a.kuerzel);
+      drawBulletRow(ctx, a.text, kuerzelZeile(a.kuerzel));
     }
   });
 }

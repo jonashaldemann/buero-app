@@ -397,23 +397,34 @@ Das **Auto-Symbol** in der Kopfzeile öffnet ein Fenster, das aus einer
 gefahrenen Strecke einen Spesenbeleg macht:
 
 1. **Start- und Zieladresse** eingeben und suchen — die Treffer erscheinen
-   als Liste zum Anklicken (eine Adresse ist selten eindeutig).
-2. Die App holt die **Route**, meist mehrere Varianten ("Route 1 · 124.3 km ·
-   90 min"). Ein Klick wechselt die Variante; die Karte zeigt immer die
-   gewählte.
+   als Liste zum Anklicken (eine Adresse ist selten eindeutig). Mit
+   **"+ Zwischenstopp"** lassen sich beliebig viele Punkte dazwischen
+   setzen, **"Start und Ziel tauschen"** dreht die ganze Fahrt um (die
+   Zwischenstopps in umgekehrter Reihenfolge — der Rückweg).
+2. Die App holt die **Route**, je nach Strecke mehrere Varianten ("Route 1 ·
+   124.3 km · 90 min"). Ein Klick wechselt die Variante; die Karte zeigt
+   immer die gewählte. Kommt nur eine Route zurück, sagt ein Hinweis warum:
+   der Routendienst kennt auf dieser Strecke keine zweite, ähnlich schnelle
+   Variante (Zürich – Bönigen etwa hat nur eine; alles andere ist deutlich
+   länger). Wer trotzdem den tatsächlich gefahrenen Weg abrechnen will,
+   setzt einen **Zwischenstopp** auf dieser Strecke — dann fährt die Route
+   garantiert dort durch. Alternativen gibt es nur bei genau zwei Punkten:
+   mit Zwischenstopps ist die Strecke ja vorgegeben.
 3. **Strecke, Fahrzeug, Datum**: die Kilometer kommen aus der Route, lassen
    sich aber überschreiben — gefahren wird selten genau die vorgeschlagene
    Variante. "Hin- und Rückfahrt" verdoppelt sie. Darunter steht laufend
    `124 km × 0.70 = CHF 86.80`.
 4. **PDF herunterladen** oder **als Beleg erfassen**. Letzteres öffnet die
    normale Belegmaske mit dem PDF als Datei, dem Datum, dem Betrag und dem
-   Verwendungszweck ("Fahrt Thalwil – Chur, 124 km × 0.70 (VW-Bus)"); Konto,
+   Verwendungszweck ("Fahrt Rautistrasse 12, Zürich – Campingstrasse 7,
+   Bönigen über Bahnhofplatz 1, Luzern, 124 km × 0.70 (VW-Bus)"); Konto,
    Kategorie und MwSt-Code wählt man dort wie bei jedem anderen Beleg, und
    der Beleg bekommt wie üblich seine Nummer, landet auf Nextcloud und als
    Zeile in `buchungen.txt`.
 
-Das **PDF** ist A4 hoch: Titel mit Datum und Person, Von/Nach, darunter die
-Karte mit der eingezeichneten Route (Start grün, Ziel rot), unten die
+Das **PDF** ist A4 hoch: Titel mit Datum und Person, Von/Nach (und, falls
+gesetzt, "Über" mit den Zwischenstopps), darunter die Karte mit der
+eingezeichneten Route (Start grün, Zwischenstopps blau, Ziel rot), unten die
 Abrechnung Strecke / Ansatz / Total.
 
 **Fahrzeuge und Ansätze** stehen in der zentralen `config.json` als
@@ -1142,24 +1153,29 @@ Protokoll, wie bei den Offerten).
   im aktuellen Protokoll vorhandene sowie Büro-Personen (die eigene
   "+ Name"-Knöpfe haben) erscheinen nicht als Vorschlag.
 - **Hauptteil**: Zwischentitel und Stichpunkte lassen sich wie die
-  Phasen/Module bei den Offerten per Ziehgriff neu anordnen. Ein Stichpunkt
-  kann optional ein Kürzel einer Teilnehmerin/eines Teilnehmers zugewiesen
-  bekommen — das markiert ihn zugleich als Pendenz (kein separates Häkchen
-  nötig).
-- **Automatische Pendenzen**: ist das zugewiesene Kürzel das einer
+  Phasen/Module bei den Offerten per Ziehgriff neu anordnen. Rechts an jedem
+  Stichpunkt stehen die Kürzel aller Teilnehmenden als Knöpfe: angetippt
+  wird der Punkt zur Pendenz dieser Person — das markiert ihn zugleich als
+  Pendenz (kein separates Häkchen nötig). Es lassen sich **mehrere Personen**
+  antippen; der Punkt läuft dann auf alle.
+- **Automatische Pendenzen**: ist ein angetipptes Kürzel das einer
   **Büro**-Person (externe Teilnehmende lösen nichts aus), wird beim
   Speichern automatisch ein Eintrag in
   `Buero/Admin/App/Pendenzen/pendenzen.json` angelegt/aktualisiert (Person und
   Text aus dem Protokoll; als Projekt wird der reine **Name** des im Protokoll
   gewählten Projekts übernommen, nicht die Nummer — Pendenzen ordnet Projekte
-  namensbasiert zu, siehe Abschnitt "Zentrale Konfiguration" oben). Die
-  Pendenz-ID ist über Protokoll- und Stichpunkt-ID stabil: ein erneutes
+  namensbasiert zu, siehe Abschnitt "Zentrale Konfiguration" oben). Sind
+  mehrere Büro-Personen angetippt, entsteht die Pendenz für **jede** von
+  ihnen — jede sieht sie in ihrer eigenen Liste und hakt sie für sich ab. Die
+  Pendenz-ID ist über Protokoll-, Stichpunkt- und Personen-ID stabil: ein erneutes
   Speichern aktualisiert denselben Eintrag (Textänderungen werden
   übernommen), statt zu duplizieren, und ein in der Pendenzen-App bereits
   gesetztes Häkchen bzw. eine manuell geänderte Reihenfolge bleiben dabei
-  erhalten. Wird das Kürzel wieder entfernt oder der Stichpunkt gelöscht,
+  erhalten. Wird ein Kürzel wieder abgewählt oder der Stichpunkt gelöscht,
   verschwindet die zugehörige, vom Protokoll selbst angelegte Pendenz auch
-  wieder. Kein Merge mit gleichzeitigen Änderungen aus der Pendenzen-App
+  wieder. Pendenzen aus der Zeit mit nur einem Kürzel je Punkt werden beim
+  nächsten Speichern auf die neue ID gehoben statt gelöscht und neu
+  angelegt — ein längst erledigter Punkt kommt also nicht als offen zurück. Kein Merge mit gleichzeitigen Änderungen aus der Pendenzen-App
   selbst (anders als deren eigener Sync) — Protokolle werden dafür deutlich
   seltener gespeichert als einzelne Pendenzen bearbeitet.
 - **Gleichzeitige Bearbeitung**: wie bei der Adressliste — vor dem Speichern
@@ -1169,7 +1185,8 @@ Protokoll, wie bei den Offerten).
 - **PDF-Export**: eine durchgehende Seite (kein Brief/Positionen-Split wie
   bei den Offerten) mit Absenderblock, Titel, Meta-Infos, Teilnehmenden und
   dem Hauptteil; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
-  frei, in der — falls gesetzt — das Kürzel der zuständigen Person steht.
+  frei, in der — falls gesetzt — die Kürzel der zuständigen Personen stehen
+  ("AN, TB").
   Nutzt dieselbe pdf-lib-Infrastruktur wie die Offerten (`protokoll/pdf.js`,
   eigenständig gehalten).
 

@@ -19,6 +19,12 @@
   .km-adresse { display: flex; gap: 8px; align-items: flex-start; }
   .km-adresse input { flex: 1; min-width: 0; }
   .km-adresse .btn-secondary { flex: none; white-space: nowrap; }
+  .km-stopp-weg {
+    flex: none; align-self: center; background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 20px; line-height: 1; padding: 6px 2px;
+  }
+  .km-ort-aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .km-ort-aktionen .btn-secondary { flex: none; }
 
   .km-treffer-liste { display: flex; flex-direction: column; gap: 4px; }
   .km-treffer-liste:empty { display: none; }
@@ -183,23 +189,23 @@
     </div>
 
     <div class="form-group">
-      <label>Start</label>
-      <div class="km-adresse">
-        <input type="text" id="kmStart" placeholder="Strasse Nr, PLZ Ort" autocomplete="off">
-        <button type="button" id="kmStartBtn" class="btn-secondary">Suchen</button>
+      <!-- Start, beliebig viele Zwischenstopps, Ziel -- gerendert in km.js
+           (renderKmOrte()), weil sich die Anzahl ändert. -->
+      <div id="kmOrte"></div>
+      <div class="km-ort-aktionen">
+        <button type="button" id="kmStoppBtn" class="btn-secondary">+ Zwischenstopp</button>
+        <button type="button" id="kmTauschBtn" class="btn-secondary">Start und Ziel tauschen</button>
       </div>
-      <div class="km-treffer-liste" id="kmStartTreffer"></div>
-
-      <label>Ziel</label>
-      <div class="km-adresse">
-        <input type="text" id="kmZiel" placeholder="Strasse Nr, PLZ Ort" autocomplete="off">
-        <button type="button" id="kmZielBtn" class="btn-secondary">Suchen</button>
-      </div>
-      <div class="km-treffer-liste" id="kmZielTreffer"></div>
     </div>
 
     <div id="kmKartenBlock" hidden>
       <div class="km-routen" id="kmRouten"></div>
+      <p class="hint" id="kmRoutenHinweis" style="margin:0 0 8px;" hidden>
+        Nur eine Route: auf dieser Strecke kennt der Routendienst keine
+        zweite, ähnlich schnelle Variante. Mit einem Zwischenstopp über einen
+        Ort auf dem tatsächlich gefahrenen Weg lässt sich jede Strecke
+        abbilden.
+      </p>
       <div class="km-karte-rahmen">
         <canvas id="kmKarte" width="1200" height="820"></canvas>
       </div>

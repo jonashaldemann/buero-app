@@ -15,7 +15,7 @@
    dort sauber ins PDF übernehmen lassen:
 
      - Nominatim  Adresse -> Koordinaten
-     - OSRM       Route zwischen zwei Punkten, inklusive Alternativen
+     - OSRM       Route über beliebig viele Punkte, mit Alternativen
      - OSM-Tiles  die Kartenkacheln
 
    Alle drei sind für gelegentliche Nutzung gedacht und erlauben sie
@@ -40,12 +40,35 @@ const TILE_URL = "https://tile.openstreetmap.org";
 const KARTE_BREITE = 1200; // Pixel; ergibt im A4-PDF rund 150 dpi
 const KARTE_HOEHE = 820;
 
-// Arbeitsstand des Dialogs (nicht gespeichert -- eine Quittung ist einmalig)
-let kmStart = null; // { label, lat, lon }
-let kmZiel = null;
+// Arbeitsstand des Dialogs (nicht gespeichert -- eine Quittung ist einmalig).
+// kmOrte ist die Punktfolge der Fahrt: [0] Start, letzter Eintrag Ziel,
+// dazwischen beliebig viele Zwischenstopps.
+let kmOrte = []; // [{ text, ort: { label, kurz, lat, lon } | null }]
 let kmRouten = []; // [{ meter, sekunden, punkte: [[lon,lat], ...] }]
 let kmGewaehlt = 0;
 let kmPdfBlob = null;
+
+function leererOrt() {
+  return { text: "", ort: null };
+}
+function kmOrtName(i) {
+  if (i === 0) return "Start";
+  if (i === kmOrte.length - 1) return "Ziel";
+  return `Zwischenstopp ${i}`;
+}
+function kmOrteBereit() {
+  return kmOrte.length >= 2 && kmOrte.every((o) => o.ort);
+}
+function kmZwischen() {
+  return kmOrte.slice(1, -1);
+}
+function ortLabel(o) {
+  return o && o.ort ? o.ort.label : (o ? o.text : "");
+}
+function ortKurz(o) {
+  if (o && o.ort && o.ort.kurz) return o.ort.kurz;
+  return ((o ? o.text : "") || "").split(",")[0].trim();
+}
 
 function fahrzeugListe() {
   const aus = (appConfig && appConfig.fahrzeuge) || [];
@@ -55,20 +78,46 @@ function fahrzeugListe() {
 
 // ---------- Adresse -> Koordinaten ----------
 
+// Nominatim liefert als `display_name` die ganze Kette ("12, Rautistrasse,
+// Altstetten, Kreis 9, ..., 8047, Schweiz") -- fürs PDF richtig, für
+// Dateiname und Verwendungszweck viel zu lang. Daraus die Teile zu raten
+// geht schief (der erste Teil ist die Hausnummer, vor der PLZ steht mal
+// die Stadt, mal der Kanton), deshalb kommt mit `addressdetails=1` die
+// aufgeschlüsselte Adresse mit und daraus entsteht die Kurzform.
+function kurzAdresse(a, ersatz) {
+  const ausweg = String(ersatz || "").split(",")[0].trim();
+  if (!a) return ausweg;
+  const strasse = [a.road, a.house_number].filter(Boolean).join(" ");
+  const ort = a.city || a.town || a.village || a.municipality || "";
+  return [strasse || a.name || a.amenity || ausweg, ort].filter(Boolean).join(", ") || ausweg;
+}
+
 async function adresseSuchen(text) {
-  const url = `${NOMINATIM_URL}?format=jsonv2&limit=5&countrycodes=ch,li,de,at,fr,it&q=${encodeURIComponent(text)}`;
+  const url = `${NOMINATIM_URL}?format=jsonv2&addressdetails=1&limit=5&countrycodes=ch,li,de,at,fr,it&q=${encodeURIComponent(text)}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Adresssuche fehlgeschlagen (${res.status})`);
   const treffer = await res.json();
-  return treffer.map((t) => ({ label: t.display_name, lat: Number(t.lat), lon: Number(t.lon) }));
+  return treffer.map((t) => ({
+    label: t.display_name,
+    kurz: kurzAdresse(t.address, t.display_name),
+    lat: Number(t.lat),
+    lon: Number(t.lon)
+  }));
 }
 
 // ---------- Route ----------
 
-// alternatives=true liefert bis zu drei Varianten -- genau dafür, dass man
-// die tatsächlich gefahrene Strecke auswählen kann statt der kürzesten.
-async function routeSuchen(a, b) {
-  const url = `${OSRM_URL}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson&alternatives=true`;
+// Alternativen gibt OSRM nur für eine Fahrt von A nach B aus -- und auch
+// dort nur, wenn es eine wirklich ähnlich gute zweite Strecke gibt. Auf
+// langen Autobahnfahrten (Zürich -> Bönigen) ist jede andere Variante
+// deutlich länger, darum kommt genau eine Route zurück. Wer trotzdem eine
+// bestimmte Strecke abrechnen will, setzt einen ZWISCHENSTOPP: mit mehr
+// als zwei Punkten fährt OSRM garantiert dort durch -- Alternativen
+// entfallen dann (die Route ist ja vorgegeben).
+async function routeSuchen(orte) {
+  const koordinaten = orte.map((o) => `${o.lon},${o.lat}`).join(";");
+  const alternativen = orte.length === 2 ? "3" : "false";
+  const url = `${OSRM_URL}/${koordinaten}?overview=full&geometries=geojson&alternatives=${alternativen}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Routensuche fehlgeschlagen (${res.status})`);
   const daten = await res.json();
@@ -118,7 +167,7 @@ function kachelLaden(z, x, y) {
   });
 }
 
-async function zeichneKarte(canvas, route) {
+async function zeichneKarte(canvas, route, zwischen = []) {
   const punkte = route.punkte;
   const breite = canvas.width;
   const hoehe = canvas.height;
@@ -170,18 +219,21 @@ async function zeichneKarte(canvas, route) {
   ctx.lineWidth = 6;
   ctx.stroke();
 
-  // Start- und Zielpunkt
-  const marker = (p, fuellung) => {
+  // Start-, Zwischen- und Zielpunkte
+  const marker = (p, fuellung, groesse = 10) => {
     const x = lonZuX(p[0], z) - links;
     const y = latZuY(p[1], z) - oben;
     ctx.beginPath();
-    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.arc(x, y, groesse, 0, Math.PI * 2);
     ctx.fillStyle = fuellung;
     ctx.fill();
     ctx.lineWidth = 4;
     ctx.strokeStyle = "#fff";
     ctx.stroke();
   };
+  // Zwischenstopps kleiner und in der Farbe der Linie -- sie sind Teil der
+  // Strecke, nicht Anfang oder Ende.
+  zwischen.forEach((o) => marker([o.lon, o.lat], "#4F7089", 7));
   marker(punkte[0], "#4A7856");
   marker(punkte[punkte.length - 1], "#C97960");
 
@@ -203,7 +255,7 @@ function kmBetrag(km, satz) {
   return Math.round(km * satz * 100) / 100;
 }
 
-async function baueKmPdf({ datum, person, start, ziel, km, fahrzeug, satz, hinUndZurueck, canvas }) {
+async function baueKmPdf({ datum, person, start, ziel, zwischen = [], km, fahrzeug, satz, hinUndZurueck, canvas }) {
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdf = await PDFDocument.create();
   const seite = pdf.addPage([595.28, 841.89]); // A4 hoch
@@ -222,6 +274,14 @@ async function baueKmPdf({ datum, person, start, ziel, km, fahrzeug, satz, hinUn
     const b = schrift.widthOfTextAtSize(String(s), groesse);
     seite.drawText(String(s), { x: 595.28 - rand - b, y, size: groesse, font: schrift, color: farbe });
   };
+  // Nominatim-Adressen sind lang -- was nicht auf die Zeile passt, wird
+  // abgeschnitten, statt über den Blattrand hinauszulaufen.
+  const aufBreite = (s, schrift, groesse) => {
+    let t = String(s || "");
+    if (schrift.widthOfTextAtSize(t, groesse) <= innen) return t;
+    while (t.length > 1 && schrift.widthOfTextAtSize(t + "…", groesse) > innen) t = t.slice(0, -1);
+    return t + "…";
+  };
 
   text("Kilometer-Quittung", { groesse: 20, schrift: fett });
   y -= 18;
@@ -230,11 +290,17 @@ async function baueKmPdf({ datum, person, start, ziel, km, fahrzeug, satz, hinUn
 
   text("Von", { groesse: 9, schrift: fett, farbe: grau });
   y -= 13;
-  text(start, { groesse: 11 });
+  text(aufBreite(start, normal, 11), { groesse: 11 });
   y -= 20;
   text("Nach", { groesse: 9, schrift: fett, farbe: grau });
   y -= 13;
-  text(ziel, { groesse: 11 });
+  text(aufBreite(ziel, normal, 11), { groesse: 11 });
+  if (zwischen.length) {
+    y -= 20;
+    text("Über", { groesse: 9, schrift: fett, farbe: grau });
+    y -= 13;
+    text(aufBreite(zwischen.join(" · "), normal, 11), { groesse: 11 });
+  }
   y -= 10;
 
   // Karte: volle Textbreite, Seitenverhältnis des Canvas beibehalten
@@ -287,13 +353,11 @@ function kmEl(id) {
 }
 
 function oeffneKmDialog() {
-  kmStart = null;
-  kmZiel = null;
+  kmOrte = [leererOrt(), leererOrt()];
   kmRouten = [];
   kmGewaehlt = 0;
   kmPdfBlob = null;
-  kmEl("kmStart").value = "";
-  kmEl("kmZiel").value = "";
+  renderKmOrte();
   kmEl("kmDatum").value = formatDate(new Date());
   kmEl("kmHinZurueck").checked = false;
   kmEl("kmStrecke").value = "";
@@ -339,11 +403,77 @@ function rechneKmTotal() {
   kmEl("kmBelegBtn").disabled = !bereit;
 }
 
+// Die Adressfelder werden als Ganzes gerendert (Start, Zwischenstopps,
+// Ziel), weil sich ihre Anzahl ändert. Getippter Text lebt in kmOrte[i].text
+// weiter, damit ein neues Rendern nichts verliert.
+function renderKmOrte() {
+  const box = kmEl("kmOrte");
+  box.innerHTML = kmOrte
+    .map((o, i) => {
+      const weg =
+        i > 0 && i < kmOrte.length - 1
+          ? `<button type="button" class="km-stopp-weg" data-weg="${i}" title="Zwischenstopp entfernen" aria-label="Zwischenstopp entfernen">&times;</button>`
+          : "";
+      return `<div class="km-ort">
+        <label>${escapeHtml(kmOrtName(i))}</label>
+        <div class="km-adresse">
+          <input type="text" data-ort="${i}" placeholder="Strasse Nr, PLZ Ort" autocomplete="off" value="${escapeHtml(o.text)}">
+          <button type="button" class="btn-secondary" data-suche="${i}">Suchen</button>
+          ${weg}
+        </div>
+        <div class="km-treffer-liste" data-treffer="${i}"></div>
+      </div>`;
+    })
+    .join("");
+
+  box.querySelectorAll("input[data-ort]").forEach((el) => {
+    const i = Number(el.dataset.ort);
+    el.addEventListener("input", () => {
+      kmOrte[i].text = el.value;
+    });
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      sucheAdresse(i);
+    });
+  });
+  box.querySelectorAll("[data-suche]").forEach((el) => {
+    el.addEventListener("click", () => sucheAdresse(Number(el.dataset.suche)));
+  });
+  box.querySelectorAll("[data-weg]").forEach((el) => {
+    el.addEventListener("click", () => entferneZwischenstopp(Number(el.dataset.weg)));
+  });
+}
+
+function neuerZwischenstopp() {
+  kmOrte.splice(kmOrte.length - 1, 0, leererOrt());
+  renderKmOrte();
+  kmEl("kmOrte").querySelector(`input[data-ort="${kmOrte.length - 2}"]`)?.focus();
+}
+
+function entferneZwischenstopp(i) {
+  kmOrte.splice(i, 1);
+  renderKmOrte();
+  if (kmOrteBereit()) holeRoute();
+}
+
+// Dreht die ganze Fahrt um: die Zwischenstopps kommen in umgekehrter
+// Reihenfolge, das ist der Rückweg.
+function tauscheStartZiel() {
+  kmOrte.reverse();
+  renderKmOrte();
+  if (kmOrteBereit()) holeRoute();
+}
+
+function trefferBox(i) {
+  return kmEl("kmOrte").querySelector(`[data-treffer="${i}"]`);
+}
+
 // Adressfeld -> Koordinaten. Mehrere Treffer kommen als Auswahlliste.
-async function sucheAdresse(feld) {
-  const eingabe = kmEl(feld === "start" ? "kmStart" : "kmZiel").value.trim();
-  const listeEl = kmEl(feld === "start" ? "kmStartTreffer" : "kmZielTreffer");
-  if (!eingabe) return;
+async function sucheAdresse(i) {
+  const eingabe = (kmOrte[i] ? kmOrte[i].text : "").trim();
+  const listeEl = trefferBox(i);
+  if (!eingabe || !listeEl) return;
   listeEl.innerHTML = '<div class="km-treffer-lade">Suche…</div>';
   try {
     const treffer = await adresseSuchen(eingabe);
@@ -353,25 +483,26 @@ async function sucheAdresse(feld) {
     }
     listeEl.innerHTML = treffer
       .map(
-        (t, i) =>
-          `<button type="button" class="km-treffer" data-feld="${feld}" data-i="${i}">${escapeHtml(t.label)}</button>`
+        (t, n) =>
+          `<button type="button" class="km-treffer" data-treffer-ort="${i}" data-i="${n}">${escapeHtml(t.label)}</button>`
       )
       .join("");
-    listeEl.dataset.treffer = JSON.stringify(treffer);
+    listeEl.dataset.gefunden = JSON.stringify(treffer);
   } catch (err) {
     listeEl.innerHTML = `<div class="km-treffer-lade">${escapeHtml(err.message)}</div>`;
   }
 }
 
-function waehleTreffer(feld, i) {
-  const listeEl = kmEl(feld === "start" ? "kmStartTreffer" : "kmZielTreffer");
-  const treffer = JSON.parse(listeEl.dataset.treffer || "[]")[i];
-  if (!treffer) return;
-  if (feld === "start") kmStart = treffer;
-  else kmZiel = treffer;
-  kmEl(feld === "start" ? "kmStart" : "kmZiel").value = treffer.label;
+function waehleTreffer(i, n) {
+  const listeEl = trefferBox(i);
+  const treffer = JSON.parse((listeEl && listeEl.dataset.gefunden) || "[]")[n];
+  if (!treffer || !kmOrte[i]) return;
+  kmOrte[i].ort = treffer;
+  kmOrte[i].text = treffer.label;
+  const feld = kmEl("kmOrte").querySelector(`input[data-ort="${i}"]`);
+  if (feld) feld.value = treffer.label;
   listeEl.innerHTML = "";
-  if (kmStart && kmZiel) holeRoute();
+  if (kmOrteBereit()) holeRoute();
 }
 
 async function holeRoute() {
@@ -379,7 +510,7 @@ async function holeRoute() {
   hinweis.textContent = "Route wird gesucht…";
   hinweis.className = "test-result";
   try {
-    kmRouten = await routeSuchen(kmStart, kmZiel);
+    kmRouten = await routeSuchen(kmOrte.map((o) => o.ort));
     kmGewaehlt = 0;
     renderRoutenAuswahl();
     await zeigeRoute();
@@ -401,6 +532,10 @@ function renderRoutenAuswahl() {
       </button>`;
     })
     .join("");
+  // Erklärt die häufigste Rückfrage: auf vielen Strecken kennt OSRM gar
+  // keine zweite sinnvolle Variante (siehe routeSuchen()).
+  const nurEine = kmRouten.length === 1 && kmOrte.length === 2;
+  kmEl("kmRoutenHinweis").hidden = !nurEine;
 }
 
 async function zeigeRoute() {
@@ -409,7 +544,7 @@ async function zeigeRoute() {
   kmEl("kmKartenBlock").hidden = false;
   kmEl("kmStrecke").value = String(Math.round(route.meter / 100) / 10);
   rechneKmTotal();
-  await zeichneKarte(kmEl("kmKarte"), route);
+  await zeichneKarte(kmEl("kmKarte"), route, kmZwischen().map((o) => o.ort).filter(Boolean));
 }
 
 function kmDaten() {
@@ -418,8 +553,11 @@ function kmDaten() {
   return {
     datum: kmEl("kmDatum").value || formatDate(new Date()),
     person: personName(),
-    start: kmStart ? kmStart.label : kmEl("kmStart").value,
-    ziel: kmZiel ? kmZiel.label : kmEl("kmZiel").value,
+    start: ortLabel(kmOrte[0]),
+    ziel: ortLabel(kmOrte[kmOrte.length - 1]),
+    zwischen: kmZwischen().map((o) => ortKurz(o)).filter(Boolean),
+    startKurz: ortKurz(kmOrte[0]),
+    zielKurz: ortKurz(kmOrte[kmOrte.length - 1]),
     km,
     fahrzeug: f.name,
     satz: f.satz,
@@ -428,9 +566,12 @@ function kmDaten() {
   };
 }
 
+// sanitizeForFilename() kappt bei 60 Zeichen -- deshalb hier nur Strasse
+// und Nummer, auf 20 Zeichen gekürzt, damit das Datum am Schluss sicher
+// im Dateinamen bleibt.
 function kmDateiname(d) {
-  const kurz = (s) => (s || "").split(",")[0].trim();
-  return sanitizeForFilename(`Fahrt ${kurz(d.start)}-${kurz(d.ziel)} ${d.datum}`) + ".pdf";
+  const kurz = (s) => String(s || "").split(",")[0].trim().slice(0, 20).trim();
+  return sanitizeForFilename(`Fahrt ${kurz(d.startKurz)}-${kurz(d.zielKurz)} ${d.datum}`) + ".pdf";
 }
 
 async function kmPdfErzeugen() {
@@ -478,8 +619,9 @@ async function kmAlsBeleg() {
     document.getElementById("receiptFileName").textContent = name;
     document.getElementById("receiptDate").value = daten.datum;
     document.getElementById("receiptAmount").value = kmBetrag(daten.km, daten.satz).toFixed(2);
+    const ueber = daten.zwischen.length ? ` über ${daten.zwischen.join(", ")}` : "";
     document.getElementById("receiptPurpose").value =
-      `Fahrt ${(daten.start || "").split(",")[0]} – ${(daten.ziel || "").split(",")[0]}, ` +
+      `Fahrt ${daten.startKurz} – ${daten.zielKurz}${ueber}, ` +
       `${kmZahl(daten.km)} km × ${daten.satz.toFixed(2)} (${daten.fahrzeug})`;
   } catch (err) {
     hinweis.textContent = "Fehler: " + err.message;
@@ -490,19 +632,11 @@ async function kmAlsBeleg() {
 function initKmTool() {
   kmEl("kmBtn").addEventListener("click", oeffneKmDialog);
   kmEl("closeKm").addEventListener("click", schliesseKmDialog);
-  kmEl("kmStartBtn").addEventListener("click", () => sucheAdresse("start"));
-  kmEl("kmZielBtn").addEventListener("click", () => sucheAdresse("ziel"));
-  ["kmStart", "kmZiel"].forEach((id) => {
-    kmEl(id).addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sucheAdresse(id === "kmStart" ? "start" : "ziel");
-      }
-    });
-  });
+  kmEl("kmStoppBtn").addEventListener("click", neuerZwischenstopp);
+  kmEl("kmTauschBtn").addEventListener("click", tauscheStartZiel);
   kmEl("kmOverlay").addEventListener("click", (e) => {
-    const treffer = e.target.closest("[data-feld][data-i]");
-    if (treffer) return waehleTreffer(treffer.dataset.feld, Number(treffer.dataset.i));
+    const treffer = e.target.closest("[data-treffer-ort]");
+    if (treffer) return waehleTreffer(Number(treffer.dataset.trefferOrt), Number(treffer.dataset.i));
     const route = e.target.closest("[data-route]");
     if (route) {
       kmGewaehlt = Number(route.dataset.route);
