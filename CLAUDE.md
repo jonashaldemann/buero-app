@@ -79,12 +79,14 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 - Server danach beenden: `lsof -ti:<port> -sTCP:LISTEN | xargs -r kill`.
 - **Echte Büro-Daten zum Testen liegen in `.temp/`** (von `.gitignore`
   erfasst, gehören NIE ins Repo): der Export der Preisliste und echte
-  Projektdateien wie "018 Bönigen Vorstudie P2 Bönigen Opti.json". Gegen
-  die lässt sich wirklichkeitsnah testen -- über `page.route` als
-  Nextcloud-Antwort ausliefern. Die Norm `_bkp_katalog.json` liegt nicht
-  dabei; für einen Lauf mit vollständigem Katalog lässt sie sich aus den
-  BKP-Knoten des Preislisten-Baums nachbilden (923 Nummern gegenüber 920 der
-  Norm).
+  Projektdateien. Gegen die lässt sich wirklichkeitsnah testen -- über
+  `page.route` als Nextcloud-Antwort ausliefern. Die Norm
+  `_bkp_katalog.json` liegt nicht dabei; für einen Lauf mit vollständigem
+  Katalog lässt sie sich aus den BKP-Knoten des Preislisten-Baums nachbilden
+  (923 Nummern gegenüber 920 der Norm). **Auch KUNDEN- UND PROJEKTNAMEN
+  gehören nicht ins Repo** -- nicht in den Code, nicht in Kommentare, nicht
+  in README oder CLAUDE.md. Ein Dateiname wie der einer echten
+  Projektdatei verrät schon genug.
 
 ## Architektur-Eckpunkte
 
