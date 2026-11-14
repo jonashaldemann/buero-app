@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Modell</title>
+<!-- Kein Eintrag in Suchmaschinen: der Link ist zwar passwortgeschützt,
+     aber auch die Existenz eines Kundenmodells geht niemanden etwas an. -->
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="../icons/modellviewer-192.png">
+<link rel="apple-touch-icon" href="../icons/modellviewer-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="viewer.css">
+<!-- Die three.js-Zusatzmodule importieren "three" als blanken Namen; ohne
+     Build-Schritt löst das eine Import-Map auf. Muss vor dem ersten
+     Modul-Skript stehen. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<style>
+  /* Die Kundenansicht ist eine reine Vollbildseite: Kopfzeile, darunter
+     der Viewer über die ganze restliche Höhe. Kein Kartenlayout wie in den
+     Büro-Modulen -- hier gibt es nur das Modell. */
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+
+  .kopf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+    flex: none;
+  }
+  .kopf-titel { min-width: 0; }
+  .kopf h1 {
+    font-family: var(--font-medium);
+    font-size: 15px;
+    font-weight: normal;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kopf .unterzeile {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kopf .buero {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex: none;
+  }
+
+  #viewerBox { flex: 1; min-height: 0; }
+
+  /* Auf dem Desktop wirkt die angeklebte untere Blase (Standard in
+     css/style.css) bei einer reinen Einstiegsseite falsch -- hier mittig. */
+  @media (min-width: 640px) {
+    #passwortOverlay { align-items: center; }
+    #passwortOverlay .sheet { border-radius: 20px; max-width: 420px; }
+  }
+
+  .modellwahl { list-style: none; margin: 0; padding: 0; }
+  .modellwahl li { border-bottom: 1px solid var(--border); }
+  .modellwahl li:last-child { border-bottom: none; }
+  .modellwahl button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--font-light);
+    font-size: 15px;
+    padding: 14px 4px;
+    cursor: pointer;
+  }
+  .modellwahl .groesse { color: var(--text-muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header class="kopf">
+  <div class="kopf-titel">
+    <h1 id="modellTitel">Modell</h1>
+    <div class="unterzeile" id="modellUnterzeile"></div>
+  </div>
+  <div class="buero" id="bueroName"></div>
+</header>
+
+<div id="viewerBox"></div>
+
+<!-- Passwortabfrage -->
+<div id="passwortOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Modell ansehen</h2>
+    </div>
+    <form id="passwortForm">
+      <div class="form-group">
+        <label for="passwortFeld">Passwort</label>
+        <div class="password-field">
+          <input type="password" id="passwortFeld" autocomplete="current-password" enterkeyhint="go" placeholder="Passwort aus der Einladung">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" id="passwortBtn">Öffnen</button>
+      </div>
+      <div id="passwortFehler" class="test-result"></div>
+    </form>
+    <p class="hint">
+      Das Passwort haben Sie zusammen mit diesem Link erhalten. Es gilt nur
+      für dieses eine Modell. Funktioniert es nicht mehr, melden Sie sich
+      bitte bei uns -- Links können ablaufen.
+    </p>
+  </div>
+</div>
+
+<!-- Auswahl, falls in der Freigabe mehrere Modelle liegen -->
+<div id="wahlOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Modell wählen</h2>
+    </div>
+    <ul class="modellwahl" id="wahlListe"></ul>
+  </div>
+</div>
+
+<script type="module" src="ansicht.js"></script>
+</body>
+</html>

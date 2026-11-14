@@ -1,6 +1,6 @@
 # Hinweise für Claude Code in diesem Repo
 
-Büro-Apps für ein Architekturbüro — zehn kleine statische PWAs ohne
+Büro-Apps für ein Architekturbüro — elf kleine statische PWAs ohne
 Build-Schritt, gehostet auf GitHub Pages (Branch `main`). Was die
 Apps jeweils tun, steht ausführlich in `README.md` — diese Datei hier ist
 bewusst kein Duplikat davon, sondern hält fest, **wie** wir zusammenarbeiten
@@ -53,7 +53,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   mocken (inkl. `Buero/.../App/config.json` und `.../App/projekte.txt`,
   siehe unten).
 - Vor jedem Testlauf `node --check <datei>.js` auf alle geänderten
-  JS-Dateien.
+  JS-Dateien. Für die ES-Module in `modellviewer/` stattdessen
+  `node --input-type=module --check < <datei>.js` -- `node --check` kennt
+  `import` nicht und meldet dort immer einen Fehler.
+- **3D-Viewer testen**: Chromium braucht `args: ["--enable-unsafe-swiftshader"]`,
+  sonst gibt es kein WebGL. Geprüft wird nicht per Screenshot-Vergleich,
+  sondern mit `gl.readPixels()` über die ganze Leinwand: DECKENDE Pixel
+  (Alpha > 200) sind das Modell, teildeckende das Raster (0.55) und die
+  eingeblendete Schnittfläche (0.1) -- mit einer Schwelle von 10 misst man
+  die mit und sieht den Schnitt nicht mehr. Damit lässt sich exakt prüfen,
+  dass ein Schnitt am Rand das Modell auf 0 bringt und "umkehren" es
+  zurückholt. Texturen sind erst nach `warteAufBeidateien()` da (siehe
+  unten) -- misst man zu früh, ist das Modell schwarz.
 - Nach Änderungen an einer GEMEINSAMEN Datei (`shared/common.js` oder
   `css/style.css`): **CACHE_NAME in JEDEM `service-worker.js` bumpen**, das
   sie cached (aktuell alle Module + Root, ausser dem Redirect-Stub
@@ -71,7 +82,8 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   File pro Jahr statt einer gemeinsamen Datei — siehe README),
   `baukosten/` (Kostenschätzung nach BKP, ein File pro Schätzung; der
   BKP-Katalog ist für alle Schätzungen gleich und liegt auf Nextcloud,
-  siehe unten -- die Datei enthält nur das tatsächlich Erfasste).
+  siehe unten -- die Datei enthält nur das tatsächlich Erfasste),
+  `modellviewer/` (3D-Modelle für Kunden, ein ORDNER pro Modell).
 - **Bearbeitungsfenster `baukosten/` ist ein Overlay** (`#detailPanel`,
   `renderPanel()`), kein Fenster rechts mehr: in der Kapitelansicht gäbe es
   dafür keinen Platz. Es öffnet nur ABSICHTLICH -- über "⋯" in der
@@ -199,6 +211,62 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Schätzung, mit Modul dieselbe Tabelle nur mit dessen Zeilen (Option "Je
   Modul eine eigene Seite"). Der Filter läuft über `summenMit()` und
   `verwendeteKnoten(filter)` — keine zweite Rendering-Logik.
+- **`modellviewer/` hat ZWEI Seiten mit verschiedenem Zugang**:
+  `index.html`+`app.js` ist Büro-Seite mit Nextcloud-Login wie jedes andere
+  Modul; `ansicht.html`+`ansicht.js` ist die Kundenseite und lädt
+  `shared/common.js` BEWUSST NICHT (sonst hätte ein Kunde den
+  Einstellungen-Dialog und im Demofall das gelbe Demo-Band vor sich).
+  Deshalb steht `PROXY_URL` dort ein zweites Mal -- ändert sich die Adresse
+  des Proxys, muss sie an beiden Stellen nach. Gemeinsam sind nur
+  `viewer.js` (rendert, baut die Bedienleiste, holt NICHTS aus dem Netz --
+  `ladeModell()` bekommt eine fertige Map Dateiname -> ArrayBuffer) und
+  `dateien.js` (PROPFIND/GET über eine INJIZIERTE Hole-Funktion). Diese
+  Trennung ist der Grund, warum beide Seiten identisch aussehen.
+- **Kundenzugang über passwortgeschützten Freigabelink** (November 2026):
+  pro Modell ein Nextcloud-Freigabelink mit Passwort auf den Modellordner;
+  gelesen wird mit `Authorization: Basic base64(<token>:<freigabepasswort>)`
+  gegen `public.php/dav/files/<token>/`, mit Rückfall auf
+  `public.php/webdav/`. Das braucht KEINE Änderung an `worker.js` und
+  nirgends hinterlegte Zugangsdaten. Die Alternative (Worker bekommt ein
+  eigenes App-Passwort und prüft selbst) wurde verworfen: Nextcloud-
+  App-Passwörter lassen sich nicht auf einen Ordner einschränken, ein
+  Worker-Fehler wäre Vollzugriff gewesen. Das weicht bewusst von "kein
+  öffentlicher Freigabelink mehr" ab -- der Unterschied: dort stand ein
+  Token IM REPO, hier steht die Kennung nur im Link an den Kunden und ist
+  ohne Passwort wertlos. Tokens gehören weiterhin NIE ins Repo.
+- **`modellviewer/app.js` ist ein ES-Modul**, läuft aber nach dem klassischen
+  `shared/common.js` -- dessen `const`/`function` auf oberster Ebene sind in
+  Modulen ganz normal sichtbar. Nur so lassen sich `dateien.js`/`viewer.js`
+  importieren, ohne den gemeinsamen Code anzufassen. `viewer.js` (und damit
+  three.js, rund 2 MB) wird erst beim Öffnen der Vorschau dynamisch geladen.
+- **three.js liegt als Kopie im Repo** (`modellviewer/vendor/`, MIT; dazu der
+  Draco-Decoder, Apache 2.0): kein Build-Schritt, offlinefähig, und die
+  Kundenseite meldet beim Öffnen nichts an fremde Server. Aufgelöst werden
+  die Importe über eine Import-Map in BEIDEN HTML-Dateien. Herkunft und
+  Update-Anleitung: `modellviewer/vendor/HERKUNFT.md`. Kommt eine
+  Zusatzdatei dazu, muss sie auch in `modellviewer/service-worker.js`.
+- **Schnitt `modellviewer/` clippt LOKAL, nicht global**: die Ebenen hängen
+  an den Materialien (`renderer.localClippingEnabled`), nicht am Renderer --
+  mit globalem Clipping würde die eingeblendete Schnittfläche sich selbst
+  wegschneiden, sie liegt ja genau auf der Ebene. Dazu gehört
+  `material.clipShadows = true`, sonst wirft ein halbiertes Haus weiter den
+  Schatten des ganzen Baukörpers. Das Bodenraster wird mitgeschnitten, der
+  Boden ebenso. Die Lage des Schnitts wird in `schnittPos` MITGEFÜHRT und
+  nicht aus `plane.constant` zurückgerechnet (Vorzeichenfalle: die Normale
+  dreht beim Umkehren mit).
+- **Z-oben wird NICHT geraten** (`zUp` in `modell.json`): an den blossen
+  Abmessungen sind ein hohes Haus und ein liegender Baukörper nicht zu
+  unterscheiden. Das Büro setzt das Häkchen beim Hochladen, glTF ist auf
+  Y-oben festgelegt, viele CAD-Exporte auf Z.
+- **OBJ: auf die Beidateien warten** (`warteAufBeidateien()` in `viewer.js`):
+  der OBJLoader meldet "fertig", sobald die Geometrie steht -- die Texturen
+  aus der `.mtl` laufen dann noch, und das Modell erscheint so lange SCHWARZ
+  (zugewiesener, aber leerer Bildspeicher). Der glTF-Weg wartet selbst.
+- **`demoFetch()` kennt Unterordner** (seit dem Modellviewer, der pro Modell
+  einen Ordner anlegt): PROPFIND liefert im Demomodus jetzt auch
+  Collections und `getcontentlength`. Die übrigen Module filtern ihre
+  Ordnerlisten nach Endung und merken davon nichts -- gegen eine echte
+  Nextcloud bekamen sie Unterordner ohnehin schon immer zu sehen.
 - **Umbenennen auf Nextcloud**: der Worker-Proxy lässt nur
   GET/PUT/MKCOL/PROPFIND/DELETE durch (kein MOVE, kein Destination-Header).
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
@@ -341,7 +409,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 
 - Im Demomodus fehlen noch Beispieldaten für **Wettbewerbsprogramme** und
   **Quittung** (dort nur Kontenplan/Kategorien, keine Belege) — die Module
-  starten leer, man kann aber Einträge anlegen.
+  starten leer, man kann aber Einträge anlegen. (Der Modellviewer hat seit
+  November 2026 ein Beispielmodell: ein `.gltf` mit eingebetteter Geometrie
+  direkt in `demo/seed.json`, also reiner Text wie alle Demodaten.)
+- Schnittflächen im `modellviewer/` füllen (Stencil-Verfahren), damit ein
+  Schnitt nicht hohl aussieht — bei beliebigen CAD-Exporten fehleranfällig,
+  deshalb bewusst zurückgestellt.
 - Google-Kalender-Sync für Ferien/Abwesenheiten in der Timeline (Vorschlag:
   privater iCal-Link pro Person statt volle Calendar-API/OAuth, über den
   Worker proxyen) — besprochen, aber bewusst zurückgestellt.

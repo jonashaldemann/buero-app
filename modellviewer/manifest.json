@@ -1,0 +1,15 @@
+{
+  "name": "Modellviewer",
+  "short_name": "Modelle",
+  "description": "3D-Modelle hochladen und Kunden über einen passwortgeschützten Link zeigen",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2EFEA",
+  "theme_color": "#F2EFEA",
+  "orientation": "any",
+  "icons": [
+    { "src": "../icons/modellviewer-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/modellviewer-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

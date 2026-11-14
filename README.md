@@ -1,6 +1,6 @@
 # Büro-Apps
 
-Zehn kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
+Elf kleine PWAs für den Büroalltag, alle im gleichen Repo, alle einzeln als
 App auf dem Homescreen installierbar:
 
 - **[Zeiterfassung](zeiterfassung/)** — Zeit pro Projekt erfassen, Sync auf Nextcloud.
@@ -13,6 +13,7 @@ App auf dem Homescreen installierbar:
 - **[Timeline](timeline/)** — Terminplanung als horizontaler Zeitbalken (Gantt-artig).
 - **[Finanzplanung](finanzplanung/)** — Liquiditätsplanung pro Kalenderjahr.
 - **[Baukosten](baukosten/)** — Kostenschätzung nach BKP, mit Unterpositionen, Ausmassen und zwei Bemerkungsspalten.
+- **[Modellviewer](modellviewer/)** — 3D-Modelle hochladen und Kunden über einen passwortgeschützten Link zeigen (ohne Nextcloud-Zugang).
 
 Die **Startseite** (`index.html` im Repo-Root) ist nur ein Launcher: ein
 App-Icon-Raster wie auf dem Smartphone-Homescreen (Icon + kurzes Label,
@@ -160,6 +161,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
 | Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung, dazu `_bkp_katalog.json` mit dem BKP nach SN 506 500:2017) |
+| Modellviewer | `Buero/Admin/App/Modellviewer` (ein ORDNER pro Modell, darin die Modelldatei(en) und `modell.json`) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
 | Zentrale Konfiguration: Projekte | `Buero/Admin/App/projekte.txt` |
@@ -1929,6 +1931,211 @@ gegenüber der Finanzplanung:
 
 ---
 
+## Modellviewer
+
+3D-Modelle im Browser anschauen — intern als Vorschau, und vor allem für
+**Kunden**, die dafür weder ein Programm noch einen Nextcloud-Zugang
+brauchen. Gedacht ist das für Volumenstudien, Varianten und
+Projektierungsstände: der Kunde bekommt einen Link und ein Passwort, dreht
+das Modell am Handy oder am Rechner und kann einen Schnitt hindurchlegen.
+
+Das Modul hat als einziges **zwei Seiten mit völlig verschiedenem Zugang**:
+
+| Seite | Wer | Zugang |
+|---|---|---|
+| `modellviewer/` (`index.html`) | Büro | Nextcloud-Login wie alle anderen Module |
+| `modellviewer/ansicht.html#<Kennung>` | Kunde | nur das Passwort der Nextcloud-Freigabe |
+
+Die Kundenseite lädt bewusst **nicht** `shared/common.js`: kein
+Einstellungen-Dialog, kein Demo-Band, keine Zugangsdaten im Spiel. Sie trägt
+ausserdem `noindex, nofollow` — der Link ist zwar passwortgeschützt, aber
+auch die blosse Existenz eines Kundenmodells geht Suchmaschinen nichts an.
+Gemeinsam ist beiden Seiten nur der Viewer selbst (`viewer.js`, rendert und
+bringt seine Bedienleiste mit) und `dateien.js` (Ordner lesen, Dateien mit
+Fortschritt holen) — Vorschau und Kundenansicht sehen deshalb garantiert
+gleich aus.
+
+### Ein Modell für einen Kunden freigeben
+
+1. Im Modul **"+ Modell hochladen"**: Titel, Projekt, optional eine
+   Bemerkung ("Stand 14.11.2026"), dann die Dateien wählen. Es entsteht ein
+   eigener Ordner `Buero/Admin/App/Modellviewer/<titel-als-ordnername>`.
+2. In **Nextcloud** auf genau diesem Ordner einen **Freigabelink mit
+   Passwort** anlegen (Teilen → Link teilen → Passwort setzen; ein
+   Ablaufdatum ist sinnvoll). Schreibrechte braucht es nicht.
+3. Den Freigabelink im Modul beim Modell einfügen — das Feld nimmt die ganze
+   Adresse entgegen und zieht sich die Kennung selbst heraus. Darunter
+   erscheint der fertige **Kundenlink**.
+4. Kundenlink und Passwort **getrennt** verschicken (Link per Mail, Passwort
+   per Telefon/SMS) — dann ist ein weitergeleitetes Mail allein nutzlos.
+
+Zurücknehmen heisst: Freigabe in Nextcloud löschen (oder Passwort ändern).
+Der Link ist danach sofort tot, ohne dass am Modell etwas geändert werden
+muss. Modelle ohne eingetragene Kennung stehen in der Liste mit dem Hinweis
+"noch nicht freigegeben" — sonst verschickt man einen Link ins Leere.
+
+### Warum ein Freigabelink und nicht unser Login
+
+Die Kundenseite muss ohne unsere Zugangsdaten auskommen, und im Repo (es ist
+öffentlich) darf nichts Geheimes stehen. Nextcloud kann eine
+passwortgeschützte Freigabe per WebDAV ausliefern, wenn man die **Kennung
+als Benutzernamen und das Freigabepasswort als Passwort** schickt — das geht
+durch den bestehenden Worker-Proxy, ohne eine Zeile an `worker.js` und ohne
+dass irgendwo Zugangsdaten hinterlegt werden müssten. Angesprochen wird
+`public.php/dav/files/<Kennung>/`, mit Rückfall auf das ältere
+`public.php/webdav/` (je nach Nextcloud-Version gibt es nur eines von
+beiden).
+
+Die Alternative wäre gewesen, dem Cloudflare-Worker ein eigenes
+Nextcloud-App-Passwort zu geben und ihn das Passwort prüfen zu lassen. Das
+hätte kürzere Links ergeben, aber: App-Passwörter lassen sich in Nextcloud
+**nicht** auf einen Ordner einschränken — ein Fehler im Worker wäre ein
+Vollzugriff auf die ganze Nextcloud gewesen. So ist im schlimmsten Fall
+genau ein Modellordner betroffen.
+
+Das weicht bewusst von der Regel "kein öffentlicher Freigabelink mehr" ab
+(siehe Abschnitt "Auswertung"): dort stand ein Token **im Repo** und schützte
+gar nichts. Hier steht die Kennung nur im Link an den Kunden, und ohne das
+Passwort nützt sie nichts.
+
+Das Passwort tippt der Kunde einmal ein; es bleibt nur im `sessionStorage`
+dieses Tabs (ein Neuladen fragt nicht nochmals, ein neuer Besuch schon) und
+wird nirgends gespeichert.
+
+### Dateiformate
+
+- **`.glb` ist der empfohlene Weg**: eine einzige Datei, Material und
+  Texturen eingebacken, und mit Draco-Komprimierung oft ein Bruchteil der
+  Grösse. Fast jedes CAD exportiert es.
+- **`.gltf`** (die Variante mit `.bin` und Texturen daneben) und
+  **`.obj` + `.mtl` + Texturen** gehen ebenfalls — dann müssen beim
+  Hochladen **alle** zugehörigen Dateien mit ausgewählt werden. Sie dürfen
+  auch in Unterordnern liegen (OBJ-Exporte legen Texturen gern in
+  `textures/`); gesucht wird nach Dateinamen, nicht nach Pfad.
+- Nicht unterstützt: IFC, RVT, SKP, DWG. Solche Modelle müssen vorher
+  exportiert werden — was ohnehin sinnvoll ist, weil man einem Kunden selten
+  das volle Fachmodell geben will.
+
+### Z-Achse oben
+
+Viele CAD-Programme (Rhino, ArchiCAD und andere) exportieren mit **Z nach
+oben**, glTF ist dagegen auf Y festgelegt. Beim Hochladen gibt es deshalb
+den Schalter "Z-Achse zeigt nach oben". Automatisch **geraten** wird das
+bewusst nicht: an den blossen Abmessungen sind ein hohes Haus und ein
+liegender Baukörper nicht zu unterscheiden, und ein falsch gedrehtes Modell
+beim Kunden ist peinlicher als ein Häkchen beim Hochladen. Liegt das Modell
+in der Vorschau falsch, Häkchen umstellen und neu speichern.
+
+### Bedienung
+
+- **Drehen** mit einem Finger bzw. der linken Maustaste, **Verschieben** mit
+  zwei Fingern bzw. der rechten Maustaste, **Zoomen** mit Zwei-Finger-Geste
+  bzw. Mausrad.
+- **Ansichten**: "Alles" rückt das ganze Modell ins Bild; Axo, Vorne,
+  Hinten, Links, Rechts, Oben springen auf feste Richtungen.
+- **Perspektive / Parallel**: schaltet zwischen perspektivischer und
+  Parallelprojektion um — Letztere ist das, was Architekten als Axonometrie
+  gewohnt sind (keine Fluchten, Höhen bleiben vergleichbar).
+- **Boden** blendet Bodenraster und Schlagschatten weg, **Drahtgitter**
+  zeigt die Maschen, **Bild** speichert das aktuelle Bild als PNG
+  (mitsamt dem Hintergrundverlauf), **Vollbild** nutzt den ganzen
+  Bildschirm.
+- Hervorgehoben ist ein Knopf immer dann, wenn er **nicht** im Normalzustand
+  steht; was der nächste Klick tut, steht im Tooltip.
+
+### Schnitt
+
+X, Y oder Z legt eine Schnittebene quer zu dieser Achse mitten durchs
+Modell. Verschieben geht auf drei Arten: die eingeblendete Schnittfläche
+direkt im Bild ziehen, den Schieber benutzen oder (am Rechner) mit den
+Pfeiltasten fein nachjustieren. "⇄" dreht um, welche Hälfte stehen bleibt,
+"✕" nimmt den Schnitt wieder weg; ein zweiter Klick auf dieselbe Achse tut
+dasselbe.
+
+- Es gibt bewusst **eine** Schnittebene, und sie steht immer senkrecht zu
+  einer Achse. Frei gekippte Schnitte wären am Handy kaum zu bedienen und
+  für "zeig mir mal das Erdgeschoss" nicht nötig — ein waagrechter Schnitt
+  (Y) ist genau der Grundriss.
+- Der Schnitt gilt auch für den **Schlagschatten**: ohne das würfe ein
+  halbiertes Haus weiter den Schatten des ganzen Baukörpers.
+- Zieht man direkt im Bild, braucht es eine erkennbare Bildschirmrichtung
+  der Achse — blickt man genau entlang der Schnittachse, passiert beim
+  Ziehen nichts, dann hilft der Schieber.
+- **Die Schnittfläche wird nicht gefüllt**: man schaut durch die Wand in den
+  hohlen Baukörper, statt auf eine farbige Schnittfläche wie in einer
+  Werkplanung. Das ist eine bewusste Grenze (siehe "Bekannte Grenzen").
+
+### Renderqualität
+
+Die Beleuchtung kommt aus einer gerechneten Innenraum-Umgebung
+(`RoomEnvironment`), die Sonne liefert nur noch Richtung und Schlagschatten
+— deshalb ist sie schwach eingestellt, sonst brennen helle Fassaden aus.
+Dazu ACES-Tonemapping und sRGB-Ausgabe, weiche Schatten und ein
+Bodenschatten ohne sichtbaren Boden. Die Sonne steht links **vor** dem
+Modell, die Standardansicht rechts davor: so fällt der Schatten sichtbar ins
+Bild statt hinter das Gebäude.
+
+Alle Materialien werden beidseitig gerendert (`DoubleSide`). Viele
+CAD-Exporte haben nach aussen gedrehte Einzelflächen, ohne das fehlen im
+Modell scheinbar ganze Wände.
+
+Beim OBJ-Weg wartet der Viewer, bis auch die Texturen aus der `.mtl`-Datei
+geladen sind, bevor er das Modell zeigt — sonst erscheint es einen Moment
+lang schwarz (zugewiesener, aber noch leerer Bildspeicher).
+
+### three.js liegt im Repo
+
+Der Viewer benutzt [three.js](https://threejs.org/) (MIT). Die Bibliothek
+liegt als Kopie unter `modellviewer/vendor/` statt an einem CDN: die Apps
+haben keinen Build-Schritt, sollen offline laufen und — das ist bei der
+Kundenansicht der wichtigste Punkt — beim Öffnen eines Modells nichts an
+fremde Server melden. Welche Dateien von wo stammen und wie man die Version
+hochzieht, steht in `modellviewer/vendor/HERKUNFT.md`; die Lizenztexte
+liegen daneben. Aufgelöst werden die Importe ohne Build-Schritt über eine
+Import-Map in beiden HTML-Dateien.
+
+### Ablage auf Nextcloud
+
+Ein **Ordner je Modell** unter `Buero/Admin/App/Modellviewer` — nicht eine
+Datei je Modell wie sonst, weil die Freigabe genau auf diesen Ordner zeigt:
+so sieht ein Kunde ausschliesslich sein eigenes Modell. Darin liegen die
+Modelldatei(en) und eine `modell.json`:
+
+```json
+{
+  "titel": "Wohnhaus Müller, Vorprojekt",
+  "projekt": "Wohnhaus Müller",
+  "beschreibung": "Stand 14.11.2026",
+  "hauptdatei": "haus.glb",
+  "zUp": false,
+  "token": "XyZ987abc",
+  "bueroName": "...",
+  "hochgeladen": "2026-11-14",
+  "von": "Jonas"
+}
+```
+
+`bueroName` steht hier mit drin, weil die zentrale `config.json` Login
+verlangt — der Kunde könnte sie gar nicht lesen, soll aber sehen, von wem
+das Modell kommt. Fehlt die `modell.json` ganz (Modell von Hand auf die
+Nextcloud gelegt), funktioniert beides trotzdem: Liste und Kundenansicht
+nehmen dann einfach die einzige Modelldatei im Ordner, und liegen mehrere
+darin, fragt die Kundenansicht nach.
+
+Ein Modell löschen entfernt den ganzen Ordner (und damit auch dessen
+Freigabe). Hochladen in ein bestehendes Modell geht ebenfalls: einfach beim
+Bearbeiten weitere Dateien wählen — gleiche Dateinamen werden überschrieben,
+der Kundenlink bleibt derselbe.
+
+### Im Demomodus
+
+Ohne Login liegt ein kleines Beispielmodell bereit ("Dachausbau Lindenweg,
+Volumenstudie"). Es steht als `.gltf` mit eingebetteter Geometrie direkt in
+`demo/seed.json` — eine reine Textdatei, wie alle Demodaten. Einen
+Kundenlink gibt es dafür nicht: der bräuchte eine echte Nextcloud-Freigabe.
+
+---
+
 ## Bekannte Grenzen
 
 - **Kein Konflikt-Schutz bei Gleichzeitigkeit**: Falls dieselbe Person eine
@@ -1943,11 +2150,25 @@ gegenüber der Finanzplanung:
   der Zähler beim nächsten Öffnen korrekt weitergerechnet (kein
   Datenverlust), aber es gibt keine Push-Erinnerung, falls vergessen wird,
   auf Stop zu klicken.
+- **Modellgrösse**: der Worker-Proxy puffert jede Antwort komplett im
+  Speicher, bevor er sie weiterreicht — sehr grosse Modelle scheitern
+  deshalb nicht am Browser, sondern am Proxy. Richtwert: bis etwa 100 MB
+  geht, angenehm sind unter 30 MB. Ein `.glb` mit Draco-Komprimierung ist
+  fast immer um ein Vielfaches kleiner als dasselbe Modell als OBJ; wer an
+  die Grenze stösst, sollte dort ansetzen (und nicht Dreiecke zählen, die
+  Grafikkarte stört das weniger als die Leitung).
+- **Keine gefüllten Schnittflächen**: Ein Schnitt im Modellviewer zeigt den
+  Baukörper hohl, nicht mit farbig gefüllter Schnittfläche wie eine
+  Werkplanung. Das sauber zu machen (Stencil-Verfahren pro Material) ist bei
+  beliebigen CAD-Exporten fehleranfällig — für "zeig mir das Erdgeschoss"
+  reicht der offene Schnitt.
+- **Kein Messen, keine Anmerkungen im Modell**: der Viewer zeigt, er
+  dokumentiert nicht. Masse gehören in den Plan, Rückmeldungen ins Protokoll.
 - **App-Icons**: liegen unter `icons/home-*.png`, `icons/zeiterfassung-*.png`,
   `icons/quittung-*.png`, `icons/wettbewerb-*.png`, `icons/offerten-*.png`,
   `icons/adressliste-*.png`, `icons/pendenzen-*.png`, `icons/protokoll-*.png`,
-  `icons/timeline-*.png`, `icons/finanzplanung-*.png`, `icons/baukosten-*.png`
-  (je 192px + 512px PNG).
+  `icons/timeline-*.png`, `icons/finanzplanung-*.png`, `icons/baukosten-*.png`,
+  `icons/modellviewer-*.png` (je 192px + 512px PNG).
   Zum Ändern einfach unter denselben Dateinamen ersetzen — keine
   Code-/Manifest-Änderung nötig.
 
@@ -1958,7 +2179,7 @@ python3 -m http.server 8080
 # im Browser: http://localhost:8080 (Startseite)
 # bzw. http://localhost:8080/zeiterfassung/, /quittung/, /wettbewerbsprogramme/,
 # /offerten/, /adressliste/, /pendenzen/, /protokoll/, /timeline/,
-# /finanzplanung/, /baukosten/
+# /finanzplanung/, /baukosten/, /modellviewer/
 ```
 
 ## Auf GitHub veröffentlichen (GitHub Pages)

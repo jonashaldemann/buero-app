@@ -167,14 +167,35 @@ async function demoFetch(relativePath, options) {
   if (method === "PROPFIND") {
     const dateien = await demoDateien();
     const ordner = key.replace(/\/+$/, "");
-    const hrefs = [`/${DEMO_PREFIX}${ordner}/`];
+    const praefix = ordner + "/";
+    // Erster Eintrag ist immer der abgefragte Ordner selbst -- so hält es
+    // auch Nextcloud, und modellviewer/dateien.js rechnet damit.
+    const eintraege = [{ pfad: ordner + "/", istOrdner: true, groesse: 0 }];
+    const unterordner = new Set();
     Object.keys(dateien).forEach((k) => {
-      if (k.startsWith(ordner + "/") && !k.slice(ordner.length + 1).includes("/")) {
-        hrefs.push("/" + (DEMO_PREFIX + k).split("/").map(encodeURIComponent).join("/"));
+      if (!k.startsWith(praefix)) return;
+      const rest = k.slice(praefix.length);
+      const schraeg = rest.indexOf("/");
+      if (schraeg < 0) {
+        const inhalt = dateien[k];
+        const text = typeof inhalt === "string" ? inhalt : JSON.stringify(inhalt, null, 2);
+        eintraege.push({ pfad: k, istOrdner: false, groesse: new Blob([text]).size });
+      } else {
+        // Unterordner gibt es im Seed nur als Pfadbestandteil -- der
+        // Modellviewer legt pro Modell einen an, und ohne diese Zeilen
+        // wäre dort im Demomodus nichts zu sehen.
+        unterordner.add(rest.slice(0, schraeg));
       }
     });
-    const xml = `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">${hrefs
-      .map((h) => `<d:response><d:href>${h}</d:href></d:response>`)
+    unterordner.forEach((name) => eintraege.push({ pfad: praefix + name + "/", istOrdner: true, groesse: 0 }));
+
+    const xml = `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">${eintraege
+      .map((e) => {
+        const href = "/" + (DEMO_PREFIX + e.pfad).split("/").map(encodeURIComponent).join("/");
+        const typ = e.istOrdner ? "<d:collection/>" : "";
+        const laenge = e.istOrdner ? "" : `<d:getcontentlength>${e.groesse}</d:getcontentlength>`;
+        return `<d:response><d:href>${href}</d:href><d:propstat><d:prop><d:resourcetype>${typ}</d:resourcetype>${laenge}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`;
+      })
       .join("")}</d:multistatus>`;
     return demoAntwort(xml, 207, "application/xml");
   }

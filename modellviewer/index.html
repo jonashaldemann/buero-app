@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2EFEA">
+<title>Modellviewer</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/modellviewer-192.png">
+<link rel="apple-touch-icon" href="../icons/modellviewer-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="viewer.css">
+<!-- Import-Map für die three.js-Zusatzmodule (siehe ansicht.html). Muss vor
+     dem ersten Modul-Skript stehen, auch wenn der Viewer hier erst beim
+     Öffnen der Vorschau nachgeladen wird. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<style>
+  .modell-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .modell-karte {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .modell-haupt { flex: 1; min-width: 0; }
+  .modell-titel {
+    font-family: var(--font-medium);
+    font-size: 15px;
+    word-break: break-word;
+  }
+  .modell-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+  /* Ein Modell ohne Freigabe ist für Kunden noch nicht erreichbar -- das
+     muss man auf einen Blick sehen, sonst verschickt man einen toten Link. */
+  .modell-meta .ohne-freigabe { color: #B5654C; }
+  .karten-aktionen { display: flex; gap: 2px; flex: none; }
+  .karten-aktionen button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+  }
+  .karten-aktionen button:active { background: var(--surface-2); }
+
+  .leer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 18px 10px;
+  }
+
+  .datei-zeile {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .datei-zeile:last-child { border-bottom: none; }
+  .datei-zeile .groesse { color: var(--text-muted); flex: none; }
+
+  .kopierzeile { display: flex; gap: 8px; align-items: center; }
+  .kopierzeile input { font-size: 12px; font-family: var(--font-mono); }
+  .kopierzeile button { flex: none; padding: 12px 14px; }
+
+  .schalter-zeile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+  .schalter-zeile input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
+
+  /* Vorschau: füllt den Bildschirm, der Viewer bringt seine eigene
+     Bedienleiste mit (viewer.js). */
+  #vorschauOverlay {
+    align-items: stretch;
+    z-index: 30;
+  }
+  #vorschauOverlay .vorschau-rahmen {
+    background: var(--bg);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .vorschau-kopf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 8px;
+    flex: none;
+  }
+  .vorschau-kopf h2 {
+    font-family: var(--font-medium);
+    font-size: 15px;
+    font-weight: normal;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #vorschauViewer { flex: 1; min-height: 0; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Modellviewer</h1>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="../" aria-label="Startseite" title="Startseite">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3z" fill="currentColor"/></svg>
+    </a>
+    <button id="refreshBtn" class="icon-btn" aria-label="Aktualisieren" title="Aktualisieren">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08a6 6 0 11-1.49-6.14L13 11h7V4l-2.35 2.35z" fill="currentColor"/></svg>
+    </button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Einstellungen" title="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.94 3.5l1.6-1.25a.5.5 0 00.12-.65l-1.5-2.6a.5.5 0 00-.6-.22l-1.9.76a7.4 7.4 0 00-1.3-.75l-.28-2.02a.5.5 0 00-.5-.43h-3a.5.5 0 00-.5.43l-.28 2.02c-.47.2-.9.45-1.3.75l-1.9-.76a.5.5 0 00-.6.22l-1.5 2.6a.5.5 0 00.12.65l1.6 1.25a7.6 7.6 0 000 1.5l-1.6 1.25a.5.5 0 00-.12.65l1.5 2.6c.13.22.4.31.6.22l1.9-.76c.4.3.83.55 1.3.75l.28 2.02c.05.25.26.43.5.43h3c.24 0 .45-.18.5-.43l.28-2.02c.47-.2.9-.45 1.3-.75l1.9.76c.2.09.47 0 .6-.22l1.5-2.6a.5.5 0 00-.12-.65l-1.6-1.25c.05-.25.06-.5.06-.75s-.01-.5-.06-.75z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section>
+    <button id="neuBtn" class="btn-primary" style="width:100%;">+ Modell hochladen</button>
+    <div class="sync-line" id="syncLine" style="text-align:center;">&nbsp;</div>
+  </section>
+
+  <section>
+    <div id="modellListe" class="modell-liste"></div>
+  </section>
+
+  <p class="hint">
+    Modelle liegen auf Nextcloud unter "Buero/Admin/App/Modellviewer",
+    ein Ordner je Modell. Damit ein Kunde eines ansehen kann, braucht es
+    dort einen <strong>Freigabelink mit Passwort</strong> auf genau diesen
+    Ordner (Nextcloud: Ordner → Teilen → Link teilen → Passwort setzen,
+    optional mit Ablaufdatum). Die Kennung dieses Links trägst du beim
+    Modell ein; der Kundenlink entsteht daraus automatisch. Kunden brauchen
+    keinen Nextcloud-Zugang und sehen nur diesen einen Ordner. Freigabe in
+    Nextcloud löschen = Modell sofort nicht mehr erreichbar.
+  </p>
+</main>
+
+<!-- Modell hochladen / bearbeiten -->
+<div id="modellOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="modellDialogTitel">Modell hochladen</h2>
+      <button id="modellSchliessen" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label for="feldTitel">Titel</label>
+      <input type="text" id="feldTitel" placeholder="z.B. Wohnhaus Müller, Vorprojekt">
+
+      <label for="feldProjekt">Projekt</label>
+      <select id="feldProjekt"></select>
+
+      <label for="feldBeschreibung">Bemerkung für den Kunden (optional)</label>
+      <input type="text" id="feldBeschreibung" placeholder="z.B. Stand 14.11.2026">
+    </div>
+
+    <div class="form-group" id="dateiGruppe">
+      <label for="feldDateien">Dateien</label>
+      <input type="file" id="feldDateien" multiple accept=".glb,.gltf,.obj,.mtl,.bin,.png,.jpg,.jpeg,.webp">
+      <div class="file-name" id="dateiHinweis">
+        Eine Modelldatei (.glb, .gltf oder .obj) plus alles, was dazugehört
+        (.mtl, Texturen, .bin). Am besten .glb: eine einzige Datei mit
+        Material und Textur darin.
+      </div>
+    </div>
+
+    <div class="form-group" id="hauptdateiGruppe" hidden>
+      <label for="feldHauptdatei">Hauptdatei</label>
+      <select id="feldHauptdatei"></select>
+    </div>
+
+    <label class="schalter-zeile">
+      <input type="checkbox" id="feldZup">
+      <span>Z-Achse zeigt nach oben (bei vielen CAD-Exporten, z.B. aus Rhino/ArchiCAD)</span>
+    </label>
+
+    <div class="form-group">
+      <label for="feldToken">Freigabelink aus Nextcloud</label>
+      <input type="text" id="feldToken" placeholder="Link einfügen oder Kennung eintippen" autocomplete="off">
+    </div>
+
+    <div class="form-group" id="linkGruppe" hidden>
+      <label for="feldKundenlink">Link für den Kunden</label>
+      <div class="kopierzeile">
+        <input type="text" id="feldKundenlink" readonly>
+        <button type="button" class="btn-secondary" id="kopierBtn">Kopieren</button>
+      </div>
+    </div>
+
+    <div id="dateiListe"></div>
+
+    <div class="form-actions" style="margin-top:18px;">
+      <button type="button" class="btn-secondary" id="loeschBtn" hidden>Löschen</button>
+      <button type="button" class="btn-primary" id="speichernBtn">Speichern</button>
+    </div>
+    <div id="dialogStatus" class="test-result"></div>
+  </div>
+</div>
+
+<!-- Vorschau -->
+<div id="vorschauOverlay" class="overlay hidden">
+  <div class="vorschau-rahmen">
+    <div class="vorschau-kopf">
+      <h2 id="vorschauTitel">Vorschau</h2>
+      <button id="vorschauSchliessen" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div id="vorschauViewer"></div>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div id="settingsOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Einstellungen</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label>Benutzername</label>
+      <input type="text" id="inputUser" placeholder="max">
+      <label>App-Passwort</label>
+      <div class="password-field">
+        <input type="password" id="inputPass" placeholder="App-Passwort (Einstellungen → Sicherheit)">
+        <button type="button" id="togglePassBtn" class="password-toggle" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5c-5 0-9.27 3.11-11 7 1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 12a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="testConnBtn" class="btn-secondary">Verbindung testen</button>
+      <button id="saveSettingsBtn" class="btn-primary">Speichern</button>
+    </div>
+    <div id="testResult" class="test-result"></div>
+
+    <p class="hint">
+      Das App-Passwort erstellst du in Nextcloud unter
+      Einstellungen → Sicherheit → App-Passwörter. Alle Daten bleiben
+      nur auf diesem Gerät gespeichert. Diese Zugangsdaten gelten auch
+      für die anderen Büro-Apps (einmal einrichten, überall nutzbar).
+    </p>
+  </div>
+</div>
+
+<script src="../shared/common.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
