@@ -143,8 +143,12 @@ kann.
 **Falls der Worker schon läuft:** Bei jeder Erweiterung der App (neue
 HTTP-Methode, neuer Header) muss der Code in `worker.js` erneut im
 Cloudflare-Dashboard eingefügt und deployed werden — Copy-Paste, kein
-CLI-Tool nötig. Aktuell braucht der Worker `GET`, `PUT`, `MKCOL`, `PROPFIND`
-und `DELETE`.
+CLI-Tool nötig. Aktuell braucht der Worker `GET`, `POST`, `PUT`, `MKCOL`,
+`PROPFIND` und `DELETE` sowie die durchgereichten Header `Authorization`,
+`Content-Type`, `Depth` und `OCS-APIRequest`. `POST` und `OCS-APIRequest`
+kamen im November 2026 für den Modellviewer dazu (Kundenfreigaben anlegen);
+ohne sie funktioniert alles andere weiter, nur der Knopf "Freigeben"
+nicht.
 
 ### Falls hosting.de doch noch CORS aktiviert
 

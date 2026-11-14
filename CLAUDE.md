@@ -468,6 +468,14 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 - Schnittflächen im `modellviewer/` füllen (Stencil-Verfahren), damit ein
   Schnitt nicht hohl aussieht — bei beliebigen CAD-Exporten fehleranfällig,
   deshalb bewusst zurückgestellt.
+- Freigaben im `modellviewer/` nach PROJEKT statt nach Modell bündeln (ein
+  Link und ein Passwort je Kunde, Modelle lägen in `Modellviewer/<Projekt>/
+  <Modell>`) — besprochen im November 2026, bewusst zurückgestellt: mit dem
+  Knopf "Freigeben" ist eine Freigabe je Modell ein Klick, und so behält
+  jedes Modell eigenes Passwort, eigenen Ablauf und eigenen Widerruf. Den
+  ganzen Modellviewer-Ordner EINMAL freizugeben ist dagegen keine Option:
+  eine Nextcloud-Freigabe hat genau ein Passwort, und jeder Kunde sähe die
+  Modelle aller anderen.
 - Google-Kalender-Sync für Ferien/Abwesenheiten in der Timeline (Vorschlag:
   privater iCal-Link pro Person statt volle Calendar-API/OAuth, über den
   Worker proxyen) — besprochen, aber bewusst zurückgestellt.
