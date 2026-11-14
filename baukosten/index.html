@@ -433,6 +433,93 @@
   .bk-panel-kosten .wert { font-family: var(--font-medium); font-size: 19px; font-variant-numeric: tabular-nums; }
   .bk-panel-fuss { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+  /* Auf dem Telefon nimmt das Fenster die ganze Breite und sitzt unten --
+     ein zentriertes Kärtchen mit 24px Rand ringsum wäre dort Platzverschwendung,
+     und die Finger sind unten. */
+  @media (max-width: 560px) {
+    .bk-panel { padding: 0; align-items: flex-end; }
+    .bk-panel > .bk-panel-box { max-width: none; max-height: 94vh; border-radius: 16px 16px 0 0; padding: 14px; }
+  }
+
+  /* ---------- Kennwert: von Hand oder aus den Optionen ---------- */
+
+  .bk-panel input.bk-kw-auto { background: var(--surface-2); color: var(--text-muted); }
+  .bk-panel input.bk-kw-manuell { border-color: #BF9B4F; box-shadow: inset 0 0 0 1px rgba(191,155,79,0.25); }
+  .bk-kw-zeile { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .bk-marke {
+    font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; white-space: nowrap;
+  }
+  .bk-marke-auto { background: var(--surface-2); color: var(--text-muted); }
+  .bk-marke-manuell { background: rgba(191,155,79,0.18); color: #7A6322; }
+
+  /* ---------- Vorlagen aus der Preisliste ---------- */
+
+  .bk-vorlage-aktuell {
+    font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px;
+    white-space: normal; line-height: 1.4;
+  }
+  .bk-panel input.bk-vorlage-suche { margin-bottom: 6px; }
+  .bk-vorlage-quelle { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .bk-vorlage-leer { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+  .bk-vorlage-liste {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 210px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .bk-vorlage-liste li + li { border-top: 1px solid var(--border); }
+  .bk-vorlage-liste button {
+    display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    padding: 8px 10px; font-family: var(--font-light); color: var(--text);
+  }
+  .bk-vorlage-liste button:hover, .bk-vorlage-liste button:focus-visible { background: var(--surface-2); outline: none; }
+  .bk-vorlage-titel { font-family: var(--font-medium); font-size: 12.5px; line-height: 1.3; }
+  .bk-vorlage-pfad { font-size: 10.5px; color: var(--text-muted); line-height: 1.3; }
+  .bk-vorlage-preis {
+    /* Spalte ausdrücklich setzen: ein Element mit fester ZEILE wird sonst
+       vor den automatisch platzierten eingeordnet und landet links. */
+    grid-column: 2; grid-row: 1 / span 2; align-self: center;
+    font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap;
+  }
+
+  /* ---------- Optionen ---------- */
+
+  .bk-opt-gruppe {
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .bk-opt-gruppe-kopf {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; background: var(--surface-2);
+    font-size: 11.5px; font-family: var(--font-medium);
+  }
+  summary.bk-opt-gruppe-kopf { cursor: pointer; }
+  .bk-opt-gruppe-hinweis { flex: 1; font-family: var(--font-light); font-size: 11px; color: var(--text-muted); }
+  .bk-opt-gruppe-summe { font-variant-numeric: tabular-nums; }
+  .bk-opt-liste { list-style: none; margin: 0; padding: 0; }
+  .bk-opt-zeile { padding: 8px 10px; }
+  .bk-opt-zeile + .bk-opt-zeile { border-top: 1px solid var(--border); }
+  .bk-opt-zeile.aus { opacity: 0.5; }
+  .bk-opt-kopf { display: flex; align-items: baseline; gap: 8px; }
+  .bk-panel .bk-opt-kopf input[type="radio"], .bk-panel .bk-opt-kopf input[type="checkbox"] {
+    width: auto; flex: none; margin: 0; align-self: center;
+  }
+  .bk-opt-fix { color: var(--text-muted); width: 13px; text-align: center; flex: none; }
+  .bk-opt-text { flex: 1; font-size: 12.5px; line-height: 1.35; white-space: normal; }
+  .bk-opt-betrag { font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bk-opt-rechnung { display: flex; align-items: center; gap: 5px; margin-top: 5px; padding-left: 21px; }
+  .bk-panel .bk-opt-rechnung input.bk-opt-num {
+    width: 68px; flex: none; padding: 4px 6px; font-size: 12px;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .bk-panel .bk-opt-rechnung select.bk-opt-art {
+    width: auto; flex: none; margin-left: auto; padding: 4px 6px; font-size: 11.5px;
+  }
+  .bk-opt-einheit { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .bk-opt-mal { font-size: 11px; color: var(--text-muted); }
+  .bk-opt-vorlage { margin-top: 3px; padding-left: 21px; font-size: 10.5px; color: var(--text-muted); }
+
   /* ---------- Dialoge ---------- */
 
   #helpOverlay .sheet, #kopfOverlay .sheet, #neuOverlay .sheet, #druckOverlay .sheet { max-width: 580px; }

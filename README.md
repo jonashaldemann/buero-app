@@ -1804,7 +1804,9 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   - Unten rechts führen **"‹ vorherige · nächste ›"** zur Nachbarzeile
     derselben Position, ohne zu schliessen.
   - Es ist **modal**: es liegt über der ganzen Seite (z-index 70, also auch
-    über den Dialogen), die Werkzeugleiste ist solange nicht bedienbar.
+    über den Dialogen), die Werkzeugleiste ist solange nicht bedienbar. Der
+    Tabulator läuft im Fenster im Kreis, beim Öffnen steht der Fokus im
+    Beschrieb. Auf dem Telefon nimmt es die ganze Breite und sitzt unten.
 - Zwei Textfelder pro Unterposition: **Notizen** (Annahmen, offene Fragen,
   Notizen aus Sitzungen — erscheinen **nie** im Ausdruck) und
   **Bemerkungen** (für den Bauherrn, erscheinen im Ausdruck). Ein kleiner
@@ -1821,6 +1823,82 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
   in den Knoten darüber hinein, ihre Bemerkungen deshalb auch. Nur die **Bemerkungen**
   werden zusammengezogen, nie die Notizen; derselbe Text steht im Ausdruck
   in der zusammengefassten Positionszeile (`bemerkungenZusammen()`).
+
+### Vorlagen aus der Preisliste
+
+Das Büro pflegt seine Einheitspreise in **Preisliste**. Liegt ein Export
+davon als `_preisliste.json` neben den Kostenschätzungen
+auf Nextcloud, lässt sich im Bearbeitungsfenster eine Position als
+**Vorlage** übernehmen, statt den Kennwert von Hand zusammenzusuchen.
+
+Die Datei ist die Preisdatenbank des Büros und gehört so wenig ins
+öffentliche Repo wie die Norm — `.gitignore` fängt eine Arbeitskopie ab.
+**Alles daran ist freiwillig**: fehlt sie, verschwindet nur der
+Vorlage-Block, sonst ist das Modul exakt das von vorher. Im Demomodus wird
+sie bewusst nicht geladen.
+
+**Angeboten** werden die Positionen unter dem passenden Knoten der Preisliste:
+die tiefste BKP-Nummer, die der Baum selbst führt. Liegt die Katalognummer
+tiefer (ein eigenes Unterkapitel unter 201.0), wird von dort über die
+**Bezeichnung** weitergesucht — Preisliste gliedert unterhalb der Gattung in
+Ordnern, die gleich heissen wie die Kapitel hier. Das **Suchfeld** sucht
+dagegen im **ganzen Baum**: wer tippt, sucht etwas Bestimmtes, und das steht
+oft unter einer anderen Nummer.
+
+**Beim Übernehmen** werden Einheit, Beschrieb und Optionen als **Kopie** in
+die Zeile geschrieben (ein bereits getippter Beschrieb wird dabei ersetzt).
+Danach hängt die Schätzung nicht mehr an der Datei — die Optionen rechnen
+auch ohne sie weiter. Woher die Zeile stammt, bleibt als Pfad vermerkt
+(`vorlage: { quelle: "preisliste", pfad: "…" }`).
+
+#### Optionen: Varianten, Bestandteile, Zuschläge
+
+Der Kennwert ist dann die **Summe aus Preis × Menge** über alles, was zählt.
+Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten, weil
+eine flache Häkchenliste nicht zeigt, was zur Wahl steht und was fix
+dazugehört:
+
+| Art | Bedeutung | Bedienung |
+| --- | --- | --- |
+| **Variante** | genau eine davon gilt | Auswahlknöpfe |
+| **Bestandteil** | gehört fest dazu, zählt immer | zugeklappte Gruppe, aufklappbar |
+| **Zuschlag** | einzeln zuschaltbar | Häkchen |
+
+Die Art wird beim Übernehmen aus dem Muster der Häkchen **abgeleitet**:
+genau eine von mehreren angehakt → alles Varianten; alle angehakt → alles
+Bestandteile; gemischt → das Angehakte wird Bestandteil, der Rest Zuschlag.
+Danach ist sie pro Option umstellbar — die Vorlage liefert den Vorschlag,
+entschieden wird in der Schätzung.
+
+**Preis und Menge** sind je Option änderbar (auch als Rechnung, wie Ausmass
+und Kennwert). Weicht ein Preis vom Vorlagepreis ab, steht dieser klein
+darunter — man sieht also, dass hier für diese Schätzung etwas anderes gilt.
+
+**Der Kennwert rechnet dabei automatisch mit**; das Feld ist grau und trägt
+den Vermerk "rechnet aus den Optionen". Mit "Von Hand überschreiben" wird es
+schreibbar und gelb markiert, die automatische Berechnung ist dann aus, bis
+man sie wieder einschaltet. Dasselbe passiert, wenn man den Kennwert einer
+solchen Zeile direkt in der **Tabelle** überschreibt — sonst wäre der Wert
+beim nächsten Klick auf eine Option wieder weg.
+
+Prozent-Zeilen (Honorar) haben keinen Kennwert und deshalb weder Vorlagen
+noch Optionen.
+
+**Datenformat** (alles freiwillig, alte Dateien funktionieren unverändert):
+
+```json
+{ "id": "…", "beschrieb": "…", "ausmass": "120", "einheit": "m2", "kennwert": "22",
+  "kennwertManuell": false,
+  "vorlage": { "quelle": "preisliste", "pfad": "Gebäude › … › Plätze erstellen" },
+  "optionen": [
+    { "typ": "bestandteil", "aktiv": true, "text": "Humus abtragen und lagern",
+      "preis": 40, "preisEinheit": "CHF/m3", "menge": 0.3, "mengeEinheit": "m3/m2",
+      "vorlagePreis": 40 }
+  ] }
+```
+
+Zeilen ohne Vorlage bekommen die Felder **nicht** — die Dateien bleiben so
+klein wie vorher.
 
 ### Module: Teilbereiche
 

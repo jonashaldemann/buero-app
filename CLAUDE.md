@@ -142,6 +142,39 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
   offener Knoten werden wie die Ebene bewusst nicht gemerkt.
+- **Vorlagen aus der Preisliste `baukosten/` liegen ebenfalls auf NEXTCLOUD**
+  (`_preisliste.json`, `ladePreisliste()`): die
+  Preisdatenbank des Büros, gehört so wenig ins Repo wie die Norm
+  (`.gitignore` fängt eine Arbeitskopie ab, im Demomodus wird sie bewusst
+  nicht geladen). FREIWILLIG: fehlt sie, verschwindet nur der Vorlage-Block
+  im Bearbeitungsfenster -- jede andere Stelle muss ohne sie
+  weiterfunktionieren. Beim Übernehmen werden Einheit, Beschrieb und
+  Optionen als KOPIE in die Zeile geschrieben, danach hängt die Schätzung
+  nicht mehr an der Datei. Der passende Knoten wird über die tiefste
+  BKP-Nummer gesucht, die der Baum führt, und von dort über die
+  BEZEICHNUNG weiter (`preislisteKnotenFuer()`) -- unterhalb der Gattung hat
+  Preisliste Ordner mit denselben Titeln wie der Katalog. Das Suchfeld sucht
+  dagegen im ganzen Baum, bewusst: wer tippt, sucht etwas Bestimmtes.
+- **Optionen `baukosten/` kennen drei Arten** (`OPTION_ARTEN`: variante /
+  bestandteil / zuschlag), Preisliste nur "aktiv ja/nein". Die Art wird beim
+  Übernehmen aus dem Muster abgeleitet (`mitVorbelegtenArten()`) und ist
+  danach pro Option umstellbar. Der Kennwert ist die Summe Preis × Menge
+  über alles, was `optionZaehlt()` -- und wird NUR nachgeführt, solange
+  `kennwertManuell` falsch ist. Ein von Hand getippter Kennwert setzt das
+  Flag (auch aus der TABELLE, siehe `setzeFeld()`), sonst wäre er beim
+  nächsten Klick auf eine Option wieder weg. Die Option-Felder laufen
+  bewusst NICHT über `setzeFeld()`/`data-feld`, sondern über
+  `data-opt-feld`/`aendereOption()`: sie hängen an keiner Tabellenzeile.
+  `uebernimmOffeneEingabe()` kennt sie trotzdem, sonst ginge ein offenes
+  Preisfeld beim Schliessen verloren.
+- **Das Bearbeitungsfenster wird beim Tippen in Optionen NICHT neu gebaut**
+  (`aktualisierePanelZahlen()` führt nur Zahlen, Klassen und den
+  Vorlagepreis-Hinweis nach): `renderPanel()` würde den Fokus mitten im
+  Preisfeld wegnehmen. Neu gebaut wird nur der Optionen-Block und nur bei
+  einem Wechsel der ART (`zeichneOptionenNeu()`, die Option wandert in eine
+  andere Gruppe) -- danach bekommt dasselbe Auswahlfeld den Fokus zurück.
+  Deshalb muss alles, was sich beim Tippen ändern kann, IMMER im Baum
+  stehen und nur ein-/ausgeblendet werden.
 - **Der BKP-Katalog liegt auf NEXTCLOUD, nicht im Repo**: die vollständige
   Norm SN 506 500:2017 (920 Nummern) ist urheberrechtlich geschützt (CRB)
   und steht als `_bkp_katalog.json` in `Buero/Admin/App/Baukosten`, neben

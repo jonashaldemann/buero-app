@@ -28,3 +28,11 @@ offerten/absender.json
 # versehentlich hereinkopierte Arbeitskopie ab.
 _bkp_katalog.json
 _bkp_sn506500_2017.json
+
+# Der Export der Preisliste mit den Einheitspreisen des Büros ist dessen
+# Preisdatenbank und gehört NICHT ins (öffentliche!) Repo. Er liegt als
+# "_preisliste.json" auf Nextcloud neben den
+# Kostenschätzungen und wird von baukosten/app.js nach dem Anmelden geladen
+# (ladePreisliste()). Fehlt er, läuft das Modul wie vorher -- es verschwindet
+# nur der Vorlage-Block im Bearbeitungsfenster.
+_preisliste.json

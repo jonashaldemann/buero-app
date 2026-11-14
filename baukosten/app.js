@@ -46,7 +46,8 @@
 const LS_KEYS = {
   cache: "baukosten_cache",
   ansicht: "baukosten_ansicht",
-  katalog: "baukosten_katalog_cache" // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
+  katalog: "baukosten_katalog_cache", // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
+  preisliste: "baukosten_preisliste_cache" // zuletzt geladene Vorlagen, siehe ladePreisliste()
 };
 
 const BAUKOSTEN_TARGET_FOLDER_PATH = appModuleFolderPath("Baukosten");
@@ -101,6 +102,124 @@ async function ladeKatalog() {
   }
 }
 
+// ---------- Vorlagen aus der Preisliste (freiwillig, von Nextcloud) ----------
+//
+// Das Büro pflegt seine Einheitspreise in der Preisliste. Ein Export davon darf
+// als "_preisliste.json" neben den Kostenschätzungen
+// liegen; dann lässt sich im Bearbeitungsfenster eine Position als VORLAGE
+// übernehmen, statt den Kennwert von Hand zusammenzusuchen. Die Datei ist
+// die Preisdatenbank des Büros und gehört so wenig ins öffentliche Repo wie
+// die Norm -- .gitignore fängt eine Arbeitskopie ab.
+//
+// Alles daran ist freiwillig: fehlt die Datei, verschwindet nur der
+// Vorlage-Block, sonst bleibt das Modul, wie es war. Schon übernommene
+// Optionen stehen in der Schätzung SELBST und rechnen ohne die Datei
+// weiter -- eine Schätzung hängt nach dem Übernehmen nicht mehr an
+// Preisliste.
+//
+// Aufbau: baum = verschachtelte Knoten
+//   { bkp: "201.0" | null, bezeichnung, typ: "ordner" | "position",
+//     unterpositionen: [ ... ] }
+// Knoten mit typ "position" zusätzlich:
+//   { einheit, projekt: { menge, einheitspreis, netto },
+//     optionen: [ { aktiv, text, preis, preisEinheit, menge, mengeEinheit,
+//                   vorlagePreis } ] }
+// Einheitspreis = Summe (preis × menge) aller Optionen mit aktiv = true.
+const PREISLISTE_FILENAME = "_preisliste.json";
+const PFAD_TRENNER = " › ";
+
+let preislisteBaum = null; // Liste von Wurzelknoten, null = keine Datei
+let preislisteFlach = null; // Zwischenspeicher: alle Knoten samt Pfad
+
+function setzePreisliste(baum) {
+  // Die Datei darf eine Liste oder einen einzelnen Wurzelknoten enthalten.
+  const liste = Array.isArray(baum) ? baum : baum && typeof baum === "object" ? [baum] : null;
+  if (!liste || !liste.length) return false;
+  preislisteBaum = liste;
+  preislisteFlach = null;
+  return true;
+}
+
+async function ladePreisliste() {
+  // Wie beim Katalog: im Demomodus bewusst nichts -- sonst sähe eine
+  // Demositzung nach einem früheren Login die Preise des Büros.
+  if (istDemo()) {
+    preislisteBaum = null;
+    preislisteFlach = null;
+    return;
+  }
+  const zwischenstand = loadJSON(LS_KEYS.preisliste, null);
+  if (zwischenstand) setzePreisliste(zwischenstand.baum);
+  if (!isConfigured()) return;
+  try {
+    const daten = await fetchFile(PREISLISTE_FILENAME); // 404 -> null, kein Fehlerfall
+    if (daten && setzePreisliste(daten.baum)) saveJSON(LS_KEYS.preisliste, { baum: preislisteBaum });
+  } catch (e) {
+    /* offline o.ä. -- Zwischenspeicher bzw. "keine Vorlagen" bleibt stehen */
+  }
+}
+
+function preislisteKinder(knoten) {
+  return Array.isArray(knoten && knoten.unterpositionen) ? knoten.unterpositionen : [];
+}
+
+// Alle Knoten des Baums, jeder mit seinem Pfad von ganz oben. Der PFADTEXT
+// ist zugleich die Kennung einer Vorlage (sie landet in zeile.vorlage.pfad)
+// -- der Baum hat keine IDs, und ein Pfad ist beim Nachschauen in der Preisliste
+// deutlich brauchbarer als eine Nummer.
+function preislisteAlle() {
+  if (!preislisteFlach) {
+    preislisteFlach = [];
+    if (preislisteBaum) {
+      const gehe = (knoten, pfad) => {
+        const eigener = [...pfad, String(knoten.bezeichnung || "")];
+        preislisteFlach.push({ knoten, pfad: eigener, pfadText: eigener.join(PFAD_TRENNER) });
+        preislisteKinder(knoten).forEach((k) => gehe(k, eigener));
+      };
+      preislisteBaum.forEach((k) => gehe(k, []));
+    }
+  }
+  return preislisteFlach;
+}
+
+function preislistePositionen() {
+  return preislisteAlle().filter((e) => e.knoten.typ === "position");
+}
+
+function preislisteNachPfad(pfadText) {
+  return preislistePositionen().find((e) => e.pfadText === pfadText) || null;
+}
+
+function gleicheBezeichnung(a, b) {
+  const norm = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return !!norm(a) && norm(a) === norm(b);
+}
+
+// Der Knoten, unter dem die Vorlagen für eine BKP-Nummer stehen: die
+// tiefste Nummer, die der Baum selbst führt. Liegt die Katalognummer tiefer
+// (201.0.1, während der Baum nur 201.0 kennt), wird von dort über die
+// BEZEICHNUNG weitergesucht -- unterhalb der Gattung gliedert Preisliste in
+// Ordnern, die gleich heissen wie die Positionen im Katalog.
+function preislisteKnotenFuer(nr) {
+  if (!preislisteBaum || !nr) return null;
+  const kette = [nr, ...vorfahren(nr)]; // von innen nach aussen
+  for (let i = 0; i < kette.length; i++) {
+    const treffer = preislisteAlle().find((e) => String(e.knoten.bkp || "") === kette[i]);
+    if (!treffer) continue;
+    let eintrag = treffer;
+    for (let j = i - 1; j >= 0; j--) {
+      const titel = knotenTitel(kette[j]);
+      const kind = preislisteKinder(eintrag.knoten).find(
+        (k) => k.typ !== "position" && gleicheBezeichnung(k.bezeichnung, titel)
+      );
+      if (!kind) break; // nicht gefunden -> beim gröberen Knoten bleiben
+      eintrag = preislisteAlle().find((e) => e.knoten === kind) || eintrag;
+    }
+    return eintrag;
+  }
+  return null;
+}
+
 let schaetzungen = loadJSON(LS_KEYS.cache, []); // [{ filename, data }]
 let projectList = appConfig.projekte;
 
@@ -127,6 +246,10 @@ let ansichtModus = "tabelle";
 let kapitelKnoten = ""; // "" = Übersicht (alle Hauptgruppen)
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
 let gewaehlteZeile = null; // { nr, id } der im Bearbeitungsfenster gezeigten Unterposition
+// Suchtext im Vorlagen-Block. Gilt nur für das offene Fenster und wird beim
+// Wechsel der Zeile zurückgesetzt -- gesucht wird nach einer Vorlage für
+// DIESE Position, nicht dauerhaft gefiltert.
+let vorlageSuche = "";
 // Zuletzt gerechneter Durchgeh-Status je Knoten. Gebraucht beim Klick auf
 // das Kästchen einer Gruppe: dort wird vom ANGEZEIGTEN (abgeleiteten) Stand
 // aus weitergeschaltet, und der steht nur hier.
@@ -344,6 +467,93 @@ function zeilenKosten(zeile, data) {
     ? ((rechne(zeile.ausmass) || 0) / 100) * basisBetrag(data)
     : einfacheKosten(zeile);
   return (isNaN(netto) ? 0 : netto) * mwstFaktor(data);
+}
+
+// ---------- Optionen einer Unterposition ----------
+//
+// Eine übernommene Vorlage bringt ihre Optionen mit; der Kennwert ist dann
+// deren Summe (Preis × Menge über alles, was zählt). Es gibt drei Arten,
+// weil eine flache Häkchenliste nicht zeigt, was zur WAHL steht und was fix
+// dazugehört:
+//
+//   variante     -- genau eine davon gilt (Auswahlknöpfe)
+//   bestandteil  -- gehört fest dazu und zählt immer
+//   zuschlag     -- einzeln zuschaltbar
+//
+// Preisliste selbst kennt die Unterscheidung nicht, dort gibt es nur "aktiv
+// ja/nein". Beim Übernehmen wird sie deshalb aus dem Muster abgeleitet
+// (mitVorbelegtenArten()) und ist danach pro Option umstellbar -- die
+// Vorlage liefert den Vorschlag, entschieden wird in der Schätzung.
+const OPTION_ARTEN = { variante: "Variante", bestandteil: "Bestandteil", zuschlag: "Zuschlag" };
+const OPTION_ART_STANDARD = "bestandteil";
+
+function optionenVon(zeile) {
+  return Array.isArray(zeile && zeile.optionen) ? zeile.optionen : [];
+}
+
+// Preis und Menge dürfen wie Ausmass und Kennwert eine Rechnung sein; aus
+// der Datei kommen sie als Zahl.
+function optionZahl(wert) {
+  const v = rechne(wert);
+  return v === null || isNaN(v) ? 0 : v;
+}
+
+function optionBetrag(opt) {
+  return optionZahl(opt.preis) * optionZahl(opt.menge);
+}
+
+// Zählt die Option in den Kennwert? Bestandteile immer, der Rest nur
+// angehakt bzw. angewählt.
+function optionZaehlt(opt) {
+  return opt.typ === "bestandteil" || !!opt.aktiv;
+}
+
+function optionenSumme(zeile) {
+  return optionenVon(zeile).reduce((s, o) => s + (optionZaehlt(o) ? optionBetrag(o) : 0), 0);
+}
+
+// Der gerechnete Kennwert als TEXT -- im selben Format wie ein von Hand
+// getippter (siehe Dateikopf: Ausmass und Kennwert sind Eingabetext).
+function kennwertAusOptionen(zeile) {
+  return String(Math.round(optionenSumme(zeile) * 100) / 100);
+}
+
+// Rechnet der Kennwert automatisch mit? Nur mit Optionen, und solange
+// niemand ihn von Hand überschrieben hat.
+function kennwertAutomatisch(zeile) {
+  return optionenVon(zeile).length > 0 && !zeile.kennwertManuell;
+}
+
+// Vorbelegung der Arten beim Übernehmen einer Vorlage, aus dem Muster der
+// Häkchen abgelesen: genau eine von mehreren angehakt ist eine Auswahl,
+// alle angehakt sind Bestandteile, gemischt heisst "das Angehakte gehört
+// dazu, der Rest ist zuschaltbar".
+function mitVorbelegtenArten(optionen) {
+  const aktive = optionen.filter((o) => !!o.aktiv).length;
+  const art = (o) => {
+    if (optionen.length > 1 && aktive === 1) return "variante";
+    if (optionen.length && aktive === optionen.length) return "bestandteil";
+    return o.aktiv ? "bestandteil" : "zuschlag";
+  };
+  return optionen.map((o) => ({
+    typ: art(o),
+    aktiv: !!o.aktiv,
+    text: String(o.text || ""),
+    preis: o.preis === undefined || o.preis === null ? "" : o.preis,
+    preisEinheit: String(o.preisEinheit || ""),
+    menge: o.menge === undefined || o.menge === null ? "" : o.menge,
+    mengeEinheit: String(o.mengeEinheit || ""),
+    // Woher der Preis ursprünglich kam -- bleibt stehen, auch wenn jemand
+    // den Preis in dieser Schätzung anpasst (dann steht er klein daneben).
+    vorlagePreis: o.vorlagePreis === undefined || o.vorlagePreis === null ? o.preis ?? "" : o.vorlagePreis
+  }));
+}
+
+// Der Einheitspreis einer Position der Preisliste nach deren eigener Regel --
+// gebraucht für die Vorschau in der Vorlagenliste, vor dem Übernehmen.
+function vorlageEinheitspreis(knoten) {
+  const optionen = Array.isArray(knoten && knoten.optionen) ? knoten.optionen : [];
+  return optionen.reduce((s, o) => s + (o.aktiv ? optionZahl(o.preis) * optionZahl(o.menge) : 0), 0);
 }
 
 // ---------- Module ----------
@@ -1362,13 +1572,18 @@ function renderPanel() {
         : `<div class="bk-panel-dreispalt">
              <div><label>Ausmass</label><input type="text" data-panel-feld="ausmass" value="${escapeHtml(zeile.ausmass || "")}"></div>
              <div><label>Einheit</label><input type="text" data-panel-feld="einheit" list="einheitenListe" value="${escapeHtml(zeile.einheit || "")}"></div>
-             <div><label>Kennwert</label><input type="text" data-panel-feld="kennwert" value="${escapeHtml(zeile.kennwert || "")}"></div>
-           </div>`
+             <div><label>Kennwert</label><input type="text" data-panel-feld="kennwert" class="${
+               kennwertAutomatisch(zeile) ? "bk-kw-auto" : optionenVon(zeile).length ? "bk-kw-manuell" : ""
+             }"${kennwertAutomatisch(zeile) ? " readonly" : ""} value="${escapeHtml(zeile.kennwert || "")}"></div>
+           </div>
+           ${kennwertZeileHtml(zeile)}`
     }
     <div class="bk-panel-kosten">
       <span style="font-size:11px; letter-spacing:0.4px; color:var(--text-muted); text-transform:uppercase;">Kosten</span>
       <span class="wert" id="panelKosten">CHF ${franken(zeilenKosten(zeile))}</span>
     </div>
+    <div id="panelVorlage">${vorlageBlockHtml(zeile)}</div>
+    <div id="panelOptionen">${optionenBlockHtml(zeile)}</div>
     ${modulFeld}
     <label>Notizen <span style="text-transform:none; letter-spacing:0;">(nicht im Ausdruck)</span></label>
     <textarea rows="3" data-panel-feld="intern">${escapeHtml(zeile.intern || "")}</textarea>
@@ -1396,6 +1611,183 @@ function renderPanel() {
     </div>`;
 }
 
+// Die Zeile unter den Grundfeldern: woher der Kennwert kommt. Nur bei
+// Zeilen mit Optionen -- sonst gibt es nichts zu erklären.
+function kennwertZeileHtml(zeile) {
+  if (!optionenVon(zeile).length) return "";
+  return kennwertAutomatisch(zeile)
+    ? `<div class="bk-kw-zeile">
+         <span class="bk-marke bk-marke-auto">rechnet aus den Optionen</span>
+         <button type="button" class="bk-toggle" data-panel-action="kennwert-manuell">Von Hand überschreiben</button>
+       </div>`
+    : `<div class="bk-kw-zeile">
+         <span class="bk-marke bk-marke-manuell">von Hand gesetzt</span>
+         <button type="button" class="bk-toggle" data-panel-action="kennwert-auto">Wieder aus den Optionen (${zahl(
+           optionenSumme(zeile)
+         )})</button>
+       </div>`;
+}
+
+// ---------- Bearbeitungsfenster: Vorlage ----------
+
+// Mehr als diese Zahl Vorlagen auf einmal hilft niemandem und macht das
+// Fenster träge -- der Rest geht übers Suchfeld.
+const VORLAGEN_MAX = 40;
+
+function vorlageBlockHtml(zeile) {
+  // Ohne die Datei gibt es den Block gar nicht: dann ist das Fenster genau
+  // das, was es vorher war.
+  if (!preislisteBaum || zeile.basis) return "";
+  const pfad = zeile.vorlage && zeile.vorlage.pfad;
+  return `
+    <label>Vorlage</label>
+    ${pfad ? `<div class="bk-vorlage-aktuell">Übernommen: ${escapeHtml(pfad)}</div>` : ""}
+    <input type="search" id="vorlageSuche" class="bk-vorlage-suche" placeholder="Vorlage suchen …" autocomplete="off" value="${escapeHtml(
+      vorlageSuche
+    )}">
+    <div id="vorlageListe">${vorlageListeHtml()}</div>`;
+}
+
+function vorlageListeHtml() {
+  if (!gewaehlteZeile || !preislisteBaum) return "";
+  const such = vorlageSuche.trim().toLowerCase();
+  const alle = preislistePositionen();
+  let liste;
+  let hinweis;
+  // Was von jedem Pfad abgeschnitten wird: steht der Knoten schon in der
+  // Quellenzeile darüber, wäre er unter jedem Eintrag noch einmal nur
+  // Lärm. Beim Suchen bleibt der ganze Pfad stehen -- dort ist gerade er
+  // die Antwort auf "wo kommt das her?".
+  let schnitt = 0;
+  if (such) {
+    // Beim Suchen bewusst im GANZEN Baum: wer tippt, sucht etwas
+    // Bestimmtes, und das steht oft unter einer anderen Nummer.
+    liste = alle.filter((e) => e.pfadText.toLowerCase().includes(such));
+    hinweis = `${liste.length} ${liste.length === 1 ? "Treffer" : "Treffer"} im ganzen Preislisten-Baum`;
+  } else {
+    const knoten = preislisteKnotenFuer(gewaehlteZeile.nr);
+    if (!knoten) {
+      return `<div class="bk-vorlage-leer">Zu ${escapeHtml(
+        knotenLabel(gewaehlteZeile.nr)
+      )} führt Preisliste nichts. Über das Suchfeld lässt sich trotzdem eine Vorlage holen.</div>`;
+    }
+    const praefix = knoten.pfadText + PFAD_TRENNER;
+    liste = alle.filter((e) => e.pfadText === knoten.pfadText || e.pfadText.startsWith(praefix));
+    hinweis = `Aus ${escapeHtml(knoten.pfadText)}`;
+    schnitt = knoten.pfad.length;
+  }
+  if (!liste.length) return `<div class="bk-vorlage-leer">Keine Vorlage gefunden.</div>`;
+  const gezeigt = liste.slice(0, VORLAGEN_MAX);
+  return `
+    <div class="bk-vorlage-quelle">${hinweis}</div>
+    <ul class="bk-vorlage-liste">
+      ${gezeigt
+        .map((e) => {
+          const eltern = e.pfad.slice(schnitt, -1).join(PFAD_TRENNER);
+          return `<li><button type="button" data-panel-action="vorlage" data-pfad="${escapeHtml(e.pfadText)}">
+            <span class="bk-vorlage-titel">${escapeHtml(e.knoten.bezeichnung || "(ohne Bezeichnung)")}</span>
+            ${eltern ? `<span class="bk-vorlage-pfad">${escapeHtml(eltern)}</span>` : ""}
+            <span class="bk-vorlage-preis">${zahl(vorlageEinheitspreis(e.knoten))}${
+              e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : ""
+            }</span>
+          </button></li>`;
+        })
+        .join("")}
+    </ul>
+    ${
+      liste.length > gezeigt.length
+        ? `<div class="bk-vorlage-leer">… ${liste.length - gezeigt.length} weitere — Suche verfeinern.</div>`
+        : ""
+    }`;
+}
+
+// ---------- Bearbeitungsfenster: Optionen ----------
+
+function optionenBlockHtml(zeile) {
+  const optionen = optionenVon(zeile);
+  if (!optionen.length || zeile.basis) return "";
+  const mitIndex = optionen.map((o, i) => ({ o, i }));
+  const gruppe = (art) => mitIndex.filter((x) => (x.o.typ || OPTION_ART_STANDARD) === art);
+  const summeVon = (liste) => liste.reduce((s, x) => s + (optionZaehlt(x.o) ? optionBetrag(x.o) : 0), 0);
+  const varianten = gruppe("variante");
+  const bestandteile = gruppe("bestandteil");
+  const zuschlaege = gruppe("zuschlag");
+
+  let html = `<label>Optionen</label>`;
+  if (varianten.length) {
+    html += `<div class="bk-opt-gruppe">
+      <div class="bk-opt-gruppe-kopf"><span>Varianten</span><span class="bk-opt-gruppe-hinweis">genau eine gilt</span>
+        <span class="bk-opt-gruppe-summe" data-gruppe-summe="variante">${zahl(summeVon(varianten))}</span></div>
+      <ul class="bk-opt-liste">${varianten.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
+    </div>`;
+  }
+  if (bestandteile.length) {
+    // Bestandteile stehen zugeklappt da: sie gehören ohnehin dazu, die
+    // Rechnung dahinter will man nur ab und zu sehen.
+    html += `<details class="bk-opt-gruppe"${varianten.length || zuschlaege.length ? "" : " open"}>
+      <summary class="bk-opt-gruppe-kopf"><span>Bestandteile</span>
+        <span class="bk-opt-gruppe-hinweis">${bestandteile.length} · immer dabei</span>
+        <span class="bk-opt-gruppe-summe" data-gruppe-summe="bestandteil">${zahl(summeVon(bestandteile))}</span></summary>
+      <ul class="bk-opt-liste">${bestandteile.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
+    </details>`;
+  }
+  if (zuschlaege.length) {
+    html += `<div class="bk-opt-gruppe">
+      <div class="bk-opt-gruppe-kopf"><span>Zuschläge</span><span class="bk-opt-gruppe-hinweis">einzeln zuschaltbar</span>
+        <span class="bk-opt-gruppe-summe" data-gruppe-summe="zuschlag">${zahl(summeVon(zuschlaege))}</span></div>
+      <ul class="bk-opt-liste">${zuschlaege.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
+    </div>`;
+  }
+  return html;
+}
+
+function optionZeileHtml(opt, index) {
+  const art = opt.typ || OPTION_ART_STANDARD;
+  const steuer =
+    art === "variante"
+      ? `<input type="radio" name="bkVariante" data-opt-wahl value="${index}"${
+          opt.aktiv ? " checked" : ""
+        } aria-label="Diese Variante nehmen">`
+      : art === "zuschlag"
+      ? `<input type="checkbox" data-opt-wahl${opt.aktiv ? " checked" : ""} aria-label="Zuschlag dazurechnen">`
+      : `<span class="bk-opt-fix" title="Gehört fest dazu">•</span>`;
+  return `<li class="bk-opt-zeile${optionZaehlt(opt) ? "" : " aus"}" data-opt="${index}">
+    <div class="bk-opt-kopf">
+      ${steuer}
+      <span class="bk-opt-text">${escapeHtml(opt.text || "(ohne Text)")}</span>
+      <span class="bk-opt-betrag" data-opt-betrag>${zahl(optionBetrag(opt))}</span>
+    </div>
+    <div class="bk-opt-rechnung">
+      <input type="text" class="bk-opt-num" data-opt-feld="preis" value="${escapeHtml(
+        String(opt.preis ?? "")
+      )}" aria-label="Preis">
+      <span class="bk-opt-einheit">${escapeHtml(opt.preisEinheit || "")}</span>
+      <span class="bk-opt-mal">×</span>
+      <input type="text" class="bk-opt-num" data-opt-feld="menge" value="${escapeHtml(
+        String(opt.menge ?? "")
+      )}" aria-label="Menge">
+      <span class="bk-opt-einheit">${escapeHtml(opt.mengeEinheit || "")}</span>
+      <select data-opt-feld="typ" class="bk-opt-art" aria-label="Art der Option">
+        ${Object.entries(OPTION_ARTEN)
+          .map(([k, v]) => `<option value="${k}"${k === art ? " selected" : ""}>${v}</option>`)
+          .join("")}
+      </select>
+    </div>
+    <div class="bk-opt-vorlage" data-opt-vorlage${
+      vorlagePreisAbweichung(opt) === null ? " hidden" : ""
+    }>Vorlagepreis: ${zahl(vorlagePreisAbweichung(opt) || 0)}</div>
+  </li>`;
+}
+
+// Der Preis der Vorlage, falls er vom jetzigen abweicht -- sonst null. Er
+// steht klein unter der Zeile, damit sichtbar bleibt, dass hier für DIESE
+// Schätzung ein anderer Preis gilt.
+function vorlagePreisAbweichung(opt) {
+  const vorlage = opt.vorlagePreis;
+  if (vorlage === "" || vorlage === undefined || vorlage === null) return null;
+  return optionZahl(vorlage) === optionZahl(opt.preis) ? null : optionZahl(vorlage);
+}
+
 // Das Overlay schliessen -- offene Eingabe übernehmen, dann neu zeichnen.
 function schliessePanel() {
   uebernimmOffeneEingabe();
@@ -1413,7 +1805,36 @@ function panelNachbar(richtung) {
   const ziel = geschwister[i + richtung];
   if (!ziel) return;
   gewaehlteZeile = { nr: gewaehlteZeile.nr, id: ziel.id };
+  vorlageSuche = "";
   renderTabelleErhalten();
+  fokussierePanel();
+}
+
+// Beim Öffnen in das erste Feld springen -- nur von hier und aus
+// waehleZeile(), NICHT aus renderPanel(): das läuft bei jedem Neuaufbau der
+// Tabelle und würde den Fokus ständig an sich reissen.
+function fokussierePanel() {
+  const feld = document.querySelector('#detailPanel [data-panel-feld="beschrieb"]');
+  if (feld) feld.focus();
+}
+
+// Tabulator bleibt im Fenster: es ist modal, dahinter ist nichts bedienbar.
+function onPanelKeydown(e) {
+  if (e.key !== "Tab") return;
+  const panel = document.getElementById("detailPanel");
+  const ziele = [...panel.querySelectorAll("button, input, select, textarea, summary, [tabindex]")].filter(
+    (el) => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null
+  );
+  if (!ziele.length) return;
+  const erste = ziele[0];
+  const letzte = ziele[ziele.length - 1];
+  if (e.shiftKey && document.activeElement === erste) {
+    letzte.focus();
+    e.preventDefault();
+  } else if (!e.shiftKey && document.activeElement === letzte) {
+    erste.focus();
+    e.preventDefault();
+  }
 }
 
 function renderPanelKosten() {
@@ -1425,10 +1846,12 @@ function renderPanelKosten() {
 
 function waehleZeile(nr, rowId) {
   gewaehlteZeile = { nr, id: rowId };
+  vorlageSuche = "";
   document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
   const tr = document.querySelector(`#bkBody tr.bk-sub[data-row="${rowId}"]`);
   if (tr) tr.classList.add("gewaehlt");
   renderPanel();
+  fokussierePanel();
 }
 
 // ---------- Nextcloud ----------
@@ -1507,7 +1930,10 @@ async function refreshAlle() {
   try {
     await ensureBkFolder();
     // Der Katalog MUSS vor den Schätzungen stehen: migriere() entscheidet
-    // anhand von ihm, was eine unbekannte Nummer ist.
+    // anhand von ihm, was eine unbekannte Nummer ist. Die Vorlagen dagegen
+    // braucht erst das Bearbeitungsfenster -- sie dürfen nebenher laufen
+    // und dürfen auch fehlen.
+    const vorlagen = ladePreisliste().catch(() => {});
     await ladeKatalog();
     const filenames = await listFilenames();
     const geladen = await Promise.all(
@@ -1524,6 +1950,7 @@ async function refreshAlle() {
     );
     schaetzungen = geladen.filter(Boolean);
     saveJSON(LS_KEYS.cache, schaetzungen);
+    await vorlagen;
     setSyncLine(
       katalogQuelle === "repo"
         ? `Synchronisiert · BKP-Katalog fehlt (${KATALOG_FILENAME}) — es gilt der gröbere Grundkatalog`
@@ -1563,6 +1990,15 @@ function migriere(data) {
     (zeilen || []).forEach((z) => {
       if (z.basis === undefined) z.basis = "";
       else if (z.basis && z.basis !== BASIS_ART) z.basis = BASIS_ART;
+      // Optionen gibt es erst seit den Vorlagen der Preisliste, und sie werden
+      // bewusst NICHT überall ergänzt -- eine Zeile ohne Optionen hat das
+      // Feld schlicht nicht. Nur was da ist, wird in Form gebracht: eine
+      // unbekannte Art würde sonst in keiner Gruppe auftauchen.
+      if (Array.isArray(z.optionen)) {
+        z.optionen.forEach((o) => {
+          if (!OPTION_ARTEN[o.typ]) o.typ = o.aktiv === false ? "zuschlag" : OPTION_ART_STANDARD;
+        });
+      }
     });
   });
   data.druck = { ...DRUCK_DEFAULTS, ...(data.druck || {}) };
@@ -1875,7 +2311,14 @@ function neueZeile() {
 function setzeFeld(nr, rowId, feld, wert, quelle) {
   mutate((data) => {
     const zeile = (data.positionen[nr] || []).find((z) => z.id === rowId);
-    if (zeile) zeile[feld] = wert;
+    if (zeile) {
+      zeile[feld] = wert;
+      // Ein von Hand getippter Kennwert sticht die Optionen aus -- sonst
+      // wäre er beim nächsten Klick auf eine Option wieder weg. Im Fenster
+      // ist das Feld dann schreibgeschützt, in der Tabelle nicht: dort ist
+      // dieses Tippen die Umschaltung.
+      if (feld === "kennwert" && optionenVon(zeile).length) zeile.kennwertManuell = true;
+    }
     return data;
   });
 
@@ -1927,6 +2370,9 @@ function setzeFeld(nr, rowId, feld, wert, quelle) {
 function uebernimmOffeneEingabe() {
   const el = document.activeElement;
   if (!el || !el.dataset) return;
+  // Preis und Menge einer Option hängen nicht an einer Tabellenzeile --
+  // sie gehen ihren eigenen Weg (siehe uebernimmOffeneOption()).
+  if (el.dataset.optFeld) return uebernimmOffeneOption(el);
   const feld = el.dataset.feld || el.dataset.panelFeld;
   if (!feld) return;
   const tr = el.closest ? el.closest("tr.bk-sub") : null;
@@ -2226,9 +2672,198 @@ function onBodyInput(e) {
   if (e.target.tagName === "TEXTAREA") autoGrow(e.target);
 }
 
+// ---------- Interaktion: Vorlage und Optionen ----------
+
+// Eine Position der Preisliste in diese Zeile übernehmen. Danach hängt die
+// Schätzung nicht mehr an der Datei: Einheit, Beschrieb und Optionen stehen
+// als KOPIE in der Zeile, der Pfad bleibt nur als Herkunftsangabe stehen.
+function uebernimmVorlage(pfadText) {
+  if (!gewaehlteZeile) return;
+  const eintrag = preislisteNachPfad(pfadText);
+  if (!eintrag) return;
+  const knoten = eintrag.knoten;
+  // Einmal vor dem mutate() bauen, nicht darin: mutateFn läuft zweimal
+  // (lokal und auf dem frisch geholten Serverstand) und muss beide Male
+  // dasselbe ergeben -- beim Einsetzen bekommt jeder Stand seine eigene
+  // Kopie der Optionen.
+  const optionen = mitVorbelegtenArten(Array.isArray(knoten.optionen) ? knoten.optionen : []);
+  const einheit = String(knoten.einheit || "");
+  const beschrieb = String(knoten.bezeichnung || "");
+  const { nr, id } = gewaehlteZeile;
+  mutate((data) => {
+    const zeile = (data.positionen[nr] || []).find((z) => z.id === id);
+    if (!zeile) return data;
+    zeile.optionen = JSON.parse(JSON.stringify(optionen));
+    zeile.einheit = einheit;
+    zeile.beschrieb = beschrieb;
+    zeile.vorlage = { quelle: "preisliste", pfad: pfadText };
+    // Eine frisch übernommene Vorlage rechnet immer automatisch -- ein
+    // alter Kennwert von Hand gehörte zur vorherigen Position.
+    zeile.kennwertManuell = false;
+    zeile.kennwert = kennwertAusOptionen(zeile);
+    return data;
+  });
+  vorlageSuche = "";
+  renderTabelleErhalten();
+  fokussierePanel();
+}
+
+// Eine einzelne Option ändern. aendern() muss rein rechnend sein (kein
+// uid(), kein Datum): mutateFn läuft zweimal, siehe mutate().
+function aendereOption(index, aendern) {
+  if (!gewaehlteZeile) return;
+  const { nr, id } = gewaehlteZeile;
+  mutate((data) => {
+    const zeile = (data.positionen[nr] || []).find((z) => z.id === id);
+    const opt = zeile && optionenVon(zeile)[index];
+    if (!opt) return data;
+    aendern(opt, zeile);
+    if (!zeile.kennwertManuell) zeile.kennwert = kennwertAusOptionen(zeile);
+    return data;
+  });
+}
+
+function setzeKennwertManuell(manuell) {
+  if (!gewaehlteZeile) return;
+  const { nr, id } = gewaehlteZeile;
+  mutate((data) => {
+    const zeile = (data.positionen[nr] || []).find((z) => z.id === id);
+    if (!zeile) return data;
+    zeile.kennwertManuell = !!manuell;
+    if (!manuell) zeile.kennwert = kennwertAusOptionen(zeile);
+    return data;
+  });
+  // Das Feld wird schreibbar bzw. schreibgeschützt -- das ist mehr als eine
+  // Wertänderung, also neu zeichnen.
+  renderTabelleErhalten();
+}
+
+// Zahlen im offenen Fenster nachführen, OHNE es neu zu bauen: wer gerade
+// einen Preis tippt, soll den Fokus behalten.
+function aktualisierePanelZahlen() {
+  const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
+  if (!zeile) return;
+  const optionen = optionenVon(zeile);
+  document.querySelectorAll("#panelOptionen [data-opt]").forEach((li) => {
+    const opt = optionen[Number(li.dataset.opt)];
+    if (!opt) return;
+    li.classList.toggle("aus", !optionZaehlt(opt));
+    const betrag = li.querySelector("[data-opt-betrag]");
+    if (betrag) betrag.textContent = zahl(optionBetrag(opt));
+    // Der Hinweis auf den Vorlagepreis muss beim Tippen mitkommen -- er ist
+    // deshalb immer im Baum und wird nur ein- und ausgeblendet.
+    const hinweis = li.querySelector("[data-opt-vorlage]");
+    const abweichung = vorlagePreisAbweichung(opt);
+    if (hinweis) {
+      hinweis.hidden = abweichung === null;
+      if (abweichung !== null) hinweis.textContent = `Vorlagepreis: ${zahl(abweichung)}`;
+    }
+  });
+  document.querySelectorAll("#panelOptionen [data-gruppe-summe]").forEach((el) => {
+    const art = el.dataset.gruppeSumme;
+    const summe = optionen.reduce(
+      (s, o) => s + ((o.typ || OPTION_ART_STANDARD) === art && optionZaehlt(o) ? optionBetrag(o) : 0),
+      0
+    );
+    el.textContent = zahl(summe);
+  });
+  const kw = document.querySelector('#detailPanel [data-panel-feld="kennwert"]');
+  if (kw && kennwertAutomatisch(zeile)) kw.value = zeile.kennwert || "";
+  renderPanelKosten();
+}
+
+// Nur den Optionen-Block neu bauen (nach einem Wechsel der Art, der eine
+// Option in eine andere Gruppe schiebt) und den Fokus zurückgeben.
+function zeichneOptionenNeu(fokusIndex) {
+  const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
+  const box = document.getElementById("panelOptionen");
+  if (!zeile || !box) return;
+  const warOffen = box.querySelector("details") ? box.querySelector("details").open : null;
+  box.innerHTML = optionenBlockHtml(zeile);
+  const details = box.querySelector("details");
+  if (details && warOffen !== null) details.open = warOffen;
+  const ziel = box.querySelector(`[data-opt="${fokusIndex}"] [data-opt-feld="typ"]`);
+  if (ziel) ziel.focus();
+  // Der Kennwert-Hinweis bleibt, aber die Summen stimmen neu.
+  aktualisierePanelZahlen();
+}
+
+function zeichneVorlageListe() {
+  const box = document.getElementById("vorlageListe");
+  if (box) box.innerHTML = vorlageListeHtml();
+}
+
+function onOptionAenderung(el) {
+  const li = el.closest("[data-opt]");
+  if (!li || !gewaehlteZeile) return;
+  const index = Number(li.dataset.opt);
+  const feld = el.dataset.optFeld;
+  if (feld === "typ") {
+    const neueArt = OPTION_ARTEN[el.value] ? el.value : OPTION_ART_STANDARD;
+    aendereOption(index, (opt, zeile) => {
+      opt.typ = neueArt;
+      // Ein Bestandteil zählt immer, eine Variante schliesst die übrigen
+      // Varianten aus -- sonst stünden zwei Wahlmöglichkeiten gleichzeitig
+      // im Kennwert.
+      if (neueArt === "bestandteil") opt.aktiv = true;
+      if (neueArt === "variante" && opt.aktiv) {
+        optionenVon(zeile).forEach((o) => {
+          if (o !== opt && o.typ === "variante") o.aktiv = false;
+        });
+      }
+    });
+    zeichneOptionenNeu(index);
+    return;
+  }
+  const wert = el.value;
+  aendereOption(index, (opt) => {
+    opt[feld] = wert;
+  });
+  aktualisierePanelZahlen();
+}
+
+function onOptionWahl(el) {
+  const li = el.closest("[data-opt]");
+  if (!li || !gewaehlteZeile) return;
+  const index = Number(li.dataset.opt);
+  const an = el.checked;
+  aendereOption(index, (opt, zeile) => {
+    if (opt.typ === "variante") {
+      optionenVon(zeile).forEach((o) => {
+        if (o.typ === "variante") o.aktiv = false;
+      });
+      opt.aktiv = true;
+      return;
+    }
+    opt.aktiv = an;
+  });
+  aktualisierePanelZahlen();
+}
+
+// Ein noch offenes Preis-/Mengenfeld übernehmen -- dasselbe Problem wie bei
+// uebernimmOffeneEingabe(), nur führen Optionen ihren eigenen Weg.
+function uebernimmOffeneOption(el) {
+  const li = el.closest ? el.closest("[data-opt]") : null;
+  if (!li || !gewaehlteZeile) return;
+  const index = Number(li.dataset.opt);
+  const feld = el.dataset.optFeld;
+  if (feld === "typ") return; // ein Auswahlfeld hat nie eine offene Eingabe
+  const zeile = zeileSuchen(offen, gewaehlteZeile.id);
+  const opt = zeile && optionenVon(zeile)[index];
+  if (!opt || String(opt[feld] ?? "") === el.value) return;
+  const wert = el.value;
+  aendereOption(index, (o) => {
+    o[feld] = wert;
+  });
+}
+
 // ---------- Interaktion: Bearbeitungsfenster ----------
 
 function onPanelChange(e) {
+  const optEl = e.target.closest("[data-opt-feld]");
+  if (optEl) return onOptionAenderung(optEl);
+  const wahlEl = e.target.closest("[data-opt-wahl]");
+  if (wahlEl) return onOptionWahl(wahlEl);
   const el = e.target.closest("[data-panel-feld]");
   if (!el || !gewaehlteZeile) return;
   // Der Status gehört zur BKP-Nummer, nicht zur einzelnen Zeile -- er geht
@@ -2258,6 +2893,15 @@ function onPanelClick(e) {
   else if (was === "delete") loescheZeile(gewaehlteZeile.nr, gewaehlteZeile.id);
   else if (was === "prev") panelNachbar(-1);
   else if (was === "next") panelNachbar(1);
+  else if (was === "vorlage") uebernimmVorlage(btn.dataset.pfad || "");
+  else if (was === "kennwert-manuell") setzeKennwertManuell(true);
+  else if (was === "kennwert-auto") setzeKennwertManuell(false);
+}
+
+function onPanelInput(e) {
+  if (e.target.id !== "vorlageSuche") return;
+  vorlageSuche = e.target.value;
+  zeichneVorlageListe();
 }
 
 // ---------- Interaktion: Liste ----------
@@ -2725,6 +3369,8 @@ function init() {
   const panel = document.getElementById("detailPanel");
   panel.addEventListener("click", onPanelClick);
   panel.addEventListener("change", onPanelChange);
+  panel.addEventListener("input", onPanelInput);
+  panel.addEventListener("keydown", onPanelKeydown);
 
   document.getElementById("ebeneSeg").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-ebene]");
