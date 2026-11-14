@@ -2001,6 +2001,12 @@ Nextcloud-Passwortregeln (Länge, Gross-/Kleinschreibung, Ziffern).
   beiden Fällen derselbe, das alte Passwort gilt sofort nicht mehr.
 - Das **Datum** wirkt sofort, sobald es geändert wird (eigener Knopf
   unnötig).
+- **"Prüfen"** öffnet Link und Passwort genau so, wie es ein Kunde täte —
+  über den Proxy und den öffentlichen WebDAV-Pfad, ohne unseren Login. Das
+  ist die einzige Probe, die wirklich etwas aussagt; alles andere im Modul
+  läuft über den angemeldeten Zugang und kann klappen, während der
+  Kundenweg scheitert. Geht etwas schief, steht die technische Kurzfassung
+  dabei ("dav 401, webdav 404").
 - **"Aufheben"** löscht die Freigabe in Nextcloud. Ein verschickter
   Kundenlink ist danach tot; das Modell selbst bleibt liegen.
 - Ein **Modell löschen** nimmt Ordner, Freigabe und Passwortnotiz mit.
@@ -2020,10 +2026,16 @@ Die Kundenseite muss ohne unsere Zugangsdaten auskommen, und im Repo (es ist
 öffentlich) darf nichts Geheimes stehen. Nextcloud kann eine
 passwortgeschützte Freigabe per WebDAV ausliefern, wenn man die **Kennung
 als Benutzernamen und das Freigabepasswort als Passwort** schickt — ohne
-dass irgendwo Zugangsdaten hinterlegt werden müssten. Angesprochen wird
-`public.php/dav/files/<Kennung>/`, mit Rückfall auf das ältere
-`public.php/webdav/` (je nach Nextcloud-Version gibt es nur eines von
-beiden).
+dass irgendwo Zugangsdaten hinterlegt werden müssten.
+
+Welcher Pfad dafür zuständig ist, hängt von der Nextcloud-Version ab.
+Probiert werden deshalb der Reihe nach `public.php/dav/files/<Kennung>/`,
+`public.php/webdav/` und `remote.php/dav/public-files/<Kennung>/` — und zwar
+**auch nach einem 401**: `public.php` ist ein Front-Controller und
+beantwortet einen Pfad, den es nicht kennt, durchaus mit 401 statt 404. Wer
+dort abbricht, hält einen fehlenden Endpunkt für ein falsches Passwort.
+"Passwort stimmt nicht" erscheint erst, wenn irgendein Weg mit 401 ablehnt
+und die übrigen nur "gibt es nicht" sagen.
 
 Die Alternative wäre gewesen, dem Cloudflare-Worker ein eigenes
 Nextcloud-App-Passwort zu geben und ihn das Passwort prüfen zu lassen. Das

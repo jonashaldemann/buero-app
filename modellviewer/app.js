@@ -16,7 +16,7 @@
    appConfig …) sind deshalb hier ganz normal verfügbar.
    ============================================================ */
 
-import { ordnerEbene, ordnerInhalt, ladeDateien, formatiereGroesse, istModellDatei } from "./dateien.js";
+import { ordnerEbene, ordnerInhalt, ladeDateien, formatiereGroesse, istModellDatei, oeffneFreigabe } from "./dateien.js";
 
 const MODUL = "Modellviewer";
 const META_DATEI = "modell.json";
@@ -346,6 +346,7 @@ function zeigeKundenlink() {
 function setzeFreigabeKnoepfe(freigebenDa, freigabeDa) {
   el("freigebenBtn").hidden = !freigebenDa;
   el("neuesPwBtn").hidden = !freigabeDa;
+  el("pruefenBtn").hidden = !freigabeDa;
   el("freigabeWegBtn").hidden = !freigabeDa;
 }
 
@@ -484,6 +485,40 @@ async function passwortUebernehmen() {
     console.error(err);
     el("feldPasswort").value = aktuellesPasswort;
     el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
+  }
+}
+
+// Probiert Link und Passwort genau so aus, wie es die Kundenseite täte --
+// also über den Proxy und die öffentlichen WebDAV-Pfade, ohne unseren
+// Login. Das ist die einzige Prüfung, die wirklich etwas aussagt: alles
+// andere läuft über den angemeldeten Zugang und kann klappen, während der
+// Kundenweg scheitert.
+async function freigabePruefen() {
+  const kennung = tokenAus(el("feldToken").value);
+  const passwort = el("feldPasswort").value.trim();
+  if (!kennung) return dialogMelde("Keine Kennung vorhanden – zuerst freigeben.", true);
+  if (!passwort) return dialogMelde("Kein Passwort bekannt – eines eintippen oder würfeln lassen.", true);
+  el("pruefenBtn").disabled = true;
+  dialogMelde("Wird geöffnet wie beim Kunden…");
+  try {
+    const { eintraege, kurz } = await oeffneFreigabe({ proxyUrl: PROXY_URL, token: kennung, passwort });
+    const modelle = eintraege.filter((e) => istModellDatei(e.name));
+    dialogMelde(
+      modelle.length
+        ? `Funktioniert: ${modelle.length} Modell${modelle.length === 1 ? "" : "e"} erreichbar (über "${kurz}").`
+        : `Link und Passwort stimmen, aber im Ordner liegt keine Modelldatei (über "${kurz}").`,
+      !modelle.length
+    );
+  } catch (err) {
+    console.error(err, err.versuche || "");
+    dialogMelde(
+      err.passwortFalsch
+        ? `Das Passwort wird abgelehnt (${err.bericht}).`
+        : `Nicht erreichbar: ${err.bericht || err.message}`,
+      true
+    );
+  } finally {
+    el("pruefenBtn").disabled = false;
   }
 }
 
@@ -718,6 +753,7 @@ el("feldToken").addEventListener("input", zeigeKundenlink);
 el("freigebenBtn").addEventListener("click", freigeben);
 el("neuesPwBtn").addEventListener("click", passwortErneuern);
 el("freigabeWegBtn").addEventListener("click", freigabeAufheben);
+el("pruefenBtn").addEventListener("click", freigabePruefen);
 el("feldAblauf").addEventListener("change", ablaufUebernehmen);
 el("feldPasswort").addEventListener("change", passwortUebernehmen);
 el("kopierPwBtn").addEventListener("click", async () => {

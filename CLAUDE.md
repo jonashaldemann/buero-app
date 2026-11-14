@@ -225,8 +225,21 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 - **Kundenzugang über passwortgeschützten Freigabelink** (November 2026):
   pro Modell ein Nextcloud-Freigabelink mit Passwort auf den Modellordner;
   gelesen wird mit `Authorization: Basic base64(<token>:<freigabepasswort>)`
-  gegen `public.php/dav/files/<token>/`, mit Rückfall auf
-  `public.php/webdav/`. Nirgends liegen dafür Zugangsdaten. Die Alternative
+  gegen `public.php/dav/files/<token>/`, `public.php/webdav/` und
+  `remote.php/dav/public-files/<token>/` (`oeffneFreigabe()` in
+  `dateien.js`). Durchprobiert werden sie AUCH NACH EINEM 401 -- `public.php`
+  ist ein Front-Controller und antwortet auf einen Pfad, den diese Version
+  nicht kennt, mit 401 statt 404. Genau daran scheiterte die erste Fassung
+  gegen die echte Nextcloud: richtiges Passwort, Meldung "Passwort stimmt
+  nicht". "Passwort falsch" gilt erst, wenn irgendwo ein 401 steht und sonst
+  nur 404 (`FreigabeFehler.passwortFalsch`). Basic Auth muss UTF-8 kodieren
+  (`btoa()` allein wirft bei einem Passwort mit Umlaut). Nirgends liegen
+  dafür Zugangsdaten.
+- **"Prüfen" im Freigabe-Dialog** geht bewusst denselben Weg wie die
+  Kundenseite (`oeffneFreigabe()` mit `PROXY_URL`, ohne Login) und meldet im
+  Fehlerfall die Statuscodes aller Versuche. Alles andere im Modul läuft
+  über den angemeldeten Zugang und kann funktionieren, während der
+  Kundenweg scheitert -- eine Prüfung darüber wäre wertlos. Die Alternative
   (Worker bekommt ein eigenes App-Passwort und prüft selbst) wurde
   verworfen: Nextcloud-App-Passwörter lassen sich nicht auf einen Ordner
   einschränken, ein Worker-Fehler wäre Vollzugriff gewesen. Das weicht

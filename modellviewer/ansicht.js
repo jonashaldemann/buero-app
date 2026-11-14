@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { erstelleViewer } from "./viewer.js";
-import { ordnerInhalt, ladeDateien, formatiereGroesse, istModellDatei, HttpFehler } from "./dateien.js";
+import { oeffneFreigabe, ladeDateien, formatiereGroesse, istModellDatei, HttpFehler, FreigabeFehler } from "./dateien.js";
 
 // Bewusst hier wiederholt statt aus shared/common.js übernommen -- siehe
 // Dateikopf: diese Seite lädt common.js nicht. Ändert sich die Adresse des
@@ -27,10 +27,6 @@ const PROXY_URL = "https://zeit-proxy.haldejonas.workers.dev";
 // Freigabe-Tokens von Nextcloud sind rein alphanumerisch. Die Prüfung ist
 // keine Sicherheitsmassnahme, sie fängt nur abgeschnittene Links ab.
 const TOKEN_MUSTER = /^[A-Za-z0-9]{4,64}$/;
-
-// Zwei Endpunkte, weil Nextcloud den älteren irgendwann abschaltet und
-// ältere Installationen den neueren noch nicht kennen.
-const ENDPUNKTE = [(token) => `public.php/dav/files/${token}/`, () => "public.php/webdav/"];
 
 const feldPasswort = document.getElementById("passwortFeld");
 const overlayPasswort = document.getElementById("passwortOverlay");
@@ -44,35 +40,6 @@ const token = (location.hash || "").replace(/^#/, "").trim();
 // ein Neuladen oder ein zweiter Blick später am Tag nicht jedes Mal neu
 // danach fragt -- aber nichts davon auf dem Gerät zurückbleibt.
 const SPEICHER_SCHLUESSEL = `modellviewer_pw_${token}`;
-
-function baueHole(basis, passwort) {
-  const kopf = { Authorization: `Basic ${btoa(`${token}:${passwort}`)}` };
-  return (pfad, optionen = {}) => {
-    // Der Pfad geht im Klartext an den Proxy (der kodiert ihn einmal) --
-    // genauso wie in shared/common.js, proxyFetch().
-    const voll = basis + (pfad || "");
-    return fetch(`${PROXY_URL}?path=${encodeURIComponent(voll)}`, {
-      ...optionen,
-      headers: { ...kopf, ...(optionen.headers || {}) }
-    });
-  };
-}
-
-async function verbinde(passwort) {
-  let letzterFehler = null;
-  for (const bauEndpunkt of ENDPUNKTE) {
-    const hole = baueHole(bauEndpunkt(token), passwort);
-    try {
-      return { hole, eintraege: await ordnerInhalt(hole) };
-    } catch (err) {
-      // 401 heisst: der Endpunkt gibt es, das Passwort stimmt nicht --
-      // dann lohnt der zweite Versuch nicht.
-      if (err instanceof HttpFehler && err.status === 401) throw err;
-      letzterFehler = err;
-    }
-  }
-  throw letzterFehler || new Error("Freigabe nicht erreichbar.");
-}
 
 async function leseMeta(hole, eintrag) {
   if (!eintrag) return {};
@@ -120,7 +87,8 @@ function frageModell(modelle) {
 
 async function oeffne(passwort) {
   viewer.zeigeStatus("Freigabe wird geöffnet…");
-  const { hole, eintraege } = await verbinde(passwort);
+  const { hole, eintraege, kurz } = await oeffneFreigabe({ proxyUrl: PROXY_URL, token, passwort });
+  console.info(`Freigabe gelesen über "${kurz}".`);
 
   const metaEintrag = eintraege.find((e) => e.name.toLowerCase() === "modell.json");
   const meta = await leseMeta(hole, metaEintrag);
@@ -150,8 +118,8 @@ async function oeffne(passwort) {
 }
 
 function zeigeFehler(err) {
-  console.error(err);
-  const istPasswort = err instanceof HttpFehler && err.status === 401;
+  console.error(err, err instanceof FreigabeFehler ? err.versuche : "");
+  const istPasswort = (err instanceof FreigabeFehler && err.passwortFalsch) || (err instanceof HttpFehler && err.status === 401);
   if (istPasswort) {
     sessionStorage.removeItem(SPEICHER_SCHLUESSEL);
     fehlerZeile.textContent = "Passwort stimmt nicht.";
@@ -162,13 +130,20 @@ function zeigeFehler(err) {
     viewer.zeigeStatus("");
     return;
   }
-  const abgelaufen = err instanceof HttpFehler && (err.status === 404 || err.status === 403);
-  viewer.zeigeStatus(
-    abgelaufen
-      ? "Dieser Link ist nicht mehr gültig. Bitte melden Sie sich bei uns, wir schicken Ihnen einen neuen."
-      : `Das Modell konnte nicht geladen werden. ${err.message || ""}`.trim(),
-    true
-  );
+  const abgelaufen =
+    (err instanceof HttpFehler && (err.status === 404 || err.status === 403)) ||
+    (err instanceof FreigabeFehler && err.versuche.length > 0 && err.versuche.every((v) => v.status === 404));
+  if (abgelaufen) {
+    viewer.zeigeStatus(
+      "Dieser Link ist nicht mehr gültig. Bitte melden Sie sich bei uns, wir schicken Ihnen einen neuen.",
+      true
+    );
+    return;
+  }
+  // Bleibt etwas anderes übrig, gehört die technische Kurzfassung dazu --
+  // sonst kann uns niemand sagen, woran es lag.
+  const technisch = err instanceof FreigabeFehler ? ` (${err.bericht})` : "";
+  viewer.zeigeStatus(`Das Modell konnte nicht geladen werden.${technisch}`, true);
 }
 
 async function versuche(passwort) {

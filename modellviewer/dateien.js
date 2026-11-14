@@ -150,6 +150,70 @@ export async function ladeDateien(hole, eintraege, onFortschritt) {
   return dateien;
 }
 
+// ---------- Passwortgeschützte Freigabe öffnen ----------
+//
+// Nextcloud liefert eine Freigabe per WebDAV aus, wenn man die KENNUNG als
+// Benutzernamen und das Freigabepasswort als Passwort schickt. Welcher Pfad
+// dafür zuständig ist, hängt von der Nextcloud-Version ab -- deshalb werden
+// alle bekannten der Reihe nach probiert, und zwar AUCH nach einem 401:
+// "public.php" ist ein Front-Controller, der einen Pfad, den er nicht kennt,
+// durchaus mit 401 statt 404 beantwortet. Bräche man dort ab, sähe ein
+// fehlender Endpunkt wie ein falsches Passwort aus.
+export const FREIGABE_ENDPUNKTE = [
+  { kurz: "dav", pfad: (token) => `public.php/dav/files/${token}/` },
+  { kurz: "webdav", pfad: () => "public.php/webdav/" },
+  { kurz: "public-files", pfad: (token) => `remote.php/dav/public-files/${token}/` }
+];
+
+// btoa() kennt nur Latin-1 und wirft bei einem Passwort mit Umlaut. Basic
+// Auth überträgt UTF-8-Bytes, also erst kodieren, dann base64.
+function basicKopf(benutzer, passwort) {
+  const bytes = new TextEncoder().encode(`${benutzer}:${passwort}`);
+  let roh = "";
+  bytes.forEach((b) => (roh += String.fromCharCode(b)));
+  return `Basic ${btoa(roh)}`;
+}
+
+export class FreigabeFehler extends Error {
+  constructor(versuche) {
+    // Ein 401 allein beweist nichts: ein Pfad, den diese Nextcloud nicht
+    // kennt, kann ebenfalls mit 401 antworten. Umgekehrt darf ein sauberes
+    // 404 daneben die Diagnose nicht verhindern -- den dritten Endpunkt
+    // gibt es längst nicht überall. Also: irgendwo ein 401, und sonst nur
+    // "gibt es nicht". Stimmte das Passwort, hätte einer der Wege geliefert.
+    const abgelehnt =
+      versuche.some((v) => v.status === 401) && versuche.every((v) => v.status === 401 || v.status === 404);
+    super(abgelehnt ? "Passwort stimmt nicht." : "Freigabe nicht erreichbar.");
+    this.versuche = versuche;
+    this.passwortFalsch = abgelehnt;
+  }
+  // Kurzfassung fürs Melden ("dav 401, webdav 404, public-files 404").
+  get bericht() {
+    return this.versuche.map((v) => `${v.kurz} ${v.status}`).join(", ");
+  }
+}
+
+// Probiert alle Endpunkte durch und gibt den ersten zurück, der den
+// Ordnerinhalt liefert.
+export async function oeffneFreigabe({ proxyUrl, token, passwort }) {
+  const versuche = [];
+  for (const endpunkt of FREIGABE_ENDPUNKTE) {
+    const basis = endpunkt.pfad(token);
+    const kopf = { Authorization: basicKopf(token, passwort) };
+    const hole = (pfad, optionen = {}) =>
+      fetch(`${proxyUrl}?path=${encodeURIComponent(basis + (pfad || ""))}`, {
+        ...optionen,
+        headers: { ...kopf, ...(optionen.headers || {}) }
+      });
+    try {
+      return { hole, basis, kurz: endpunkt.kurz, eintraege: await ordnerInhalt(hole) };
+    } catch (err) {
+      versuche.push({ kurz: endpunkt.kurz, status: err instanceof HttpFehler ? err.status : 0 });
+    }
+  }
+  throw new FreigabeFehler(versuche);
+}
+
 export function formatiereGroesse(bytes) {
   if (!bytes) return "–";
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
