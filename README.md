@@ -1970,10 +1970,11 @@ gleich aus.
    eigener Ordner `Buero/Admin/App/Modellviewer/<titel-als-ordnername>`.
    Danach öffnet sich der Dialog gleich wieder — der nächste Schritt ist die
    Freigabe, und die braucht den fertigen Ordner.
-2. Optional ein **"Gültig bis"**-Datum setzen, dann auf **"Freigeben"**. Die
-   App legt die Nextcloud-Freigabe auf diesen Ordner an (nur Leserecht),
-   würfelt ein Passwort und zeigt **Kundenlink und Passwort** an. Beide
-   lassen sich mit einem Klick kopieren.
+2. Optional ein eigenes **Passwort** eintippen und ein **"Gültig bis"**-Datum
+   setzen, dann auf **"Freigeben"**. Lässt man das Passwortfeld leer,
+   würfelt die App eines. Sie legt die Nextcloud-Freigabe auf diesen Ordner
+   an (nur Leserecht) und zeigt **Kundenlink und Passwort** an; beide lassen
+   sich mit einem Klick kopieren.
 3. Link und Passwort **getrennt** verschicken (Link per Mail, Passwort per
    Telefon/SMS) — dann ist ein weitergeleitetes Mail allein nutzlos.
 
@@ -1991,8 +1992,13 @@ Nextcloud-Passwortregeln (Länge, Gross-/Kleinschreibung, Ziffern).
 
 **Ändern und zurücknehmen:**
 
-- **"Neues Passwort"** setzt ein frisches Passwort. Der Link bleibt
-  derselbe, das alte Passwort gilt sofort nicht mehr.
+- Das **Passwortfeld** lässt sich jederzeit überschreiben: sobald du das
+  Feld verlässt, geht das neue Passwort an Nextcloud und wird gemerkt. Das
+  Feld leeren hebt den Passwortschutz **nicht** auf — der alte Wert kommt
+  zurück. Ohne Passwort freigeben geht also nur von Hand in Nextcloud, und
+  das ist Absicht.
+- **"Neues Passwort"** würfelt stattdessen ein frisches. Der Link bleibt in
+  beiden Fällen derselbe, das alte Passwort gilt sofort nicht mehr.
 - Das **Datum** wirkt sofort, sobald es geändert wird (eigener Knopf
   unnötig).
 - **"Aufheben"** löscht die Freigabe in Nextcloud. Ein verschickter

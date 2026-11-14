@@ -250,7 +250,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Freigabepasswörter nur als Hash hält und nie wieder herausgibt; ohne diese
   Datei könnte das Büro ein einmal gesetztes Passwort nirgends nachschlagen.
   Beim Löschen eines Modells muss der Eintrag mit weg (die Freigabe selbst
-  verschwindet mit dem Ordner von allein).
+  verschwindet mit dem Ordner von allein). Das Feld ist BESCHREIBBAR (ein
+  readonly-Feld, das wie ein Eingabefeld aussieht, hat beim Nutzer genau die
+  erwartete Verwirrung ausgelöst): eigenes Passwort eintippen geht vor dem
+  Würfeln, eine Änderung wirkt beim `change`-Ereignis wie das Ablaufdatum.
+  Das Feld LEEREN hebt den Schutz bewusst NICHT auf -- `passwortUebernehmen()`
+  setzt den alten Wert zurück, sonst stünde ein Kundenmodell nach einem
+  Vertipper offen.
 - **`.form-group[hidden]` braucht eine eigene CSS-Zeile** (modellviewer/,
   wie die `.bk-*[hidden]`-Regeln in baukosten/): `.form-group` aus
   `css/style.css` setzt `display: flex` und schlägt damit die eingebaute

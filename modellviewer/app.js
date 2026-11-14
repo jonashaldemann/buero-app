@@ -198,6 +198,7 @@ let modelle = []; // [{ ordner, meta }]
 let aktuell = null; // im Dialog bearbeitetes Modell, null = neues
 let vorschau = null; // laufende Viewer-Instanz
 let aktuelleFreigabe = null; // Freigabe-Datensatz aus Nextcloud zum offenen Modell
+let aktuellesPasswort = ""; // zuletzt bekanntes Passwort -- um Tippen davon zu unterscheiden
 
 const el = (id) => document.getElementById(id);
 
@@ -310,6 +311,8 @@ function oeffneDialog(modell) {
   el("feldDateien").value = "";
   el("feldAblauf").value = "";
   el("feldPasswort").value = "";
+  aktuellesPasswort = "";
+  el("freigabeDetails").hidden = false;
   el("dateiListe").innerHTML = "";
   el("hauptdateiGruppe").hidden = true;
   el("loeschBtn").hidden = !modell;
@@ -323,7 +326,7 @@ function oeffneDialog(modell) {
   } else {
     // Freigeben geht erst, wenn der Ordner existiert -- also nach dem
     // ersten Speichern. Danach öffnet sich dieser Dialog gleich wieder.
-    setzeFreigabeKnoepfe(false, false);
+    el("freigabeDetails").hidden = true;
     el("freigabeStatus").textContent = "Nach dem Hochladen kannst du das Modell hier freigeben.";
   }
 }
@@ -358,7 +361,7 @@ async function zeigeFreigabe(modell) {
   // einzige Stelle im Repo, die das wissen muss (sonst kennt kein Modul den
   // Demomodus, siehe shared/common.js).
   if (istDemo()) {
-    setzeFreigabeKnoepfe(false, false);
+    el("freigabeDetails").hidden = true;
     el("freigabeStatus").textContent = "Im Demomodus gibt es keine Nextcloud-Freigaben.";
     return;
   }
@@ -377,7 +380,8 @@ async function zeigeFreigabe(modell) {
     el("feldAblauf").value = (aktuelleFreigabe.expiration || "").slice(0, 10);
     el("feldToken").value = aktuelleFreigabe.token || el("feldToken").value;
     const gemerkt = (await ladePasswoerter())[modell.ordner];
-    el("feldPasswort").value = gemerkt ? gemerkt.passwort : "";
+    aktuellesPasswort = gemerkt ? gemerkt.passwort : "";
+    el("feldPasswort").value = aktuellesPasswort;
     zeigeKundenlink();
   }
   setzeFreigabeKnoepfe(!aktuelleFreigabe, !!aktuelleFreigabe);
@@ -399,9 +403,11 @@ async function freigeben() {
   el("freigebenBtn").disabled = true;
   try {
     el("freigabeStatus").textContent = "Freigabe wird angelegt…";
-    const passwort = neuesPasswort();
+    // Eigenes Passwort hat Vorrang; leer heisst "würfle eines".
+    const passwort = el("feldPasswort").value.trim() || neuesPasswort();
     aktuelleFreigabe = await freigabeAnlegen(aktuell.ordner, passwort, el("feldAblauf").value);
     await merkePasswort(aktuell.ordner, passwort);
+    aktuellesPasswort = passwort;
     el("feldPasswort").value = passwort;
     await merkeToken(aktuelleFreigabe.token);
     setzeFreigabeKnoepfe(false, true);
@@ -423,6 +429,7 @@ async function passwortErneuern() {
     const passwort = neuesPasswort();
     await freigabeAendern(aktuelleFreigabe.id, { password: passwort });
     await merkePasswort(aktuell.ordner, passwort);
+    aktuellesPasswort = passwort;
     el("feldPasswort").value = passwort;
     dialogMelde("Neues Passwort gesetzt — der alte Link gilt weiter, das alte Passwort nicht mehr.");
   } catch (err) {
@@ -441,6 +448,7 @@ async function freigabeAufheben() {
     await freigabeLoeschen(aktuelleFreigabe.id);
     await merkePasswort(aktuell.ordner, null);
     aktuelleFreigabe = null;
+    aktuellesPasswort = "";
     el("feldPasswort").value = "";
     el("feldAblauf").value = "";
     await merkeToken("");
@@ -453,6 +461,29 @@ async function freigabeAufheben() {
     el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
   } finally {
     el("freigabeWegBtn").disabled = false;
+  }
+}
+
+// Ein von Hand eingetipptes Passwort wirkt wie das Ablaufdatum sofort --
+// solange es noch keine Freigabe gibt, wird es beim Freigeben verwendet.
+async function passwortUebernehmen() {
+  const eingetippt = el("feldPasswort").value.trim();
+  if (!aktuelleFreigabe || eingetippt === aktuellesPasswort) return;
+  if (!eingetippt) {
+    // Leeren hiesse "Passwortschutz weg" -- das ist nie gemeint und wäre
+    // genau der gefährliche Fall. Also zurücksetzen.
+    el("feldPasswort").value = aktuellesPasswort;
+    return;
+  }
+  try {
+    await freigabeAendern(aktuelleFreigabe.id, { password: eingetippt });
+    await merkePasswort(aktuell.ordner, eingetippt);
+    aktuellesPasswort = eingetippt;
+    dialogMelde("Passwort gespeichert. Das alte gilt nicht mehr.");
+  } catch (err) {
+    console.error(err);
+    el("feldPasswort").value = aktuellesPasswort;
+    el("freigabeStatus").textContent = err instanceof OcsFehler ? freigabeFehlerText(err) : err.message;
   }
 }
 
@@ -688,6 +719,7 @@ el("freigebenBtn").addEventListener("click", freigeben);
 el("neuesPwBtn").addEventListener("click", passwortErneuern);
 el("freigabeWegBtn").addEventListener("click", freigabeAufheben);
 el("feldAblauf").addEventListener("change", ablaufUebernehmen);
+el("feldPasswort").addEventListener("change", passwortUebernehmen);
 el("kopierPwBtn").addEventListener("click", async () => {
   const pw = el("feldPasswort").value;
   if (!pw) return;

@@ -28,6 +28,10 @@
      eingebaute Browser-Regel [hidden]{display:none} -- ein ausgeblendeter
      Block bliebe sonst sichtbar (dieselbe Falle wie in baukosten/). */
   .form-group[hidden] { display: none; }
+  /* Sammelt Passwort, Ablauf und Knöpfe, damit sie bei einem noch nicht
+     gespeicherten Modell zusammen verschwinden können. */
+  #freigabeDetails { display: flex; flex-direction: column; gap: 8px; }
+  #freigabeDetails[hidden] { display: none; }
 
   .modell-liste {
     display: flex;
@@ -210,13 +214,30 @@
     <div class="form-group" id="freigabeGruppe">
       <label>Freigabe für den Kunden</label>
       <div class="file-name" id="freigabeStatus">Noch nicht freigegeben.</div>
-      <div class="form-actions" id="freigabeAktionen">
-        <button type="button" class="btn-secondary" id="freigebenBtn">Freigeben</button>
-        <button type="button" class="btn-secondary" id="neuesPwBtn" hidden>Neues Passwort</button>
-        <button type="button" class="btn-secondary" id="freigabeWegBtn" hidden>Aufheben</button>
+
+      <div id="freigabeDetails">
+        <label for="feldPasswort">Passwort</label>
+        <div class="kopierzeile">
+          <input type="text" id="feldPasswort" autocomplete="off" placeholder="leer lassen = die App würfelt eines">
+          <button type="button" class="btn-secondary" id="kopierPwBtn">Kopieren</button>
+        </div>
+        <div class="file-name">
+          Eigenes Passwort eintippen oder leer lassen. Bei einer bestehenden
+          Freigabe wirkt eine Änderung sofort, sobald du das Feld verlässt.
+          Die App merkt es sich in "_passwoerter.json" im
+          Modellviewer-Ordner, also AUSSERHALB des freigegebenen Ordners —
+          Nextcloud selbst zeigt es nie wieder an.
+        </div>
+
+        <label for="feldAblauf">Gültig bis (leer = unbefristet)</label>
+        <input type="date" id="feldAblauf">
+
+        <div class="form-actions" id="freigabeAktionen">
+          <button type="button" class="btn-secondary" id="freigebenBtn">Freigeben</button>
+          <button type="button" class="btn-secondary" id="neuesPwBtn" hidden>Neues Passwort</button>
+          <button type="button" class="btn-secondary" id="freigabeWegBtn" hidden>Aufheben</button>
+        </div>
       </div>
-      <label for="feldAblauf">Gültig bis (leer = unbefristet)</label>
-      <input type="date" id="feldAblauf">
     </div>
 
     <div class="form-group" id="linkGruppe" hidden>
@@ -225,17 +246,10 @@
         <input type="text" id="feldKundenlink" readonly>
         <button type="button" class="btn-secondary" id="kopierBtn">Kopieren</button>
       </div>
-      <label for="feldPasswort">Passwort für den Kunden</label>
-      <div class="kopierzeile">
-        <input type="text" id="feldPasswort" readonly placeholder="nicht bekannt – mit &quot;Neues Passwort&quot; eines setzen">
-        <button type="button" class="btn-secondary" id="kopierPwBtn">Kopieren</button>
-      </div>
       <div class="file-name">
         Link und Passwort bitte <strong>getrennt</strong> verschicken (Link
         per Mail, Passwort per Telefon oder SMS) — dann nützt ein
-        weitergeleitetes Mail allein nichts. Das Passwort merkt sich die App
-        in "_passwoerter.json" im Modellviewer-Ordner, also AUSSERHALB des
-        freigegebenen Ordners; Nextcloud selbst zeigt es nie wieder an.
+        weitergeleitetes Mail allein nichts.
       </div>
     </div>
 
