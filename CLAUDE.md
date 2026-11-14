@@ -26,6 +26,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   erledigt ist — nicht erst am Schluss die ganze Datei leeren; ein
   "Später:"-Abschnitt sowie noch offene Zeilen bleiben dabei unverändert
   stehen), dann committen.
+- **Gearbeitet wird auf `main`** (Stand November 2026, ausdrücklich so
+  gewünscht) — ein anderer Branch nur, wenn der Nutzer ihn in genau diesem
+  Auftrag verlangt. `development` existiert weiterhin, liegt aber brach.
 - **Nie pushen ohne frisches, explizites "ja"/"push mal" in genau dieser
   Runde** — eine frühere Zustimmung gilt nicht automatisch für die nächste.
   Nach dem Commit immer aktiv nachfragen.
@@ -199,16 +202,28 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Eine Datei umbenennen heisst deshalb überall: erst die neue schreiben,
   dann die alte löschen (`planeUmbenennen()` in `baukosten/app.js`) — in
   dieser Reihenfolge, damit ein Abbruch höchstens eine Kopie hinterlässt.
-- **Pendenzen je Person `protokoll/`**: ein Stichpunkt trägt in `kuerzel`
-  eine LISTE von Kürzeln (ältere Protokolle einen einzelnen String --
+- **Eine Pendenz, mehrere Zuständige**: `person` in `pendenzen.json` ist
+  eine LISTE von Keys (ältere Dateien: ein einzelner Key -- `personenListe()`
+  in `pendenzen/app.js` akzeptiert beides, geschrieben wird immer eine Liste
+  oder `null`). Eine Pendenz wird NIE je Person dupliziert: es gibt einen
+  Eintrag und ein Häkchen. `null` heisst "geht alle an" -- sind alle
+  aktuellen Mitarbeitenden getaggt, normalisiert `normalisierePersonen()`
+  genau darauf, und die Pendenz zeigt dann keinen Kürzel-Tag. `null`
+  erscheint deshalb in JEDEM Personenfilter, nicht nur unter "Alle", und im
+  Bearbeiten-Modus stehen alle Kürzel als gewählt da (`pendenzPersonen()`).
+  "Niemand" und "alle" sind derselbe Zustand -- bewusst, eine leere Auswahl
+  gibt es nicht.
+- **Pendenzen aus `protokoll/`**: ein Stichpunkt trägt in `kuerzel` eine
+  LISTE von Kürzeln (ältere Protokolle einen einzelnen String --
   `kuerzelListe()` akzeptiert beides, geschrieben wird immer das Array).
-  Jede angetippte Büro-Person bekommt eine eigene Pendenz; die ID lautet
-  `protokoll:<datei>:<bullet>:<personKey>`. Die frühere ID ohne Person
-  wird in `syncInternePendenzen()` auf die neue gehoben, sonst käme ein
-  erledigter Punkt wieder als offen zurück -- diese Migration darf nicht
-  wegfallen, solange noch alte `pendenzen.json` im Umlauf sind.
-  `protokoll/pdf.js` bleibt eigenständig und normalisiert die Liste selbst
-  (`kuerzelZeile()`).
+  Daraus entsteht GENAU EINE Pendenz je Stichpunkt mit allen Zuständigen,
+  ID `protokoll:<datei>:<bullet>`. `normalisierePersonen()` ist dafür aus
+  `pendenzen/app.js` kopiert (wie der ganze Pendenzen-Zugriff dort).
+  `syncInternePendenzen()` führt die kurzlebigen IDs `...:<personKey>` aus
+  einer Zwischenfassung wieder zusammen (erledigt nur, wenn alle es waren)
+  -- diese Migration darf nicht wegfallen, solange noch `pendenzen.json`
+  aus jener Fassung im Umlauf sind. `protokoll/pdf.js` bleibt eigenständig
+  und normalisiert die Kürzel-Liste selbst (`kuerzelZeile()`).
 - **Kilometer-Quittung `quittung/km.js`** nutzt OpenStreetMap (Nominatim,
   OSRM, OSM-Kacheln), NICHT Google Maps: die Google-APIs brauchen einen
   Schlüssel (der hier im öffentlichen Repo stünde) plus Billing, und vor
