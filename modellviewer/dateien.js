@@ -34,9 +34,12 @@ const PROPFIND_BODY =
 const MAX_TIEFE = 3;
 
 export class HttpFehler extends Error {
-  constructor(status, text) {
+  constructor(status, text, koerper = "") {
     super(text || `HTTP ${status}`);
     this.status = status;
+    // Nextcloud schreibt den Ausnahme-Namen in den Antwortkörper -- nur
+    // daran lässt sich z.B. die Bremse gegen Passwortraten erkennen.
+    this.koerper = koerper;
   }
 }
 
@@ -81,7 +84,9 @@ export async function ordnerEbene(hole, pfad) {
     headers: { Depth: "1", "Content-Type": "application/xml" },
     body: PROPFIND_BODY
   });
-  if (!res.ok) throw new HttpFehler(res.status, `Ordner lesen fehlgeschlagen (${res.status})`);
+  if (!res.ok) {
+    throw new HttpFehler(res.status, `Ordner lesen fehlgeschlagen (${res.status})`, await res.text().catch(() => ""));
+  }
   return leseEbene(await res.text());
 }
 
@@ -174,8 +179,17 @@ function basicKopf(benutzer, passwort) {
   return `Basic ${btoa(roh)}`;
 }
 
+// Mögliche Gründe, warum eine Freigabe nicht aufgeht -- in dieser
+// Reihenfolge geprüft, weil der jeweils frühere den späteren verdeckt.
+export const GRUND = {
+  gedrosselt: "gedrosselt", // Nextcloud bremst nach zu vielen Fehlversuchen
+  unbekannt: "unbekannt", // es gibt gar keine Freigabe mit dieser Kennung
+  passwort: "passwort", // Kennung stimmt, Passwort nicht
+  unklar: "unklar"
+};
+
 export class FreigabeFehler extends Error {
-  constructor(versuche) {
+  constructor(versuche, { gedrosselt = false, freigabeExistiert = null } = {}) {
     // Ein 401 allein beweist nichts: ein Pfad, den diese Nextcloud nicht
     // kennt, kann ebenfalls mit 401 antworten. Umgekehrt darf ein sauberes
     // 404 daneben die Diagnose nicht verhindern -- den dritten Endpunkt
@@ -183,9 +197,24 @@ export class FreigabeFehler extends Error {
     // "gibt es nicht". Stimmte das Passwort, hätte einer der Wege geliefert.
     const abgelehnt =
       versuche.some((v) => v.status === 401) && versuche.every((v) => v.status === 401 || v.status === 404);
-    super(abgelehnt ? "Passwort stimmt nicht." : "Freigabe nicht erreichbar.");
+    const grund = gedrosselt
+      ? GRUND.gedrosselt
+      : freigabeExistiert === false
+        ? GRUND.unbekannt
+        : abgelehnt
+          ? GRUND.passwort
+          : GRUND.unklar;
+    super(
+      {
+        [GRUND.gedrosselt]: "Zu viele Fehlversuche – Nextcloud bremst gerade.",
+        [GRUND.unbekannt]: "Diese Kennung gibt es nicht.",
+        [GRUND.passwort]: "Passwort stimmt nicht.",
+        [GRUND.unklar]: "Freigabe nicht erreichbar."
+      }[grund]
+    );
     this.versuche = versuche;
-    this.passwortFalsch = abgelehnt;
+    this.grund = grund;
+    this.passwortFalsch = grund === GRUND.passwort;
   }
   // Kurzfassung fürs Melden ("dav 401, webdav 404, public-files 404").
   get bericht() {
@@ -193,10 +222,24 @@ export class FreigabeFehler extends Error {
   }
 }
 
+// Gibt es die Freigabe überhaupt? Die Seite unter "s/<kennung>" antwortet
+// ohne Zugangsdaten: 404 heisst "gibt es nicht", alles andere "gibt es"
+// (meist die Passwortseite). Das ist KEIN Anmeldeversuch und zählt deshalb
+// nicht auf die Bremse gegen Passwortraten ein.
+async function freigabeExistiert(proxyUrl, token) {
+  try {
+    const res = await fetch(`${proxyUrl}?path=${encodeURIComponent(`s/${token}`)}`, { method: "GET" });
+    return res.status === 404 ? false : true;
+  } catch (err) {
+    return null;
+  }
+}
+
 // Probiert alle Endpunkte durch und gibt den ersten zurück, der den
 // Ordnerinhalt liefert.
 export async function oeffneFreigabe({ proxyUrl, token, passwort }) {
   const versuche = [];
+  let gedrosselt = false;
   for (const endpunkt of FREIGABE_ENDPUNKTE) {
     const basis = endpunkt.pfad(token);
     const kopf = { Authorization: basicKopf(token, passwort) };
@@ -208,10 +251,19 @@ export async function oeffneFreigabe({ proxyUrl, token, passwort }) {
     try {
       return { hole, basis, kurz: endpunkt.kurz, eintraege: await ordnerInhalt(hole) };
     } catch (err) {
-      versuche.push({ kurz: endpunkt.kurz, status: err instanceof HttpFehler ? err.status : 0 });
+      const status = err instanceof HttpFehler ? err.status : 0;
+      // Nextcloud verzögert und blockt nach mehreren falschen Passwörtern
+      // (MaxDelayReached, als 500). Gezählt wird dabei die IP des
+      // Worker-Proxys, nicht die des Kunden -- deshalb muss man das
+      // benennen können, sonst sucht man den Fehler am falschen Ort.
+      if (/MaxDelayReached/.test(err.koerper || "")) gedrosselt = true;
+      versuche.push({ kurz: endpunkt.kurz, status });
     }
   }
-  throw new FreigabeFehler(versuche);
+  throw new FreigabeFehler(versuche, {
+    gedrosselt,
+    freigabeExistiert: gedrosselt ? null : await freigabeExistiert(proxyUrl, token)
+  });
 }
 
 export function formatiereGroesse(bytes) {

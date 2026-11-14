@@ -2028,6 +2028,20 @@ passwortgeschützte Freigabe per WebDAV ausliefern, wenn man die **Kennung
 als Benutzernamen und das Freigabepasswort als Passwort** schickt — ohne
 dass irgendwo Zugangsdaten hinterlegt werden müssten.
 
+**Wenn es klemmt**, unterscheidet die Seite drei Fälle, statt pauschal
+"Passwort falsch" zu sagen:
+
+- **Kennung unbekannt**: unter `s/<Kennung>` liegt keine Freigabe (geprüft
+  ohne Zugangsdaten, zählt also nicht als Anmeldeversuch) → "Dieser Link ist
+  nicht mehr gültig". Das ist der häufigste Fall: im Feld steht etwas
+  anderes als die echte Kennung aus dem Freigabelink.
+- **Nextcloud bremst**: nach mehreren Fehlversuchen antwortet der Server mit
+  `MaxDelayReached` → "Bitte in ein paar Minuten nochmals". Wichtig: gezählt
+  wird dabei die Adresse des **Worker-Proxys**, nicht die des Kunden — ein
+  paar falsche Versuche bremsen also kurzzeitig alle.
+- **Passwort falsch**: die Kennung gibt es, die Zugangsdaten werden
+  abgelehnt.
+
 Welcher Pfad dafür zuständig ist, hängt von der Nextcloud-Version ab.
 Probiert werden deshalb der Reihe nach `public.php/dav/files/<Kennung>/`,
 `public.php/webdav/` und `remote.php/dav/public-files/<Kennung>/` — und zwar

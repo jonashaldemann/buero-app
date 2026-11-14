@@ -16,7 +16,7 @@
    appConfig …) sind deshalb hier ganz normal verfügbar.
    ============================================================ */
 
-import { ordnerEbene, ordnerInhalt, ladeDateien, formatiereGroesse, istModellDatei, oeffneFreigabe } from "./dateien.js";
+import { ordnerEbene, ordnerInhalt, ladeDateien, formatiereGroesse, istModellDatei, oeffneFreigabe, GRUND } from "./dateien.js";
 
 const MODUL = "Modellviewer";
 const META_DATEI = "modell.json";
@@ -511,12 +511,15 @@ async function freigabePruefen() {
     );
   } catch (err) {
     console.error(err, err.versuche || "");
-    dialogMelde(
-      err.passwortFalsch
-        ? `Das Passwort wird abgelehnt (${err.bericht}).`
-        : `Nicht erreichbar: ${err.bericht || err.message}`,
-      true
-    );
+    const erklaerung = {
+      [GRUND.gedrosselt]:
+        "Nextcloud bremst gerade wegen zu vieler Fehlversuche (die zählen auf die Adresse des Proxys, nicht auf deine). In ein paar Minuten nochmals probieren.",
+      [GRUND.unbekannt]:
+        "Es gibt keine Freigabe mit dieser Kennung. Entweder wurde sie in Nextcloud gelöscht, oder im Feld steht etwas anderes als die Kennung aus dem Freigabelink.",
+      [GRUND.passwort]: "Die Kennung stimmt, das Passwort wird abgelehnt.",
+      [GRUND.unklar]: "Nicht erreichbar."
+    }[err.grund] || err.message;
+    dialogMelde(`${erklaerung} (${err.bericht || "—"})`, true);
   } finally {
     el("pruefenBtn").disabled = false;
   }

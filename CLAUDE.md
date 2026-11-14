@@ -235,6 +235,15 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   nur 404 (`FreigabeFehler.passwortFalsch`). Basic Auth muss UTF-8 kodieren
   (`btoa()` allein wirft bei einem Passwort mit Umlaut). Nirgends liegen
   dafür Zugangsdaten.
+- **Drei Gründe statt "Passwort falsch"** (`GRUND` in `dateien.js`): bevor
+  die Kundenseite etwas behauptet, fragt sie ohne Zugangsdaten `s/<token>`
+  ab -- 404 heisst "diese Kennung gibt es nicht" (häufigster Fall: im Feld
+  steht nicht die echte Kennung). Antwortet Nextcloud mit `MaxDelayReached`
+  (als HTTP 500, Ausnahme-Name steht nur im ANTWORTKÖRPER, deshalb trägt
+  `HttpFehler` ihn mit), greift die Bremse gegen Passwortraten -- und die
+  zählt die IP des WORKER-PROXYS, nicht die des Kunden: ein paar
+  Fehlversuche bremsen also kurz alle. Erst wenn beides ausscheidet, ist es
+  wirklich das Passwort.
 - **"Prüfen" im Freigabe-Dialog** geht bewusst denselben Weg wie die
   Kundenseite (`oeffneFreigabe()` mit `PROXY_URL`, ohne Login) und meldet im
   Fehlerfall die Statuscodes aller Versuche. Alles andere im Modul läuft

@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { erstelleViewer } from "./viewer.js";
-import { oeffneFreigabe, ladeDateien, formatiereGroesse, istModellDatei, HttpFehler, FreigabeFehler } from "./dateien.js";
+import { oeffneFreigabe, ladeDateien, formatiereGroesse, istModellDatei, HttpFehler, FreigabeFehler, GRUND } from "./dateien.js";
 
 // Bewusst hier wiederholt statt aus shared/common.js übernommen -- siehe
 // Dateikopf: diese Seite lädt common.js nicht. Ändert sich die Adresse des
@@ -130,8 +130,16 @@ function zeigeFehler(err) {
     viewer.zeigeStatus("");
     return;
   }
+  if (err instanceof FreigabeFehler && err.grund === GRUND.gedrosselt) {
+    viewer.zeigeStatus(
+      "Nach mehreren Fehlversuchen macht der Server eine Pause. Bitte versuchen Sie es in ein paar Minuten nochmals.",
+      true
+    );
+    return;
+  }
   const abgelaufen =
     (err instanceof HttpFehler && (err.status === 404 || err.status === 403)) ||
+    (err instanceof FreigabeFehler && err.grund === GRUND.unbekannt) ||
     (err instanceof FreigabeFehler && err.versuche.length > 0 && err.versuche.every((v) => v.status === 404));
   if (abgelaufen) {
     viewer.zeigeStatus(
