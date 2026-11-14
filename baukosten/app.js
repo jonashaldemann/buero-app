@@ -1719,6 +1719,10 @@ function planeUmbenennen(alterName, neuerName) {
 // ---------- Speichern (Muster wie Offerten/Finanzplanung) ----------
 
 let syncQueue = Promise.resolve();
+// Nur wenn die letzte Speicherung durchkam, steht auf dem Server alles, was
+// hier getippt wurde -- erst dann darf holeFremdenStand() den lokalen Stand
+// durch den vom Server ersetzen.
+let letzteSpeicherungOk = true;
 
 function cacheAktualisieren(filename, data) {
   const eintrag = schaetzungen.find((s) => s.filename === filename);
@@ -1745,10 +1749,12 @@ function mutate(mutateFn, { neuRendern = false } = {}) {
 async function persist(filename, mutateFn) {
   const istAktuell = () => filename === offenFilename;
   if (!isConfigured()) {
+    letzteSpeicherungOk = false;
     if (istAktuell()) setSyncLine("Nextcloud noch nicht eingerichtet · Einstellungen ⚙");
     return;
   }
   if (!navigator.onLine) {
+    letzteSpeicherungOk = false;
     if (istAktuell()) setSyncLine("Offline · Änderungen nur lokal gespeichert");
     return;
   }
@@ -1776,10 +1782,76 @@ async function persist(filename, mutateFn) {
       setSyncLine("Gespeichert");
     }
     cacheAktualisieren(filename, istAktuell() ? offen : zusammen);
+    letzteSpeicherungOk = true;
   } catch (err) {
+    letzteSpeicherungOk = false;
     console.warn("Kostenschätzung konnte nicht gespeichert werden:", err);
     if (istAktuell()) setSyncLine("Fehler beim Speichern");
   }
+}
+
+// ---------- Stand der anderen nachladen ----------
+//
+// Zwei Personen können gleichzeitig an derselben Schätzung arbeiten:
+// persist() legt jede Änderung auf einen frisch geholten Serverstand, zwei
+// verschiedene Zeilen überschreiben sich also nicht. Was fehlte, war das
+// SEHEN -- die Zeilen der anderen tauchten erst nach einem Neuladen auf.
+// Deshalb dasselbe wie in offerten/: beim Zurückkehren in den Tab nachladen.
+//
+// Geholt wird nur DIESE Datei, nicht die ganze Liste wie refreshAlle(): der
+// Katalog und die übrigen Schätzungen ändern sich nicht, während man in
+// einer tippt, und ein Neuaufbau der Liste würde die Tabelle zurücksetzen.
+async function holeFremdenStand() {
+  if (!offenFilename || !isConfigured() || !navigator.onLine) return;
+  // Zuerst das gerade offene Feld und die Warteschlange rausschreiben --
+  // sonst holt man den Stand von VOR dem eigenen letzten Tastendruck.
+  uebernimmOffeneEingabe();
+  await syncQueue.catch(() => {});
+  // Ist das Schreiben gescheitert, steht die eigene Änderung nur hier. Dann
+  // nicht überschreiben; die Sync-Zeile meldet den Fehler ohnehin.
+  if (!letzteSpeicherungOk || !offenFilename) return;
+  const filename = offenFilename;
+  let daten;
+  try {
+    daten = await fetchFile(filename);
+  } catch (err) {
+    console.warn("Stand konnte nicht nachgeladen werden:", err);
+    return;
+  }
+  // Zwischenzeitlich geschlossen oder gewechselt? Dann gehört der Stand
+  // nicht mehr hierher.
+  if (!daten || typeof daten !== "object" || filename !== offenFilename) return;
+  // Verglichen wird der INHALT, nicht updatedAt: persist() ersetzt den
+  // lokalen Stand bewusst nicht durch den gerade geschriebenen (siehe dort).
+  // Speichert nach der anderen Person auch diese hier, trägt die Datei
+  // deren Zeitstempel -- die fremden Zeilen stünden trotzdem nur auf dem
+  // Server. Über den Inhalt fällt dieser Fall nicht durchs Raster.
+  const neu = migriere(daten);
+  if (inhaltsKennung(neu) === inhaltsKennung(offen)) return;
+  const fremd = (neu.updatedBy || "") !== personName();
+  offen = neu;
+  cacheAktualisieren(filename, offen);
+  renderTabelleErhalten();
+  setSyncLine(
+    fremd
+      ? `Stand von ${neu.updatedBy || "jemandem"} übernommen · ${zeitpunktText(neu.updatedAt)}`
+      : "Aktualisiert"
+  );
+}
+
+// Inhalt ohne die Spuren des Speicherns -- wer zuletzt gespeichert hat,
+// sagt nichts darüber, ob sich etwas geändert hat.
+function inhaltsKennung(data) {
+  return JSON.stringify({ ...data, updatedAt: null, updatedBy: null });
+}
+
+function zeitpunktText(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d)) return "gerade eben";
+  const heute = new Date().toDateString() === d.toDateString();
+  return heute
+    ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 // ---------- Zeilen finden/ändern ----------
@@ -2738,6 +2810,14 @@ function init() {
   messeSticky();
 
   window.addEventListener("online", refreshAlle);
+  // Beim Zurückkehren in den Tab nachsehen, ob jemand anders an derselben
+  // Schätzung war. Ohne offene Schätzung ist die Liste dran, die holt
+  // nebenbei den Katalog mit.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (offenFilename) holeFremdenStand();
+    else refreshAlle();
+  });
 
   // Der Katalog aus dem localStorage steht sofort, auch offline und bevor
   // refreshAlle() ihn frisch holt.

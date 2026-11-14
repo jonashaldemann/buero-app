@@ -1941,6 +1941,35 @@ gegenüber der Finanzplanung:
   andere ID, womit alle späteren Feldänderungen sie auf dem Server nicht
   mehr fänden.
 
+### Zu zweit an derselben Schätzung
+
+Das geht. Weil jede Änderung auf einen frisch geholten Serverstand gelegt
+wird, überschreiben sich zwei Personen nicht, solange sie an
+**verschiedenen Zeilen** arbeiten — und das ist der Normalfall, eine
+Kostenschätzung hat hunderte davon.
+
+Dazu wird der Stand der anderen **beim Zurückkehren in den Tab**
+nachgeladen (dasselbe Muster wie bei den Offerten). Ist eine Schätzung
+offen, wird nur diese eine Datei geholt, nicht die ganze Liste; hat sich
+nichts geändert, passiert nichts. Sonst rücken die fremden Zeilen nach, die
+Scrollposition und ein offenes Bearbeitungsfenster bleiben, und die
+Sync-Zeile sagt, von wem der Stand ist ("Stand von Anna Beispiel übernommen
+· 14:12"). Eine noch offene Eingabe wird vorher übernommen und geschrieben,
+und ist das Speichern gescheitert, wird gar nicht erst nachgeladen — sonst
+überschriebe der Serverstand das, was nur hier steht.
+
+Was bleibt:
+
+- **Dasselbe Feld gleichzeitig** — der Letzte gewinnt. Das betrifft vor
+  allem den Kopfdaten-Dialog, der den ganzen Block auf einmal schreibt.
+- **Ein kleines Verlustfenster** zwischen "Serverstand holen" und
+  "schreiben": dort liegt kein Schloss und kein ETag. Speichern beide in
+  derselben Sekunde, fällt eine Änderung weg. Ein `If-Match` würde das
+  schliessen, bräuchte aber einen neuen Worker-Deploy — `worker.js` reicht
+  weder `If-Match` hinein noch `ETag` heraus.
+- **Kein Live-Update während des Tippens**: nachgeladen wird beim
+  Tabwechsel, nicht im Sekundentakt.
+
 ---
 
 ## Modellviewer

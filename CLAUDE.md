@@ -115,6 +115,21 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   fein. In den Dateien heisst er `verifiziert`, in der Oberfläche
   "Vieraugenprinzip" (`STATUS_LABEL`) -- der Schlüssel bleibt, sonst müsste
   jede bestehende Schätzung umgeschrieben werden.
+- **Zu zweit an einer Schätzung `baukosten/`**: `persist()` legt jede
+  Änderung auf einen frisch geholten Serverstand, verschiedene Zeilen
+  überschreiben sich also nicht. Gesehen wird der fremde Stand über
+  `holeFremdenStand()` beim `visibilitychange` (wie in `offerten/`) -- und
+  der vergleicht den INHALT (`inhaltsKennung()`, ohne updatedAt/updatedBy),
+  nicht den Zeitstempel: speichert nach der anderen Person auch diese hier,
+  trägt die Datei deren Namen und Zeit, die fremden Zeilen stünden aber
+  trotzdem nur auf dem Server (`persist()` ersetzt den lokalen Stand
+  bewusst nicht). Vorher laufen `uebernimmOffeneEingabe()` und
+  `await syncQueue`; bei gescheitertem Speichern (`letzteSpeicherungOk`)
+  wird NICHT nachgeladen, sonst überschriebe der Server das nur lokal
+  Vorhandene. Offen bleibt bewusst: dasselbe Feld gleichzeitig (der Letzte
+  gewinnt) und das Fenster zwischen Holen und Schreiben -- ein `If-Match`
+  bräuchte einen Worker-Deploy, `worker.js` reicht weder `If-Match` hinein
+  noch `ETag` heraus.
 - **Startsicht `baukosten/`**: eine Schätzung öffnet IMMER auf Ebene 1 (nur
   die zehn Hauptgruppen), `oeffne()` setzt das fest. Die Ebene wird also
   bewusst nicht gemerkt, die übrigen Ansichtseinstellungen schon. Tests,
