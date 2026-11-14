@@ -77,6 +77,14 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `zeitplanung/`) — sonst bekommen bestehende Installationen die Änderung
   nicht automatisch mit.
 - Server danach beenden: `lsof -ti:<port> -sTCP:LISTEN | xargs -r kill`.
+- **Echte Büro-Daten zum Testen liegen in `.temp/`** (von `.gitignore`
+  erfasst, gehören NIE ins Repo): der Export der Preisliste und echte
+  Projektdateien wie "018 Bönigen Vorstudie P2 Bönigen Opti.json". Gegen
+  die lässt sich wirklichkeitsnah testen -- über `page.route` als
+  Nextcloud-Antwort ausliefern. Die Norm `_bkp_katalog.json` liegt nicht
+  dabei; für einen Lauf mit vollständigem Katalog lässt sie sich aus den
+  BKP-Knoten des Preislisten-Baums nachbilden (923 Nummern gegenüber 920 der
+  Norm).
 
 ## Architektur-Eckpunkte
 
@@ -143,12 +151,29 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
   offener Knoten werden wie die Ebene bewusst nicht gemerkt.
 - **Vorlagen aus der Preisliste `baukosten/` liegen ebenfalls auf NEXTCLOUD**
-  (`_preisliste.json`, `ladePreisliste()`): die
+  (`_preisliste.json`, `ladePreislisteBeiBedarf()`): die
   Preisdatenbank des Büros, gehört so wenig ins Repo wie die Norm
-  (`.gitignore` fängt eine Arbeitskopie ab, im Demomodus wird sie bewusst
-  nicht geladen). FREIWILLIG: fehlt sie, verschwindet nur der Vorlage-Block
-  im Bearbeitungsfenster -- jede andere Stelle muss ohne sie
-  weiterfunktionieren. Beim Übernehmen werden Einheit, Beschrieb und
+  (`.gitignore` fängt eine Arbeitskopie ab). Sie erscheint NUR angemeldet:
+  im Demomodus wird sie bewusst nicht geladen -- dort gilt weiter der grobe
+  Grundkatalog aus bkp.js mit den Demodaten. FREIWILLIG: fehlt sie,
+  verschwindet nur der Vorlage-Block im Bearbeitungsfenster -- jede andere
+  Stelle muss ohne sie weiterfunktionieren.
+- **Der Export der Preisliste wird ERST beim Öffnen des Bearbeitungsfensters
+  geholt und NIE im `localStorage` abgelegt**: der echte Export ist rund
+  6 MB (4242 Positionen, 12620 Optionen). Beim Start wäre das bei jedem
+  Aufruf ein unnötiger Download, und im `localStorage` würde er den Platz
+  sprengen, den die Schätzungen selbst fürs Offline-Arbeiten brauchen
+  (`LS_KEYS.cache`). Offline gibt es deshalb keine Vorlagen -- bereits
+  übernommene Optionen stehen in der Schätzung und rechnen weiter. Während
+  des Ladens steht im Fenster ein Hinweis; fertig geladen zieht NUR
+  `#panelVorlage` nach, nicht das ganze Fenster (sonst wäre der Fokus aus
+  dem Beschrieb weg).
+- **Rund 600 der 4242 Positionen der Preisliste haben GAR KEINE Optionen**
+  (reine Platzhalter wie "Machbarkeitsstudien"). Eine solche Vorlage setzt
+  den Kennwert NICHT auf 0, sondern lässt ihn stehen und räumt nur die
+  Felder der vorherigen Vorlage weg; in der Liste steht "ohne Preis" statt
+  einer Zahl. Ebenso überschreibt eine leere Einheit der Vorlage keine
+  vorhandene. Beim Übernehmen werden Einheit, Beschrieb und
   Optionen als KOPIE in die Zeile geschrieben, danach hängt die Schätzung
   nicht mehr an der Datei. Der passende Knoten wird über die tiefste
   BKP-Nummer gesucht, die der Baum führt, und von dort über die

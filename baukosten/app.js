@@ -46,8 +46,7 @@
 const LS_KEYS = {
   cache: "baukosten_cache",
   ansicht: "baukosten_ansicht",
-  katalog: "baukosten_katalog_cache", // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
-  preisliste: "baukosten_preisliste_cache" // zuletzt geladene Vorlagen, siehe ladePreisliste()
+  katalog: "baukosten_katalog_cache" // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
 };
 
 const BAUKOSTEN_TARGET_FOLDER_PATH = appModuleFolderPath("Baukosten");
@@ -130,6 +129,8 @@ const PFAD_TRENNER = " › ";
 
 let preislisteBaum = null; // Liste von Wurzelknoten, null = keine Datei
 let preislisteFlach = null; // Zwischenspeicher: alle Knoten samt Pfad
+let preislistePromise = null; // läuft der Ladevorgang gerade?
+let preislisteFehlt = false; // 404: das Büro führt keine Vorlagen-Datei
 
 function setzePreisliste(baum) {
   // Die Datei darf eine Liste oder einen einzelnen Wurzelknoten enthalten.
@@ -140,23 +141,41 @@ function setzePreisliste(baum) {
   return true;
 }
 
-async function ladePreisliste() {
-  // Wie beim Katalog: im Demomodus bewusst nichts -- sonst sähe eine
-  // Demositzung nach einem früheren Login die Preise des Büros.
-  if (istDemo()) {
-    preislisteBaum = null;
-    preislisteFlach = null;
-    return;
-  }
-  const zwischenstand = loadJSON(LS_KEYS.preisliste, null);
-  if (zwischenstand) setzePreisliste(zwischenstand.baum);
-  if (!isConfigured()) return;
-  try {
-    const daten = await fetchFile(PREISLISTE_FILENAME); // 404 -> null, kein Fehlerfall
-    if (daten && setzePreisliste(daten.baum)) saveJSON(LS_KEYS.preisliste, { baum: preislisteBaum });
-  } catch (e) {
-    /* offline o.ä. -- Zwischenspeicher bzw. "keine Vorlagen" bleibt stehen */
-  }
+// Geholt wird die Datei ERST beim ersten Öffnen des Bearbeitungsfensters,
+// nicht beim Start: der Export des Büros ist rund 6 MB (4200 Positionen mit
+// 12600 Optionen), und die allermeisten Sitzungen brauchen ihn nie. Aus
+// demselben Grund liegt er NICHT im localStorage -- 6 MB dort würden den
+// Platz sprengen, den die Schätzungen selbst für den Offline-Betrieb
+// brauchen. Offline gibt es deshalb keine Vorlagen; die bereits
+// übernommenen Optionen stehen in der Schätzung und rechnen weiter.
+function ladePreislisteBeiBedarf() {
+  // Wie beim Katalog: im Demomodus bewusst nichts -- die Preise des Büros
+  // haben in einer Demositzung nichts verloren.
+  if (istDemo() || !isConfigured() || !navigator.onLine) return;
+  if (preislistePromise) return;
+  preislistePromise = (async () => {
+    try {
+      const daten = await fetchFile(PREISLISTE_FILENAME); // 404 -> null, kein Fehlerfall
+      if (daten) setzePreisliste(daten.baum);
+      else preislisteFehlt = true; // gibt es nicht -- nicht bei jedem Öffnen neu fragen
+    } catch (e) {
+      // Netzfehler: beim nächsten Öffnen noch einmal versuchen. Ohne das
+      // bliebe der Hinweis "Vorlagen werden geladen …" für immer stehen.
+      preislistePromise = null;
+    }
+    // Nur den Vorlage-Block nachziehen, nicht das ganze Fenster: der Fokus
+    // steht beim Öffnen im Beschrieb und soll dort bleiben.
+    const box = document.getElementById("panelVorlage");
+    const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
+    if (box && zeile) box.innerHTML = vorlageBlockHtml(zeile);
+  })();
+}
+
+// Läuft der Ladevorgang noch? Dann steht im Fenster ein Hinweis statt
+// nichts -- 6 MB dauern auf dem Telefon einen Moment. Gescheitert oder gar
+// nicht vorhanden heisst dagegen: gar kein Block, wie ohne die Datei.
+function preislisteLaedt() {
+  return !!preislistePromise && !preislisteBaum && !preislisteFehlt;
 }
 
 function preislisteKinder(knoten) {
@@ -1630,14 +1649,21 @@ function kennwertZeileHtml(zeile) {
 
 // ---------- Bearbeitungsfenster: Vorlage ----------
 
-// Mehr als diese Zahl Vorlagen auf einmal hilft niemandem und macht das
-// Fenster träge -- der Rest geht übers Suchfeld.
-const VORLAGEN_MAX = 40;
+// Deckel für die Liste. 150 deckt jede BKP-Nummer des echten Katalogs ab
+// (die längste, 211.5 Beton- und Stahlbetonarbeiten, hat 145 Vorlagen) --
+// er greift also praktisch nur beim Suchen über alles.
+const VORLAGEN_MAX = 150;
 
 function vorlageBlockHtml(zeile) {
-  // Ohne die Datei gibt es den Block gar nicht: dann ist das Fenster genau
-  // das, was es vorher war.
-  if (!preislisteBaum || zeile.basis) return "";
+  // Prozent-Zeilen haben keinen Kennwert, für sie gibt es nichts zu holen.
+  if (zeile.basis) return "";
+  if (!preislisteBaum) {
+    // Ohne die Datei gibt es den Block gar nicht: dann ist das Fenster
+    // genau das, was es vorher war.
+    return preislisteLaedt()
+      ? `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen werden geladen …</div>`
+      : "";
+  }
   const pfad = zeile.vorlage && zeile.vorlage.pfad;
   return `
     <label>Vorlage</label>
@@ -1687,8 +1713,11 @@ function vorlageListeHtml() {
           return `<li><button type="button" data-panel-action="vorlage" data-pfad="${escapeHtml(e.pfadText)}">
             <span class="bk-vorlage-titel">${escapeHtml(e.knoten.bezeichnung || "(ohne Bezeichnung)")}</span>
             ${eltern ? `<span class="bk-vorlage-pfad">${escapeHtml(eltern)}</span>` : ""}
-            <span class="bk-vorlage-preis">${zahl(vorlageEinheitspreis(e.knoten))}${
-              e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : ""
+            <span class="bk-vorlage-preis">${
+              (e.knoten.optionen || []).length
+                ? zahl(vorlageEinheitspreis(e.knoten)) +
+                  (e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : "")
+                : "<span title=\"Diese Position führt in der Preisliste keine Preisoptionen\">ohne Preis</span>"
             }</span>
           </button></li>`;
         })
@@ -1847,6 +1876,7 @@ function renderPanelKosten() {
 function waehleZeile(nr, rowId) {
   gewaehlteZeile = { nr, id: rowId };
   vorlageSuche = "";
+  ladePreislisteBeiBedarf();
   document.querySelectorAll("#bkBody tr.bk-sub.gewaehlt").forEach((tr) => tr.classList.remove("gewaehlt"));
   const tr = document.querySelector(`#bkBody tr.bk-sub[data-row="${rowId}"]`);
   if (tr) tr.classList.add("gewaehlt");
@@ -1930,10 +1960,7 @@ async function refreshAlle() {
   try {
     await ensureBkFolder();
     // Der Katalog MUSS vor den Schätzungen stehen: migriere() entscheidet
-    // anhand von ihm, was eine unbekannte Nummer ist. Die Vorlagen dagegen
-    // braucht erst das Bearbeitungsfenster -- sie dürfen nebenher laufen
-    // und dürfen auch fehlen.
-    const vorlagen = ladePreisliste().catch(() => {});
+    // anhand von ihm, was eine unbekannte Nummer ist.
     await ladeKatalog();
     const filenames = await listFilenames();
     const geladen = await Promise.all(
@@ -1950,7 +1977,6 @@ async function refreshAlle() {
     );
     schaetzungen = geladen.filter(Boolean);
     saveJSON(LS_KEYS.cache, schaetzungen);
-    await vorlagen;
     setSyncLine(
       katalogQuelle === "repo"
         ? `Synchronisiert · BKP-Katalog fehlt (${KATALOG_FILENAME}) — es gilt der gröbere Grundkatalog`
@@ -2693,14 +2719,26 @@ function uebernimmVorlage(pfadText) {
   mutate((data) => {
     const zeile = (data.positionen[nr] || []).find((z) => z.id === id);
     if (!zeile) return data;
-    zeile.optionen = JSON.parse(JSON.stringify(optionen));
-    zeile.einheit = einheit;
     zeile.beschrieb = beschrieb;
+    // Eine leere Einheit der Vorlage überschreibt keine vorhandene -- im
+    // echten Export tragen viele Platzhalter-Positionen gar keine.
+    if (einheit) zeile.einheit = einheit;
     zeile.vorlage = { quelle: "preisliste", pfad: pfadText };
-    // Eine frisch übernommene Vorlage rechnet immer automatisch -- ein
-    // alter Kennwert von Hand gehörte zur vorherigen Position.
-    zeile.kennwertManuell = false;
-    zeile.kennwert = kennwertAusOptionen(zeile);
+    if (optionen.length) {
+      zeile.optionen = JSON.parse(JSON.stringify(optionen));
+      // Eine frisch übernommene Vorlage rechnet immer automatisch -- ein
+      // alter Kennwert von Hand gehörte zur vorherigen Position.
+      zeile.kennwertManuell = false;
+      zeile.kennwert = kennwertAusOptionen(zeile);
+    } else {
+      // Rund 600 Positionen im echten Export sind reine Platzhalter ohne
+      // Preisoptionen. Die bringen Beschrieb und Einheit mit, aber keinen
+      // Preis -- einen vorhandenen Kennwert dafür auf 0 zu setzen wäre das
+      // Gegenteil von hilfreich. Die Felder der vorherigen Vorlage müssen
+      // trotzdem weg, sie gehörten zu einer anderen Position.
+      delete zeile.optionen;
+      delete zeile.kennwertManuell;
+    }
     return data;
   });
   vorlageSuche = "";

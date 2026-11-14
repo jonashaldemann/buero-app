@@ -1833,9 +1833,18 @@ auf Nextcloud, lässt sich im Bearbeitungsfenster eine Position als
 
 Die Datei ist die Preisdatenbank des Büros und gehört so wenig ins
 öffentliche Repo wie die Norm — `.gitignore` fängt eine Arbeitskopie ab.
-**Alles daran ist freiwillig**: fehlt sie, verschwindet nur der
-Vorlage-Block, sonst ist das Modul exakt das von vorher. Im Demomodus wird
-sie bewusst nicht geladen.
+**Die Vorlagen erscheinen nur angemeldet**: im Demomodus wird die Datei
+bewusst nicht geladen, dort gilt weiterhin der grobe Grundkatalog mit den
+Demodaten. **Alles daran ist freiwillig**: fehlt sie, verschwindet nur der
+Vorlage-Block, sonst ist das Modul exakt das von vorher.
+
+Geholt wird sie **erst beim ersten Öffnen des Bearbeitungsfensters**, nicht
+beim Start: der Export des Büros ist rund 6 MB (4242 Positionen mit 12 620
+Optionen), und die meisten Sitzungen brauchen ihn nie. Aus demselben Grund
+liegt er **nicht** im Zwischenspeicher des Browsers — 6 MB dort würden den
+Platz sprengen, den die Schätzungen selbst fürs Offline-Arbeiten brauchen.
+Offline gibt es deshalb keine Vorlagen; bereits übernommene Optionen stehen
+in der Schätzung und rechnen weiter.
 
 **Angeboten** werden die Positionen unter dem passenden Knoten der Preisliste:
 die tiefste BKP-Nummer, die der Baum selbst führt. Liegt die Katalognummer
@@ -1846,10 +1855,17 @@ dagegen im **ganzen Baum**: wer tippt, sucht etwas Bestimmtes, und das steht
 oft unter einer anderen Nummer.
 
 **Beim Übernehmen** werden Einheit, Beschrieb und Optionen als **Kopie** in
-die Zeile geschrieben (ein bereits getippter Beschrieb wird dabei ersetzt).
-Danach hängt die Schätzung nicht mehr an der Datei — die Optionen rechnen
-auch ohne sie weiter. Woher die Zeile stammt, bleibt als Pfad vermerkt
+die Zeile geschrieben (ein bereits getippter Beschrieb wird dabei ersetzt;
+eine leere Einheit der Vorlage überschreibt keine vorhandene). Danach hängt
+die Schätzung nicht mehr an der Datei — die Optionen rechnen auch ohne sie
+weiter. Woher die Zeile stammt, bleibt als Pfad vermerkt
 (`vorlage: { quelle: "preisliste", pfad: "…" }`).
+
+Rund 600 der 4242 Positionen sind in der Preisliste **reine Platzhalter ohne
+Preisoptionen** ("Machbarkeitsstudien", "Baugrund"). In der Liste stehen sie
+mit **"ohne Preis"** statt einer Zahl; übernimmt man eine, kommen Beschrieb
+und Einheit mit, der **Kennwert bleibt stehen** (ihn auf 0 zu setzen wäre
+das Gegenteil von hilfreich).
 
 #### Optionen: Varianten, Bestandteile, Zuschläge
 

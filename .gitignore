@@ -36,3 +36,8 @@ _bkp_sn506500_2017.json
 # (ladePreisliste()). Fehlt er, läuft das Modul wie vorher -- es verschwindet
 # nur der Vorlage-Block im Bearbeitungsfenster.
 _preisliste.json
+
+# Arbeitsordner für echte Büro-Daten (Export der Preisliste, echte Projektdateien)
+# zum Testen gegen die Wirklichkeit. Nichts davon gehört ins (öffentliche!)
+# Repo -- der Ordner bleibt lokal liegen.
+.temp/
