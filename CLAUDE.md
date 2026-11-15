@@ -160,13 +160,19 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Grundkatalog aus bkp.js mit den Demodaten. FREIWILLIG: fehlt sie,
   verschwindet nur der Vorlage-Block im Bearbeitungsfenster -- jede andere
   Stelle muss ohne sie weiterfunktionieren.
-- **Angestossen wird das Laden aus `renderPanel()`, nicht aus
-  `waehleZeile()`**: das Fenster geht auch ohne sie auf -- "+ Zeile" in der
-  Kapitelansicht setzt `gewaehlteZeile` selbst (siehe `onBodyClick()`).
-  Genau dort fehlte der Vorlage-Block komplett und das Fenster sah leer
-  aus. `renderPanel()` ist die EINZIGE Stelle, an der das Fenster eine
-  Zeile zeigt; mehrfaches Aufrufen kostet nichts. Jede neue Art, das
-  Fenster zu öffnen, ist damit automatisch versorgt.
+- **Die Vorlage wird beim ANLEGEN gewählt, nicht im Bearbeitungsfenster**
+  (`oeffneVorlagenWahl()`, `#vorlagenOverlay`): "+ Zeile" fragt zuerst "Was
+  soll dazu?" -- Vorlage oder leere Zeile --, danach geht es im Fenster nur
+  noch um die Zahlen. Dort steht bloss noch die Herkunft und ein Knopf
+  "Andere Vorlage". Grund: beides zusammen war zu dicht, und die Auswahl
+  gehört zur Frage "was erfasse ich hier", nicht zu "wie viel davon".
+  Geladen wird der Export deshalb beim Öffnen der AUSWAHL, nicht beim
+  Öffnen des Fensters -- wer nur eine Zahl tippt, zieht keine 6 MB.
+- **Ohne Vorlagen-Datei bleibt "+ Zeile" wie früher**: die Auswahl geht
+  zwar auf (vorher weiss niemand, ob es Vorlagen gibt), schliesst sich aber
+  beim 404 von selbst wieder und legt die Zeile direkt an. Beim WECHSELN
+  einer bestehenden Zeile bleibt stattdessen "Keine Vorlagen vorhanden"
+  stehen -- dort wäre Anlegen keine sinnvolle Antwort.
 - **Ein gescheitertes Laden wird im Fenster GEMELDET** (`preislisteFehler`,
   mit Knopf "Nochmals versuchen"): ohne das sieht ein Netzfehler genauso
   aus wie "es gibt keine Vorlagen-Datei", und niemand kommt darauf,
@@ -182,6 +188,20 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   des Ladens steht im Fenster ein Hinweis; fertig geladen zieht NUR
   `#panelVorlage` nach, nicht das ganze Fenster (sonst wäre der Fokus aus
   dem Beschrieb weg).
+- **Die Ordner einer Vorlage werden zu eigenen UNTERKAPITELN**
+  (`kapitelFuerPfad()`, `vorlageOrdner()`): unterhalb der Gattung hört die
+  Norm auf, dort gliedert Preisliste weiter -- und genauso gliedert die
+  Schätzung. Übernommen wird der Pfad UNTERHALB des passenden BKP-Knotens;
+  die Zeile hängt im tiefsten Ordner, nicht flach unter der Nummer. Gibt es
+  ein Kapitel mit demselben Titel schon, wird es wiederverwendet. Stammt
+  die Vorlage aus einem anderen BKP-Ast, steht ihr GANZER Pfad als
+  Gliederung da -- sonst wüsste niemand, woher sie kommt; in der Auswahl
+  ist sie zusätzlich als "anderer Bereich" angeschrieben.
+  `kapitelFuerPfad()` läuft INNERHALB von `mutate()` und sucht über den
+  TITEL, vergibt eine Nummer nur für ein wirklich neues Kapitel: beide
+  Durchläufe (lokal und auf dem Serverstand) landen so beim selben Kapitel,
+  auch wenn die interne Kennung einmal abweicht -- sichtbar ist sie
+  nirgends (`knotenLabel()`).
 - **Rund 600 der 4242 Positionen der Preisliste haben GAR KEINE Optionen**
   (reine Platzhalter wie "Machbarkeitsstudien"). Eine solche Vorlage setzt
   den Kennwert NICHT auf 0, sondern lässt ihn stehen und räumt nur die

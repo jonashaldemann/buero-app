@@ -1863,6 +1863,34 @@ Ordnern, die gleich heissen wie die Kapitel hier. Das **Suchfeld** sucht
 dagegen im **ganzen Baum**: wer tippt, sucht etwas Bestimmtes, und das steht
 oft unter einer anderen Nummer.
 
+Gewählt wird die Vorlage **beim Anlegen einer Zeile**: "+ Zeile" fragt
+zuerst *"Was soll dazu?"* — eine Vorlage oder eine leere Zeile. Danach geht
+es im Bearbeitungsfenster nur noch um die Zahlen; dort steht bloss noch,
+woher die Zeile stammt, mit einem Knopf "Andere Vorlage". Ohne
+Vorlagen-Datei verhält sich "+ Zeile" wie früher.
+
+**Die Ordner der Vorlage werden zu Unterkapiteln.** Unterhalb der Gattung
+hört die Norm auf — dort gliedert Preisliste weiter, und genauso gliedert
+die Schätzung:
+
+```
+211.0 Baustelleneinrichtung                       20'571
+      Gesamte Einrichtung für EFH                  8'853
+      Individuelle Baustelleneinrichtung           3'502
+          Materialcontainer                        3'502
+              Materialcontainer 3.00 m …           1'686
+              Materialcontainer 4.00 m …           1'816
+```
+
+Diese Kapitel sind dieselben frei benannten Unterkapitel wie die von Hand
+angelegten: ohne Nummer, aber sonst gleich organisiert wie der nummerierte
+Baum darüber — mit Summe, zum Ein- und Ausklappen, mit "+ Zeile" und
+"+ Unterkapitel". Gibt es ein Kapitel mit demselben Titel schon, wird es
+wiederverwendet statt verdoppelt. Stammt eine Vorlage aus einem **anderen
+BKP-Bereich** (das Suchfeld sucht überall), ist sie in der Auswahl so
+angeschrieben, und ihr ganzer Pfad wird zur Gliederung — sonst stünde sie
+unerklärt mitten in einem fremden Kapitel.
+
 **Beim Übernehmen** werden Einheit, Beschrieb und Optionen als **Kopie** in
 die Zeile geschrieben (ein bereits getippter Beschrieb wird dabei ersetzt;
 eine leere Einheit der Vorlage überschreibt keine vorhandene). Danach hängt

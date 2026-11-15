@@ -177,11 +177,27 @@ function ladePreislisteBeiBedarf() {
       preislisteFehler = (e && e.message) || "unbekannter Fehler";
       preislistePromise = null;
     }
-    // Nur den Vorlage-Block nachziehen, nicht das ganze Fenster: der Fokus
-    // steht beim Öffnen im Beschrieb und soll dort bleiben.
-    const box = document.getElementById("panelVorlage");
-    const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
-    if (box && zeile) box.innerHTML = vorlageBlockHtml(zeile);
+    // Gibt es gar keine Vorlagen-Datei, hat der Auswahl-Dialog nichts zu
+    // zeigen: dann weiter wie früher, Zeile anlegen und lostippen. Beim
+    // Wechseln einer bestehenden Zeile bleibt der Hinweis stehen -- dort
+    // ist das Anlegen keine sinnvolle Antwort.
+    if (vorlagenZiel && preislisteFehlt && !vorlagenZiel.rowId) {
+      const { nr } = vorlagenZiel;
+      schliesseVorlagenWahl();
+      legeZeileAn(nr, { mitFenster: ansichtModus === "kapitel" });
+      return;
+    }
+    // Steht der Auswahl-Dialog offen, füllt sich die Liste jetzt. Das
+    // Suchfeld wird dabei neu gebaut -- deshalb den Fokus zurückgeben.
+    if (vorlagenZiel) {
+      const stand = vorlageSuche;
+      zeichneVorlagenWahl();
+      const feld = document.getElementById("vorlageSuche");
+      if (feld) {
+        feld.value = stand;
+        feld.focus();
+      }
+    }
   })();
 }
 
@@ -1563,12 +1579,6 @@ function renderPanel() {
     panel.innerHTML = "";
     return;
   }
-  // Von HIER aus geholt, nicht aus waehleZeile(): das Fenster geht auch
-  // ohne sie auf -- "+ Zeile" in der Kapitelansicht setzt gewaehlteZeile
-  // selbst. Dort fehlte der Vorlage-Block deshalb komplett. renderPanel()
-  // ist die einzige Stelle, an der das Fenster eine Zeile zeigt, und
-  // mehrfaches Aufrufen kostet nichts (es läuft höchstens ein Ladevorgang).
-  ladePreislisteBeiBedarf();
   const nr = gewaehlteZeile.nr;
   const posTitel = knotenTitel(nr);
   const modulFeld = module_().length
@@ -1677,33 +1687,27 @@ const VORLAGEN_MAX = 150;
 function vorlageBlockHtml(zeile) {
   // Prozent-Zeilen haben keinen Kennwert, für sie gibt es nichts zu holen.
   if (zeile.basis) return "";
-  if (!preislisteBaum) {
-    if (preislisteLaedt()) {
-      return `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen werden geladen …</div>`;
-    }
-    // Ein gescheitertes Laden muss man SEHEN -- sonst sieht es aus wie
-    // "gibt es nicht", und niemand kommt darauf, es nochmals zu versuchen.
-    if (preislisteFehler) {
-      return `<label>Vorlage</label><div class="bk-vorlage-leer">Vorlagen konnten nicht geladen werden (${escapeHtml(
-        preislisteFehler
-      )}). <button type="button" class="bk-toggle" data-panel-action="vorlagen-neu">Nochmals versuchen</button></div>`;
-    }
-    // Ohne die Datei gibt es den Block gar nicht: dann ist das Fenster
-    // genau das, was es vorher war.
-    return "";
-  }
+  // Ohne Vorlagen (Demomodus, keine Datei) gibt es den Block gar nicht --
+  // dann ist das Fenster genau das, was es vorher war. Eine Zeile MIT
+  // Herkunft zeigt sie trotzdem: sie steht in der Schätzung, nicht in der
+  // Datei.
+  if (!vorlagenMoeglich() && !(zeile.vorlage && zeile.vorlage.pfad)) return "";
+  // Gewählt wird die Vorlage beim ANLEGEN der Zeile (siehe
+  // oeffneVorlagenWahl()). Hier steht nur noch, woher sie stammt, und ein
+  // Knopf zum Wechseln -- im Fenster geht es sonst nur um die Zahlen.
   const pfad = zeile.vorlage && zeile.vorlage.pfad;
   return `
     <label>Vorlage</label>
-    ${pfad ? `<div class="bk-vorlage-aktuell">Übernommen: ${escapeHtml(pfad)}</div>` : ""}
-    <input type="search" id="vorlageSuche" class="bk-vorlage-suche" placeholder="Vorlage suchen …" autocomplete="off" value="${escapeHtml(
-      vorlageSuche
-    )}">
-    <div id="vorlageListe">${vorlageListeHtml()}</div>`;
+    <div class="bk-vorlage-aktuell">
+      <span>${pfad ? "Aus Preisliste: " + escapeHtml(pfad) : "Keine Vorlage — von Hand erfasst."}</span>
+      <button type="button" class="bk-toggle" data-panel-action="vorlage-wechseln">${
+        pfad ? "Andere Vorlage" : "Vorlage wählen"
+      }</button>
+    </div>`;
 }
 
-function vorlageListeHtml() {
-  if (!gewaehlteZeile || !preislisteBaum) return "";
+function vorlageListeHtml(zielNr) {
+  if (!zielNr || !preislisteBaum) return "";
   const such = vorlageSuche.trim().toLowerCase();
   const alle = preislistePositionen();
   let liste;
@@ -1719,10 +1723,10 @@ function vorlageListeHtml() {
     liste = alle.filter((e) => e.pfadText.toLowerCase().includes(such));
     hinweis = `Gesucht im ganzen Preislisten-Baum`;
   } else {
-    const knoten = preislisteKnotenFuer(gewaehlteZeile.nr);
+    const knoten = preislisteKnotenFuer(zielNr);
     if (!knoten) {
       return `<div class="bk-vorlage-leer">Zu ${escapeHtml(
-        knotenLabel(gewaehlteZeile.nr)
+        knotenLabel(zielNr)
       )} führt Preisliste nichts. Über das Suchfeld lässt sich trotzdem eine Vorlage holen.</div>`;
     }
     const praefix = knoten.pfadText + PFAD_TRENNER;
@@ -1745,10 +1749,19 @@ function vorlageListeHtml() {
     gruppen.get(rel).push(e);
   });
 
+  // Die Suche läuft über den ganzen Baum. Ein Treffer von anderswo ist oft
+  // genau der richtige, aber man muss es SEHEN -- sonst steht plötzlich
+  // eine Position aus BKP 1 unter 211.0.
+  const eigenerAst = preislisteKnotenFuer(zielNr);
+  const istFremd = (e) =>
+    !!eigenerAst &&
+    e.pfadText !== eigenerAst.pfadText &&
+    !e.pfadText.startsWith(eigenerAst.pfadText + PFAD_TRENNER);
   const eintragHtml = (e) => `<li><button type="button" data-panel-action="vorlage" data-pfad="${escapeHtml(
     e.pfadText
   )}">
       <span class="bk-vorlage-titel">${escapeHtml(e.knoten.bezeichnung || "(ohne Bezeichnung)")}</span>
+      ${istFremd(e) ? `<span class="bk-vorlage-fremd" title="${escapeHtml(e.pfad.slice(0, 2).join(PFAD_TRENNER))}">anderer Bereich</span>` : ""}
       <span class="bk-vorlage-preis">${
         (e.knoten.optionen || []).length
           ? zahl(vorlageEinheitspreis(e.knoten)) + (e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : "")
@@ -2373,6 +2386,36 @@ function neueZeile() {
   return { id: uid(), beschrieb: "", ausmass: "", einheit: "", kennwert: "", basis: "", modul: "", intern: "", extern: "" };
 }
 
+// Eine leere Zeile unter nr anlegen. mitFenster: das Bearbeitungsfenster
+// geht gleich auf (Kapitelansicht und nach der Vorlagenwahl) -- in der
+// Tabelle wird dagegen direkt in der Zeile getippt, ein Fenster würde sie
+// zudecken.
+function legeZeileAn(nr, { mitFenster } = {}) {
+  vorfahren(nr).forEach((v) => zugeklappt.delete(v));
+  zugeklappt.delete(nr);
+  // Die Zeile wird EINMAL vor dem mutate() erzeugt, nicht darin: mutateFn
+  // läuft zweimal (lokal und auf dem frisch geholten Serverstand), und mit
+  // einem uid() im Innern bekäme die Zeile dort eine andere ID -- alle
+  // späteren Feldänderungen würden sie auf dem Server nicht mehr finden.
+  const zeile = neueZeile();
+  if (mitFenster) {
+    gewaehlteZeile = { nr, id: zeile.id };
+    vorlageSuche = "";
+  }
+  mutate(
+    (data) => {
+      if (!data.positionen[nr]) data.positionen[nr] = [];
+      if (!data.positionen[nr].some((z) => z.id === zeile.id)) data.positionen[nr].push({ ...zeile });
+      return data;
+    },
+    { neuRendern: true }
+  );
+  const neuesFeld = document.querySelector(`#bkBody tr.bk-sub[data-row="${zeile.id}"] textarea[data-feld="beschrieb"]`);
+  if (neuesFeld) neuesFeld.focus();
+  else if (mitFenster) fokussierePanel();
+  return zeile;
+}
+
 // Einziger Weg, ein Feld einer Unterposition zu ändern -- egal ob die
 // Eingabe aus der Tabelle oder aus dem Bearbeitungsfenster kam. Danach wird die
 // jeweils ANDERE Darstellung derselben Zeile nachgeführt, damit beide
@@ -2589,27 +2632,11 @@ function onBodyClick(e) {
   }
 
   if (action === "add-zeile") {
-    vorfahren(nr).forEach((v) => zugeklappt.delete(v));
-    zugeklappt.delete(nr);
-    // Die Zeile wird EINMAL vor dem mutate() erzeugt, nicht darin: mutateFn
-    // läuft zweimal (lokal und auf dem frisch geholten Serverstand), und mit
-    // einem uid() im Innern bekäme die Zeile dort eine andere ID -- alle
-    // späteren Feldänderungen würden sie auf dem Server nicht mehr finden.
-    const zeile = neueZeile();
-    // In der Kapitelansicht gibt es keine Eingabefelder in der Liste -- dort
-    // geht die neue Zeile gleich im Bearbeitungsfenster auf. In der Tabelle
-    // wird direkt in der Zeile getippt; ein Fenster würde sie zudecken.
-    if (ansichtModus === "kapitel") gewaehlteZeile = { nr, id: zeile.id };
-    mutate(
-      (data) => {
-        if (!data.positionen[nr]) data.positionen[nr] = [];
-        if (!data.positionen[nr].some((z) => z.id === zeile.id)) data.positionen[nr].push({ ...zeile });
-        return data;
-      },
-      { neuRendern: true }
-    );
-    const neuesFeld = document.querySelector(`#bkBody tr.bk-sub[data-row="${zeile.id}"] textarea[data-feld="beschrieb"]`);
-    if (neuesFeld) neuesFeld.focus();
+    // Gibt es Vorlagen, wird zuerst gefragt, WAS dazukommt -- erst danach
+    // geht es um die Zahlen. Ohne Vorlagen (Demomodus, keine Datei) bleibt
+    // es beim alten Weg: Zeile anlegen und lostippen.
+    if (vorlagenMoeglich()) return oeffneVorlagenWahl(nr);
+    legeZeileAn(nr, { mitFenster: ansichtModus === "kapitel" });
     return;
   }
 
@@ -2743,9 +2770,57 @@ function onBodyInput(e) {
 
 // ---------- Interaktion: Vorlage und Optionen ----------
 
-// Eine Position der Preisliste in diese Zeile übernehmen. Danach hängt die
+// Die Ordner einer Vorlage als eigene UNTERKAPITEL anlegen und die Nummer
+// des tiefsten zurückgeben. Unterhalb der Gattung hört die Norm auf -- dort
+// gliedert Preisliste weiter, und genauso soll die Schätzung es tun, statt
+// alles flach unter die BKP-Nummer zu kippen.
+//
+// Läuft INNERHALB von mutate() und muss deshalb mit dem Stand arbeiten, den
+// es gerade sieht: gesucht wird über den TITEL, eine Nummer wird nur
+// vergeben, wenn es das Kapitel dort noch nicht gibt. Beide Durchläufe
+// (lokal und auf dem Serverstand) landen so beim selben Kapitel, auch wenn
+// die interne Kennung einmal abweicht -- sichtbar ist sie nirgends.
+function kapitelFuerPfad(data, startNr, ordner) {
+  let nr = startNr;
+  ordner.forEach((titel) => {
+    const name = String(titel || "").trim();
+    if (!name) return;
+    const vorhanden = (data.eigenePositionen || []).find(
+      (p) => elterNummer(p.nr) === nr && gleicheBezeichnung(p.titel, name)
+    );
+    if (vorhanden) {
+      nr = vorhanden.nr;
+      return;
+    }
+    // Freie Kennung im STAND VON DATA suchen, nicht über
+    // naechsteUnterteilung() -- das schaut auf die offene Schätzung.
+    const vergeben = new Set((data.eigenePositionen || []).map((p) => p.nr));
+    let i = 10;
+    while (vergeben.has(`${nr}.${i}`) || katalogTitel[`${nr}.${i}`]) i++;
+    const neueNr = `${nr}.${i}`;
+    data.eigenePositionen.push({ nr: neueNr, titel: name });
+    nr = neueNr;
+  });
+  return nr;
+}
+
+// Die Ordner einer Vorlage unterhalb des passenden BKP-Knotens -- also der
+// Pfad ohne den Ast, der schon über die Nummer abgebildet ist, und ohne die
+// Position selbst.
+function vorlageOrdner(eintrag, zielNr) {
+  const knoten = preislisteKnotenFuer(zielNr);
+  const tief = knoten && (eintrag.pfadText === knoten.pfadText || eintrag.pfadText.startsWith(knoten.pfadText + PFAD_TRENNER))
+      ? knoten.pfad.length
+      : 0;
+  // Stammt die Vorlage aus einem anderen Ast, steht ihr ganzer Pfad als
+  // Gliederung da -- sonst wüsste niemand, wo das Ding herkommt.
+  return eintrag.pfad.slice(tief, -1);
+}
+
+// Eine Position der Preisliste in eine Zeile übernehmen. Danach hängt die
 // Schätzung nicht mehr an der Datei: Einheit, Beschrieb und Optionen stehen
 // als KOPIE in der Zeile, der Pfad bleibt nur als Herkunftsangabe stehen.
+// Die Zeile wandert dabei unter die Ordner der Vorlage.
 function uebernimmVorlage(pfadText) {
   if (!gewaehlteZeile) return;
   const eintrag = preislisteNachPfad(pfadText);
@@ -2759,9 +2834,25 @@ function uebernimmVorlage(pfadText) {
   const einheit = String(knoten.einheit || "");
   const beschrieb = String(knoten.bezeichnung || "");
   const { nr, id } = gewaehlteZeile;
+  // Die BKP-Nummer, unter der die Zeile heute hängt -- von dort aus wird
+  // die Gliederung der Vorlage aufgebaut. Hängt die Zeile schon in einem
+  // eigenen Unterkapitel, zählt der Katalogknoten darüber: sonst
+  // verschachtelte sich beim zweiten Übernehmen alles ineinander.
+  const basisNr = [nr, ...vorfahren(nr)].find((n) => !istEigen(n)) || nr;
+  const ordner = vorlageOrdner(eintrag, basisNr);
+  let zielNr = nr;
   mutate((data) => {
-    const zeile = (data.positionen[nr] || []).find((z) => z.id === id);
+    const alteListe = data.positionen[nr] || [];
+    const zeile = alteListe.find((z) => z.id === id);
     if (!zeile) return data;
+    // Zeile unter die Ordner der Vorlage hängen.
+    zielNr = kapitelFuerPfad(data, basisNr, ordner);
+    if (zielNr !== nr) {
+      data.positionen[nr] = alteListe.filter((z) => z.id !== id);
+      if (!data.positionen[nr].length) delete data.positionen[nr];
+      if (!data.positionen[zielNr]) data.positionen[zielNr] = [];
+      data.positionen[zielNr].push(zeile);
+    }
     zeile.beschrieb = beschrieb;
     // Eine leere Einheit der Vorlage überschreibt keine vorhandene -- im
     // echten Export tragen viele Platzhalter-Positionen gar keine.
@@ -2784,8 +2875,12 @@ function uebernimmVorlage(pfadText) {
     }
     return data;
   });
+  // Die Zeile steht jetzt woanders -- das Fenster muss mitziehen.
+  gewaehlteZeile = { nr: zielNr, id };
+  vorfahren(zielNr).forEach((v) => zugeklappt.delete(v));
+  zugeklappt.delete(zielNr);
   vorlageSuche = "";
-  renderTabelleErhalten();
+  render();
   fokussierePanel();
 }
 
@@ -2869,9 +2964,94 @@ function zeichneOptionenNeu(fokusIndex) {
   aktualisierePanelZahlen();
 }
 
+// ---------- Auswahl beim Anlegen einer Zeile ----------
+//
+// "Was soll dazu?" steht VOR dem Bearbeitungsfenster: dort entscheidet sich,
+// welche Position es wird, danach geht es nur noch um die Zahlen. Zwei
+// Fälle: eine neue Zeile anlegen (rowId null) oder die Vorlage einer
+// bestehenden wechseln.
+let vorlagenZiel = null; // { nr, rowId }
+
+function vorlagenMoeglich() {
+  return !istDemo() && isConfigured() && !preislisteFehlt;
+}
+
+function oeffneVorlagenWahl(nr, rowId) {
+  vorlagenZiel = { nr, rowId: rowId || null };
+  vorlageSuche = "";
+  ladePreislisteBeiBedarf();
+  document.getElementById("vorlagenTitel").textContent = rowId
+    ? "Andere Vorlage"
+    : `Was soll unter "${knotenLabel(nr)}"?`;
+  zeichneVorlagenWahl();
+  overlay("vorlagenOverlay", true);
+  const feld = document.getElementById("vorlageSuche");
+  if (feld) feld.focus();
+}
+
+function zeichneVorlagenWahl() {
+  const box = document.getElementById("vorlagenInhalt");
+  if (!box || !vorlagenZiel) return;
+  const leer = vorlagenZiel.rowId
+    ? ""
+    : `<button type="button" class="bk-vorlage-leerzeile" data-vorlagen-aktion="leer">
+         + Leere Zeile — Beschrieb und Kennwert selber erfassen
+       </button>`;
+  const liste = preislisteBaum
+    ? `<input type="search" id="vorlageSuche" class="bk-vorlage-suche" placeholder="Vorlage suchen …" autocomplete="off" value="${escapeHtml(
+        vorlageSuche
+      )}">
+       <div id="vorlageListe">${vorlageListeHtml(vorlagenZiel.nr)}</div>`
+    : `<div class="bk-vorlage-leer">${
+        preislisteLaedt()
+          ? "Vorlagen werden geladen …"
+          : preislisteFehler
+          ? `Vorlagen konnten nicht geladen werden (${escapeHtml(
+              preislisteFehler
+            )}). <button type="button" class="bk-toggle" data-vorlagen-aktion="neu">Nochmals versuchen</button>`
+          : "Keine Vorlagen vorhanden."
+      }</div>`;
+  box.innerHTML = leer + liste;
+}
+
+function schliesseVorlagenWahl() {
+  overlay("vorlagenOverlay", false);
+  vorlagenZiel = null;
+  vorlageSuche = "";
+}
+
+function onVorlagenClick(e) {
+  if (e.target.id === "vorlagenOverlay") return schliesseVorlagenWahl();
+  const neu = e.target.closest('[data-vorlagen-aktion="neu"]');
+  if (neu) {
+    preislisteFehler = "";
+    preislistePromise = null;
+    ladePreislisteBeiBedarf();
+    zeichneVorlagenWahl();
+    return;
+  }
+  const leer = e.target.closest('[data-vorlagen-aktion="leer"]');
+  if (leer) {
+    const { nr } = vorlagenZiel || {};
+    schliesseVorlagenWahl();
+    if (nr) legeZeileAn(nr, { mitFenster: ansichtModus === "kapitel" });
+    return;
+  }
+  const btn = e.target.closest('[data-panel-action="vorlage"]');
+  if (!btn || !vorlagenZiel) return;
+  const { nr, rowId } = vorlagenZiel;
+  const pfad = btn.dataset.pfad || "";
+  schliesseVorlagenWahl();
+  // Eine neue Zeile entsteht zuerst leer unter der BKP-Nummer;
+  // uebernimmVorlage() hängt sie anschliessend unter die Ordner.
+  if (!rowId) legeZeileAn(nr, { mitFenster: true });
+  else gewaehlteZeile = { nr, id: rowId };
+  uebernimmVorlage(pfad);
+}
+
 function zeichneVorlageListe() {
   const box = document.getElementById("vorlageListe");
-  if (box) box.innerHTML = vorlageListeHtml();
+  if (box && vorlagenZiel) box.innerHTML = vorlageListeHtml(vorlagenZiel.nr);
 }
 
 function onOptionAenderung(el) {
@@ -2974,19 +3154,12 @@ function onPanelClick(e) {
   else if (was === "delete") loescheZeile(gewaehlteZeile.nr, gewaehlteZeile.id);
   else if (was === "prev") panelNachbar(-1);
   else if (was === "next") panelNachbar(1);
-  else if (was === "vorlage") uebernimmVorlage(btn.dataset.pfad || "");
-  else if (was === "vorlagen-neu") {
-    preislisteFehler = "";
-    preislistePromise = null;
-    const box = document.getElementById("panelVorlage");
-    const zeile = zeileSuchen(offen, gewaehlteZeile.id);
-    ladePreislisteBeiBedarf();
-    if (box && zeile) box.innerHTML = vorlageBlockHtml(zeile);
-  } else if (was === "kennwert-manuell") setzeKennwertManuell(true);
+  else if (was === "vorlage-wechseln") oeffneVorlagenWahl(gewaehlteZeile.nr, gewaehlteZeile.id);
+  else if (was === "kennwert-manuell") setzeKennwertManuell(true);
   else if (was === "kennwert-auto") setzeKennwertManuell(false);
 }
 
-function onPanelInput(e) {
+function onVorlagenInput(e) {
   if (e.target.id !== "vorlageSuche") return;
   vorlageSuche = e.target.value;
   zeichneVorlageListe();
@@ -3457,7 +3630,10 @@ function init() {
   const panel = document.getElementById("detailPanel");
   panel.addEventListener("click", onPanelClick);
   panel.addEventListener("change", onPanelChange);
-  panel.addEventListener("input", onPanelInput);
+  const vorlagenBox = document.getElementById("vorlagenOverlay");
+  vorlagenBox.addEventListener("click", onVorlagenClick);
+  vorlagenBox.addEventListener("input", onVorlagenInput);
+  document.getElementById("closeVorlagen").addEventListener("click", schliesseVorlagenWahl);
   panel.addEventListener("keydown", onPanelKeydown);
 
   document.getElementById("ebeneSeg").addEventListener("click", (e) => {
@@ -3523,6 +3699,10 @@ function init() {
       e.preventDefault();
       document.getElementById("sucheInput").focus();
       document.getElementById("sucheInput").select();
+      return;
+    }
+    if (e.key === "Escape" && !document.getElementById("vorlagenOverlay").classList.contains("hidden")) {
+      schliesseVorlagenWahl();
       return;
     }
     if (e.key === "Escape" && offen) {

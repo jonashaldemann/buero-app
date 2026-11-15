@@ -453,12 +453,33 @@
   .bk-marke-auto { background: var(--surface-2); color: var(--text-muted); }
   .bk-marke-manuell { background: rgba(191,155,79,0.18); color: #7A6322; }
 
+  /* Der Auswahl-Dialog ist breiter als die übrigen: die Vorlagentitel sind
+     lang ("Bürocontainer 6.05 m x 2.43 m x 2.60 m (1 Türe, 2 DK-Fenster)"). */
+  #vorlagenOverlay .sheet { max-width: 720px; }
+  #vorlagenOverlay .bk-vorlage-liste { max-height: min(460px, 52vh); }
+  .bk-vorlage-leerzeile {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: none; border: 1px dashed var(--border); border-radius: 10px;
+    padding: 9px 11px; margin-bottom: 8px;
+    font-family: var(--font-light); font-size: 12.5px; color: var(--text);
+  }
+  .bk-vorlage-leerzeile:hover { background: var(--surface-2); }
+  /* Herkunft aus einem anderen BKP-Ast: man soll sehen, dass der
+     Bürocontainer aus BKP 1 kommt und nicht aus 211.0. */
+  .bk-vorlage-fremd {
+    flex: none; font-size: 10px; letter-spacing: 0.3px; text-transform: uppercase;
+    color: #7A6322; background: rgba(191,155,79,0.18);
+    border-radius: 99px; padding: 1px 6px; white-space: nowrap;
+  }
+
   /* ---------- Vorlagen aus der Preisliste ---------- */
 
   .bk-vorlage-aktuell {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
     font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px;
     white-space: normal; line-height: 1.4;
   }
+  .bk-vorlage-aktuell > span { flex: 1; min-width: 180px; }
   .bk-panel input.bk-vorlage-suche { margin-bottom: 6px; }
   .bk-vorlage-quelle { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
   .bk-vorlage-leer { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
@@ -800,6 +821,18 @@
 </div>
 
 <!-- Druckoptionen -->
+<!-- Was soll dazu? Steht beim ANLEGEN einer Zeile, nicht im
+     Bearbeitungsfenster: dort geht es danach nur noch um die Zahlen. -->
+<div id="vorlagenOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="vorlagenTitel">Was soll dazu?</h2>
+      <button id="closeVorlagen" class="icon-btn" aria-label="Schliessen">&times;</button>
+    </div>
+    <div id="vorlagenInhalt"></div>
+  </div>
+</div>
+
 <div id="druckOverlay" class="overlay hidden">
   <div class="sheet">
     <div class="sheet-head">
