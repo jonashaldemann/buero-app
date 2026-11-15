@@ -204,6 +204,20 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   stünden bei "Alles" über sechstausend Zeilen in der Tabelle. Was Zeilen
   enthält, bleibt offen -- sonst wären die eigenen Erfassungen plötzlich
   versteckt. Gemessen: 2450 Zeilen und 273 ms bei "Alles".
+- **Eine Position der Preisliste mit GENAU EINER Erfassung ist die Zeile
+  selbst** (`unterpositionHtml(..., stattKnoten)`): ohne das stünde
+  "Wandstärke 18 cm" zweimal untereinander -- einmal als Kapitel, einmal
+  als Zeile darin. Die Zeile übernimmt Einzug und Status-Kästchen des
+  Knotens. Erst ab der ZWEITEN Erfassung ("Innenwände EG" / "OG") kommt die
+  Kapitelzeile zurück, dann gibt es dort wirklich eine Liste. In der
+  Kapitelansicht gilt dasselbe: hineingehen lohnt sich erst ab zwei Zeilen.
+- **"Optionen" heissen in der Oberfläche PREISPOSITIONEN**: um eine
+  18-cm-Betonwand zu erstellen, braucht es Beton, Betonstahl, Schalung,
+  Abschalung -- das sind keine Optionen, sondern die Posten, aus denen sich
+  der Preis zusammensetzt. Der Schlüssel in den Dateien bleibt `optionen`
+  (wie `verifiziert`/"Vieraugenprinzip"), sonst müsste jede bestehende
+  Schätzung umgeschrieben werden. Die drei ARTEN heissen weiterhin
+  Variante / Bestandteil / Zuschlag.
 - **Ein Klick auf eine Preisliste-POSITION öffnet das Fenster**
   (`erfassePreislistePosition()`), statt auf- und zuzuklappen: dort wird
   erfasst. Gibt es noch keine Zeile, entsteht eine mit Einheit, Beschrieb

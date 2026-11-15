@@ -513,7 +513,14 @@
     color: var(--text-muted); white-space: nowrap;
   }
 
-  /* ---------- Optionen ---------- */
+  /* Eine Position der Preisliste mit genau einer Erfassung steht ALS Zeile im
+     Baum, an der Stelle ihres Kapitels -- ohne sie stünde derselbe Titel
+     zweimal untereinander. Sie bekommt deshalb den Rahmen einer
+     Gruppenzeile, aber die Felder einer Unterposition. */
+  tr.bk-sub-knoten > td { border-top: 1px solid var(--border); }
+  tr.bk-sub-knoten .bk-col-nr { vertical-align: middle; }
+
+  /* ---------- Preispositionen ---------- */
 
   .bk-opt-gruppe {
     border: 1px solid var(--border); border-radius: 10px;

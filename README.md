@@ -1890,11 +1890,25 @@ wie der nummerierte Teil darüber, nur ohne Nummern:
 ```
 
 Ein Klick auf die unterste Stufe ("Wandstärke 18 cm") öffnet das
-Bearbeitungsfenster mit **Einheit und Optionen der Position** — bei
-Wandstärke 18 cm sind das m², Einheitspreis 154.74 aus fünf Bestandteilen
-(Beton 240/m³ × 0.18, Betonstahl 153/m³ × 0.18, Schalung, Abschalung,
+Bearbeitungsfenster mit **Einheit und Preispositionen** — bei Wandstärke
+18 cm sind das m², Einheitspreis 154.74 aus fünf Bestandteilen (Beton
+240/m³ × 0.18, Betonstahl 153/m³ × 0.18, Schalung, Abschalung,
 Nebenarbeiten) und drei zuschaltbaren Zuschlägen. Eingetragen wird dort nur
 noch das Ausmass.
+
+Die erfasste Position steht danach **als Zeile an ihrer eigenen Stelle** im
+Baum — nicht als Kapitel mit einer gleichnamigen Zeile darin:
+
+```
+Wände                                      20'073
+    Innenwände                             20'073
+        Wandstärke 18 cm  120  m²  154.74  20'073
+        Wandstärke 20 cm
+        Wandstärke 25 cm
+```
+
+Erst wenn man unter derselben Position eine **zweite** Zeile anlegt
+("Innenwände EG" und "OG"), kommt die Kapitelzeile mit der Summe zurück.
 
 Diese Kapitel stehen in **keiner Schätzungsdatei**, solange nichts darin
 erfasst ist — sonst hätte jede Schätzung über fünftausend leere Kapitel.
@@ -1937,11 +1951,13 @@ mit **"ohne Preis"** statt einer Zahl; übernimmt man eine, kommen Beschrieb
 und Einheit mit, der **Kennwert bleibt stehen** (ihn auf 0 zu setzen wäre
 das Gegenteil von hilfreich).
 
-#### Optionen: Varianten, Bestandteile, Zuschläge
+#### Preispositionen: Varianten, Bestandteile, Zuschläge
 
-Der Kennwert ist dann die **Summe aus Preis × Menge** über alles, was zählt.
-Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten, weil
-eine flache Häkchenliste nicht zeigt, was zur Wahl steht und was fix
+Um eine 18-cm-Betonwand zu erstellen, braucht es Beton, Betonstahl,
+Schalung, Abschalung — das sind die **Preispositionen**, aus denen sich der
+Kennwert zusammensetzt: die **Summe aus Preis × Menge** über alles, was
+zählt. Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten,
+weil eine flache Häkchenliste nicht zeigt, was zur Wahl steht und was fix
 dazugehört:
 
 | Art | Bedeutung | Bedienung |

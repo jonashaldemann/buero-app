@@ -593,7 +593,7 @@ function zeilenKosten(zeile, data) {
   return (isNaN(netto) ? 0 : netto) * mwstFaktor(data);
 }
 
-// ---------- Optionen einer Unterposition ----------
+// ---------- Preispositionen einer Unterposition ----------
 //
 // Eine übernommene Vorlage bringt ihre Optionen mit; der Kennwert ist dann
 // deren Summe (Preis × Menge über alles, was zählt). Es gibt drei Arten,
@@ -608,6 +608,12 @@ function zeilenKosten(zeile, data) {
 // ja/nein". Beim Übernehmen wird sie deshalb aus dem Muster abgeleitet
 // (mitVorbelegtenArten()) und ist danach pro Option umstellbar -- die
 // Vorlage liefert den Vorschlag, entschieden wird in der Schätzung.
+// In der Oberfläche heissen sie PREISPOSITIONEN: um eine 18-cm-Betonwand
+// zu erstellen, braucht es Beton, Betonstahl, Schalung, Abschalung -- das
+// sind keine "Optionen", sondern die Posten, aus denen sich der Preis
+// zusammensetzt. Der Schlüssel in den Dateien bleibt `optionen`, sonst
+// müsste jede bestehende Schätzung umgeschrieben werden (wie bei
+// verifiziert/"Vieraugenprinzip").
 const OPTION_ARTEN = { variante: "Variante", bestandteil: "Bestandteil", zuschlag: "Zuschlag" };
 const OPTION_ART_STANDARD = "bestandteil";
 
@@ -1259,12 +1265,17 @@ function totalZelleInhalt(summe) {
   return summe ? franken(summe) : "";
 }
 
+// Gleich grosse Stufen -- als Stil statt als Klasse, weil der Baum keine
+// feste maximale Tiefe hat. Ab Ebene 6 wird nicht weiter eingerückt, sonst
+// liefe die 112px schmale Nummernspalte über.
+function einzugStil(nr) {
+  const e = knotenEbene(nr);
+  return e === 1 ? "" : ` style="padding-left:${10 + Math.min(e - 1, 5) * 14}px"`;
+}
+
 function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, istBlatt) {
   const e = knotenEbene(knoten.nr);
-  // Gleich grosse Stufen -- als Stil statt als Klasse, weil der Baum keine
-  // feste maximale Tiefe hat. Ab Ebene 6 wird nicht weiter eingerückt,
-  // sonst liefe die 112px schmale Nummernspalte über.
-  const indent = e === 1 ? "" : ` style="padding-left:${10 + Math.min(e - 1, 5) * 14}px"`;
+  const indent = einzugStil(knoten.nr);
   let aktionen = "";
   if (e >= 3) {
     aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
@@ -1327,12 +1338,18 @@ function zeilenKostenText(zeile) {
   return kosten ? franken(kosten) : "";
 }
 
-function unterpositionHtml(nr, zeile, cols) {
+// stattKnoten: die Zeile TRITT AN DIE STELLE ihres Knotens. Bei einer
+// Position der Preisliste wäre "Wandstärke 18 cm" sonst zweimal untereinander
+// zu lesen -- einmal als Kapitel, einmal als Zeile darin. Sie übernimmt
+// dafür Einzug und Status-Kästchen des Knotens.
+function unterpositionHtml(nr, zeile, cols, stattKnoten) {
   const gewaehlt = gewaehlteZeile && gewaehlteZeile.id === zeile.id ? " gewaehlt" : "";
   let zellen = "";
   cols.forEach((c) => {
     if (c.key === "nr") {
-      zellen += '<td class="bk-col-nr"></td>';
+      zellen += stattKnoten
+        ? `<td class="bk-col-nr"${stattKnoten.indent}>${stattKnoten.status}</td>`
+        : '<td class="bk-col-nr"></td>';
     } else if (c.key === "beschrieb") {
       // Die Punkte zeigen auch bei ausgeblendeten Bemerkungsspalten, dass
       // zu dieser Zeile etwas hinterlegt ist.
@@ -1366,7 +1383,9 @@ function unterpositionHtml(nr, zeile, cols) {
       zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="bearbeiten" data-nr="${nr}" data-row="${zeile.id}" title="Zeile im Fenster bearbeiten">⋯</button><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
     }
   });
-  return `<tr class="bk-sub${gewaehlt}" data-nr="${nr}" data-row="${zeile.id}">${zellen}</tr>`;
+  return `<tr class="bk-sub${stattKnoten ? " bk-sub-knoten" : ""}${gewaehlt}" data-nr="${nr}" data-row="${
+    zeile.id
+  }">${zellen}</tr>`;
 }
 
 function renderTabelle() {
@@ -1398,6 +1417,18 @@ function renderTabelle() {
     const eigeneZeilen = knotenEbene(k.nr) >= 3 ? zeilenVon(k.nr).length : 0;
     const klappbar = kids.length > 0 || eigeneZeilen > 0;
     const kinderOffen = sucheAktiv || !zugeklappt.has(k.nr);
+
+    // Eine Position der Preisliste mit GENAU EINER Erfassung braucht keine
+    // eigene Kopfzeile: der Knoten ist die Zeile. Erst ab der zweiten
+    // Erfassung ("Innenwände EG" / "OG") lohnt sich die Gliederung wieder.
+    if (istPreislistePosition(k.nr) && eigeneZeilen === 1 && !kids.length) {
+      html += unterpositionHtml(k.nr, zeilenVon(k.nr)[0], cols, {
+        indent: einzugStil(k.nr),
+        status: statusHtml(k.nr, status[k.nr], true)
+      });
+      sichtbareZeilen++;
+      return;
+    }
 
     html += gruppenZeileHtml(k, summen[k.nr] || 0, klappbar, kinderOffen, cols, status[k.nr], !kids.length);
     sichtbareZeilen++;
@@ -1756,12 +1787,12 @@ function kennwertZeileHtml(zeile) {
   if (!optionenVon(zeile).length) return "";
   return kennwertAutomatisch(zeile)
     ? `<div class="bk-kw-zeile">
-         <span class="bk-marke bk-marke-auto">rechnet aus den Optionen</span>
+         <span class="bk-marke bk-marke-auto">rechnet aus den Preispositionen</span>
          <button type="button" class="bk-toggle" data-panel-action="kennwert-manuell">Von Hand überschreiben</button>
        </div>`
     : `<div class="bk-kw-zeile">
          <span class="bk-marke bk-marke-manuell">von Hand gesetzt</span>
-         <button type="button" class="bk-toggle" data-panel-action="kennwert-auto">Wieder aus den Optionen (${zahl(
+         <button type="button" class="bk-toggle" data-panel-action="kennwert-auto">Wieder aus den Preispositionen (${zahl(
            optionenSumme(zeile)
          )})</button>
        </div>`;
@@ -1855,7 +1886,7 @@ function vorlageListeHtml(zielNr) {
       <span class="bk-vorlage-preis">${
         (e.knoten.optionen || []).length
           ? zahl(vorlageEinheitspreis(e.knoten)) + (e.knoten.einheit ? " / " + escapeHtml(e.knoten.einheit) : "")
-          : "<span title=\"Diese Position führt in der Preisliste keine Preisoptionen\">ohne Preis</span>"
+          : "<span title=\"Diese Position führt in der Preisliste keine Preispositionen\">ohne Preis</span>"
       }</span>
     </button></li>`;
 
@@ -1889,7 +1920,7 @@ function optionenBlockHtml(zeile) {
   const bestandteile = gruppe("bestandteil");
   const zuschlaege = gruppe("zuschlag");
 
-  let html = `<label>Optionen</label>`;
+  let html = `<label>Preispositionen</label>`;
   if (varianten.length) {
     html += `<div class="bk-opt-gruppe">
       <div class="bk-opt-gruppe-kopf"><span>Varianten</span><span class="bk-opt-gruppe-hinweis">genau eine gilt</span>
@@ -1943,7 +1974,7 @@ function optionZeileHtml(opt, index) {
         String(opt.menge ?? "")
       )}" aria-label="Menge">
       <span class="bk-opt-einheit">${escapeHtml(opt.mengeEinheit || "")}</span>
-      <select data-opt-feld="typ" class="bk-opt-art" aria-label="Art der Option">
+      <select data-opt-feld="typ" class="bk-opt-art" aria-label="Art der Preisposition">
         ${Object.entries(OPTION_ARTEN)
           .map(([k, v]) => `<option value="${k}"${k === art ? " selected" : ""}>${v}</option>`)
           .join("")}
@@ -2723,9 +2754,11 @@ function onKapitelClick(e) {
   const ziel = e.target.closest("[data-kap-ziel]");
   if (!ziel || ziel.disabled) return;
   // Eine Position der Preisliste ist kein Kapitel zum Hineingehen, sondern der
-  // Ort, wo erfasst wird -- dort geht das Fenster auf.
+  // Ort, wo erfasst wird -- dort geht das Fenster auf. Hineingehen lohnt
+  // sich erst ab der zweiten Erfassung, dann gibt es dort wirklich eine
+  // Liste zu sehen.
   const nr = ziel.dataset.kapZiel;
-  if (istPreislistePosition(nr) && !zeilenVon(nr).length) return erfassePreislistePosition(nr);
+  if (istPreislistePosition(nr) && zeilenVon(nr).length <= 1) return erfassePreislistePosition(nr);
   setzeKapitel(nr);
 }
 
