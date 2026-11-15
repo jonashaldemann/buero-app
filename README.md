@@ -1869,9 +1869,42 @@ es im Bearbeitungsfenster nur noch um die Zahlen; dort steht bloss noch,
 woher die Zeile stammt, mit einem Knopf "Andere Vorlage". Ohne
 Vorlagen-Datei verhält sich "+ Zeile" wie früher.
 
-**Die Ordner der Vorlage werden zu Unterkapiteln.** Unterhalb der Gattung
-hört die Norm auf — dort gliedert Preisliste weiter, und genauso gliedert
-die Schätzung:
+#### Die Gliederung steht im Baum
+
+Unterhalb der BKP-Nummer hört die Norm auf — dort gliedert Preisliste
+weiter, und **genau diese Gliederung zeigt der Baum**, gleich organisiert
+wie der nummerierte Teil darüber, nur ohne Nummern:
+
+```
+211.5 Beton- und Stahlbetonarbeiten
+      Bodenplatte / Fundamente / Unterlagen
+      Wände
+          Innenwände
+              Wandstärke 18 cm        ← Klick öffnet das Fenster
+              Wandstärke 20 cm
+              Wandstärke 25 cm
+          Brüstungen innen
+          Aussenwände wasserdicht
+      Stützen
+      Treppen und Podeste
+```
+
+Ein Klick auf die unterste Stufe ("Wandstärke 18 cm") öffnet das
+Bearbeitungsfenster mit **Einheit und Optionen der Position** — bei
+Wandstärke 18 cm sind das m², Einheitspreis 154.74 aus fünf Bestandteilen
+(Beton 240/m³ × 0.18, Betonstahl 153/m³ × 0.18, Schalung, Abschalung,
+Nebenarbeiten) und drei zuschaltbaren Zuschlägen. Eingetragen wird dort nur
+noch das Ausmass.
+
+Diese Kapitel stehen in **keiner Schätzungsdatei**, solange nichts darin
+erfasst ist — sonst hätte jede Schätzung über fünftausend leere Kapitel.
+Erst wer etwas einträgt, schreibt seine Kette hinein. Leere Kapitel starten
+deshalb auch **zugeklappt**, auch bei "Alles"; was benutzt wird, bleibt
+offen. Geholt wird die Gliederung beim Öffnen einer Schätzung, nicht in der
+Liste.
+
+**Beim Übernehmen einer Vorlage über die Suche** werden ihre Ordner
+ebenfalls zu Unterkapiteln:
 
 ```
 211.0 Baustelleneinrichtung                       20'571

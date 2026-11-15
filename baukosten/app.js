@@ -139,6 +139,8 @@ function setzePreisliste(baum) {
   if (!liste || !liste.length) return false;
   preislisteBaum = liste;
   preislisteFlach = null;
+  preislisteKnotenCache = null;
+  preislisteNrMapCache = null;
   return true;
 }
 
@@ -177,6 +179,12 @@ function ladePreislisteBeiBedarf() {
       preislisteFehler = (e && e.message) || "unbekannter Fehler";
       preislistePromise = null;
     }
+    // Der Baum kennt die Gliederung jetzt -- neu zeichnen. Die Ebene wird
+    // dabei neu gesetzt, damit die leeren Kapitel der Preisliste zugeklappt
+    // starten (siehe setzeEbene()).
+    if (offen && preislisteBaum) {
+      setzeEbene(ansicht.ebene);
+    }
     // Gibt es gar keine Vorlagen-Datei, hat der Auswahl-Dialog nichts zu
     // zeigen: dann weiter wie früher, Zeile anlegen und lostippen. Beim
     // Wechseln einer bestehenden Zeile bleibt der Hinweis stehen -- dort
@@ -206,6 +214,73 @@ function ladePreislisteBeiBedarf() {
 // nicht vorhanden heisst dagegen: gar kein Block, wie ohne die Datei.
 function preislisteLaedt() {
   return !!preislistePromise && !preislisteBaum && !preislisteFehlt;
+}
+
+// ---------- Struktur der Preisliste als Knoten im Baum ----------
+//
+// Unterhalb der BKP-Nummer hört die Norm auf -- dort gliedert Preisliste
+// weiter ("211.5 Beton- und Stahlbetonarbeiten" > "Wände" > "Innenwände" >
+// "Wandstärke 18 cm"), und genau diese Gliederung zeigt der Baum, gleich
+// organisiert wie der nummerierte Teil darüber, nur ohne Nummern.
+//
+// Die Knoten sind VIRTUELL: sie stehen in keiner Schätzungsdatei. Erst wer
+// etwas erfasst, schreibt sein Kapitel hinein (materialisiereKnoten()) --
+// sonst stünden in jeder Schätzung über fünftausend leere Kapitel.
+//
+// Die Kennung ist <eltern>.<lfd> ab 1000, damit sie nie mit einer von Hand
+// angelegten Unterteilung kollidiert (die zählt ab 10) und nie mit einer
+// Gattung (.0-.9). Angezeigt wird sie nirgends (istEigen/knotenLabel).
+const PREISLISTE_NR_START = 1000;
+let preislisteKnotenCache = null;
+let preislisteNrMapCache = null;
+
+function preislisteKnoten() {
+  if (preislisteKnotenCache) return preislisteKnotenCache;
+  const liste = [];
+  if (!preislisteBaum) return (preislisteKnotenCache = liste);
+  const unter = (knoten, elternNr, pfad) => {
+    let i = PREISLISTE_NR_START;
+    preislisteKinder(knoten).forEach((k) => {
+      // Trägt das Kind selbst eine BKP-Nummer, gehört es dorthin und nicht
+      // unter diesen Knoten -- sonst stünde 211.5 nochmals unter 211.
+      if (k.bkp) return;
+      const nr = `${elternNr}.${i++}`;
+      const eigenerPfad = [...pfad, String(k.bezeichnung || "")];
+      liste.push({
+        nr,
+        titel: String(k.bezeichnung || ""),
+        knoten: k,
+        pfadText: eigenerPfad.join(PFAD_TRENNER)
+      });
+      unter(k, nr, eigenerPfad);
+    });
+  };
+  preislisteAlle().forEach((e) => {
+    if (e.knoten.bkp) unter(e.knoten, String(e.knoten.bkp), e.pfad);
+  });
+  preislisteKnotenCache = liste;
+  return liste;
+}
+
+function preislisteNrMap() {
+  if (!preislisteNrMapCache) {
+    preislisteNrMapCache = new Map();
+    preislisteKnoten().forEach((k) => preislisteNrMapCache.set(k.nr, k));
+  }
+  return preislisteNrMapCache;
+}
+
+// Der Knoten der Preisliste hinter einer Nummer -- für Titel, Optionen und die
+// Frage, ob es eine erfassbare Position ist.
+function preislisteZuNr(nr) {
+  return preislisteNrMap().get(nr) || null;
+}
+
+// Eine erfassbare Position (das unterste Glied, wo Einheit und Optionen
+// hängen) gegenüber einem blossen Gliederungsordner.
+function istPreislistePosition(nr) {
+  const k = preislisteZuNr(nr);
+  return !!k && k.knoten.typ === "position";
 }
 
 function preislisteKinder(knoten) {
@@ -756,12 +831,25 @@ function alleKnoten() {
   const eigene = (offen && offen.eigenePositionen) || [];
   const knoten = katalogListe.map(([nr, titel]) => ({ nr, titel, eigen: false }));
   const belegt = new Set(knoten.map((k) => k.nr));
-  const ergaenze = (nr, titel) => {
+  const ergaenze = (nr, titel, extra) => {
     if (belegt.has(nr)) return;
     belegt.add(nr);
-    knoten.push({ nr, titel, eigen: true });
+    knoten.push({ nr, titel, eigen: true, ...extra });
   };
   eigene.forEach((p) => ergaenze(p.nr, p.titel));
+  // Die Gliederung aus der Preisliste. Ein Kapitel, das unter demselben Elter
+  // schon denselben TITEL trägt, wird nicht doppelt angehängt: es ist
+  // dasselbe, nur bereits in der Schätzung festgehalten (und behält dann
+  // seine Kennung, auch wenn der Export später umsortiert wird).
+  const belegteTitel = new Set(
+    knoten.map((k) => `${elterNummer(k.nr) || ""}\u0000${String(k.titel).trim().toLowerCase()}`)
+  );
+  preislisteKnoten().forEach((k) => {
+    const schluessel = `${elterNummer(k.nr) || ""}\u0000${k.titel.trim().toLowerCase()}`;
+    if (belegteTitel.has(schluessel)) return;
+    belegteTitel.add(schluessel);
+    ergaenze(k.nr, k.titel, { preisliste: true });
+  });
   Object.entries(unbekannteKnoten()).forEach(([nr, titel]) => ergaenze(nr, titel));
   knoten.sort((a, b) => nummerVergleich(a.nr, b.nr));
   return knoten;
@@ -781,7 +869,7 @@ function unbekannteKnoten() {
   Object.keys(offen.positionen || {}).forEach((nr) => {
     if (!zeilenVon(nr).length) return;
     [...vorfahren(nr), nr].forEach((n) => {
-      if (katalogTitel[n] || eigene.some((p) => p.nr === n)) return;
+      if (katalogTitel[n] || eigene.some((p) => p.nr === n) || preislisteZuNr(n)) return;
       map[n] = BKP_ENTFALLEN_1991[n] ? `${BKP_ENTFALLEN_1991[n]} (BKP ${n})` : `BKP ${n}`;
     });
   });
@@ -915,9 +1003,11 @@ function istBlattKnoten(nr) {
 
 function knotenTitel(nr) {
   if (!nr) return "Übersicht";
+  const arch = preislisteZuNr(nr);
   return (
     katalogTitel[nr] ||
     ((offen.eigenePositionen || []).find((p) => p.nr === nr) || {}).titel ||
+    (arch && arch.titel) ||
     unbekannteKnoten()[nr] ||
     ""
   );
@@ -2386,6 +2476,38 @@ function neueZeile() {
   return { id: uid(), beschrieb: "", ausmass: "", einheit: "", kennwert: "", basis: "", modul: "", intern: "", extern: "" };
 }
 
+// Klick auf eine Position der Preisliste im Baum ("Wandstärke 18 cm"): dort
+// wird erfasst. Gibt es noch keine Zeile, entsteht eine mit den Optionen
+// der Position; sonst geht die vorhandene auf.
+function erfassePreislistePosition(nr) {
+  const arch = preislisteZuNr(nr);
+  if (!arch) return;
+  const vorhandene = zeilenVon(nr);
+  if (vorhandene.length) {
+    waehleZeile(nr, vorhandene[0].id);
+    return;
+  }
+  legeZeileAn(nr, { mitFenster: true });
+  // Die Zeile steht schon am richtigen Platz -- nur die Werte übernehmen.
+  uebernimmVorlage(arch.pfadText, { verschieben: false });
+}
+
+// Ein virtueller Knoten der Preisliste steht in keiner Datei. Sobald darunter
+// etwas erfasst wird, muss er samt seinen Vorfahren als eigenes Kapitel in
+// die Schätzung -- sonst hinge die Zeile beim nächsten Öffnen ohne die
+// Preisliste im Leeren.
+function materialisiereKnoten(data, nr) {
+  const kette = [];
+  let n = nr;
+  while (n && !katalogTitel[n]) {
+    const schonDa = (data.eigenePositionen || []).some((p) => p.nr === n);
+    const arch = preislisteZuNr(n);
+    if (!schonDa && arch) kette.unshift({ nr: n, titel: arch.titel });
+    n = elterNummer(n);
+  }
+  kette.forEach((k) => data.eigenePositionen.push(k));
+}
+
 // Eine leere Zeile unter nr anlegen. mitFenster: das Bearbeitungsfenster
 // geht gleich auf (Kapitelansicht und nach der Vorlagenwahl) -- in der
 // Tabelle wird dagegen direkt in der Zeile getippt, ein Fenster würde sie
@@ -2404,6 +2526,7 @@ function legeZeileAn(nr, { mitFenster } = {}) {
   }
   mutate(
     (data) => {
+      materialisiereKnoten(data, nr);
       if (!data.positionen[nr]) data.positionen[nr] = [];
       if (!data.positionen[nr].some((z) => z.id === zeile.id)) data.positionen[nr].push({ ...zeile });
       return data;
@@ -2527,11 +2650,14 @@ function setzeEbene(stufe) {
   zugeklappt = new Set();
   // Stufe 9 heisst "Alles" -- auch die eigenen Unterkapitel (Ebene 5 und
   // tiefer) bleiben offen. 4 ist die tiefste Ebene, die der Katalog führt.
-  if (stufe < 9) {
-    alleKnoten().forEach((k) => {
-      if (knotenEbene(k.nr) >= stufe) zugeklappt.add(k.nr);
-    });
-  }
+  alleKnoten().forEach((k) => {
+    if (stufe < 9 && knotenEbene(k.nr) >= stufe) return zugeklappt.add(k.nr);
+    // Die Gliederung der Preisliste bleibt zu, solange nichts darin erfasst
+    // ist: es sind über fünftausend Knoten, und niemand will sie alle auf
+    // einmal sehen. Aufklappen ist ein Klick, und was BENUTZT wird, bleibt
+    // offen -- sonst wären die eigenen Zeilen plötzlich versteckt.
+    if (k.preisliste && !zeilenUnter(k.nr).length) zugeklappt.add(k.nr);
+  });
   renderToolbar();
   render();
 }
@@ -2570,7 +2696,7 @@ function umklappen(nr) {
 function naechsteUnterteilung(nr) {
   const vergeben = new Set(((offen && offen.eigenePositionen) || []).map((p) => p.nr));
   let i = 10;
-  while (vergeben.has(`${nr}.${i}`) || katalogTitel[`${nr}.${i}`]) i++;
+  while (vergeben.has(`${nr}.${i}`) || katalogTitel[`${nr}.${i}`] || preislisteZuNr(`${nr}.${i}`)) i++;
   return `${nr}.${i}`;
 }
 
@@ -2595,7 +2721,12 @@ function onKapitelClick(e) {
     return;
   }
   const ziel = e.target.closest("[data-kap-ziel]");
-  if (ziel && !ziel.disabled) setzeKapitel(ziel.dataset.kapZiel);
+  if (!ziel || ziel.disabled) return;
+  // Eine Position der Preisliste ist kein Kapitel zum Hineingehen, sondern der
+  // Ort, wo erfasst wird -- dort geht das Fenster auf.
+  const nr = ziel.dataset.kapZiel;
+  if (istPreislistePosition(nr) && !zeilenVon(nr).length) return erfassePreislistePosition(nr);
+  setzeKapitel(nr);
 }
 
 function onBodyClick(e) {
@@ -2605,8 +2736,13 @@ function onBodyClick(e) {
     // Klick irgendwo auf eine Gruppen-/Positionszeile klappt sie auf und zu.
     // In der Zeile selbst gibt es sonst nichts anzuklicken -- dadurch
     // braucht es keine eigenen Klapp-Dreiecke mehr.
-    const zeile = e.target.closest("tr.bk-group.klappbar");
-    if (zeile) umklappen(zeile.dataset.nr);
+    const zeile = e.target.closest("tr.bk-group");
+    if (!zeile) return;
+    const nr = zeile.dataset.nr;
+    // Eine Preisliste-POSITION ist der Ort, wo erfasst wird -- dort öffnet
+    // der Klick das Fenster statt auf- und zuzuklappen.
+    if (istPreislistePosition(nr) && !zeilenVon(nr).length) return erfassePreislistePosition(nr);
+    if (zeile.classList.contains("klappbar")) umklappen(nr);
     return;
   }
   const { action, nr, row } = btn.dataset;
@@ -2821,7 +2957,7 @@ function vorlageOrdner(eintrag, zielNr) {
 // Schätzung nicht mehr an der Datei: Einheit, Beschrieb und Optionen stehen
 // als KOPIE in der Zeile, der Pfad bleibt nur als Herkunftsangabe stehen.
 // Die Zeile wandert dabei unter die Ordner der Vorlage.
-function uebernimmVorlage(pfadText) {
+function uebernimmVorlage(pfadText, { verschieben = true } = {}) {
   if (!gewaehlteZeile) return;
   const eintrag = preislisteNachPfad(pfadText);
   if (!eintrag) return;
@@ -2839,14 +2975,16 @@ function uebernimmVorlage(pfadText) {
   // eigenen Unterkapitel, zählt der Katalogknoten darüber: sonst
   // verschachtelte sich beim zweiten Übernehmen alles ineinander.
   const basisNr = [nr, ...vorfahren(nr)].find((n) => !istEigen(n)) || nr;
-  const ordner = vorlageOrdner(eintrag, basisNr);
+  // Steht die Zeile schon am richtigen Platz (Gliederung der Preisliste im
+  // Baum), wird sie nicht noch einmal umgehängt.
+  const ordner = verschieben ? vorlageOrdner(eintrag, basisNr) : null;
   let zielNr = nr;
   mutate((data) => {
     const alteListe = data.positionen[nr] || [];
     const zeile = alteListe.find((z) => z.id === id);
     if (!zeile) return data;
     // Zeile unter die Ordner der Vorlage hängen.
-    zielNr = kapitelFuerPfad(data, basisNr, ordner);
+    zielNr = ordner ? kapitelFuerPfad(data, basisNr, ordner) : nr;
     if (zielNr !== nr) {
       data.positionen[nr] = alteListe.filter((z) => z.id !== id);
       if (!data.positionen[nr].length) delete data.positionen[nr];
@@ -3251,6 +3389,10 @@ function oeffne(filename) {
   ansichtModus = "tabelle";
   kapitelKnoten = "";
   renderToolbar();
+  // Die Gliederung der Preisliste gehört zum BAUM, nicht nur zur Vorlagenwahl --
+  // deshalb beim Öffnen einer Schätzung holen, nicht erst beim Erfassen.
+  // In der Liste passiert nichts: wer nur schaut, lädt keine 6 MB.
+  ladePreislisteBeiBedarf();
   setzeEbene(1); // immer mit dem Überblick anfangen, siehe ansichtDefaults
 }
 

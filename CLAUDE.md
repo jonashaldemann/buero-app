@@ -188,6 +188,31 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   des Ladens steht im Fenster ein Hinweis; fertig geladen zieht NUR
   `#panelVorlage` nach, nicht das ganze Fenster (sonst wäre der Fokus aus
   dem Beschrieb weg).
+- **Die Gliederung der Preisliste IST der Baum unterhalb der BKP-Nummer**
+  (`preislisteKnoten()`): "211.5 Beton- und Stahlbetonarbeiten" > "Wände" >
+  "Innenwände" > "Wandstärke 18 cm" -- 5422 Knoten, bis acht Ebenen unter
+  der Nummer. Sie sind VIRTUELL: sie stehen in keiner Schätzungsdatei, bis
+  dort etwas erfasst wird (`materialisiereKnoten()` schreibt dann die
+  ganze Kette als eigene Kapitel). Kennung `<eltern>.<lfd>` ab **1000** --
+  von Hand angelegte Unterteilungen zählen ab 10, Gattungen sind .0-.9, so
+  kollidiert nichts (`naechsteUnterteilung()` weiss davon).
+  `alleKnoten()` lässt einen virtuellen Knoten weg, wenn unter demselben
+  Elter schon ein Kapitel mit demselben TITEL steht -- das ist derselbe,
+  nur bereits festgehalten, und behält seine Kennung, auch wenn der Export
+  später umsortiert wird.
+- **Leere Kapitel der Preisliste starten ZUGEKLAPPT** (`setzeEbene()`): sonst
+  stünden bei "Alles" über sechstausend Zeilen in der Tabelle. Was Zeilen
+  enthält, bleibt offen -- sonst wären die eigenen Erfassungen plötzlich
+  versteckt. Gemessen: 2450 Zeilen und 273 ms bei "Alles".
+- **Ein Klick auf eine Preisliste-POSITION öffnet das Fenster**
+  (`erfassePreislistePosition()`), statt auf- und zuzuklappen: dort wird
+  erfasst. Gibt es noch keine Zeile, entsteht eine mit Einheit, Beschrieb
+  und Optionen der Position (`uebernimmVorlage(..., { verschieben: false })`
+  -- sie steht ja schon am richtigen Platz). Gilt in der Tabelle wie in der
+  Kapitelansicht.
+- **Die Gliederung wird beim ÖFFNEN einer Schätzung geholt** (`oeffne()`),
+  nicht erst beim Erfassen: sie gehört zum Baum. In der LISTE passiert
+  nichts -- wer nur schaut, lädt keine 6 MB.
 - **Die Ordner einer Vorlage werden zu eigenen UNTERKAPITELN**
   (`kapitelFuerPfad()`, `vorlageOrdner()`): unterhalb der Gattung hört die
   Norm auf, dort gliedert Preisliste weiter -- und genauso gliedert die
