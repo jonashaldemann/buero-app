@@ -1656,9 +1656,12 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   "Kapitel 22 · 10 Unterkapitel · 3 verwendet".
 - **Darunter die direkten Kinder**, eine Zeile pro Kind: Statuskästchen
   (dieselbe Logik wie in der Tabelle, anklickbar), Nummer und Bezeichnung,
-  darunter klein die Titel der nächsten Ebene bzw. die Zahl der
-  Positionen, ein Fortschrittsbalken, die Summe und ein "›". Ein Klick auf
-  die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
+  ein Fortschrittsbalken, die Summe und ein "›". Ein Klick auf die Zeile
+  zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand. Die Zeile
+  ist **einzeilig und schlank**: früher stand darunter klein noch ein
+  Anriss der nächsten Ebene ("Vorstudien · Grundstückserwerb · …") bzw. die
+  Zahl der Positionen — das machte die Liste doppelt so hoch, ohne eine
+  Frage zu beantworten. Wer wissen will, was drinsteckt, geht hinein.
 - Der **Fortschrittsbalken** zeigt alle Stände der Positionen darunter in
   drei Abschnitten, in den Farben der Statuskästchen: dunkelgrün (beide
   Häkchen), hellgrün (ein Häkchen), gelb (erfasst, aber noch keines). Was
@@ -1837,6 +1840,25 @@ Prozent-Zeilen netto bleibt** — das Architektenhonorar wird auf die
 Netto-Baukosten gerechnet und dann selbst versteuert, nicht auf einen
 Betrag, in dem die MwSt schon steckt.
 
+#### Jede Position wird auf 100 Franken gerundet
+
+Eine Kostenschätzung ist nie frankengenau — "CHF 616" täuscht eine
+Genauigkeit vor, die es nicht gibt. **Jede Position** wird deshalb auf die
+nächsten 100 Franken gerundet, auf oder ab, je nachdem was näher liegt:
+aus 12 m² × 47.50 (570 netto, 616.15 inkl. 8.1%) wird **CHF 600**.
+
+Gerundet wird derselbe Betrag, der in der Kostenspalte steht — also
+**inklusive MwSt**, an derselben einen Stelle (`zeilenKosten()`). Damit
+sind auch jede Gruppensumme, die Modulsummen, das Gesamttotal, die
+Bandbreiten-Kachel und der Ausdruck Vielfache von 100, und das Total ist
+exakt die Summe der angezeigten Zeilen. Ungerundet bleibt alles darunter:
+die Kennwerte selbst, die Preispositionen und die Bemessungsgrundlage der
+Prozent-Zeilen.
+
+Eine Position unter 50 Franken wird damit zu 0 und zeigt eine leere
+Kostenzelle — in einer Baukostenschätzung gibt es keine Positionen dieser
+Grössenordnung.
+
 **Bestehende Dateien** (vor dieser Änderung) bekommen beim Öffnen **0%**,
 nicht 8.1%: dort waren die Kennwerte inklusive erfasst, ein automatischer
 Zuschlag würde die Schätzung still um 8.1% aufblähen. Wer eine solche
@@ -1905,7 +1927,7 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
 
 - Eine Unterposition lässt sich in einem **zentrierten Fenster** gross
   bearbeiten: Pfad klein oben, Beschrieb, Berechnung,
-  Ausmass/Einheit/Kennwert bzw. Prozentsatz, Kosten inkl. MwSt, Modul,
+  Ausmass/Einheit/Kennwert bzw. Prozentsatz, Kosten, Modul,
   Status, Notizen und Bemerkungen. Dadurch darf die Tabelle selbst schmal
   und ruhig bleiben; beide Seiten schreiben in dieselbe Zeile und werden
   gegenseitig nachgeführt (`setzeFeld()`).
@@ -1920,6 +1942,17 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
     unten steht "Änderungen werden beim Schliessen gespeichert".
   - Unten rechts führen **"‹ vorherige · nächste ›"** zur Nachbarzeile
     derselben Position, ohne zu schliessen.
+  - Bei **Kosten** steht rechts gross der Betrag inklusive MwSt (gerundet,
+    siehe oben) und links daneben heller und nicht fett derselbe Betrag
+    **ohne MwSt** — den braucht man beim Vergleich mit einer Offerte. Ohne
+    MwSt-Satz in den Kopfdaten entfällt er, dort stünde zweimal dasselbe.
+  - **Zeilen aus der Preisliste lassen sich nicht löschen**: statt "Zeile
+    löschen" steht unten **"Vorlage lösen"**. Das nimmt nur die Herkunft
+    weg — Beschrieb, Einheit und Preispositionen bleiben stehen —, danach
+    ist es eine von Hand erfasste Zeile und lässt sich wie jede andere
+    löschen (auch über das "×" in der Tabelle, das bei Vorlagen-Zeilen
+    fehlt). So bleibt eine versehentlich angeklickte Position aus der
+    Preisliste nicht für immer in der Schätzung.
   - Es ist **modal**: es liegt über der ganzen Seite (z-index 70, also auch
     über den Dialogen), die Werkzeugleiste ist solange nicht bedienbar. Der
     Tabulator läuft im Fenster im Kreis, beim Öffnen steht der Fokus im
@@ -2075,7 +2108,9 @@ Schalung, Abschalung — das sind die **Preispositionen**, aus denen sich der
 Kennwert zusammensetzt: die **Summe aus Preis × Menge** über alles, was
 **angehakt** ist.
 
-Sie stehen alle in **einer Liste**, eine Zeile je Position:
+Sie stehen alle in **einer Liste**, eine Zeile je Position. Eine
+Überschrift darüber gibt es nicht — die Kopfzeile "Position · Preis ·
+Menge · Betrag" sagt schon, was dort steht:
 
 | Häkchen | Position | Preis | × | Menge | Betrag |
 | --- | --- | --- | --- | --- | --- |
@@ -2091,10 +2126,14 @@ Preisliste, was dort angehakt ist.
 und Kennwert). Weicht ein Preis vom Vorlagepreis ab, steht dieser klein
 darunter — man sieht also, dass hier für diese Schätzung etwas anderes gilt.
 
-**Der Kennwert rechnet dabei automatisch mit**; das Feld ist grau und trägt
-den Vermerk "rechnet aus den Preispositionen". Mit "Von Hand überschreiben" wird es
+**Der Kennwert rechnet dabei automatisch mit**; das Feld ist grau und
+schreibgeschützt. Gleich daneben — **in derselben Zeile wie Ausmass,
+Einheit und Kennwert** — steht "Von Hand überschreiben": damit wird es
 schreibbar und gelb markiert, die automatische Berechnung ist dann aus, bis
-man sie wieder einschaltet. Dasselbe passiert, wenn man den Kennwert einer
+man sie mit "Aus Preispositionen (…)" wieder einschaltet. (Früher standen
+dort zusätzlich die Marken "rechnet aus den Preispositionen" bzw. "von Hand
+gesetzt" auf einer eigenen Zeile; sie sagten nichts, was das Feld nicht
+schon zeigt.) Dasselbe passiert, wenn man den Kennwert einer
 solchen Zeile direkt in der **Tabelle** überschreibt — sonst wäre der Wert
 beim nächsten Häkchen wieder weg.
 

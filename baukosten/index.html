@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="../icons/baukosten-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="../css/style.css?v=41">
+<link rel="stylesheet" href="../css/style.css?v=43">
 <style>
   /* ============================================================
      Baukosten — bewusst eine Layout-Ausnahme gegenüber den übrigen
@@ -156,21 +156,27 @@
   .bk-kap-summe .wert { font-family: var(--font-medium); font-size: 21px; font-variant-numeric: tabular-nums; }
 
   .bk-kap-liste { display: flex; flex-direction: column; gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; }
+  /* Eine Zeile, eine Höhe: seit der Untertitel mit den ersten
+     Unterkapiteln weg ist (siehe renderKapitel()), darf die Liste
+     schlanker sein -- auf einem Bildschirm stehen so halb so viele
+     Zeilen wie vorher. */
   .bk-kap-zeile {
     display: flex; align-items: center; gap: 12px;
-    background: var(--surface); padding: 10px 14px; cursor: pointer;
+    background: var(--surface); padding: 6px 14px; cursor: pointer;
   }
   .bk-kap-zeile:hover { filter: brightness(0.98); }
   .bk-kap-zeile.leer .bk-kap-zeile-titel { color: var(--text-muted); }
   .bk-kap-zeile-haupt { flex: 1; min-width: 0; }
-  .bk-kap-zeile-titel { font-size: 13.5px; }
-  /* Der Untertitel bleibt EINE Zeile: sonst wachsen die Kapitelzeilen
-     unterschiedlich hoch und die Liste wird unruhig. */
+  .bk-kap-zeile-titel {
+    display: block; font-size: 13.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* Nur noch bei den Positionszeilen: dort steht die Bemerkung darunter.
+     Sie bleibt EINE Zeile, sonst wird die Liste unruhig. */
   .bk-kap-zeile-sub {
     font-size: 11px; color: var(--text-muted); margin-top: 2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .bk-kap-zeile-titel { display: block; }
   /* Drei Abschnitte in der Reihenfolge des Fortschritts; der freie Rest ist
      das, was noch niemand angeschaut hat (siehe balkenHtml() in app.js). */
   .bk-kap-balken {
@@ -187,13 +193,13 @@
 
   /* Unterpositionen eines Blatts: kompakte Zeilen, Klick öffnet die
      Bearbeitung. */
-  .bk-kap-pos { display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 9px 14px; cursor: pointer; }
+  .bk-kap-pos { display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 6px 14px; cursor: pointer; }
   .bk-kap-pos:hover { filter: brightness(0.98); }
   .bk-kap-pos .mass { width: 150px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; flex: none; }
   /* Ohne Ausmass zählt die Position noch nichts -- sie steht da wie ein
      leeres Kapitel, nicht wie eine erfasste Zeile. */
   .bk-kap-pos.leer .bk-kap-zeile-titel, .bk-kap-pos.leer .bk-kap-betrag { color: var(--text-muted); }
-  .bk-kap-neu { background: var(--surface); padding: 9px 14px; }
+  .bk-kap-neu { background: var(--surface); padding: 7px 14px; }
 
   .bk-kap-fuss { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
   .bk-kap-nav {
@@ -475,13 +481,23 @@
   .bk-panel input:focus, .bk-panel textarea:focus, .bk-panel select:focus {
     outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(79,112,137,0.18);
   }
-  .bk-panel .bk-panel-dreispalt { display: flex; gap: 8px; }
+  .bk-panel .bk-panel-dreispalt { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
   .bk-panel .bk-panel-dreispalt > div { flex: 1; min-width: 0; }
+  /* Der Knopf neben dem Kennwert trägt keine Beschriftung über sich und
+     bekommt deshalb nur so viel Breite, wie sein Text braucht -- er sitzt
+     auf der Höhe der Eingabefelder. */
+  .bk-panel .bk-panel-dreispalt > .bk-kw-knopf { flex: none; min-width: 0; }
+  .bk-panel .bk-kw-knopf .bk-toggle { white-space: nowrap; }
   .bk-panel-kosten {
     margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: baseline;
   }
   .bk-panel-kosten .wert { font-family: var(--font-medium); font-size: 19px; font-variant-numeric: tabular-nums; }
+  /* Der Betrag OHNE MwSt links daneben: heller, kleiner, nicht fett --
+     die grosse Zahl bleibt die inklusive. */
+  .bk-panel-kosten .wert .bk-kosten-netto {
+    font-family: var(--font-light); font-size: 13px; color: var(--text-muted); margin-right: 9px;
+  }
   .bk-panel-fuss { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
   /* Auf dem Telefon nimmt das Fenster die ganze Breite und sitzt unten --
@@ -496,13 +512,6 @@
 
   .bk-panel input.bk-kw-auto { background: var(--surface-2); color: var(--text-muted); }
   .bk-panel input.bk-kw-manuell { border-color: #BF9B4F; box-shadow: inset 0 0 0 1px rgba(191,155,79,0.25); }
-  .bk-kw-zeile { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .bk-marke {
-    font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase;
-    padding: 2px 7px; border-radius: 99px; white-space: nowrap;
-  }
-  .bk-marke-auto { background: var(--surface-2); color: var(--text-muted); }
-  .bk-marke-manuell { background: rgba(191,155,79,0.18); color: #7A6322; }
 
   /* Der Auswahl-Dialog ist breiter als die übrigen: die Vorlagentitel sind
      lang ("Bürocontainer 6.05 m x 2.43 m x 2.60 m (1 Türe, 2 DK-Fenster)"). */
@@ -579,7 +588,9 @@
      das unübersichtlicher als eine Spalte zum An- und Abwählen. */
 
   .bk-opt-liste {
-    list-style: none; margin: 0; padding: 0;
+    /* Der Abstand oben kam früher von der Beschriftung "Preispositionen";
+       die ist weg (siehe optionenBlockHtml()). */
+    list-style: none; margin: 14px 0 0; padding: 0;
     border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
   }
   .bk-opt-liste > li {
@@ -1161,8 +1172,8 @@
   </div>
 </div>
 
-<script src="../shared/common.js?v=41"></script>
-<script src="bkp.js?v=41"></script>
-<script src="app.js?v=41"></script>
+<script src="../shared/common.js?v=43"></script>
+<script src="bkp.js?v=43"></script>
+<script src="app.js?v=43"></script>
 </body>
 </html>

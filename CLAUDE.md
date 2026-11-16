@@ -217,7 +217,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
   offener Knoten werden wie die Ebene je Schätzung gemerkt (siehe
-  Startsicht).
+  Startsicht). Die Kapitelzeilen sind EINZEILIG: der frühere Untertitel mit
+  den ersten drei Unterkapiteln ("Vorstudien · Grundstückserwerb · …")
+  machte die Liste doppelt so hoch, ohne eine Frage zu beantworten -- wer
+  wissen will, was drinsteckt, geht hinein. `.bk-kap-zeile-sub` gibt es nur
+  noch bei den POSITIONSzeilen, dort steht die Bemerkung darunter.
 - **Vorlagen aus der Preisliste `baukosten/` liegen ebenfalls auf NEXTCLOUD**
   (`_preisliste.json`, `ladePreislisteBeiBedarf()`): die
   Preisdatenbank des Büros, gehört so wenig ins Repo wie die Norm
@@ -358,6 +362,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `data-opt-feld`/`aendereOption()`: sie hängen an keiner Tabellenzeile.
   `uebernimmOffeneEingabe()` kennt sie trotzdem, sonst ginge ein offenes
   Preisfeld beim Schliessen verloren.
+- **Das Bearbeitungsfenster ist bewusst knapp gehalten `baukosten/`**: die
+  Preispositionen tragen KEINE Überschrift (die Kopfzeile "Position ·
+  Preis · Menge · Betrag" sagt dasselbe), und der Knopf
+  "Von Hand überschreiben" steht IN der Zeile mit Ausmass/Einheit/Kennwert
+  (`kennwertKnopfHtml()`, viertes Feld im `.bk-panel-dreispalt`). Die
+  früheren Marken "rechnet aus den Preispositionen" / "von Hand gesetzt"
+  sind ersatzlos weg -- grau+schreibgeschützt bzw. gelb umrandet sagt das
+  Feld selbst. Bei "Kosten" steht links neben dem grossen Betrag heller und
+  nicht fett derselbe OHNE MwSt (`panelKostenText()`, `.bk-kosten-netto`);
+  ohne MwSt-Satz entfällt er.
 - **Das Bearbeitungsfenster wird beim Tippen in Preispositionen NICHT neu
   gebaut** (`aktualisierePanelZahlen()` führt nur Zahlen, Klassen und den
   Vorlagepreis-Hinweis nach): `renderPanel()` würde den Fokus mitten im
@@ -678,13 +692,36 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   NIE in ihre eigene Grundlage — BKP 291 liegt selbst in Hauptgruppe 2,
   sonst gäbe es einen Zirkelschluss (`basisBetrag()`). Ebenfalls draussen:
   Hauptgruppe 0.
-- **MwSt `baukosten/`**: Kennwerte werden exklusive erfasst, die
-  Kostenspalte und alle Summen zeigen inklusive. Der Zuschlag sitzt an
-  GENAU einer Stelle (`zeilenKosten()`) — alles darunter (`einfacheKosten`,
-  `basisBetrag`) rechnet netto, alles darüber ist inklusive. Der Satz steht
+- **MwSt UND Rundung `baukosten/` sitzen an GENAU einer Stelle**
+  (`zeilenKosten()`): Kennwerte werden exklusive erfasst, die Kostenspalte
+  und alle Summen zeigen inklusive und auf 100 Fr. gerundet. Alles darunter
+  (`einfacheKosten`, `zeilenNetto`, `basisBetrag`) rechnet netto und
+  ungerundet, alles darüber ist inklusive und gerundet. Der Satz steht
   pro Schätzung in den Kopfdaten (`data.mwst`, neue Schätzungen 8.1);
   Dateien ohne das Feld bekommen 0, weil dort die Kennwerte noch inklusive
   erfasst waren.
+- **JEDE POSITION wird auf 100 Fr. gerundet** (`aufHundert()`, November
+  2026): eine Kostenschätzung ist nie frankengenau, "CHF 616" täuscht eine
+  Genauigkeit vor, die es nicht gibt. Gerundet wird der Betrag INKLUSIVE
+  MwSt -- genau die Zahl der Kostenspalte --, damit sind auch jede
+  Gruppensumme, die Modulsummen, das Gesamttotal und der Ausdruck
+  Vielfache von 100 und das Total ist exakt die Summe der angezeigten
+  Zeilen. Die Bandbreiten-Kachel rundet ebenfalls (sonst stünde "219'075"
+  neben lauter Hunderterzahlen). Eine Zeile unter 50 Fr. wird damit zu 0
+  und zeigt eine leere Kostenzelle -- ausdrücklich so gewünscht, solche
+  Positionen gibt es in einer Baukostenschätzung nicht. Neue Anzeigestellen
+  MÜSSEN über `zeilenKosten()` laufen, sonst stehen gerundete und
+  ungerundete Zahlen nebeneinander.
+- **Zeilen aus der Preisliste werden NICHT gelöscht `baukosten/`**
+  (`ausVorlage()`, November 2026): kein "Zeile löschen" im
+  Bearbeitungsfenster und kein × in der Tabellenzeile; `loescheZeile()`
+  hat denselben Riegel, damit kein anderer Weg daran vorbeiführt.
+  Stattdessen "Vorlage lösen" (`loeseVorlage()`): das entfernt NUR
+  `zeile.vorlage`, Beschrieb/Einheit/Preispositionen bleiben stehen, und
+  danach ist es eine Zeile von Hand wie jede andere. Ohne diesen Ausweg
+  wäre ein Fehlklick auf eine Position der Preisliste für immer in der
+  Datei -- `erfassePreislistePosition()` legt mit EINEM Klick eine Zeile
+  an.
 - **Module `baukosten/` werden separat ausgewiesen**: ein Modul ist ein
   separat zu ENTSCHEIDENDER Teilbereich ("Küche ersetzen"), nicht eine
   Aufteilung der ganzen Schätzung -- der Hauptteil der Kosten trägt kein

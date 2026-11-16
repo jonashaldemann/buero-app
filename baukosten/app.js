@@ -655,17 +655,41 @@ function basisBetrag(data) {
   return summe;
 }
 
-// Der MwSt-Zuschlag sitzt bewusst NUR hier: alles darunter (einfacheKosten,
-// basisBetrag) rechnet exklusive, alles darüber (Summen, Kennzahlen,
-// Ausdruck) geht über zeilenKosten() und ist damit inklusive. Insbesondere
-// bleibt die Bemessungsgrundlage der Prozent-Zeilen exklusive -- das
-// Honorar wird auf die Netto-Baukosten gerechnet und dann selbst versteuert,
-// nicht auf einen Betrag, in dem die MwSt schon steckt.
-function zeilenKosten(zeile, data) {
+// Der MwSt-Zuschlag UND die Rundung sitzen bewusst an GENAU EINER Stelle
+// (zeilenKosten()): alles darunter (einfacheKosten, zeilenNetto,
+// basisBetrag) rechnet exklusive und ungerundet, alles darüber (Summen,
+// Kennzahlen, Ausdruck) geht über zeilenKosten() und ist damit inklusive
+// und auf 100 gerundet. Insbesondere bleibt die Bemessungsgrundlage der
+// Prozent-Zeilen exklusive -- das Honorar wird auf die Netto-Baukosten
+// gerechnet und dann selbst versteuert, nicht auf einen Betrag, in dem die
+// MwSt schon steckt.
+// Was die Zeile OHNE MwSt kostet -- die Grundlage für zeilenKosten() und
+// die hellere Zahl neben dem Total im Bearbeitungsfenster.
+function zeilenNetto(zeile, data) {
   const netto = zeile.basis
     ? ((rechne(zeile.ausmass) || 0) / 100) * basisBetrag(data)
     : einfacheKosten(zeile);
-  return (isNaN(netto) ? 0 : netto) * mwstFaktor(data);
+  return isNaN(netto) ? 0 : netto;
+}
+
+// JEDE POSITION wird auf die nächsten 100 Franken gerundet (auf oder ab, je
+// nachdem was näher liegt). Eine Kostenschätzung ist nie frankengenau --
+// "CHF 616" täuscht eine Genauigkeit vor, die es nicht gibt. Gerundet wird
+// der Betrag INKLUSIVE MwSt, also genau die Zahl, die in der Kostenspalte
+// steht; damit sind auch jede Gruppensumme und das Gesamttotal Vielfache
+// von 100. Netto bleibt alles darunter (einfacheKosten, basisBetrag, die
+// Bemessungsgrundlage der Prozent-Zeilen) ungerundet.
+// Eine Zeile unter 50 Fr. wird damit zu 0 und zeigt eine leere Kostenzelle
+// -- bewusst so gewünscht, in einer Baukostenschätzung gibt es keine
+// Positionen dieser Grössenordnung.
+const RUNDUNG = 100;
+
+function aufHundert(betrag) {
+  return isFinite(betrag) ? Math.round(betrag / RUNDUNG) * RUNDUNG : 0;
+}
+
+function zeilenKosten(zeile, data) {
+  return aufHundert(zeilenNetto(zeile, data) * mwstFaktor(data));
 }
 
 // ---------- Preispositionen einer Unterposition ----------
@@ -748,6 +772,15 @@ function optionenKopie(optionen) {
 function vorlageEinheitspreis(knoten) {
   const optionen = Array.isArray(knoten && knoten.optionen) ? knoten.optionen : [];
   return optionen.reduce((s, o) => s + (o.aktiv ? optionZahl(o.preis) * optionZahl(o.menge) : 0), 0);
+}
+
+// Stammt die Zeile aus der Preisliste? Solche Zeilen werden NICHT
+// gelöscht: was einmal aus der Preisliste übernommen wurde, gehört zur
+// Kostenberechnung und soll nicht mit einem Klick verschwinden. Wer eine
+// doch loswerden will (Fehlklick auf eine Position), löst zuerst die
+// Vorlage -- siehe loeseVorlage().
+function ausVorlage(zeile) {
+  return !!(zeile && zeile.vorlage && zeile.vorlage.pfad);
 }
 
 // ---------- Module ----------
@@ -1297,7 +1330,9 @@ function renderKpis(gesamt) {
   if (prozent !== null && gesamt) {
     kacheln.push(`<div class="bk-kpi">
       <div class="bk-kpi-label">Bandbreite ${escapeHtml(offen.genauigkeit)}</div>
-      <div class="bk-kpi-wert">${franken(gesamt * (1 - prozent / 100))} – ${franken(gesamt * (1 + prozent / 100))}</div>
+      <div class="bk-kpi-wert">${franken(aufHundert(gesamt * (1 - prozent / 100)))} – ${franken(
+        aufHundert(gesamt * (1 + prozent / 100))
+      )}</div>
     </div>`);
   }
 
@@ -1521,7 +1556,13 @@ function unterpositionHtml(nr, zeile, cols, stattKnoten) {
     } else if (c.key === "extern") {
       zellen += `<td><textarea class="bk-bem" rows="1" data-feld="extern" placeholder="${escapeHtml(c.label)}">${escapeHtml(zeile.extern || "")}</textarea></td>`;
     } else if (c.key === "aktion") {
-      zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="bearbeiten" data-nr="${nr}" data-row="${zeile.id}" title="Zeile im Fenster bearbeiten">⋯</button><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
+      // Kein × bei einer Zeile aus der Preisliste: die wird nicht gelöscht
+      // (siehe ausVorlage()). Der Weg dazu steht im Bearbeitungsfenster.
+      zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="bearbeiten" data-nr="${nr}" data-row="${zeile.id}" title="Zeile im Fenster bearbeiten">⋯</button>${
+        ausVorlage(zeile)
+          ? ""
+          : `<button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button>`
+      }</td>`;
     }
   });
   return `<tr class="bk-sub${stattKnoten ? " bk-sub-knoten" : ""}${
@@ -1783,10 +1824,10 @@ function renderKapitel() {
     ziel.innerHTML = kinderListe
       .map((nr) => {
         const blaetter = (kinderVon(nr).length ? blattNummernUnter(nr) : [nr]).filter(Boolean);
-        const enkel = kinderVon(nr);
-        const sub = enkel.length
-          ? enkel.slice(0, 3).map((e) => knotenTitel(e)).join(" · ") + (enkel.length > 3 ? " …" : "")
-          : `${zeilenVon(nr).length} ${zeilenVon(nr).length === 1 ? "Position" : "Positionen"}`;
+        // Hier stand früher eine zweite Zeile mit den ersten drei
+        // Unterkapiteln ("Vorstudien · Grundstückserwerb · Nebenkosten …").
+        // Sie machte die Liste doppelt so hoch, ohne eine Frage zu
+        // beantworten -- wer wissen will, was drinsteckt, geht hinein.
         // Grau heisst "hier zählt noch nichts" -- nicht bloss "hier steht
         // noch keine Zeile". Eine angeklickte Preislisten-Position ohne
         // Ausmass soll nicht schon schwarz werden.
@@ -1794,7 +1835,6 @@ function renderKapitel() {
           ${statusHtml(nr, status[nr], !kinderVon(nr).length)}
           <span class="bk-kap-zeile-haupt">
             <span class="bk-kap-zeile-titel">${escapeHtml(knotenLabel(nr))}</span>
-            <span class="bk-kap-zeile-sub">${escapeHtml(sub)}</span>
           </span>
           ${balkenHtml(blaetter, status)}
           <span class="bk-kap-betrag">${summen[nr] ? franken(summen[nr]) : "–"}</span>
@@ -1928,8 +1968,8 @@ function renderPanel() {
              <div><label>Kennwert</label><input type="text" data-panel-feld="kennwert" class="${
                kennwertAutomatisch(zeile) ? "bk-kw-auto" : optionenVon(zeile).length ? "bk-kw-manuell" : ""
              }"${kennwertAutomatisch(zeile) ? " readonly" : ""} value="${escapeHtml(zeile.kennwert || "")}"></div>
-           </div>
-           ${kennwertZeileHtml(zeile)}`
+             ${kennwertKnopfHtml(zeile)}
+           </div>`
     }
     <div class="bk-panel-kosten">
       <span style="font-size:11px; letter-spacing:0.4px; color:var(--text-muted); text-transform:uppercase;">Kosten</span>
@@ -1945,7 +1985,12 @@ function renderPanel() {
     <label>Durchgehen</label>
     ${panelStandHtml(nr)}
     <div class="bk-panel-fuss">
-      <button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>
+      ${
+        ausVorlage(zeile)
+          ? `<button type="button" class="bk-toggle" data-panel-action="vorlage-loesen"
+                     title="Nimmt die Herkunft aus der Preisliste weg. Beschrieb, Einheit und Preispositionen bleiben stehen, die Zeile lässt sich danach löschen.">Vorlage lösen</button>`
+          : `<button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>`
+      }
       <span class="bk-panel-hinweis">Änderungen werden beim Schliessen gespeichert · Esc</span>
       <span class="bk-panel-bl">
         <button type="button" class="bk-toggle" data-panel-action="prev"${idx <= 0 ? " disabled" : ""}>‹ vorherige</button>
@@ -1957,20 +2002,25 @@ function renderPanel() {
     </div>`;
 }
 
-// Die Zeile unter den Grundfeldern: woher der Kennwert kommt. Nur bei
-// Zeilen mit Optionen -- sonst gibt es nichts zu erklären.
-function kennwertZeileHtml(zeile) {
+// Der Knopf zum Umschalten steht in DERSELBEN Zeile wie Ausmass, Einheit
+// und Kennwert -- er hat keine eigene mehr. Die früheren Marken darüber
+// ("rechnet aus den Preispositionen" / "von Hand gesetzt") sind weg: sie
+// kosteten eine ganze Zeile und sagten nichts, was das Kennwertfeld nicht
+// schon zeigt (grau und schreibgeschützt = gerechnet, gelb umrandet = von
+// Hand). Nur bei Zeilen mit Preispositionen -- sonst gibt es nichts
+// umzuschalten.
+function kennwertKnopfHtml(zeile) {
   if (!optionenVon(zeile).length) return "";
   return kennwertAutomatisch(zeile)
-    ? `<div class="bk-kw-zeile">
-         <span class="bk-marke bk-marke-auto">rechnet aus den Preispositionen</span>
-         <button type="button" class="bk-toggle" data-panel-action="kennwert-manuell">Von Hand überschreiben</button>
+    ? `<div class="bk-kw-knopf">
+         <button type="button" class="bk-toggle" data-panel-action="kennwert-manuell"
+                 title="Der Kennwert rechnet aus den Preispositionen. Hier lässt er sich von Hand setzen.">Von Hand überschreiben</button>
        </div>`
-    : `<div class="bk-kw-zeile">
-         <span class="bk-marke bk-marke-manuell">von Hand gesetzt</span>
-         <button type="button" class="bk-toggle" data-panel-action="kennwert-auto">Wieder aus den Preispositionen (${zahl(
-           optionenSumme(zeile)
-         )})</button>
+    : `<div class="bk-kw-knopf">
+         <button type="button" class="bk-toggle" data-panel-action="kennwert-auto"
+                 title="Der Kennwert ist von Hand gesetzt. Hier rechnet er wieder aus den Preispositionen.">Aus Preispositionen (${zahl(
+                   optionenSumme(zeile)
+                 )})</button>
        </div>`;
 }
 
@@ -2090,8 +2140,10 @@ function optionenBlockHtml(zeile) {
   const optionen = optionenVon(zeile);
   if (!optionen.length || zeile.basis) return "";
   const summe = optionenSumme(zeile);
-  return `<label>Preispositionen</label>
-    <ul class="bk-opt-liste">
+  // Ohne Überschrift: "Position · Preis · Menge · Betrag" in der Kopfzeile
+  // sagt schon, was hier steht -- ein Titel "Preispositionen" darüber wäre
+  // bloss eine Zeile mehr im Fenster.
+  return `<ul class="bk-opt-liste">
       <li class="bk-opt-kopfzeile">
         <span></span><span>Position</span><span class="bk-opt-rechts">Preis</span>
         <span></span><span class="bk-opt-rechts">Menge</span><span class="bk-opt-rechts">Betrag</span>
@@ -2211,10 +2263,16 @@ function onPanelKeydown(e) {
 // Ohne Ausmass steht hier "– Ausmass fehlt" statt eines Betrags: sonst
 // zeigt das Fenster eine Zahl, die die Zeile gar nicht in die Schätzung
 // einbringt.
+// Links neben der grossen Zahl (inkl. MwSt, gerundet) steht heller und
+// nicht fett der Betrag OHNE MwSt -- den braucht man beim Vergleich mit
+// einer Offerte. Ohne MwSt-Satz entfällt er: dort stünde zweimal dasselbe,
+// und die gerundete Zahl wäre erst noch die ehrlichere.
 function panelKostenText(zeile) {
-  return ausmassFehlt(zeile)
-    ? '<span class="bk-kosten-offen">– <small>Ausmass fehlt</small></span>'
-    : "CHF " + franken(zeilenKosten(zeile));
+  if (ausmassFehlt(zeile)) return '<span class="bk-kosten-offen">– <small>Ausmass fehlt</small></span>';
+  const netto = mwstSatz()
+    ? `<span class="bk-kosten-netto" title="ohne MwSt">${franken(zeilenNetto(zeile))}</span>`
+    : "";
+  return netto + "CHF " + franken(zeilenKosten(zeile));
 }
 
 function renderPanelKosten() {
@@ -3177,6 +3235,10 @@ function onBodyClick(e) {
 
 function loescheZeile(nr, rowId) {
   const zeile = zeileSuchen(offen, rowId);
+  // Der Riegel, nicht bloss ein versteckter Knopf: Zeilen aus der
+  // Preisliste werden nicht gelöscht, egal über welchen Weg (siehe
+  // ausVorlage()).
+  if (ausVorlage(zeile)) return;
   const text = (zeile && zeile.beschrieb) || "";
   if (text && !confirm(`Zeile "${text}" wirklich löschen?`)) return;
   if (gewaehlteZeile && gewaehlteZeile.id === rowId) gewaehlteZeile = null;
@@ -3365,6 +3427,31 @@ function aendereOption(index, aendern) {
     if (!zeile.kennwertManuell) zeile.kennwert = kennwertAusOptionen(zeile);
     return data;
   });
+}
+
+// Die Herkunft aus der Preisliste wegnehmen. Danach ist es eine von Hand
+// erfasste Zeile wie jede andere -- mit allem, was die Vorlage mitgebracht
+// hat (Beschrieb, Einheit, Preispositionen), aber ohne Löschschutz. Das ist
+// der einzige Weg, eine versehentlich angeklickte Position wieder
+// loszuwerden, deshalb fragt er nach.
+function loeseVorlage() {
+  if (!gewaehlteZeile) return;
+  const { nr, id } = gewaehlteZeile;
+  const zeile = zeileSuchen(offen, id);
+  if (!ausVorlage(zeile)) return;
+  if (
+    !confirm(
+      `Herkunft "${zeile.vorlage.pfad}" entfernen?\n\nDie Zeile bleibt mit allen Preispositionen stehen und lässt sich danach löschen.`
+    )
+  )
+    return;
+  mutate((data) => {
+    const z = (data.positionen[nr] || []).find((x) => x.id === id);
+    if (z) delete z.vorlage;
+    return data;
+  });
+  // Im Fenster wechselt der Knopf, in der Tabelle kommt das × zurück.
+  renderTabelleErhalten();
 }
 
 function setzeKennwertManuell(manuell) {
@@ -3569,6 +3656,7 @@ function onPanelClick(e) {
   else if (was === "prev") panelNachbar(-1);
   else if (was === "next") panelNachbar(1);
   else if (was === "vorlage-wechseln") oeffneVorlagenWahl(gewaehlteZeile.nr, gewaehlteZeile.id);
+  else if (was === "vorlage-loesen") loeseVorlage();
   else if (was === "kennwert-manuell") setzeKennwertManuell(true);
   else if (was === "kennwert-auto") setzeKennwertManuell(false);
 }
