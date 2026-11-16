@@ -121,7 +121,11 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   über den Dialogen (`.overlay` in `css/style.css` hat 20) und verdeckten
   deren oberen Rand samt Schliessen-Knopf — deshalb hebt `baukosten/`
   `.overlay` lokal auf `z-index: 60`. Bei neuen klebenden Ebenen daran
-  denken.
+  denken. Die Vorlagen-Auswahl geht AUS dem Bearbeitungsfenster auf und lag
+  mit diesen 60 hinter dessen 70 -- sichtbar war nur ein Streifen unten;
+  `#vorlagenOverlay` liegt deshalb auf 80. Tests müssen dort mit einem
+  ECHTEN Klick arbeiten (`elementFromPoint`), ein `el.click()` aus dem
+  Skript merkt eine Verdeckung nie.
 - **Durchgeh-Status `baukosten/`** färbt NUR das Kästchen vor der Nummer,
   nie die ganze Zeile (das überdeckte die Ebenenfarben und machte die
   Tabelle unruhig). Der letzte Stand trägt deshalb zusätzlich einen
@@ -220,8 +224,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Abschalung -- das sind keine Optionen, sondern die Posten, aus denen sich
   der Preis zusammensetzt. Der Schlüssel in den Dateien bleibt `optionen`
   (wie `verifiziert`/"Vieraugenprinzip"), sonst müsste jede bestehende
-  Schätzung umgeschrieben werden. Die drei ARTEN heissen weiterhin
-  Variante / Bestandteil / Zuschlag.
+  Schätzung umgeschrieben werden.
 - **Ein Klick auf eine POSITION der Preisliste öffnet das Fenster**
   (`erfassePreislistePosition()`), statt auf- und zuzuklappen: dort wird
   erfasst. Gibt es noch keine Zeile, entsteht eine mit Einheit, Beschrieb
@@ -264,11 +267,19 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   deshalb `min(440px, 46vh)`, die Ordnerzeile klebt oben, und die Zahl der
   Vorlagen steht in der Quellenzeile. Der Deckel `VORLAGEN_MAX` (150) greift
   praktisch nur beim Suchen über alles.
-- **Optionen `baukosten/` kennen drei Arten** (`OPTION_ARTEN`: variante /
-  bestandteil / zuschlag), die Preisliste nur "aktiv ja/nein". Die Art wird beim
-  Übernehmen aus dem Muster abgeleitet (`mitVorbelegtenArten()`) und ist
-  danach pro Option umstellbar. Der Kennwert ist die Summe Preis × Menge
-  über alles, was `optionZaehlt()` -- und wird NUR nachgeführt, solange
+- **Preispositionen `baukosten/` sind EINE Liste mit Häkchen** (seit
+  November 2026): eine Zeile je Position, ein `data-opt-wahl` entscheidet,
+  ob sie zählt (`optionZaehlt()` ist nur noch `!!opt.aktiv`). Bis dahin trug
+  jede zusätzlich eine ART (Variante/Bestandteil/Zuschlag) und die Liste war
+  danach in aufklappbare Gruppen geteilt -- man sah nie alle Posten auf
+  einmal, obwohl genau das die Frage ist ("woraus setzt sich der Preis
+  zusammen?"). Das Feld `typ` steht in älteren Dateien noch, wird aber nicht
+  mehr gelesen; `migriere()` hakt einen früheren "bestandteil" an, denn der
+  zählte auch ohne Häkchen. Abgehakte Zeilen bleiben SICHTBAR (Klasse `aus`)
+  samt Betrag -- so sieht man, was eine Zuschaltung kostete. Die Liste ist
+  ein Raster (`.bk-opt-liste > li`, sechs Spalten) und das Fenster dafür
+  860px breit, damit keine Zeile umbricht. Der Kennwert ist die Summe
+  Preis × Menge über alles Angehakte -- und wird NUR nachgeführt, solange
   `kennwertManuell` falsch ist. Ein von Hand getippter Kennwert setzt das
   Flag (auch aus der TABELLE, siehe `setzeFeld()`), sonst wäre er beim
   nächsten Klick auf eine Option wieder weg. Die Option-Felder laufen
@@ -276,14 +287,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `data-opt-feld`/`aendereOption()`: sie hängen an keiner Tabellenzeile.
   `uebernimmOffeneEingabe()` kennt sie trotzdem, sonst ginge ein offenes
   Preisfeld beim Schliessen verloren.
-- **Das Bearbeitungsfenster wird beim Tippen in Optionen NICHT neu gebaut**
-  (`aktualisierePanelZahlen()` führt nur Zahlen, Klassen und den
+- **Das Bearbeitungsfenster wird beim Tippen in Preispositionen NICHT neu
+  gebaut** (`aktualisierePanelZahlen()` führt nur Zahlen, Klassen und den
   Vorlagepreis-Hinweis nach): `renderPanel()` würde den Fokus mitten im
-  Preisfeld wegnehmen. Neu gebaut wird nur der Optionen-Block und nur bei
-  einem Wechsel der ART (`zeichneOptionenNeu()`, die Option wandert in eine
-  andere Gruppe) -- danach bekommt dasselbe Auswahlfeld den Fokus zurück.
-  Deshalb muss alles, was sich beim Tippen ändern kann, IMMER im Baum
-  stehen und nur ein-/ausgeblendet werden.
+  Preisfeld wegnehmen. Seit die Liste flach ist, wird sie GAR NICHT mehr neu
+  gezeichnet -- ein Häkchen ändert nichts an der Reihenfolge. Deshalb muss
+  alles, was sich beim Tippen ändern kann, IMMER im Baum stehen und nur
+  ein-/ausgeblendet werden.
 - **Der BKP-Katalog liegt auf NEXTCLOUD, nicht im Repo**: die vollständige
   Norm SN 506 500:2017 (920 Nummern) ist urheberrechtlich geschützt (CRB)
   und steht als `_bkp_katalog.json` in `Buero/Admin/App/Baukosten`, neben

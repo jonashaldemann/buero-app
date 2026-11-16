@@ -73,6 +73,10 @@
      (.overlay aus css/style.css hat 20) und verdecken deren oberen Rand
      samt Schliessen-Knopf und das untere Ende. Deshalb hier höher legen. */
   .overlay { z-index: 60; }
+  /* Die Vorlagen-Auswahl geht AUS dem Bearbeitungsfenster auf ("Andere
+     Vorlage") -- mit den 60 der übrigen Dialoge lag sie hinter dessen 70,
+     sichtbar war nur ein Streifen unten. Sie muss deshalb über das Fenster. */
+  #vorlagenOverlay { z-index: 80; }
   .bk-sticky.geklebt { box-shadow: 0 6px 12px -8px rgba(70,67,60,0.35); }
 
   .bk-head { display: flex; align-items: center; gap: 14px; padding: 0 0 12px; }
@@ -404,7 +408,10 @@
   }
   .bk-panel > .bk-panel-box {
     background: var(--surface); border-radius: 16px; padding: 18px;
-    width: 100%; max-width: 620px; max-height: 88vh; overflow-y: auto;
+    /* Breiter als die übrigen Dialoge: eine Preispositionszeile trägt
+       Häkchen, Text, Preis, Menge und Betrag nebeneinander, und bei 620px
+       brach der Text um. */
+    width: 100%; max-width: 860px; max-height: 88vh; overflow-y: auto;
   }
   .bk-panel-hinweis { flex: 1; font-size: 11px; color: var(--text-muted); }
   .bk-panel-bl { display: flex; gap: 6px; }
@@ -520,42 +527,51 @@
   tr.bk-sub-knoten > td { border-top: 1px solid var(--border); }
   tr.bk-sub-knoten .bk-col-nr { vertical-align: middle; }
 
-  /* ---------- Preispositionen ---------- */
+  /* ---------- Preispositionen ----------
 
-  .bk-opt-gruppe {
-    border: 1px solid var(--border); border-radius: 10px;
-    margin-bottom: 8px; overflow: hidden;
+     EINE Liste mit ausgerichteten Spalten statt drei Gruppen: Häkchen,
+     Position, Preis, Menge, Betrag. Die Arten (Variante/Bestandteil/
+     Zuschlag) gab es nur als Darstellung -- über ein Dutzend Zeilen war
+     das unübersichtlicher als eine Spalte zum An- und Abwählen. */
+
+  .bk-opt-liste {
+    list-style: none; margin: 0; padding: 0;
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
   }
-  .bk-opt-gruppe-kopf {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px; background: var(--surface-2);
-    font-size: 11.5px; font-family: var(--font-medium);
+  .bk-opt-liste > li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    align-items: center; gap: 4px 10px;
+    padding: 6px 10px;
   }
-  summary.bk-opt-gruppe-kopf { cursor: pointer; }
-  .bk-opt-gruppe-hinweis { flex: 1; font-family: var(--font-light); font-size: 11px; color: var(--text-muted); }
-  .bk-opt-gruppe-summe { font-variant-numeric: tabular-nums; }
-  .bk-opt-liste { list-style: none; margin: 0; padding: 0; }
-  .bk-opt-zeile { padding: 8px 10px; }
-  .bk-opt-zeile + .bk-opt-zeile { border-top: 1px solid var(--border); }
-  .bk-opt-zeile.aus { opacity: 0.5; }
-  .bk-opt-kopf { display: flex; align-items: baseline; gap: 8px; }
-  .bk-panel .bk-opt-kopf input[type="radio"], .bk-panel .bk-opt-kopf input[type="checkbox"] {
-    width: auto; flex: none; margin: 0; align-self: center;
+  .bk-opt-liste > li + li { border-top: 1px solid var(--border); }
+  .bk-opt-kopfzeile, .bk-opt-summe {
+    background: var(--surface-2);
+    font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase;
+    color: var(--text-muted);
   }
-  .bk-opt-fix { color: var(--text-muted); width: 13px; text-align: center; flex: none; }
-  .bk-opt-text { flex: 1; font-size: 12.5px; line-height: 1.35; white-space: normal; }
-  .bk-opt-betrag { font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .bk-opt-rechnung { display: flex; align-items: center; gap: 5px; margin-top: 5px; padding-left: 21px; }
-  .bk-panel .bk-opt-rechnung input.bk-opt-num {
-    width: 68px; flex: none; padding: 4px 6px; font-size: 12px;
+  .bk-opt-summe {
+    font-family: var(--font-medium); color: var(--text); font-size: 12px;
+    text-transform: none; letter-spacing: 0;
+  }
+  .bk-opt-rechts { text-align: right; }
+  .bk-opt-zeile.aus { opacity: 0.45; }
+  .bk-panel .bk-opt-liste input[type="checkbox"] { width: auto; flex: none; margin: 0; }
+  .bk-opt-text { font-size: 12.5px; line-height: 1.35; white-space: normal; }
+  /* Der Vorlagepreis steht klein unter dem Text, nicht in einer eigenen
+     Spalte -- sonst bräuchte jede Zeile Platz für etwas, das selten da ist. */
+  .bk-opt-vorlage { display: block; font-size: 10.5px; color: var(--text-muted); }
+  .bk-opt-feld { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+  .bk-panel .bk-opt-feld input.bk-opt-num {
+    width: 72px; flex: none; padding: 4px 6px; font-size: 12px;
     text-align: right; font-variant-numeric: tabular-nums;
   }
-  .bk-panel .bk-opt-rechnung select.bk-opt-art {
-    width: auto; flex: none; margin-left: auto; padding: 4px 6px; font-size: 11.5px;
-  }
-  .bk-opt-einheit { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .bk-opt-einheit { font-size: 10.5px; color: var(--text-muted); min-width: 34px; }
   .bk-opt-mal { font-size: 11px; color: var(--text-muted); }
-  .bk-opt-vorlage { margin-top: 3px; padding-left: 21px; font-size: 10.5px; color: var(--text-muted); }
+  .bk-opt-betrag {
+    font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
+    min-width: 58px;
+  }
 
   /* ---------- Dialoge ---------- */
 

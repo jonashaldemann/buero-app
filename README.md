@@ -1951,40 +1951,38 @@ mit **"ohne Preis"** statt einer Zahl; übernimmt man eine, kommen Beschrieb
 und Einheit mit, der **Kennwert bleibt stehen** (ihn auf 0 zu setzen wäre
 das Gegenteil von hilfreich).
 
-#### Preispositionen: Varianten, Bestandteile, Zuschläge
+#### Preispositionen
 
 Um eine 18-cm-Betonwand zu erstellen, braucht es Beton, Betonstahl,
 Schalung, Abschalung — das sind die **Preispositionen**, aus denen sich der
 Kennwert zusammensetzt: die **Summe aus Preis × Menge** über alles, was
-zählt. Die Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten,
-weil eine flache Häkchenliste nicht zeigt, was zur Wahl steht und was fix
-dazugehört:
+**angehakt** ist.
 
-| Art | Bedeutung | Bedienung |
-| --- | --- | --- |
-| **Variante** | genau eine davon gilt | Auswahlknöpfe |
-| **Bestandteil** | gehört fest dazu, zählt immer | zugeklappte Gruppe, aufklappbar |
-| **Zuschlag** | einzeln zuschaltbar | Häkchen |
+Sie stehen alle in **einer Liste**, eine Zeile je Position:
 
-Die Art wird beim Übernehmen aus dem Muster der Häkchen **abgeleitet**:
-genau eine von mehreren angehakt → alles Varianten; alle angehakt → alles
-Bestandteile; gemischt → das Angehakte wird Bestandteil, der Rest Zuschlag.
-Danach ist sie pro Option umstellbar — die Vorlage liefert den Vorschlag,
-entschieden wird in der Schätzung.
+| Häkchen | Position | Preis | × | Menge | Betrag |
+| --- | --- | --- | --- | --- | --- |
+| ☑ | Beton für Wände | 230 CHF/m3 | × | 0.18 m3/m2 | 41.40 |
+| ☐ | Zuschlag Sichtbeton | 35 CHF/m2 | × | 1 m2/m2 | 35.00 |
 
-**Preis und Menge** sind je Option änderbar (auch als Rechnung, wie Ausmass
+Das Häkchen entscheidet, ob eine Position zählt; abgehakte Zeilen bleiben
+abgeblendet stehen, samt ihrem Betrag — man sieht also, was eine Zuschaltung
+kosten würde. Unten steht der Kennwert als Summe. Übernommen wird aus der
+Preisliste, was dort angehakt ist.
+
+**Preis und Menge** sind je Position änderbar (auch als Rechnung, wie Ausmass
 und Kennwert). Weicht ein Preis vom Vorlagepreis ab, steht dieser klein
 darunter — man sieht also, dass hier für diese Schätzung etwas anderes gilt.
 
 **Der Kennwert rechnet dabei automatisch mit**; das Feld ist grau und trägt
-den Vermerk "rechnet aus den Optionen". Mit "Von Hand überschreiben" wird es
+den Vermerk "rechnet aus den Preispositionen". Mit "Von Hand überschreiben" wird es
 schreibbar und gelb markiert, die automatische Berechnung ist dann aus, bis
 man sie wieder einschaltet. Dasselbe passiert, wenn man den Kennwert einer
 solchen Zeile direkt in der **Tabelle** überschreibt — sonst wäre der Wert
-beim nächsten Klick auf eine Option wieder weg.
+beim nächsten Häkchen wieder weg.
 
 Prozent-Zeilen (Honorar) haben keinen Kennwert und deshalb weder Vorlagen
-noch Optionen.
+noch Preispositionen.
 
 **Datenformat** (alles freiwillig, alte Dateien funktionieren unverändert):
 
@@ -1993,7 +1991,7 @@ noch Optionen.
   "kennwertManuell": false,
   "vorlage": { "quelle": "preisliste", "pfad": "Gebäude › … › Plätze erstellen" },
   "optionen": [
-    { "typ": "bestandteil", "aktiv": true, "text": "Humus abtragen und lagern",
+    { "aktiv": true, "text": "Humus abtragen und lagern",
       "preis": 40, "preisEinheit": "CHF/m3", "menge": 0.3, "mengeEinheit": "m3/m2",
       "vorlagePreis": 40 }
   ] }

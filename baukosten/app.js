@@ -597,26 +597,21 @@ function zeilenKosten(zeile, data) {
 // ---------- Preispositionen einer Unterposition ----------
 //
 // Eine übernommene Vorlage bringt ihre Optionen mit; der Kennwert ist dann
-// deren Summe (Preis × Menge über alles, was zählt). Es gibt drei Arten,
-// weil eine flache Häkchenliste nicht zeigt, was zur WAHL steht und was fix
-// dazugehört:
-//
-//   variante     -- genau eine davon gilt (Auswahlknöpfe)
-//   bestandteil  -- gehört fest dazu und zählt immer
-//   zuschlag     -- einzeln zuschaltbar
-//
-// Die Preisliste kennt die Unterscheidung nicht, dort gibt es nur "aktiv
-// ja/nein". Beim Übernehmen wird sie deshalb aus dem Muster abgeleitet
-// (mitVorbelegtenArten()) und ist danach pro Option umstellbar -- die
-// Vorlage liefert den Vorschlag, entschieden wird in der Schätzung.
+// deren Summe (Preis × Menge über alles, was ANGEHAKT ist). Mehr als ein
+// Häkchen je Zeile gibt es nicht -- genau wie in der Preisliste selbst.
 // In der Oberfläche heissen sie PREISPOSITIONEN: um eine 18-cm-Betonwand
 // zu erstellen, braucht es Beton, Betonstahl, Schalung, Abschalung -- das
 // sind keine "Optionen", sondern die Posten, aus denen sich der Preis
 // zusammensetzt. Der Schlüssel in den Dateien bleibt `optionen`, sonst
 // müsste jede bestehende Schätzung umgeschrieben werden (wie bei
 // verifiziert/"Vieraugenprinzip").
-const OPTION_ARTEN = { variante: "Variante", bestandteil: "Bestandteil", zuschlag: "Zuschlag" };
-const OPTION_ART_STANDARD = "bestandteil";
+// Bis November 2026 trug jede Preisposition zusätzlich eine ART
+// (Variante/Bestandteil/Zuschlag) und die Liste war danach in aufklappbare
+// Gruppen geteilt. Das war unübersichtlich: man sah nie alle Posten auf
+// einmal, obwohl genau das die Frage ist ("woraus setzt sich der Preis
+// zusammen?"). Das Feld `typ` steht in älteren Dateien noch, wird aber
+// nicht mehr gelesen -- migriere() sorgt dafür, dass ein früherer
+// "Bestandteil" angehakt ist, denn der zählte auch ohne Häkchen.
 
 function optionenVon(zeile) {
   return Array.isArray(zeile && zeile.optionen) ? zeile.optionen : [];
@@ -633,10 +628,12 @@ function optionBetrag(opt) {
   return optionZahl(opt.preis) * optionZahl(opt.menge);
 }
 
-// Zählt die Option in den Kennwert? Bestandteile immer, der Rest nur
-// angehakt bzw. angewählt.
+// Zählt die Preisposition in den Kennwert? Allein das Häkchen entscheidet
+// -- die früheren Arten (Variante/Bestandteil/Zuschlag) waren nur eine
+// Darstellung, und drei Gruppen über ein Dutzend Zeilen gaben weniger her
+// als eine Liste mit einer Spalte zum An- und Abwählen.
 function optionZaehlt(opt) {
-  return opt.typ === "bestandteil" || !!opt.aktiv;
+  return !!opt.aktiv;
 }
 
 function optionenSumme(zeile) {
@@ -655,19 +652,11 @@ function kennwertAutomatisch(zeile) {
   return optionenVon(zeile).length > 0 && !zeile.kennwertManuell;
 }
 
-// Vorbelegung der Arten beim Übernehmen einer Vorlage, aus dem Muster der
-// Häkchen abgelesen: genau eine von mehreren angehakt ist eine Auswahl,
-// alle angehakt sind Bestandteile, gemischt heisst "das Angehakte gehört
-// dazu, der Rest ist zuschaltbar".
-function mitVorbelegtenArten(optionen) {
-  const aktive = optionen.filter((o) => !!o.aktiv).length;
-  const art = (o) => {
-    if (optionen.length > 1 && aktive === 1) return "variante";
-    if (optionen.length && aktive === optionen.length) return "bestandteil";
-    return o.aktiv ? "bestandteil" : "zuschlag";
-  };
+// Die Preispositionen einer Vorlage als Kopie. Übernommen wird auch, was
+// NICHT angehakt ist: in der Preisliste stehen dort die zuschaltbaren
+// Posten ("Zuschlag Schalung Typ 3"), und die will man vor sich haben.
+function optionenKopie(optionen) {
   return optionen.map((o) => ({
-    typ: art(o),
     aktiv: !!o.aktiv,
     text: String(o.text || ""),
     preis: o.preis === undefined || o.preis === null ? "" : o.preis,
@@ -1914,76 +1903,44 @@ function vorlageListeHtml(zielNr) {
 function optionenBlockHtml(zeile) {
   const optionen = optionenVon(zeile);
   if (!optionen.length || zeile.basis) return "";
-  const mitIndex = optionen.map((o, i) => ({ o, i }));
-  const gruppe = (art) => mitIndex.filter((x) => (x.o.typ || OPTION_ART_STANDARD) === art);
-  const summeVon = (liste) => liste.reduce((s, x) => s + (optionZaehlt(x.o) ? optionBetrag(x.o) : 0), 0);
-  const varianten = gruppe("variante");
-  const bestandteile = gruppe("bestandteil");
-  const zuschlaege = gruppe("zuschlag");
-
-  let html = `<label>Preispositionen</label>`;
-  if (varianten.length) {
-    html += `<div class="bk-opt-gruppe">
-      <div class="bk-opt-gruppe-kopf"><span>Varianten</span><span class="bk-opt-gruppe-hinweis">genau eine gilt</span>
-        <span class="bk-opt-gruppe-summe" data-gruppe-summe="variante">${zahl(summeVon(varianten))}</span></div>
-      <ul class="bk-opt-liste">${varianten.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
-    </div>`;
-  }
-  if (bestandteile.length) {
-    // Bestandteile stehen zugeklappt da: sie gehören ohnehin dazu, die
-    // Rechnung dahinter will man nur ab und zu sehen.
-    html += `<details class="bk-opt-gruppe"${varianten.length || zuschlaege.length ? "" : " open"}>
-      <summary class="bk-opt-gruppe-kopf"><span>Bestandteile</span>
-        <span class="bk-opt-gruppe-hinweis">${bestandteile.length} · immer dabei</span>
-        <span class="bk-opt-gruppe-summe" data-gruppe-summe="bestandteil">${zahl(summeVon(bestandteile))}</span></summary>
-      <ul class="bk-opt-liste">${bestandteile.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
-    </details>`;
-  }
-  if (zuschlaege.length) {
-    html += `<div class="bk-opt-gruppe">
-      <div class="bk-opt-gruppe-kopf"><span>Zuschläge</span><span class="bk-opt-gruppe-hinweis">einzeln zuschaltbar</span>
-        <span class="bk-opt-gruppe-summe" data-gruppe-summe="zuschlag">${zahl(summeVon(zuschlaege))}</span></div>
-      <ul class="bk-opt-liste">${zuschlaege.map((x) => optionZeileHtml(x.o, x.i)).join("")}</ul>
-    </div>`;
-  }
-  return html;
+  const summe = optionenSumme(zeile);
+  return `<label>Preispositionen</label>
+    <ul class="bk-opt-liste">
+      <li class="bk-opt-kopfzeile">
+        <span></span><span>Position</span><span class="bk-opt-rechts">Preis</span>
+        <span></span><span class="bk-opt-rechts">Menge</span><span class="bk-opt-rechts">Betrag</span>
+      </li>
+      ${optionen.map((o, i) => optionZeileHtml(o, i)).join("")}
+      <li class="bk-opt-summe">
+        <span></span><span>Kennwert${zeile.einheit ? " pro " + escapeHtml(zeile.einheit) : ""}</span>
+        <span></span><span></span><span></span>
+        <span class="bk-opt-rechts" data-opt-gesamt>${zahl(summe)}</span>
+      </li>
+    </ul>`;
 }
 
 function optionZeileHtml(opt, index) {
-  const art = opt.typ || OPTION_ART_STANDARD;
-  const steuer =
-    art === "variante"
-      ? `<input type="radio" name="bkVariante" data-opt-wahl value="${index}"${
-          opt.aktiv ? " checked" : ""
-        } aria-label="Diese Variante nehmen">`
-      : art === "zuschlag"
-      ? `<input type="checkbox" data-opt-wahl${opt.aktiv ? " checked" : ""} aria-label="Zuschlag dazurechnen">`
-      : `<span class="bk-opt-fix" title="Gehört fest dazu">•</span>`;
-  return `<li class="bk-opt-zeile${optionZaehlt(opt) ? "" : " aus"}" data-opt="${index}">
-    <div class="bk-opt-kopf">
-      ${steuer}
-      <span class="bk-opt-text">${escapeHtml(opt.text || "(ohne Text)")}</span>
-      <span class="bk-opt-betrag" data-opt-betrag>${zahl(optionBetrag(opt))}</span>
-    </div>
-    <div class="bk-opt-rechnung">
+  return `<li class="bk-opt-zeile${opt.aktiv ? "" : " aus"}" data-opt="${index}">
+    <input type="checkbox" data-opt-wahl${
+      opt.aktiv ? " checked" : ""
+    } aria-label="Diese Preisposition mitrechnen">
+    <span class="bk-opt-text">${escapeHtml(opt.text || "(ohne Text)")}${
+      vorlagePreisAbweichung(opt) === null
+        ? '<span class="bk-opt-vorlage" data-opt-vorlage hidden></span>'
+        : `<span class="bk-opt-vorlage" data-opt-vorlage>Vorlagepreis: ${zahl(vorlagePreisAbweichung(opt))}</span>`
+    }</span>
+    <span class="bk-opt-feld">
       <input type="text" class="bk-opt-num" data-opt-feld="preis" value="${escapeHtml(
         String(opt.preis ?? "")
-      )}" aria-label="Preis">
-      <span class="bk-opt-einheit">${escapeHtml(opt.preisEinheit || "")}</span>
-      <span class="bk-opt-mal">×</span>
+      )}" aria-label="Preis"><span class="bk-opt-einheit">${escapeHtml(opt.preisEinheit || "")}</span>
+    </span>
+    <span class="bk-opt-mal">×</span>
+    <span class="bk-opt-feld">
       <input type="text" class="bk-opt-num" data-opt-feld="menge" value="${escapeHtml(
         String(opt.menge ?? "")
-      )}" aria-label="Menge">
-      <span class="bk-opt-einheit">${escapeHtml(opt.mengeEinheit || "")}</span>
-      <select data-opt-feld="typ" class="bk-opt-art" aria-label="Art der Preisposition">
-        ${Object.entries(OPTION_ARTEN)
-          .map(([k, v]) => `<option value="${k}"${k === art ? " selected" : ""}>${v}</option>`)
-          .join("")}
-      </select>
-    </div>
-    <div class="bk-opt-vorlage" data-opt-vorlage${
-      vorlagePreisAbweichung(opt) === null ? " hidden" : ""
-    }>Vorlagepreis: ${zahl(vorlagePreisAbweichung(opt) || 0)}</div>
+      )}" aria-label="Menge"><span class="bk-opt-einheit">${escapeHtml(opt.mengeEinheit || "")}</span>
+    </span>
+    <span class="bk-opt-betrag bk-opt-rechts" data-opt-betrag>${zahl(optionBetrag(opt))}</span>
   </li>`;
 }
 
@@ -2200,7 +2157,9 @@ function migriere(data) {
       // unbekannte Art würde sonst in keiner Gruppe auftauchen.
       if (Array.isArray(z.optionen)) {
         z.optionen.forEach((o) => {
-          if (!OPTION_ARTEN[o.typ]) o.typ = o.aktiv === false ? "zuschlag" : OPTION_ART_STANDARD;
+          // Ein "Bestandteil" zählte früher immer mit, auch ohne Häkchen --
+          // jetzt entscheidet allein das Häkchen, also muss es gesetzt sein.
+          if (o.typ === "bestandteil") o.aktiv = true;
         });
       }
     });
@@ -3000,7 +2959,7 @@ function uebernimmVorlage(pfadText, { verschieben = true } = {}) {
   // (lokal und auf dem frisch geholten Serverstand) und muss beide Male
   // dasselbe ergeben -- beim Einsetzen bekommt jeder Stand seine eigene
   // Kopie der Optionen.
-  const optionen = mitVorbelegtenArten(Array.isArray(knoten.optionen) ? knoten.optionen : []);
+  const optionen = optionenKopie(Array.isArray(knoten.optionen) ? knoten.optionen : []);
   const einheit = String(knoten.einheit || "");
   const beschrieb = String(knoten.bezeichnung || "");
   const { nr, id } = gewaehlteZeile;
@@ -3095,7 +3054,7 @@ function aktualisierePanelZahlen() {
   document.querySelectorAll("#panelOptionen [data-opt]").forEach((li) => {
     const opt = optionen[Number(li.dataset.opt)];
     if (!opt) return;
-    li.classList.toggle("aus", !optionZaehlt(opt));
+    li.classList.toggle("aus", !opt.aktiv);
     const betrag = li.querySelector("[data-opt-betrag]");
     if (betrag) betrag.textContent = zahl(optionBetrag(opt));
     // Der Hinweis auf den Vorlagepreis muss beim Tippen mitkommen -- er ist
@@ -3107,33 +3066,11 @@ function aktualisierePanelZahlen() {
       if (abweichung !== null) hinweis.textContent = `Vorlagepreis: ${zahl(abweichung)}`;
     }
   });
-  document.querySelectorAll("#panelOptionen [data-gruppe-summe]").forEach((el) => {
-    const art = el.dataset.gruppeSumme;
-    const summe = optionen.reduce(
-      (s, o) => s + ((o.typ || OPTION_ART_STANDARD) === art && optionZaehlt(o) ? optionBetrag(o) : 0),
-      0
-    );
-    el.textContent = zahl(summe);
-  });
+  const gesamt = document.querySelector("#panelOptionen [data-opt-gesamt]");
+  if (gesamt) gesamt.textContent = zahl(optionenSumme(zeile));
   const kw = document.querySelector('#detailPanel [data-panel-feld="kennwert"]');
   if (kw && kennwertAutomatisch(zeile)) kw.value = zeile.kennwert || "";
   renderPanelKosten();
-}
-
-// Nur den Optionen-Block neu bauen (nach einem Wechsel der Art, der eine
-// Option in eine andere Gruppe schiebt) und den Fokus zurückgeben.
-function zeichneOptionenNeu(fokusIndex) {
-  const zeile = gewaehlteZeile && zeileSuchen(offen, gewaehlteZeile.id);
-  const box = document.getElementById("panelOptionen");
-  if (!zeile || !box) return;
-  const warOffen = box.querySelector("details") ? box.querySelector("details").open : null;
-  box.innerHTML = optionenBlockHtml(zeile);
-  const details = box.querySelector("details");
-  if (details && warOffen !== null) details.open = warOffen;
-  const ziel = box.querySelector(`[data-opt="${fokusIndex}"] [data-opt-feld="typ"]`);
-  if (ziel) ziel.focus();
-  // Der Kennwert-Hinweis bleibt, aber die Summen stimmen neu.
-  aktualisierePanelZahlen();
 }
 
 // ---------- Auswahl beim Anlegen einer Zeile ----------
@@ -3231,23 +3168,6 @@ function onOptionAenderung(el) {
   if (!li || !gewaehlteZeile) return;
   const index = Number(li.dataset.opt);
   const feld = el.dataset.optFeld;
-  if (feld === "typ") {
-    const neueArt = OPTION_ARTEN[el.value] ? el.value : OPTION_ART_STANDARD;
-    aendereOption(index, (opt, zeile) => {
-      opt.typ = neueArt;
-      // Ein Bestandteil zählt immer, eine Variante schliesst die übrigen
-      // Varianten aus -- sonst stünden zwei Wahlmöglichkeiten gleichzeitig
-      // im Kennwert.
-      if (neueArt === "bestandteil") opt.aktiv = true;
-      if (neueArt === "variante" && opt.aktiv) {
-        optionenVon(zeile).forEach((o) => {
-          if (o !== opt && o.typ === "variante") o.aktiv = false;
-        });
-      }
-    });
-    zeichneOptionenNeu(index);
-    return;
-  }
   const wert = el.value;
   aendereOption(index, (opt) => {
     opt[feld] = wert;
@@ -3260,14 +3180,7 @@ function onOptionWahl(el) {
   if (!li || !gewaehlteZeile) return;
   const index = Number(li.dataset.opt);
   const an = el.checked;
-  aendereOption(index, (opt, zeile) => {
-    if (opt.typ === "variante") {
-      optionenVon(zeile).forEach((o) => {
-        if (o.typ === "variante") o.aktiv = false;
-      });
-      opt.aktiv = true;
-      return;
-    }
+  aendereOption(index, (opt) => {
     opt.aktiv = an;
   });
   aktualisierePanelZahlen();
@@ -3280,7 +3193,6 @@ function uebernimmOffeneOption(el) {
   if (!li || !gewaehlteZeile) return;
   const index = Number(li.dataset.opt);
   const feld = el.dataset.optFeld;
-  if (feld === "typ") return; // ein Auswahlfeld hat nie eine offene Eingabe
   const zeile = zeileSuchen(offen, gewaehlteZeile.id);
   const opt = zeile && optionenVon(zeile)[index];
   if (!opt || String(opt[feld] ?? "") === el.value) return;
