@@ -1684,10 +1684,14 @@ BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
 | erledigt | hellgrün, **Kürzel der Person**, die es durchgegangen ist ("JH") |
 | Vieraugenprinzip | dunkelgrün, **beide Kürzel** ("JH/MV") |
 
-So steht an jeder Position, **wer** sie geprüft hat. Das Kürzel ist der
-Schlüssel aus `config.json` (`mitarbeitende[].key`), über den angemeldeten
-Namen gefunden; steht jemand dort nicht, werden die Initialen aus dem Namen
-gebildet.
+So steht an jeder Position, **wer** sie geprüft hat. Das Kürzel sind die
+**Initialen des Namens** — erster Buchstabe des ersten und des letzten
+Wortes ("Jonas Haldemann" → JH, "Anna von Gunten" → AG); ein einzelnes Wort
+gibt seine ersten zwei Buchstaben her. Bewusst **nicht** der Schlüssel aus
+`config.json`: der ist eine interne Kennung und darf beliebig lang sein
+("jonas" → stünde als "JONAS" im Kästchen). `config.json` wird nur
+gebraucht, um die volle Schreibweise des Namens zu finden, wenn man mit
+einem Benutzernamen angemeldet ist.
 
 **Die zweite Prüfung muss von einer anderen Person kommen** — das ist der
 Sinn der Sache. Wer eine Position selbst auf "erledigt" gesetzt hat, kommt

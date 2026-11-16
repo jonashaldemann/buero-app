@@ -139,9 +139,15 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   (`geprueftVon()`, `meinKuerzel()`, `standFuer()`, seit November 2026),
   parallel zu `status` und genauso freiwillig: fehlt das Feld, zeigen die
   Kästchen die alten Haken `STATUS_ZEICHEN` -- ältere Schätzungen haben den
-  Stand ohne Namen festgehalten. Das Kürzel ist `mitarbeitende[].key` aus
-  `config.json`, über `personName()` gesucht, sonst aus den Initialen
-  gebildet. Die ZWEITE Prüfung muss von einer anderen Person kommen: wer
+  Stand ohne Namen festgehalten. Das Kürzel sind IMMER die INITIALEN des
+  Namens (`initialen()`: erstes und letztes Wort), nie `mitarbeitende[].key`
+  -- der Schlüssel in `config.json` ist eine interne Kennung und darf
+  beliebig lang sein ("jonas"), im Kästchen stünde dann "JONAS". Genau das
+  ist passiert: in den DEMODATEN sind die Schlüssel zufällig zweistellig
+  ("an", "tb"), deshalb fiel es im Test nicht auf -- Testdaten tragen
+  deshalb jetzt lange Schlüssel. `config.json` liefert nur noch die volle
+  Schreibweise des Namens, falls jemand mit einem Benutzernamen angemeldet
+  ist. Die ZWEITE Prüfung muss von einer anderen Person kommen: wer
   schon drinsteht, landet mit dem nächsten Klick auf "offen" statt auf
   verifiziert (sonst gäbe es keinen Weg mehr aus dem Stand heraus); im
   Bearbeitungsfenster, wo der Stand GEWÄHLT wird, sagt das eine Meldung.

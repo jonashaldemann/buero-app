@@ -420,21 +420,28 @@ function geprueftVon(nr) {
   return Array.isArray(liste) ? liste.filter(Boolean) : [];
 }
 
-// Das Kürzel der angemeldeten Person: der Schlüssel aus config.json, über
-// den Namen gesucht. Steht sie dort nicht (noch nicht eingetragen, anderer
-// Schreibweise), werden die Initialen aus dem Namen gebildet -- ein
-// Näherungswert ist besser als gar kein Vermerk, wer geprüft hat.
+// Die Initialen eines Namens: erster Buchstabe des ersten und des LETZTEN
+// Wortes ("Jonas Haldemann" -> JH, "Anna von Gunten" -> AG). Ein einzelnes
+// Wort gibt seine ersten zwei Buchstaben her.
+function initialen(name) {
+  const teile = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!teile.length) return "";
+  const roh = teile.length > 1 ? teile[0][0] + teile[teile.length - 1][0] : teile[0].slice(0, 2);
+  return roh.toUpperCase();
+}
+
+// Das Kürzel der angemeldeten Person -- IMMER aus dem Namen gebildet, nie
+// aus `mitarbeitende[].key`: der Schlüssel in config.json ist eine interne
+// Kennung und darf beliebig lang sein ("jonas"), im Kästchen stünde dann
+// "JONAS" statt "JH". config.json liefert nur die volle Schreibweise des
+// Namens, falls man mit einem Benutzernamen angemeldet ist.
 function meinKuerzel() {
-  const name = (personName() || "").trim();
-  if (!name) return "";
+  const angemeldet = (personName() || "").trim();
+  if (!angemeldet) return "";
+  const gleich = (a) => (a || "").trim().toLowerCase() === angemeldet.toLowerCase();
   const liste = (typeof appConfig !== "undefined" && appConfig.mitarbeitende) || [];
-  const treffer = liste.find(
-    (m) => (m.name || "").trim().toLowerCase() === name.toLowerCase() ||
-           (m.key || "").trim().toLowerCase() === name.toLowerCase()
-  );
-  if (treffer && treffer.key) return treffer.key.toUpperCase();
-  const teile = name.split(/\s+/).filter(Boolean);
-  return (teile.length > 1 ? teile[0][0] + teile[1][0] : name.slice(0, 2)).toUpperCase();
+  const treffer = liste.find((m) => gleich(m.name) || gleich(m.key));
+  return initialen((treffer && treffer.name) || angemeldet);
 }
 
 function kuerzelText(liste) {
