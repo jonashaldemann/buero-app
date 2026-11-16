@@ -15,7 +15,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 ## Arbeitsablauf mit dem Nutzer
 
 - Der Nutzer sammelt Wünsche/Bugs auf Deutsch in einer **untracked**
-  Scratch-Datei `claude_todos.txt` im Repo-Root und sagt dann sinngemäss
+  Scratch-Datei `claude_todos.txt` im Repo-Root (seit November 2026 von
+  `.gitignore` erfasst -- sie war vorher versehentlich versioniert und
+  enthält Prompts mit Projekt- und Programmnamen) und sagt dann sinngemäss
   "Nächste Todos?" / "geh die Todos durch".
 - Jedes Todo wird umgesetzt **und per Playwright getestet**, bevor es als
   erledigt gilt (siehe Testvorgehen unten).
@@ -83,10 +85,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `page.route` als Nextcloud-Antwort ausliefern. Die Norm
   `_bkp_katalog.json` liegt nicht dabei; für einen Lauf mit vollständigem
   Katalog lässt sie sich aus den BKP-Knoten des Preislisten-Baums nachbilden
-  (923 Nummern gegenüber 920 der Norm). **Auch KUNDEN- UND PROJEKTNAMEN
-  gehören nicht ins Repo** -- nicht in den Code, nicht in Kommentare, nicht
-  in README oder CLAUDE.md. Ein Dateiname wie der einer echten
-  Projektdatei verrät schon genug.
+  (923 Nummern gegenüber 920 der Norm). **Weder KUNDEN- und PROJEKTNAMEN noch
+  die Namen der benutzten FREMDPROGRAMME gehören ins Repo** -- nicht in den
+  Code, nicht in Kommentare, nicht in README oder CLAUDE.md, nicht in
+  Commit-Meldungen. Ein Dateiname wie der einer echten Projektdatei verrät
+  schon genug. Die Preisdatenbank heisst im Code und in der Oberfläche
+  darum schlicht **Preisliste**.
 
 ## Architektur-Eckpunkte
 
@@ -218,7 +222,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   (wie `verifiziert`/"Vieraugenprinzip"), sonst müsste jede bestehende
   Schätzung umgeschrieben werden. Die drei ARTEN heissen weiterhin
   Variante / Bestandteil / Zuschlag.
-- **Ein Klick auf eine Preisliste-POSITION öffnet das Fenster**
+- **Ein Klick auf eine POSITION der Preisliste öffnet das Fenster**
   (`erfassePreislistePosition()`), statt auf- und zuzuklappen: dort wird
   erfasst. Gibt es noch keine Zeile, entsteht eine mit Einheit, Beschrieb
   und Optionen der Position (`uebernimmVorlage(..., { verschieben: false })`
@@ -229,7 +233,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   nichts -- wer nur schaut, lädt keine 6 MB.
 - **Die Ordner einer Vorlage werden zu eigenen UNTERKAPITELN**
   (`kapitelFuerPfad()`, `vorlageOrdner()`): unterhalb der Gattung hört die
-  Norm auf, dort gliedert Preisliste weiter -- und genauso gliedert die
+  Norm auf, dort gliedert die Preisliste weiter -- und genauso gliedert die
   Schätzung. Übernommen wird der Pfad UNTERHALB des passenden BKP-Knotens;
   die Zeile hängt im tiefsten Ordner, nicht flach unter der Nummer. Gibt es
   ein Kapitel mit demselben Titel schon, wird es wiederverwendet. Stammt
@@ -241,7 +245,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Durchläufe (lokal und auf dem Serverstand) landen so beim selben Kapitel,
   auch wenn die interne Kennung einmal abweicht -- sichtbar ist sie
   nirgends (`knotenLabel()`).
-- **Rund 600 der 4242 Positionen der Preisliste haben GAR KEINE Optionen**
+- **Rund 600 der 4242 Position der Preislisteen haben GAR KEINE Optionen**
   (reine Platzhalter wie "Machbarkeitsstudien"). Eine solche Vorlage setzt
   den Kennwert NICHT auf 0, sondern lässt ihn stehen und räumt nur die
   Felder der vorherigen Vorlage weg; in der Liste steht "ohne Preis" statt
@@ -251,7 +255,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   nicht mehr an der Datei. Der passende Knoten wird über die tiefste
   BKP-Nummer gesucht, die der Baum führt, und von dort über die
   BEZEICHNUNG weiter (`preislisteKnotenFuer()`) -- unterhalb der Gattung hat
-  Preisliste Ordner mit denselben Titeln wie der Katalog. Das Suchfeld sucht
+  die Preisliste Ordner mit denselben Titeln wie der Katalog. Das Suchfeld sucht
   dagegen im ganzen Baum, bewusst: wer tippt, sucht etwas Bestimmtes.
 - **Die Vorlagenliste ist nach ORDNERN gegliedert und hoch genug**: unter
   einer Gattung hängen bis zu 145 Positionen in einem Dutzend Ordnern, bis
@@ -261,7 +265,7 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Vorlagen steht in der Quellenzeile. Der Deckel `VORLAGEN_MAX` (150) greift
   praktisch nur beim Suchen über alles.
 - **Optionen `baukosten/` kennen drei Arten** (`OPTION_ARTEN`: variante /
-  bestandteil / zuschlag), Preisliste nur "aktiv ja/nein". Die Art wird beim
+  bestandteil / zuschlag), die Preisliste nur "aktiv ja/nein". Die Art wird beim
   Übernehmen aus dem Muster abgeleitet (`mitVorbelegtenArten()`) und ist
   danach pro Option umstellbar. Der Kennwert ist die Summe Preis × Menge
   über alles, was `optionZaehlt()` -- und wird NUR nachgeführt, solange

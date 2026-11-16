@@ -1826,8 +1826,8 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
 
 ### Vorlagen aus der Preisliste
 
-Das Büro pflegt seine Einheitspreise in **Preisliste**. Liegt ein Export
-davon als `_preisliste.json` neben den Kostenschätzungen
+Das Büro pflegt seine Einheitspreise in einem eigenen Programm. Liegt ein
+Export davon als `_preisliste.json` neben den Kostenschätzungen
 auf Nextcloud, lässt sich im Bearbeitungsfenster eine Position als
 **Vorlage** übernehmen, statt den Kennwert von Hand zusammenzusuchen.
 
@@ -1858,7 +1858,7 @@ und die Anzahl steht in der Zeile darüber.
 **Angeboten** werden die Positionen unter dem passenden Knoten der Preisliste:
 die tiefste BKP-Nummer, die der Baum selbst führt. Liegt die Katalognummer
 tiefer (ein eigenes Unterkapitel unter 201.0), wird von dort über die
-**Bezeichnung** weitergesucht — Preisliste gliedert unterhalb der Gattung in
+**Bezeichnung** weitergesucht — die Preisliste gliedert unterhalb der Gattung in
 Ordnern, die gleich heissen wie die Kapitel hier. Das **Suchfeld** sucht
 dagegen im **ganzen Baum**: wer tippt, sucht etwas Bestimmtes, und das steht
 oft unter einer anderen Nummer.
@@ -1871,7 +1871,7 @@ Vorlagen-Datei verhält sich "+ Zeile" wie früher.
 
 #### Die Gliederung steht im Baum
 
-Unterhalb der BKP-Nummer hört die Norm auf — dort gliedert Preisliste
+Unterhalb der BKP-Nummer hört die Norm auf — dort gliedert die Preisliste
 weiter, und **genau diese Gliederung zeigt der Baum**, gleich organisiert
 wie der nummerierte Teil darüber, nur ohne Nummern:
 
@@ -1956,7 +1956,7 @@ das Gegenteil von hilfreich).
 Um eine 18-cm-Betonwand zu erstellen, braucht es Beton, Betonstahl,
 Schalung, Abschalung — das sind die **Preispositionen**, aus denen sich der
 Kennwert zusammensetzt: die **Summe aus Preis × Menge** über alles, was
-zählt. Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten,
+zählt. Die Preisliste kennt dafür nur "aktiv ja/nein"; hier gibt es drei Arten,
 weil eine flache Häkchenliste nicht zeigt, was zur Wahl steht und was fix
 dazugehört:
 

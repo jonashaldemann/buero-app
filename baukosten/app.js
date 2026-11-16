@@ -103,7 +103,8 @@ async function ladeKatalog() {
 
 // ---------- Vorlagen aus der Preisliste (freiwillig, von Nextcloud) ----------
 //
-// Das Büro pflegt seine Einheitspreise in der Preisliste. Ein Export davon darf
+// Das Büro pflegt seine Einheitspreise in einem eigenen Programm. Ein
+// Export davon darf
 // als "_preisliste.json" neben den Kostenschätzungen
 // liegen; dann lässt sich im Bearbeitungsfenster eine Position als VORLAGE
 // übernehmen, statt den Kennwert von Hand zusammenzusuchen. Die Datei ist
@@ -114,7 +115,7 @@ async function ladeKatalog() {
 // Vorlage-Block, sonst bleibt das Modul, wie es war. Schon übernommene
 // Optionen stehen in der Schätzung SELBST und rechnen ohne die Datei
 // weiter -- eine Schätzung hängt nach dem Übernehmen nicht mehr an
-// Preisliste.
+// die Preisliste.
 //
 // Aufbau: baum = verschachtelte Knoten
 //   { bkp: "201.0" | null, bezeichnung, typ: "ordner" | "position",
@@ -216,9 +217,9 @@ function preislisteLaedt() {
   return !!preislistePromise && !preislisteBaum && !preislisteFehlt;
 }
 
-// ---------- Struktur der Preisliste als Knoten im Baum ----------
+// ---------- Die Preisliste als Knoten im Baum ----------
 //
-// Unterhalb der BKP-Nummer hört die Norm auf -- dort gliedert Preisliste
+// Unterhalb der BKP-Nummer hört die Norm auf -- dort gliedert die Preisliste
 // weiter ("211.5 Beton- und Stahlbetonarbeiten" > "Wände" > "Innenwände" >
 // "Wandstärke 18 cm"), und genau diese Gliederung zeigt der Baum, gleich
 // organisiert wie der nummerierte Teil darüber, nur ohne Nummern.
@@ -270,7 +271,7 @@ function preislisteNrMap() {
   return preislisteNrMapCache;
 }
 
-// Der Knoten der Preisliste hinter einer Nummer -- für Titel, Optionen und die
+// Der Preislisten-Knoten hinter einer Nummer -- für Titel, Optionen und die
 // Frage, ob es eine erfassbare Position ist.
 function preislisteZuNr(nr) {
   return preislisteNrMap().get(nr) || null;
@@ -322,7 +323,7 @@ function gleicheBezeichnung(a, b) {
 // Der Knoten, unter dem die Vorlagen für eine BKP-Nummer stehen: die
 // tiefste Nummer, die der Baum selbst führt. Liegt die Katalognummer tiefer
 // (201.0.1, während der Baum nur 201.0 kennt), wird von dort über die
-// BEZEICHNUNG weitergesucht -- unterhalb der Gattung gliedert Preisliste in
+// BEZEICHNUNG weitergesucht -- unterhalb der Gattung gliedert die Preisliste in
 // Ordnern, die gleich heissen wie die Positionen im Katalog.
 function preislisteKnotenFuer(nr) {
   if (!preislisteBaum || !nr) return null;
@@ -604,7 +605,7 @@ function zeilenKosten(zeile, data) {
 //   bestandteil  -- gehört fest dazu und zählt immer
 //   zuschlag     -- einzeln zuschaltbar
 //
-// Preisliste selbst kennt die Unterscheidung nicht, dort gibt es nur "aktiv
+// Die Preisliste kennt die Unterscheidung nicht, dort gibt es nur "aktiv
 // ja/nein". Beim Übernehmen wird sie deshalb aus dem Muster abgeleitet
 // (mitVorbelegtenArten()) und ist danach pro Option umstellbar -- die
 // Vorlage liefert den Vorschlag, entschieden wird in der Schätzung.
@@ -679,7 +680,7 @@ function mitVorbelegtenArten(optionen) {
   }));
 }
 
-// Der Einheitspreis einer Position der Preisliste nach deren eigener Regel --
+// Der Einheitspreis einer Preislisten-Position nach deren eigener Regel --
 // gebraucht für die Vorschau in der Vorlagenliste, vor dem Übernehmen.
 function vorlageEinheitspreis(knoten) {
   const optionen = Array.isArray(knoten && knoten.optionen) ? knoten.optionen : [];
@@ -843,8 +844,8 @@ function alleKnoten() {
     knoten.push({ nr, titel, eigen: true, ...extra });
   };
   eigene.forEach((p) => ergaenze(p.nr, p.titel));
-  // Die Gliederung aus der Preisliste. Ein Kapitel, das unter demselben Elter
-  // schon denselben TITEL trägt, wird nicht doppelt angehängt: es ist
+  // Die Gliederung aus der Preisliste. Ein Kapitel, das unter demselben
+  // Elter schon denselben TITEL trägt, wird nicht doppelt angehängt: es ist
   // dasselbe, nur bereits in der Schätzung festgehalten (und behält dann
   // seine Kennung, auch wenn der Export später umsortiert wird).
   const belegteTitel = new Set(
@@ -854,7 +855,7 @@ function alleKnoten() {
     const schluessel = `${elterNummer(k.nr) || ""}\u0000${k.titel.trim().toLowerCase()}`;
     if (belegteTitel.has(schluessel)) return;
     belegteTitel.add(schluessel);
-    ergaenze(k.nr, k.titel, { preisliste: true });
+    ergaenze(k.nr, k.titel, { ausPreisliste: true });
   });
   Object.entries(unbekannteKnoten()).forEach(([nr, titel]) => ergaenze(nr, titel));
   knoten.sort((a, b) => nummerVergleich(a.nr, b.nr));
@@ -1339,7 +1340,7 @@ function zeilenKostenText(zeile) {
 }
 
 // stattKnoten: die Zeile TRITT AN DIE STELLE ihres Knotens. Bei einer
-// Position der Preisliste wäre "Wandstärke 18 cm" sonst zweimal untereinander
+// Preislisten-Position wäre "Wandstärke 18 cm" sonst zweimal untereinander
 // zu lesen -- einmal als Kapitel, einmal als Zeile darin. Sie übernimmt
 // dafür Einzug und Status-Kästchen des Knotens.
 function unterpositionHtml(nr, zeile, cols, stattKnoten) {
@@ -1418,7 +1419,7 @@ function renderTabelle() {
     const klappbar = kids.length > 0 || eigeneZeilen > 0;
     const kinderOffen = sucheAktiv || !zugeklappt.has(k.nr);
 
-    // Eine Position der Preisliste mit GENAU EINER Erfassung braucht keine
+    // Eine Preislisten-Position mit GENAU EINER Erfassung braucht keine
     // eigene Kopfzeile: der Knoten ist die Zeile. Erst ab der zweiten
     // Erfassung ("Innenwände EG" / "OG") lohnt sich die Gliederung wieder.
     if (istPreislistePosition(k.nr) && eigeneZeilen === 1 && !kids.length) {
@@ -1820,7 +1821,7 @@ function vorlageBlockHtml(zeile) {
   return `
     <label>Vorlage</label>
     <div class="bk-vorlage-aktuell">
-      <span>${pfad ? "Aus Preisliste: " + escapeHtml(pfad) : "Keine Vorlage — von Hand erfasst."}</span>
+      <span>${pfad ? "Aus der Preisliste: " + escapeHtml(pfad) : "Keine Vorlage — von Hand erfasst."}</span>
       <button type="button" class="bk-toggle" data-panel-action="vorlage-wechseln">${
         pfad ? "Andere Vorlage" : "Vorlage wählen"
       }</button>
@@ -1842,13 +1843,13 @@ function vorlageListeHtml(zielNr) {
     // Beim Suchen bewusst im GANZEN Baum: wer tippt, sucht etwas
     // Bestimmtes, und das steht oft unter einer anderen Nummer.
     liste = alle.filter((e) => e.pfadText.toLowerCase().includes(such));
-    hinweis = `Gesucht im ganzen Preislisten-Baum`;
+    hinweis = `Gesucht in der ganzen Preisliste`;
   } else {
     const knoten = preislisteKnotenFuer(zielNr);
     if (!knoten) {
       return `<div class="bk-vorlage-leer">Zu ${escapeHtml(
         knotenLabel(zielNr)
-      )} führt Preisliste nichts. Über das Suchfeld lässt sich trotzdem eine Vorlage holen.</div>`;
+      )} führt die Preisliste nichts. Über das Suchfeld lässt sich trotzdem eine Vorlage holen.</div>`;
     }
     const praefix = knoten.pfadText + PFAD_TRENNER;
     liste = alle.filter((e) => e.pfadText === knoten.pfadText || e.pfadText.startsWith(praefix));
@@ -2507,7 +2508,7 @@ function neueZeile() {
   return { id: uid(), beschrieb: "", ausmass: "", einheit: "", kennwert: "", basis: "", modul: "", intern: "", extern: "" };
 }
 
-// Klick auf eine Position der Preisliste im Baum ("Wandstärke 18 cm"): dort
+// Klick auf eine Preislisten-Position im Baum ("Wandstärke 18 cm"): dort
 // wird erfasst. Gibt es noch keine Zeile, entsteht eine mit den Optionen
 // der Position; sonst geht die vorhandene auf.
 function erfassePreislistePosition(nr) {
@@ -2523,7 +2524,7 @@ function erfassePreislistePosition(nr) {
   uebernimmVorlage(arch.pfadText, { verschieben: false });
 }
 
-// Ein virtueller Knoten der Preisliste steht in keiner Datei. Sobald darunter
+// Ein virtueller Preislisten-Knoten steht in keiner Datei. Sobald darunter
 // etwas erfasst wird, muss er samt seinen Vorfahren als eigenes Kapitel in
 // die Schätzung -- sonst hinge die Zeile beim nächsten Öffnen ohne die
 // Preisliste im Leeren.
@@ -2687,7 +2688,7 @@ function setzeEbene(stufe) {
     // ist: es sind über fünftausend Knoten, und niemand will sie alle auf
     // einmal sehen. Aufklappen ist ein Klick, und was BENUTZT wird, bleibt
     // offen -- sonst wären die eigenen Zeilen plötzlich versteckt.
-    if (k.preisliste && !zeilenUnter(k.nr).length) zugeklappt.add(k.nr);
+    if (k.ausPreisliste && !zeilenUnter(k.nr).length) zugeklappt.add(k.nr);
   });
   renderToolbar();
   render();
@@ -2753,7 +2754,7 @@ function onKapitelClick(e) {
   }
   const ziel = e.target.closest("[data-kap-ziel]");
   if (!ziel || ziel.disabled) return;
-  // Eine Position der Preisliste ist kein Kapitel zum Hineingehen, sondern der
+  // Eine Preislisten-Position ist kein Kapitel zum Hineingehen, sondern der
   // Ort, wo erfasst wird -- dort geht das Fenster auf. Hineingehen lohnt
   // sich erst ab der zweiten Erfassung, dann gibt es dort wirklich eine
   // Liste zu sehen.
@@ -2772,7 +2773,7 @@ function onBodyClick(e) {
     const zeile = e.target.closest("tr.bk-group");
     if (!zeile) return;
     const nr = zeile.dataset.nr;
-    // Eine Preisliste-POSITION ist der Ort, wo erfasst wird -- dort öffnet
+    // Eine PREISLISTEN-POSITION ist der Ort, wo erfasst wird -- dort öffnet
     // der Klick das Fenster statt auf- und zuzuklappen.
     if (istPreislistePosition(nr) && !zeilenVon(nr).length) return erfassePreislistePosition(nr);
     if (zeile.classList.contains("klappbar")) umklappen(nr);
@@ -2941,7 +2942,7 @@ function onBodyInput(e) {
 
 // Die Ordner einer Vorlage als eigene UNTERKAPITEL anlegen und die Nummer
 // des tiefsten zurückgeben. Unterhalb der Gattung hört die Norm auf -- dort
-// gliedert Preisliste weiter, und genauso soll die Schätzung es tun, statt
+// gliedert die Preisliste weiter, und genauso soll die Schätzung es tun, statt
 // alles flach unter die BKP-Nummer zu kippen.
 //
 // Läuft INNERHALB von mutate() und muss deshalb mit dem Stand arbeiten, den
@@ -2986,7 +2987,7 @@ function vorlageOrdner(eintrag, zielNr) {
   return eintrag.pfad.slice(tief, -1);
 }
 
-// Eine Position der Preisliste in eine Zeile übernehmen. Danach hängt die
+// Eine Preislisten-Position in eine Zeile übernehmen. Danach hängt die
 // Schätzung nicht mehr an der Datei: Einheit, Beschrieb und Optionen stehen
 // als KOPIE in der Zeile, der Pfad bleibt nur als Herkunftsangabe stehen.
 // Die Zeile wandert dabei unter die Ordner der Vorlage.
