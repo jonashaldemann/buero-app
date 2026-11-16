@@ -48,11 +48,11 @@ ausprobieren, ohne echte Bürodaten zu sehen.
 
 - **Wie realistisch die Daten sind**: die Beispiel-Kostenschätzung ist
   einmal ganz durchgegangen (siehe "Durchgehen zu zweit"): erfasste und
-  geprüfte Positionen stehen auf "Vieraugenprinzip" (dunkelgrün; dort stehen
-  die Kürzel der beiden Prüfenden, in den Demodaten noch der Doppelhaken),
-  für das Projekt nicht relevante leere Positionen auf "erledigt"
-  (hellgrün), und gelb bleibt, was noch offen ist — Elektro, Heizung,
-  Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz.
+  geprüfte Positionen tragen beide Kürzel (dunkelgrün, "AN/TB"), für das
+  Projekt nicht relevante leere Positionen eines (hellgrün, "AN"), und weiss
+  bzw. gelb bleibt, was noch offen ist — Elektro, Heizung, Sanitär, ein paar
+  Ausbaupositionen, das Geländer und der Honorarsatz. Drei Positionen tragen
+  ein **Fragezeichen**, damit auch das zu sehen ist.
   Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
   der Kosten tragen keines, und die beiden Module ("Dachterrasse", "Ersatz
   Küche") sind separat zu entscheidende Teilbereiche. Jede Zeile mit einem
@@ -1634,12 +1634,13 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   Positionen, ein Fortschrittsbalken, die Summe und ein "›". Ein Klick auf
   die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
 - Der **Fortschrittsbalken** zeigt alle Stände der Positionen darunter in
-  drei Abschnitten, in den Farben der Statuskästchen: dunkelgrün
-  (Vieraugenprinzip), hellgrün (erledigt), gelb (pendent). Was frei bleibt,
-  hat noch niemand angeschaut — vorher füllte ein einziger grüner Balken
-  alles ab "erledigt", und ob der Rest pendent oder unberührt war, sah man
-  nicht. Der Tooltip zählt die vier Stände aus ("1× Vieraugenprinzip · 1×
-  erledigt · 1× pendent · 1× offen").
+  drei Abschnitten, in den Farben der Statuskästchen: dunkelgrün (beide
+  Häkchen), hellgrün (ein Häkchen), gelb (erfasst, aber noch keines). Was
+  frei bleibt, ist noch gar nicht erfasst — vorher füllte ein einziger
+  grüner Balken alles ab "erledigt", und ob der Rest angefangen oder
+  unberührt war, sah man nicht. Der Tooltip zählt die vier Stände aus. Die
+  **Fragen stehen nicht im Balken** (eine Position kann durchgegangen sein
+  *und* eine Frage tragen); dafür steht das Fragezeichen neben der Zeile.
 - Auf einem **Blatt** (Position oder Gattung ohne eigenes Unterkapitel,
   oder ein eigenes Unterkapitel wie "Wände") stehen dort die
   **Unterpositionen** — Beschrieb, Bemerkung, Ausmass, Summe. Ein Klick
@@ -1675,70 +1676,86 @@ zeigte.
 ### Durchgehen zu zweit (Status)
 
 Damit beim gemeinsamen Durchgehen nichts vergessen geht, trägt jede
-BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
+BKP-Nummer links ein Kästchen — und daneben ein rundes Feld für Fragen.
 
-| Stand | Kästchen |
+**Jede Person setzt ihr eigenes Häkchen.** Ein Klick setzt es, der nächste
+nimmt es wieder weg; das Häkchen der anderen Person kann niemand entfernen.
+Damit ist das Vieraugenprinzip keine Regel mehr, die geprüft werden muss,
+sondern folgt aus den Daten: zwei Häkchen sind immer zwei Leute.
+
+| Kästchen | heisst |
 |---|---|
-| offen (Start) | weiss, leer |
-| pendent | gelb, leer |
-| erledigt | hellgrün, **Kürzel der Person**, die es durchgegangen ist ("JH") |
-| Vieraugenprinzip | dunkelgrün, **beide Kürzel** ("JH/MV") |
+| weiss | noch nichts erfasst |
+| **gelb** | erfasst, aber noch niemand durchgegangen |
+| **hellgrün** mit einem Kürzel ("JH") | einmal durchgegangen, die zweite Person fehlt |
+| **dunkelgrün** mit beiden ("JH/MV") | Vieraugenprinzip |
 
-So steht an jeder Position, **wer** sie geprüft hat. Das Kürzel sind die
-**Initialen des Namens** — erster Buchstabe des ersten und des letzten
-Wortes ("Jonas Haldemann" → JH, "Anna von Gunten" → AG); ein einzelnes Wort
-gibt seine ersten zwei Buchstaben her. Bewusst **nicht** der Schlüssel aus
-`config.json`: der ist eine interne Kennung und darf beliebig lang sein
-("jonas" → stünde als "JONAS" im Kästchen). `config.json` wird nur
-gebraucht, um die volle Schreibweise des Namens zu finden, wenn man mit
-einem Benutzernamen angemeldet ist.
+**Gelb wird gerechnet, nicht geklickt**: es heisst schlicht "hier steht ein
+Betrag, aber noch kein Häkchen". Dadurch sieht man auf einen Blick, was neu
+dazugekommen und noch von niemandem angeschaut ist. Einen gespeicherten
+Zwischenstand "pendent" gibt es nicht mehr.
 
-**Die zweite Prüfung muss von einer anderen Person kommen** — das ist der
-Sinn der Sache. Wer eine Position selbst auf "erledigt" gesetzt hat, kommt
-mit dem nächsten Klick darauf nicht aufs Vieraugenprinzip, sondern zurück
-auf "offen" (sonst gäbe es keinen Weg mehr aus dem Stand heraus). Wählt man
-den Stand stattdessen im Bearbeitungsfenster aus der Liste, sagt eine
-Meldung, warum er nicht geht. Welche zwei Personen es sind, spielt keine
-Rolle — es müssen einfach zwei sein.
+**Mehr als zwei Häkchen gibt es nicht.** Hat eine Position schon zwei, kann
+eine dritte Person nichts mehr setzen und nichts mehr wegnehmen. Welche zwei
+es sind, entscheidet sich an der Position selbst — die ersten zwei, die dort
+klicken. Bewusst ohne Einstellung: tritt der Fall je ein, redet man
+miteinander (besprochen im November 2026).
 
-Ältere Schätzungen haben den Stand ohne Namen festgehalten; dort stehen
-weiterhin die **Haken ✓ / ✓✓**. Dasselbe gilt über einer Gruppe, unter der
-*verschiedene* Leute geprüft haben — ein einzelnes Kürzel wäre dort falsch.
-Sind sich alle Positionen darunter einig, steht ihr Kürzel auch auf der
-Gruppe.
-
-In den Dateien heisst der letzte Stand weiterhin `verifiziert` — nur die
-Oberfläche nennt ihn "Vieraugenprinzip", damit bestehende Schätzungen nicht
-umgeschrieben werden müssen. Die Kürzel stehen parallel dazu in
-`geprueft: { "<BKP-Nr>": ["JH", "MV"] }` und sind genauso freiwillig: fehlt
-das Feld, verhält sich alles wie vorher.
+Das Kürzel sind die **Initialen des Namens** — erster Buchstabe des ersten
+und des letzten Wortes ("Jonas Haldemann" → JH, "Anna von Gunten" → AG); ein
+einzelnes Wort gibt seine ersten zwei Buchstaben her. Bewusst **nicht** der
+Schlüssel aus `config.json`: der ist eine interne Kennung und darf beliebig
+lang sein ("jonas" → stünde als "JONAS" im Kästchen). `config.json` wird nur
+gebraucht, um die volle Schreibweise des Namens zu finden, wenn man mit einem
+Benutzernamen angemeldet ist.
 
 Der Stand färbt **nur das Kästchen, nie die ganze Zeile**. Ganze Zeilen in
 Gelb/Grün haben die Tabelle bei 500 Zeilen unruhig gemacht und die
 Ebenenfarben (Haupt-/Elementgruppe) überdeckt — die Struktur ging verloren,
 und das ist beim Durchgehen das Wichtigere. Dass im Kästchen zusätzlich die
-Kürzel stehen (früher ein bzw. zwei Haken), hat denselben Grund: hell- gegen
-dunkelgrün allein wäre ein zu feiner Unterschied, wenn nur ein 34 × 15 Pixel
-grosses Kästchen den Stand zeigt. Die Breite ist fest — mitwachsend stünden
-die BKP-Nummern von Zeile zu Zeile woanders.
+Kürzel stehen, hat denselben Grund: hell- gegen dunkelgrün allein wäre ein zu
+feiner Unterschied, wenn nur ein 34 × 15 Pixel grosses Kästchen den Stand
+zeigt. Die Breite ist fest — mitwachsend stünden die BKP-Nummern von Zeile zu
+Zeile woanders.
 
-Nach dem Vieraugenprinzip geht es wieder auf "offen". Gespeichert wird der Stand
-nur an den **Blättern** (dreistellige Positionen, eigene Unterkapitel und
-jene Reservegruppen ohne Positionen). Eine **Gruppe rechnet ihren Stand aus
-den Kindern**: sie nimmt den Stand an, den *alle* ihre Kinder mindestens
-erreicht haben (`statusBerechnen()`). Das Kästchen einer Elementgruppe wird
-also erst grün, wenn jede ihrer Positionen grün ist, und das einer
-Hauptgruppe erst, wenn all ihre Elementgruppen so weit sind — genau das
-macht sichtbar, wo noch niemand war.
+Gespeichert wird nur an den **Blättern** (dreistellige Positionen, eigene
+Unterkapitel und jene Reservegruppen ohne Positionen), in
+`haken: { "<BKP-Nr>": ["JH", "MV"] }`. Eine **Gruppe rechnet ihren Stand aus
+den Kindern**: sie hat so viele Häkchen, wie *alle* ihre Kinder mindestens
+haben (`statusBerechnen()`). Das Kästchen einer Elementgruppe wird also erst
+grün, wenn jede ihrer Positionen grün ist, und das einer Hauptgruppe erst,
+wenn all ihre Elementgruppen so weit sind — genau das macht sichtbar, wo noch
+niemand war. Ein Kürzel steht auf der Gruppe nur, wenn alles darunter von
+denselben Leuten kommt; sonst bleibt es leer.
 
-Das **Kästchen einer Gruppe lässt sich trotzdem anklicken**: es schaltet vom
-angezeigten (abgeleiteten) Stand aus weiter und setzt den neuen Stand auf
-**alle Positionen darunter** — eine fertig besprochene Elementgruppe ist so
-mit einem Klick abgehakt statt Zeile für Zeile. Weil der Gruppenstand aus
-den Kindern gerechnet wird, zeigt die Gruppe danach genau diesen Stand.
-Einzeln gesetzte Stände darunter werden dabei überschrieben; ein weiterer
-Durchlauf bis "offen" löscht sie wieder. Der **restliche Teil der Zeile
-klappt weiterhin auf und zu** — nur das Kästchen selbst setzt den Status.
+Das **Kästchen einer Gruppe lässt sich anklicken**: es setzt mein Häkchen auf
+alle Positionen darunter, ein weiterer Klick nimmt es überall wieder weg —
+eine fertig besprochene Elementgruppe ist so mit einem Klick abgehakt statt
+Zeile für Zeile. Die Häkchen der anderen Person bleiben dabei unberührt. Der
+**restliche Teil der Zeile klappt weiterhin auf und zu** — nur das Kästchen
+selbst setzt das Häkchen.
+
+#### Fragen
+
+Das runde Feld **?** neben dem Kästchen stellt der anderen Person eine Frage:
+"schau dir das bitte genauer an". Es wird rot und nennt im Tooltip, von wem
+die Frage stammt. **Wegnehmen darf sie jede und jeder** — auch wer sie nicht
+gestellt hat, sonst stapeln sich längst beantwortete Fragen.
+
+Fragen hängen wie die Häkchen an der **BKP-Nummer**, nicht an der einzelnen
+Zeile (`fragen: { "<BKP-Nr>": "MV" }`): gefragt wird zu einer Position
+("Spenglerarbeiten"), nicht zu jeder Zeile im Bearbeitungsfenster. Sie lassen
+sich auf **jeder Ebene** stellen — auch auf einer Gruppe, ohne dass die
+Positionen darunter etwas davon abbekommen. Umgekehrt färbt sich das
+Fragezeichen einer Gruppe nach dem, was in ihrem Ast offen ist: je mehr
+Fragen, desto kräftiger das Rot (ab fünf ist es voll ausgefärbt).
+
+Eine Frage trägt **keinen Text** — was dazu zu sagen ist, gehört ins
+Notizfeld der Zeile. Eine Frage ist damit ein Klick und kein Formular.
+
+Eine Frage ist **unabhängig vom Häkchen**: eine Position kann durchgegangen
+sein und trotzdem eine Frage tragen. Deshalb gibt es im Fortschrittsbalken
+auch **kein rotes Segment** — es würde dieselbe Position zweimal zählen.
 
 ### Unterpositionen, Ausmass, Kennwert
 

@@ -31,7 +31,9 @@
       "id": "demo-p1",
       "text": "Baueingabe Seestrasse: Nachweis Schallschutz beilegen",
       "projekt": "Wohnhaus Seestrasse",
-      "person": ["an"],
+      "person": [
+        "an"
+      ],
       "erledigt": false,
       "erledigtAt": null,
       "order": 1,
@@ -43,7 +45,9 @@
       "id": "demo-p2",
       "text": "Offerte Baumeister Werkhof einholen (3 Firmen)",
       "projekt": "Werkhof Riedmatt",
-      "person": ["tb"],
+      "person": [
+        "tb"
+      ],
       "erledigt": false,
       "erledigtAt": null,
       "order": 2,
@@ -55,7 +59,9 @@
       "id": "demo-p3",
       "text": "Lindenweg: Dachaufbau mit Bauphysiker klären",
       "projekt": "Dachausbau Lindenweg",
-      "person": ["an"],
+      "person": [
+        "an"
+      ],
       "erledigt": false,
       "erledigtAt": null,
       "order": 3,
@@ -79,7 +85,9 @@
       "id": "demo-p5",
       "text": "Versicherung Bauzeit für Werkhof abschliessen",
       "projekt": "Werkhof Riedmatt",
-      "person": ["tb"],
+      "person": [
+        "tb"
+      ],
       "erledigt": true,
       "erledigtAt": "2026-10-28T09:12:00.000Z",
       "order": 5,
@@ -534,703 +542,2028 @@
         "titel": "Spenglergang"
       }
     ],
-    "status": {
-      "000": "verifiziert",
-      "001": "verifiziert",
-      "002": "verifiziert",
-      "003": "verifiziert",
-      "004": "verifiziert",
-      "005": "verifiziert",
-      "006": "verifiziert",
-      "009": "verifiziert",
-      "010": "verifiziert",
-      "011": "verifiziert",
-      "012": "verifiziert",
-      "013": "verifiziert",
-      "018": "verifiziert",
-      "019": "verifiziert",
-      "020": "verifiziert",
-      "021": "verifiziert",
-      "022": "verifiziert",
-      "023": "verifiziert",
-      "024": "verifiziert",
-      "025": "verifiziert",
-      "029": "verifiziert",
-      "030": "verifiziert",
-      "031": "verifiziert",
-      "032": "verifiziert",
-      "033": "verifiziert",
-      "034": "verifiziert",
-      "035": "verifiziert",
-      "036": "verifiziert",
-      "037": "verifiziert",
-      "038": "verifiziert",
-      "039": "verifiziert",
-      "040": "verifiziert",
-      "041": "verifiziert",
-      "042": "verifiziert",
-      "043": "verifiziert",
-      "044": "verifiziert",
-      "045": "verifiziert",
-      "046": "verifiziert",
-      "048": "verifiziert",
-      "049": "verifiziert",
-      "050": "verifiziert",
-      "051": "verifiziert",
-      "052": "verifiziert",
-      "053": "verifiziert",
-      "054": "verifiziert",
-      "055": "verifiziert",
-      "056": "verifiziert",
-      "059": "verifiziert",
-      "060": "verifiziert",
-      "061": "verifiziert",
-      "062": "verifiziert",
-      "063": "verifiziert",
-      "069": "verifiziert",
-      "090": "verifiziert",
-      "091": "verifiziert",
-      "092": "verifiziert",
-      "093": "verifiziert",
-      "094": "verifiziert",
-      "095": "verifiziert",
-      "096": "verifiziert",
-      "099": "verifiziert",
-      "100": "erledigt",
-      "101.1": "erledigt",
-      "101.2": "erledigt",
-      "101.3": "erledigt",
-      "101.4": "erledigt",
-      "101.5": "erledigt",
-      "101.6": "erledigt",
-      "101.7": "erledigt",
-      "102": "erledigt",
-      "103": "erledigt",
-      "109": "erledigt",
-      "110": "erledigt",
-      "111": "erledigt",
-      "112.0": "erledigt",
-      "112.1": "erledigt",
-      "112.2": "erledigt",
-      "113": "erledigt",
-      "114.0": "erledigt",
-      "114.1": "erledigt",
-      "115": "erledigt",
-      "119": "erledigt",
-      "120": "erledigt",
-      "121": "erledigt",
-      "122": "erledigt",
-      "123.0": "erledigt",
-      "123.1": "erledigt",
-      "123.2": "erledigt",
-      "123.3": "erledigt",
-      "123.4": "erledigt",
-      "123.5": "erledigt",
-      "123.6": "erledigt",
-      "124": "erledigt",
-      "129": "erledigt",
-      "130": "erledigt",
-      "131": "erledigt",
-      "132": "erledigt",
-      "133": "erledigt",
-      "134": "erledigt",
-      "135.0": "erledigt",
-      "135.1": "erledigt",
-      "135.2": "erledigt",
-      "135.3": "erledigt",
-      "135.4": "erledigt",
-      "136": "erledigt",
-      "137": "erledigt",
-      "138": "verifiziert",
-      "139": "erledigt",
-      "140": "erledigt",
-      "141.0": "erledigt",
-      "141.1": "erledigt",
-      "141.2": "erledigt",
-      "141.3": "erledigt",
-      "141.4": "erledigt",
-      "141.5": "erledigt",
-      "141.6": "erledigt",
-      "141.7": "erledigt",
-      "142.1": "erledigt",
-      "142.2": "erledigt",
-      "142.3": "erledigt",
-      "142.4": "erledigt",
-      "142.5": "erledigt",
-      "142.6": "erledigt",
-      "142.7": "erledigt",
-      "142.8": "erledigt",
-      "143": "erledigt",
-      "144": "erledigt",
-      "145": "erledigt",
-      "146": "erledigt",
-      "147.1": "erledigt",
-      "147.2": "erledigt",
-      "147.3": "erledigt",
-      "147.4": "erledigt",
-      "147.5": "erledigt",
-      "147.6": "erledigt",
-      "147.7": "erledigt",
-      "148.1": "erledigt",
-      "148.2": "erledigt",
-      "148.3": "erledigt",
-      "148.4": "erledigt",
-      "148.5": "erledigt",
-      "148.6": "erledigt",
-      "148.7": "erledigt",
-      "148.8": "erledigt",
-      "149": "erledigt",
-      "150": "erledigt",
-      "151": "erledigt",
-      "152": "erledigt",
-      "153": "erledigt",
-      "154": "erledigt",
-      "155": "erledigt",
-      "156": "erledigt",
-      "159": "erledigt",
-      "160": "erledigt",
-      "161": "erledigt",
-      "162": "erledigt",
-      "163": "erledigt",
-      "169": "erledigt",
-      "170": "erledigt",
-      "171": "erledigt",
-      "172": "erledigt",
-      "173": "erledigt",
-      "174": "erledigt",
-      "175": "erledigt",
-      "176.0": "erledigt",
-      "176.1": "erledigt",
-      "177": "erledigt",
-      "178": "erledigt",
-      "179": "erledigt",
-      "190": "erledigt",
-      "191": "erledigt",
-      "192": "erledigt",
-      "193": "erledigt",
-      "194": "erledigt",
-      "195": "erledigt",
-      "196": "erledigt",
-      "199": "erledigt",
-      "200": "erledigt",
-      "201.0": "erledigt",
-      "201.1": "erledigt",
-      "201.2": "erledigt",
-      "209": "erledigt",
-      "210": "erledigt",
-      "211.1.10": "verifiziert",
-      "212.0": "erledigt",
-      "212.1": "erledigt",
-      "212.2": "erledigt",
-      "212.3": "erledigt",
-      "212.4": "erledigt",
-      "213.0": "erledigt",
-      "213.1": "erledigt",
-      "213.2": "erledigt",
-      "213.5": "erledigt",
-      "214.0": "erledigt",
-      "214.1": "erledigt",
-      "214.2": "erledigt",
-      "214.3": "erledigt",
-      "214.4": "erledigt",
-      "214.5": "erledigt",
-      "214.6": "erledigt",
-      "215.0": "erledigt",
-      "215.1": "erledigt",
-      "215.2": "erledigt",
-      "215.4": "erledigt",
-      "215.5": "erledigt",
-      "216.0": "erledigt",
-      "216.1": "erledigt",
-      "217": "erledigt",
-      "219": "erledigt",
-      "220": "erledigt",
-      "221.0": "erledigt",
-      "221.1": "erledigt",
-      "221.2": "erledigt",
-      "221.3": "erledigt",
-      "221.4": "erledigt",
-      "221.5": "erledigt",
-      "221.6": "erledigt",
-      "221.7": "erledigt",
-      "221.8": "erledigt",
-      "221.9": "erledigt",
-      "222": "verifiziert",
-      "223": "erledigt",
-      "224.0": "verifiziert",
-      "224.1": "verifiziert",
-      "224.2": "verifiziert",
-      "224.3": "verifiziert",
-      "224.4": "verifiziert",
-      "225.0": "erledigt",
-      "225.1": "erledigt",
-      "225.2": "erledigt",
-      "225.3": "erledigt",
-      "225.4": "erledigt",
-      "226.0": "erledigt",
-      "226.1": "erledigt",
-      "226.2": "erledigt",
-      "227.0": "erledigt",
-      "227.1": "erledigt",
-      "227.2": "erledigt",
-      "227.3": "erledigt",
-      "228.0": "erledigt",
-      "228.1": "erledigt",
-      "228.2": "erledigt",
-      "228.3": "erledigt",
-      "228.4": "erledigt",
-      "228.5": "erledigt",
-      "228.6": "erledigt",
-      "229": "erledigt",
-      "230": "erledigt",
-      "231.0": "erledigt",
-      "231.1": "erledigt",
-      "231.2": "erledigt",
-      "231.3": "erledigt",
-      "231.4": "erledigt",
-      "231.5": "erledigt",
-      "231.9": "erledigt",
-      "232.0": "pendent",
-      "232.1": "pendent",
-      "232.2": "pendent",
-      "232.3": "pendent",
-      "232.4": "pendent",
-      "232.5": "pendent",
-      "232.6": "pendent",
-      "232.7": "pendent",
-      "232.9": "pendent",
-      "233.0": "pendent",
-      "233.1": "pendent",
-      "234": "erledigt",
-      "235.0": "erledigt",
-      "235.1": "erledigt",
-      "235.2": "erledigt",
-      "235.3": "erledigt",
-      "235.4": "erledigt",
-      "235.5": "erledigt",
-      "235.8": "erledigt",
-      "235.9": "erledigt",
-      "236.1": "erledigt",
-      "236.2": "erledigt",
-      "236.3": "erledigt",
-      "236.4": "erledigt",
-      "236.5": "erledigt",
-      "236.6": "erledigt",
-      "236.7": "erledigt",
-      "236.8": "erledigt",
-      "236.9": "erledigt",
-      "237": "erledigt",
-      "238": "erledigt",
-      "239": "erledigt",
-      "240": "erledigt",
-      "242.0": "erledigt",
-      "242.1": "erledigt",
-      "242.2": "erledigt",
-      "242.3": "erledigt",
-      "242.4": "erledigt",
-      "242.5": "erledigt",
-      "242.6": "erledigt",
-      "242.7": "erledigt",
-      "244.0": "pendent",
-      "244.1": "pendent",
-      "244.2": "pendent",
-      "244.3": "pendent",
-      "244.4": "pendent",
-      "244.5": "pendent",
-      "244.6": "pendent",
-      "244.7": "pendent",
-      "245.0": "erledigt",
-      "245.1": "erledigt",
-      "245.2": "erledigt",
-      "245.3": "erledigt",
-      "245.4": "erledigt",
-      "245.5": "erledigt",
-      "245.6": "erledigt",
-      "245.7": "erledigt",
-      "246.0": "erledigt",
-      "246.1": "erledigt",
-      "246.2": "erledigt",
-      "246.3": "erledigt",
-      "246.4": "erledigt",
-      "246.5": "erledigt",
-      "246.6": "erledigt",
-      "246.7": "erledigt",
-      "247.4": "erledigt",
-      "247.5": "erledigt",
-      "247.6": "erledigt",
-      "247.7": "erledigt",
-      "248.1": "erledigt",
-      "248.2": "erledigt",
-      "248.3": "erledigt",
-      "248.4": "erledigt",
-      "248.5": "erledigt",
-      "248.6": "erledigt",
-      "248.7": "erledigt",
-      "249": "erledigt",
-      "250": "erledigt",
-      "251.0": "pendent",
-      "251.1": "pendent",
-      "252.0": "erledigt",
-      "252.1": "erledigt",
-      "253.0": "erledigt",
-      "253.1": "erledigt",
-      "253.2": "erledigt",
-      "253.3": "erledigt",
-      "253.6": "erledigt",
-      "254.1": "pendent",
-      "254.2": "pendent",
-      "254.3": "pendent",
-      "254.4": "pendent",
-      "254.5": "pendent",
-      "254.6": "pendent",
-      "254.7": "pendent",
-      "254.8": "pendent",
-      "254.9": "pendent",
-      "255": "erledigt",
-      "256.0": "erledigt",
-      "256.1": "erledigt",
-      "257.1": "erledigt",
-      "257.2": "erledigt",
-      "258": "pendent",
-      "259": "erledigt",
-      "260": "erledigt",
-      "261": "erledigt",
-      "262": "erledigt",
-      "263": "erledigt",
-      "264": "erledigt",
-      "265": "erledigt",
-      "266": "erledigt",
-      "270": "erledigt",
-      "271.0": "verifiziert",
-      "271.1": "verifiziert",
-      "271.2": "verifiziert",
-      "272.0": "pendent",
-      "272.1": "pendent",
-      "272.2": "pendent",
-      "272.3": "pendent",
-      "272.4": "pendent",
-      "273.0": "pendent",
-      "273.1": "pendent",
-      "273.2": "pendent",
-      "273.3": "pendent",
-      "274": "erledigt",
-      "275": "erledigt",
-      "276.0": "pendent",
-      "276.1": "pendent",
-      "276.2": "pendent",
-      "277.0": "erledigt",
-      "277.1": "erledigt",
-      "277.2": "erledigt",
-      "279": "erledigt",
-      "280": "erledigt",
-      "281.0": "verifiziert",
-      "281.1": "verifiziert",
-      "281.2": "verifiziert",
-      "281.4": "verifiziert",
-      "281.5": "verifiziert",
-      "281.6": "verifiziert",
-      "281.7": "verifiziert",
-      "281.8": "verifiziert",
-      "281.9": "verifiziert",
-      "282.0": "erledigt",
-      "282.1": "erledigt",
-      "282.2": "erledigt",
-      "282.3": "erledigt",
-      "282.4": "erledigt",
-      "282.5": "erledigt",
-      "282.6": "erledigt",
-      "282.7": "erledigt",
-      "283.0": "pendent",
-      "283.1": "pendent",
-      "283.2": "pendent",
-      "283.3": "pendent",
-      "283.4": "pendent",
-      "283.5": "pendent",
-      "284": "erledigt",
-      "285.0": "verifiziert",
-      "285.1": "verifiziert",
-      "285.2": "verifiziert",
-      "285.3": "verifiziert",
-      "286": "erledigt",
-      "287": "erledigt",
-      "288": "erledigt",
-      "289": "erledigt",
-      "290": "erledigt",
-      "291": "pendent",
-      "292": "verifiziert",
-      "293": "erledigt",
-      "294": "pendent",
-      "295": "erledigt",
-      "296": "erledigt",
-      "298.2": "erledigt",
-      "298.3": "erledigt",
-      "298.4": "erledigt",
-      "298.5": "erledigt",
-      "299": "erledigt",
-      "300": "erledigt",
-      "301": "erledigt",
-      "309": "erledigt",
-      "310": "erledigt",
-      "311": "erledigt",
-      "312": "erledigt",
-      "313": "erledigt",
-      "314": "erledigt",
-      "315": "erledigt",
-      "316": "erledigt",
-      "317": "erledigt",
-      "319": "erledigt",
-      "320": "erledigt",
-      "321": "erledigt",
-      "322": "erledigt",
-      "323": "erledigt",
-      "324": "erledigt",
-      "325": "erledigt",
-      "326": "erledigt",
-      "327": "erledigt",
-      "328": "erledigt",
-      "329": "erledigt",
-      "330": "erledigt",
-      "331": "erledigt",
-      "332": "erledigt",
-      "333": "erledigt",
-      "334": "erledigt",
-      "335": "erledigt",
-      "336": "erledigt",
-      "337": "erledigt",
-      "338": "erledigt",
-      "339": "erledigt",
-      "340": "erledigt",
-      "342": "erledigt",
-      "344": "erledigt",
-      "345": "erledigt",
-      "346": "erledigt",
-      "347": "erledigt",
-      "348": "erledigt",
-      "349": "erledigt",
-      "350": "erledigt",
-      "351": "erledigt",
-      "352": "erledigt",
-      "353": "erledigt",
-      "354": "erledigt",
-      "355": "erledigt",
-      "356": "erledigt",
-      "357": "erledigt",
-      "358": "erledigt",
-      "359": "erledigt",
-      "360": "erledigt",
-      "361": "erledigt",
-      "362": "erledigt",
-      "364": "erledigt",
-      "365": "erledigt",
-      "366": "erledigt",
-      "369": "erledigt",
-      "370": "erledigt",
-      "371": "erledigt",
-      "372": "erledigt",
-      "373": "erledigt",
-      "374": "erledigt",
-      "375": "erledigt",
-      "376": "erledigt",
-      "377": "erledigt",
-      "379": "erledigt",
-      "380": "erledigt",
-      "381": "erledigt",
-      "382": "erledigt",
-      "383": "erledigt",
-      "384": "erledigt",
-      "385": "erledigt",
-      "386": "erledigt",
-      "387": "erledigt",
-      "388": "erledigt",
-      "389": "erledigt",
-      "390": "erledigt",
-      "391": "erledigt",
-      "392": "erledigt",
-      "393": "erledigt",
-      "394": "erledigt",
-      "395": "erledigt",
-      "396": "erledigt",
-      "398": "erledigt",
-      "399": "erledigt",
-      "400": "erledigt",
-      "401.0": "erledigt",
-      "401.1": "erledigt",
-      "409": "erledigt",
-      "410": "erledigt",
-      "411.0": "erledigt",
-      "411.1": "erledigt",
-      "411.2": "erledigt",
-      "411.3": "erledigt",
-      "411.4": "erledigt",
-      "411.5": "erledigt",
-      "411.6": "erledigt",
-      "411.7": "erledigt",
-      "411.8": "erledigt",
-      "413.2": "erledigt",
-      "413.3": "erledigt",
-      "413.4": "erledigt",
-      "413.5": "erledigt",
-      "413.6": "erledigt",
-      "414.1": "erledigt",
-      "414.2": "erledigt",
-      "414.3": "erledigt",
-      "414.4": "erledigt",
-      "414.5": "erledigt",
-      "414.6": "erledigt",
-      "414.7": "erledigt",
-      "414.8": "erledigt",
-      "414.9": "erledigt",
-      "415.1": "erledigt",
-      "415.2": "erledigt",
-      "415.3": "erledigt",
-      "415.4": "erledigt",
-      "415.5": "erledigt",
-      "415.6": "erledigt",
-      "415.7": "erledigt",
-      "416.1": "erledigt",
-      "416.2": "erledigt",
-      "416.3": "erledigt",
-      "416.4": "erledigt",
-      "416.5": "erledigt",
-      "416.6": "erledigt",
-      "416.7": "erledigt",
-      "419": "erledigt",
-      "420": "erledigt",
-      "421": "erledigt",
-      "422": "erledigt",
-      "423": "erledigt",
-      "424": "erledigt",
-      "429": "erledigt",
-      "440": "erledigt",
-      "443": "erledigt",
-      "444": "erledigt",
-      "445": "erledigt",
-      "446": "erledigt",
-      "449": "erledigt",
-      "450": "erledigt",
-      "451": "erledigt",
-      "452": "erledigt",
-      "453": "erledigt",
-      "454": "erledigt",
-      "455": "erledigt",
-      "456": "erledigt",
-      "459": "erledigt",
-      "460": "erledigt",
-      "461": "erledigt",
-      "463": "erledigt",
-      "464": "erledigt",
-      "465": "erledigt",
-      "468": "erledigt",
-      "470": "erledigt",
-      "471": "erledigt",
-      "472": "erledigt",
-      "473": "erledigt",
-      "474": "erledigt",
-      "475": "erledigt",
-      "477": "erledigt",
-      "478": "erledigt",
-      "480": "erledigt",
-      "481": "erledigt",
-      "482": "erledigt",
-      "483": "erledigt",
-      "484": "erledigt",
-      "485": "erledigt",
-      "487": "erledigt",
-      "488": "erledigt",
-      "490": "erledigt",
-      "491": "erledigt",
-      "492": "erledigt",
-      "493": "erledigt",
-      "494": "erledigt",
-      "495": "erledigt",
-      "496": "erledigt",
-      "498.2": "erledigt",
-      "498.4": "erledigt",
-      "499": "erledigt",
-      "500": "erledigt",
-      "501": "erledigt",
-      "509": "erledigt",
-      "510": "erledigt",
-      "511": "pendent",
-      "512.0": "erledigt",
-      "512.1": "erledigt",
-      "512.2": "erledigt",
-      "512.3": "erledigt",
-      "512.4": "erledigt",
-      "512.5": "erledigt",
-      "512.6": "erledigt",
-      "519": "erledigt",
-      "520": "erledigt",
-      "521.0": "erledigt",
-      "521.1": "erledigt",
-      "522": "erledigt",
-      "523": "erledigt",
-      "524": "erledigt",
-      "525": "erledigt",
-      "529": "erledigt",
-      "530": "erledigt",
-      "531": "erledigt",
-      "532": "erledigt",
-      "533": "erledigt",
-      "539": "erledigt",
-      "540": "erledigt",
-      "541": "erledigt",
-      "542": "erledigt",
-      "543": "erledigt",
-      "545": "erledigt",
-      "546": "erledigt",
-      "548": "erledigt",
-      "549": "erledigt",
-      "550": "erledigt",
-      "557": "erledigt",
-      "558": "erledigt",
-      "559": "erledigt",
-      "560": "erledigt",
-      "561": "erledigt",
-      "562.2": "erledigt",
-      "562.3": "erledigt",
-      "562.4": "erledigt",
-      "562.9": "erledigt",
-      "563": "erledigt",
-      "564": "erledigt",
-      "565": "erledigt",
-      "566": "erledigt",
-      "567": "erledigt",
-      "568": "erledigt",
-      "569": "erledigt",
-      "580": "erledigt",
-      "581": "erledigt",
-      "582": "pendent",
-      "583": "verifiziert",
-      "589": "erledigt",
-      "6": "erledigt",
-      "7": "erledigt",
-      "8": "erledigt",
-      "900": "erledigt",
-      "901": "erledigt",
-      "902": "erledigt",
-      "908": "erledigt",
-      "909": "erledigt",
-      "910": "erledigt",
-      "919": "erledigt",
-      "920": "erledigt",
-      "921": "erledigt",
-      "929": "erledigt",
-      "930": "erledigt",
-      "939": "erledigt",
-      "940": "erledigt",
-      "949": "erledigt",
-      "960": "erledigt",
-      "969": "erledigt",
-      "970": "erledigt",
-      "979": "erledigt",
-      "980": "erledigt",
-      "989": "erledigt",
-      "990": "erledigt",
-      "991": "erledigt",
-      "993": "erledigt",
-      "996": "erledigt",
-      "999": "erledigt"
+    "haken": {
+      "000": [
+        "AN",
+        "TB"
+      ],
+      "001": [
+        "AN",
+        "TB"
+      ],
+      "002": [
+        "AN",
+        "TB"
+      ],
+      "003": [
+        "AN",
+        "TB"
+      ],
+      "004": [
+        "AN",
+        "TB"
+      ],
+      "005": [
+        "AN",
+        "TB"
+      ],
+      "006": [
+        "AN",
+        "TB"
+      ],
+      "009": [
+        "AN",
+        "TB"
+      ],
+      "010": [
+        "AN",
+        "TB"
+      ],
+      "011": [
+        "AN",
+        "TB"
+      ],
+      "012": [
+        "AN",
+        "TB"
+      ],
+      "013": [
+        "AN",
+        "TB"
+      ],
+      "018": [
+        "AN",
+        "TB"
+      ],
+      "019": [
+        "AN",
+        "TB"
+      ],
+      "020": [
+        "AN",
+        "TB"
+      ],
+      "021": [
+        "AN",
+        "TB"
+      ],
+      "022": [
+        "AN",
+        "TB"
+      ],
+      "023": [
+        "AN",
+        "TB"
+      ],
+      "024": [
+        "AN",
+        "TB"
+      ],
+      "025": [
+        "AN",
+        "TB"
+      ],
+      "029": [
+        "AN",
+        "TB"
+      ],
+      "030": [
+        "AN",
+        "TB"
+      ],
+      "031": [
+        "AN",
+        "TB"
+      ],
+      "032": [
+        "AN",
+        "TB"
+      ],
+      "033": [
+        "AN",
+        "TB"
+      ],
+      "034": [
+        "AN",
+        "TB"
+      ],
+      "035": [
+        "AN",
+        "TB"
+      ],
+      "036": [
+        "AN",
+        "TB"
+      ],
+      "037": [
+        "AN",
+        "TB"
+      ],
+      "038": [
+        "AN",
+        "TB"
+      ],
+      "039": [
+        "AN",
+        "TB"
+      ],
+      "040": [
+        "AN",
+        "TB"
+      ],
+      "041": [
+        "AN",
+        "TB"
+      ],
+      "042": [
+        "AN",
+        "TB"
+      ],
+      "043": [
+        "AN",
+        "TB"
+      ],
+      "044": [
+        "AN",
+        "TB"
+      ],
+      "045": [
+        "AN",
+        "TB"
+      ],
+      "046": [
+        "AN",
+        "TB"
+      ],
+      "048": [
+        "AN",
+        "TB"
+      ],
+      "049": [
+        "AN",
+        "TB"
+      ],
+      "050": [
+        "AN",
+        "TB"
+      ],
+      "051": [
+        "AN",
+        "TB"
+      ],
+      "052": [
+        "AN",
+        "TB"
+      ],
+      "053": [
+        "AN",
+        "TB"
+      ],
+      "054": [
+        "AN",
+        "TB"
+      ],
+      "055": [
+        "AN",
+        "TB"
+      ],
+      "056": [
+        "AN",
+        "TB"
+      ],
+      "059": [
+        "AN",
+        "TB"
+      ],
+      "060": [
+        "AN",
+        "TB"
+      ],
+      "061": [
+        "AN",
+        "TB"
+      ],
+      "062": [
+        "AN",
+        "TB"
+      ],
+      "063": [
+        "AN",
+        "TB"
+      ],
+      "069": [
+        "AN",
+        "TB"
+      ],
+      "090": [
+        "AN",
+        "TB"
+      ],
+      "091": [
+        "AN",
+        "TB"
+      ],
+      "092": [
+        "AN",
+        "TB"
+      ],
+      "093": [
+        "AN",
+        "TB"
+      ],
+      "094": [
+        "AN",
+        "TB"
+      ],
+      "095": [
+        "AN",
+        "TB"
+      ],
+      "096": [
+        "AN",
+        "TB"
+      ],
+      "099": [
+        "AN",
+        "TB"
+      ],
+      "100": [
+        "AN"
+      ],
+      "101.1": [
+        "AN"
+      ],
+      "101.2": [
+        "AN"
+      ],
+      "101.3": [
+        "AN"
+      ],
+      "101.4": [
+        "AN"
+      ],
+      "101.5": [
+        "AN"
+      ],
+      "101.6": [
+        "AN"
+      ],
+      "101.7": [
+        "AN"
+      ],
+      "102": [
+        "AN"
+      ],
+      "103": [
+        "AN"
+      ],
+      "109": [
+        "AN"
+      ],
+      "110": [
+        "AN"
+      ],
+      "111": [
+        "AN"
+      ],
+      "112.0": [
+        "AN"
+      ],
+      "112.1": [
+        "AN"
+      ],
+      "112.2": [
+        "AN"
+      ],
+      "113": [
+        "AN"
+      ],
+      "114.0": [
+        "AN"
+      ],
+      "114.1": [
+        "AN"
+      ],
+      "115": [
+        "AN"
+      ],
+      "119": [
+        "AN"
+      ],
+      "120": [
+        "AN"
+      ],
+      "121": [
+        "AN"
+      ],
+      "122": [
+        "AN"
+      ],
+      "123.0": [
+        "AN"
+      ],
+      "123.1": [
+        "AN"
+      ],
+      "123.2": [
+        "AN"
+      ],
+      "123.3": [
+        "AN"
+      ],
+      "123.4": [
+        "AN"
+      ],
+      "123.5": [
+        "AN"
+      ],
+      "123.6": [
+        "AN"
+      ],
+      "124": [
+        "AN"
+      ],
+      "129": [
+        "AN"
+      ],
+      "130": [
+        "AN"
+      ],
+      "131": [
+        "AN"
+      ],
+      "132": [
+        "AN"
+      ],
+      "133": [
+        "AN"
+      ],
+      "134": [
+        "AN"
+      ],
+      "135.0": [
+        "AN"
+      ],
+      "135.1": [
+        "AN"
+      ],
+      "135.2": [
+        "AN"
+      ],
+      "135.3": [
+        "AN"
+      ],
+      "135.4": [
+        "AN"
+      ],
+      "136": [
+        "AN"
+      ],
+      "137": [
+        "AN"
+      ],
+      "138": [
+        "AN",
+        "TB"
+      ],
+      "139": [
+        "AN"
+      ],
+      "140": [
+        "AN"
+      ],
+      "141.0": [
+        "AN"
+      ],
+      "141.1": [
+        "AN"
+      ],
+      "141.2": [
+        "AN"
+      ],
+      "141.3": [
+        "AN"
+      ],
+      "141.4": [
+        "AN"
+      ],
+      "141.5": [
+        "AN"
+      ],
+      "141.6": [
+        "AN"
+      ],
+      "141.7": [
+        "AN"
+      ],
+      "142.1": [
+        "AN"
+      ],
+      "142.2": [
+        "AN"
+      ],
+      "142.3": [
+        "AN"
+      ],
+      "142.4": [
+        "AN"
+      ],
+      "142.5": [
+        "AN"
+      ],
+      "142.6": [
+        "AN"
+      ],
+      "142.7": [
+        "AN"
+      ],
+      "142.8": [
+        "AN"
+      ],
+      "143": [
+        "AN"
+      ],
+      "144": [
+        "AN"
+      ],
+      "145": [
+        "AN"
+      ],
+      "146": [
+        "AN"
+      ],
+      "147.1": [
+        "AN"
+      ],
+      "147.2": [
+        "AN"
+      ],
+      "147.3": [
+        "AN"
+      ],
+      "147.4": [
+        "AN"
+      ],
+      "147.5": [
+        "AN"
+      ],
+      "147.6": [
+        "AN"
+      ],
+      "147.7": [
+        "AN"
+      ],
+      "148.1": [
+        "AN"
+      ],
+      "148.2": [
+        "AN"
+      ],
+      "148.3": [
+        "AN"
+      ],
+      "148.4": [
+        "AN"
+      ],
+      "148.5": [
+        "AN"
+      ],
+      "148.6": [
+        "AN"
+      ],
+      "148.7": [
+        "AN"
+      ],
+      "148.8": [
+        "AN"
+      ],
+      "149": [
+        "AN"
+      ],
+      "150": [
+        "AN"
+      ],
+      "151": [
+        "AN"
+      ],
+      "152": [
+        "AN"
+      ],
+      "153": [
+        "AN"
+      ],
+      "154": [
+        "AN"
+      ],
+      "155": [
+        "AN"
+      ],
+      "156": [
+        "AN"
+      ],
+      "159": [
+        "AN"
+      ],
+      "160": [
+        "AN"
+      ],
+      "161": [
+        "AN"
+      ],
+      "162": [
+        "AN"
+      ],
+      "163": [
+        "AN"
+      ],
+      "169": [
+        "AN"
+      ],
+      "170": [
+        "AN"
+      ],
+      "171": [
+        "AN"
+      ],
+      "172": [
+        "AN"
+      ],
+      "173": [
+        "AN"
+      ],
+      "174": [
+        "AN"
+      ],
+      "175": [
+        "AN"
+      ],
+      "176.0": [
+        "AN"
+      ],
+      "176.1": [
+        "AN"
+      ],
+      "177": [
+        "AN"
+      ],
+      "178": [
+        "AN"
+      ],
+      "179": [
+        "AN"
+      ],
+      "190": [
+        "AN"
+      ],
+      "191": [
+        "AN"
+      ],
+      "192": [
+        "AN"
+      ],
+      "193": [
+        "AN"
+      ],
+      "194": [
+        "AN"
+      ],
+      "195": [
+        "AN"
+      ],
+      "196": [
+        "AN"
+      ],
+      "199": [
+        "AN"
+      ],
+      "200": [
+        "AN"
+      ],
+      "201.0": [
+        "AN"
+      ],
+      "201.1": [
+        "AN"
+      ],
+      "201.2": [
+        "AN"
+      ],
+      "209": [
+        "AN"
+      ],
+      "210": [
+        "AN"
+      ],
+      "211.1.10": [
+        "AN",
+        "TB"
+      ],
+      "212.0": [
+        "AN"
+      ],
+      "212.1": [
+        "AN"
+      ],
+      "212.2": [
+        "AN"
+      ],
+      "212.3": [
+        "AN"
+      ],
+      "212.4": [
+        "AN"
+      ],
+      "213.0": [
+        "AN"
+      ],
+      "213.1": [
+        "AN"
+      ],
+      "213.2": [
+        "AN"
+      ],
+      "213.5": [
+        "AN"
+      ],
+      "214.0": [
+        "AN"
+      ],
+      "214.1": [
+        "AN"
+      ],
+      "214.2": [
+        "AN"
+      ],
+      "214.3": [
+        "AN"
+      ],
+      "214.4": [
+        "AN"
+      ],
+      "214.5": [
+        "AN"
+      ],
+      "214.6": [
+        "AN"
+      ],
+      "215.0": [
+        "AN"
+      ],
+      "215.1": [
+        "AN"
+      ],
+      "215.2": [
+        "AN"
+      ],
+      "215.4": [
+        "AN"
+      ],
+      "215.5": [
+        "AN"
+      ],
+      "216.0": [
+        "AN"
+      ],
+      "216.1": [
+        "AN"
+      ],
+      "217": [
+        "AN"
+      ],
+      "219": [
+        "AN"
+      ],
+      "220": [
+        "AN"
+      ],
+      "221.0": [
+        "AN"
+      ],
+      "221.1": [
+        "AN"
+      ],
+      "221.2": [
+        "AN"
+      ],
+      "221.3": [
+        "AN"
+      ],
+      "221.4": [
+        "AN"
+      ],
+      "221.5": [
+        "AN"
+      ],
+      "221.6": [
+        "AN"
+      ],
+      "221.7": [
+        "AN"
+      ],
+      "221.8": [
+        "AN"
+      ],
+      "221.9": [
+        "AN"
+      ],
+      "222": [
+        "AN",
+        "TB"
+      ],
+      "223": [
+        "AN"
+      ],
+      "224.0": [
+        "AN",
+        "TB"
+      ],
+      "224.1": [
+        "AN",
+        "TB"
+      ],
+      "224.2": [
+        "AN",
+        "TB"
+      ],
+      "224.3": [
+        "AN",
+        "TB"
+      ],
+      "224.4": [
+        "AN",
+        "TB"
+      ],
+      "225.0": [
+        "AN"
+      ],
+      "225.1": [
+        "AN"
+      ],
+      "225.2": [
+        "AN"
+      ],
+      "225.3": [
+        "AN"
+      ],
+      "225.4": [
+        "AN"
+      ],
+      "226.0": [
+        "AN"
+      ],
+      "226.1": [
+        "AN"
+      ],
+      "226.2": [
+        "AN"
+      ],
+      "227.0": [
+        "AN"
+      ],
+      "227.1": [
+        "AN"
+      ],
+      "227.2": [
+        "AN"
+      ],
+      "227.3": [
+        "AN"
+      ],
+      "228.0": [
+        "AN"
+      ],
+      "228.1": [
+        "AN"
+      ],
+      "228.2": [
+        "AN"
+      ],
+      "228.3": [
+        "AN"
+      ],
+      "228.4": [
+        "AN"
+      ],
+      "228.5": [
+        "AN"
+      ],
+      "228.6": [
+        "AN"
+      ],
+      "229": [
+        "AN"
+      ],
+      "230": [
+        "AN"
+      ],
+      "231.0": [
+        "AN"
+      ],
+      "231.1": [
+        "AN"
+      ],
+      "231.2": [
+        "AN"
+      ],
+      "231.3": [
+        "AN"
+      ],
+      "231.4": [
+        "AN"
+      ],
+      "231.5": [
+        "AN"
+      ],
+      "231.9": [
+        "AN"
+      ],
+      "234": [
+        "AN"
+      ],
+      "235.0": [
+        "AN"
+      ],
+      "235.1": [
+        "AN"
+      ],
+      "235.2": [
+        "AN"
+      ],
+      "235.3": [
+        "AN"
+      ],
+      "235.4": [
+        "AN"
+      ],
+      "235.5": [
+        "AN"
+      ],
+      "235.8": [
+        "AN"
+      ],
+      "235.9": [
+        "AN"
+      ],
+      "236.1": [
+        "AN"
+      ],
+      "236.2": [
+        "AN"
+      ],
+      "236.3": [
+        "AN"
+      ],
+      "236.4": [
+        "AN"
+      ],
+      "236.5": [
+        "AN"
+      ],
+      "236.6": [
+        "AN"
+      ],
+      "236.7": [
+        "AN"
+      ],
+      "236.8": [
+        "AN"
+      ],
+      "236.9": [
+        "AN"
+      ],
+      "237": [
+        "AN"
+      ],
+      "238": [
+        "AN"
+      ],
+      "239": [
+        "AN"
+      ],
+      "240": [
+        "AN"
+      ],
+      "242.0": [
+        "AN"
+      ],
+      "242.1": [
+        "AN"
+      ],
+      "242.2": [
+        "AN"
+      ],
+      "242.3": [
+        "AN"
+      ],
+      "242.4": [
+        "AN"
+      ],
+      "242.5": [
+        "AN"
+      ],
+      "242.6": [
+        "AN"
+      ],
+      "242.7": [
+        "AN"
+      ],
+      "245.0": [
+        "AN"
+      ],
+      "245.1": [
+        "AN"
+      ],
+      "245.2": [
+        "AN"
+      ],
+      "245.3": [
+        "AN"
+      ],
+      "245.4": [
+        "AN"
+      ],
+      "245.5": [
+        "AN"
+      ],
+      "245.6": [
+        "AN"
+      ],
+      "245.7": [
+        "AN"
+      ],
+      "246.0": [
+        "AN"
+      ],
+      "246.1": [
+        "AN"
+      ],
+      "246.2": [
+        "AN"
+      ],
+      "246.3": [
+        "AN"
+      ],
+      "246.4": [
+        "AN"
+      ],
+      "246.5": [
+        "AN"
+      ],
+      "246.6": [
+        "AN"
+      ],
+      "246.7": [
+        "AN"
+      ],
+      "247.4": [
+        "AN"
+      ],
+      "247.5": [
+        "AN"
+      ],
+      "247.6": [
+        "AN"
+      ],
+      "247.7": [
+        "AN"
+      ],
+      "248.1": [
+        "AN"
+      ],
+      "248.2": [
+        "AN"
+      ],
+      "248.3": [
+        "AN"
+      ],
+      "248.4": [
+        "AN"
+      ],
+      "248.5": [
+        "AN"
+      ],
+      "248.6": [
+        "AN"
+      ],
+      "248.7": [
+        "AN"
+      ],
+      "249": [
+        "AN"
+      ],
+      "250": [
+        "AN"
+      ],
+      "252.0": [
+        "AN"
+      ],
+      "252.1": [
+        "AN"
+      ],
+      "253.0": [
+        "AN"
+      ],
+      "253.1": [
+        "AN"
+      ],
+      "253.2": [
+        "AN"
+      ],
+      "253.3": [
+        "AN"
+      ],
+      "253.6": [
+        "AN"
+      ],
+      "255": [
+        "AN"
+      ],
+      "256.0": [
+        "AN"
+      ],
+      "256.1": [
+        "AN"
+      ],
+      "257.1": [
+        "AN"
+      ],
+      "257.2": [
+        "AN"
+      ],
+      "259": [
+        "AN"
+      ],
+      "260": [
+        "AN"
+      ],
+      "261": [
+        "AN"
+      ],
+      "262": [
+        "AN"
+      ],
+      "263": [
+        "AN"
+      ],
+      "264": [
+        "AN"
+      ],
+      "265": [
+        "AN"
+      ],
+      "266": [
+        "AN"
+      ],
+      "270": [
+        "AN"
+      ],
+      "271.0": [
+        "AN",
+        "TB"
+      ],
+      "271.1": [
+        "AN",
+        "TB"
+      ],
+      "271.2": [
+        "AN",
+        "TB"
+      ],
+      "274": [
+        "AN"
+      ],
+      "275": [
+        "AN"
+      ],
+      "277.0": [
+        "AN"
+      ],
+      "277.1": [
+        "AN"
+      ],
+      "277.2": [
+        "AN"
+      ],
+      "279": [
+        "AN"
+      ],
+      "280": [
+        "AN"
+      ],
+      "281.0": [
+        "AN",
+        "TB"
+      ],
+      "281.1": [
+        "AN",
+        "TB"
+      ],
+      "281.2": [
+        "AN",
+        "TB"
+      ],
+      "281.4": [
+        "AN",
+        "TB"
+      ],
+      "281.5": [
+        "AN",
+        "TB"
+      ],
+      "281.6": [
+        "AN",
+        "TB"
+      ],
+      "281.7": [
+        "AN",
+        "TB"
+      ],
+      "281.8": [
+        "AN",
+        "TB"
+      ],
+      "281.9": [
+        "AN",
+        "TB"
+      ],
+      "282.0": [
+        "AN"
+      ],
+      "282.1": [
+        "AN"
+      ],
+      "282.2": [
+        "AN"
+      ],
+      "282.3": [
+        "AN"
+      ],
+      "282.4": [
+        "AN"
+      ],
+      "282.5": [
+        "AN"
+      ],
+      "282.6": [
+        "AN"
+      ],
+      "282.7": [
+        "AN"
+      ],
+      "284": [
+        "AN"
+      ],
+      "285.0": [
+        "AN",
+        "TB"
+      ],
+      "285.1": [
+        "AN",
+        "TB"
+      ],
+      "285.2": [
+        "AN",
+        "TB"
+      ],
+      "285.3": [
+        "AN",
+        "TB"
+      ],
+      "286": [
+        "AN"
+      ],
+      "287": [
+        "AN"
+      ],
+      "288": [
+        "AN"
+      ],
+      "289": [
+        "AN"
+      ],
+      "290": [
+        "AN"
+      ],
+      "292": [
+        "AN",
+        "TB"
+      ],
+      "293": [
+        "AN"
+      ],
+      "295": [
+        "AN"
+      ],
+      "296": [
+        "AN"
+      ],
+      "298.2": [
+        "AN"
+      ],
+      "298.3": [
+        "AN"
+      ],
+      "298.4": [
+        "AN"
+      ],
+      "298.5": [
+        "AN"
+      ],
+      "299": [
+        "AN"
+      ],
+      "300": [
+        "AN"
+      ],
+      "301": [
+        "AN"
+      ],
+      "309": [
+        "AN"
+      ],
+      "310": [
+        "AN"
+      ],
+      "311": [
+        "AN"
+      ],
+      "312": [
+        "AN"
+      ],
+      "313": [
+        "AN"
+      ],
+      "314": [
+        "AN"
+      ],
+      "315": [
+        "AN"
+      ],
+      "316": [
+        "AN"
+      ],
+      "317": [
+        "AN"
+      ],
+      "319": [
+        "AN"
+      ],
+      "320": [
+        "AN"
+      ],
+      "321": [
+        "AN"
+      ],
+      "322": [
+        "AN"
+      ],
+      "323": [
+        "AN"
+      ],
+      "324": [
+        "AN"
+      ],
+      "325": [
+        "AN"
+      ],
+      "326": [
+        "AN"
+      ],
+      "327": [
+        "AN"
+      ],
+      "328": [
+        "AN"
+      ],
+      "329": [
+        "AN"
+      ],
+      "330": [
+        "AN"
+      ],
+      "331": [
+        "AN"
+      ],
+      "332": [
+        "AN"
+      ],
+      "333": [
+        "AN"
+      ],
+      "334": [
+        "AN"
+      ],
+      "335": [
+        "AN"
+      ],
+      "336": [
+        "AN"
+      ],
+      "337": [
+        "AN"
+      ],
+      "338": [
+        "AN"
+      ],
+      "339": [
+        "AN"
+      ],
+      "340": [
+        "AN"
+      ],
+      "342": [
+        "AN"
+      ],
+      "344": [
+        "AN"
+      ],
+      "345": [
+        "AN"
+      ],
+      "346": [
+        "AN"
+      ],
+      "347": [
+        "AN"
+      ],
+      "348": [
+        "AN"
+      ],
+      "349": [
+        "AN"
+      ],
+      "350": [
+        "AN"
+      ],
+      "351": [
+        "AN"
+      ],
+      "352": [
+        "AN"
+      ],
+      "353": [
+        "AN"
+      ],
+      "354": [
+        "AN"
+      ],
+      "355": [
+        "AN"
+      ],
+      "356": [
+        "AN"
+      ],
+      "357": [
+        "AN"
+      ],
+      "358": [
+        "AN"
+      ],
+      "359": [
+        "AN"
+      ],
+      "360": [
+        "AN"
+      ],
+      "361": [
+        "AN"
+      ],
+      "362": [
+        "AN"
+      ],
+      "364": [
+        "AN"
+      ],
+      "365": [
+        "AN"
+      ],
+      "366": [
+        "AN"
+      ],
+      "369": [
+        "AN"
+      ],
+      "370": [
+        "AN"
+      ],
+      "371": [
+        "AN"
+      ],
+      "372": [
+        "AN"
+      ],
+      "373": [
+        "AN"
+      ],
+      "374": [
+        "AN"
+      ],
+      "375": [
+        "AN"
+      ],
+      "376": [
+        "AN"
+      ],
+      "377": [
+        "AN"
+      ],
+      "379": [
+        "AN"
+      ],
+      "380": [
+        "AN"
+      ],
+      "381": [
+        "AN"
+      ],
+      "382": [
+        "AN"
+      ],
+      "383": [
+        "AN"
+      ],
+      "384": [
+        "AN"
+      ],
+      "385": [
+        "AN"
+      ],
+      "386": [
+        "AN"
+      ],
+      "387": [
+        "AN"
+      ],
+      "388": [
+        "AN"
+      ],
+      "389": [
+        "AN"
+      ],
+      "390": [
+        "AN"
+      ],
+      "391": [
+        "AN"
+      ],
+      "392": [
+        "AN"
+      ],
+      "393": [
+        "AN"
+      ],
+      "394": [
+        "AN"
+      ],
+      "395": [
+        "AN"
+      ],
+      "396": [
+        "AN"
+      ],
+      "398": [
+        "AN"
+      ],
+      "399": [
+        "AN"
+      ],
+      "400": [
+        "AN"
+      ],
+      "401.0": [
+        "AN"
+      ],
+      "401.1": [
+        "AN"
+      ],
+      "409": [
+        "AN"
+      ],
+      "410": [
+        "AN"
+      ],
+      "411.0": [
+        "AN"
+      ],
+      "411.1": [
+        "AN"
+      ],
+      "411.2": [
+        "AN"
+      ],
+      "411.3": [
+        "AN"
+      ],
+      "411.4": [
+        "AN"
+      ],
+      "411.5": [
+        "AN"
+      ],
+      "411.6": [
+        "AN"
+      ],
+      "411.7": [
+        "AN"
+      ],
+      "411.8": [
+        "AN"
+      ],
+      "413.2": [
+        "AN"
+      ],
+      "413.3": [
+        "AN"
+      ],
+      "413.4": [
+        "AN"
+      ],
+      "413.5": [
+        "AN"
+      ],
+      "413.6": [
+        "AN"
+      ],
+      "414.1": [
+        "AN"
+      ],
+      "414.2": [
+        "AN"
+      ],
+      "414.3": [
+        "AN"
+      ],
+      "414.4": [
+        "AN"
+      ],
+      "414.5": [
+        "AN"
+      ],
+      "414.6": [
+        "AN"
+      ],
+      "414.7": [
+        "AN"
+      ],
+      "414.8": [
+        "AN"
+      ],
+      "414.9": [
+        "AN"
+      ],
+      "415.1": [
+        "AN"
+      ],
+      "415.2": [
+        "AN"
+      ],
+      "415.3": [
+        "AN"
+      ],
+      "415.4": [
+        "AN"
+      ],
+      "415.5": [
+        "AN"
+      ],
+      "415.6": [
+        "AN"
+      ],
+      "415.7": [
+        "AN"
+      ],
+      "416.1": [
+        "AN"
+      ],
+      "416.2": [
+        "AN"
+      ],
+      "416.3": [
+        "AN"
+      ],
+      "416.4": [
+        "AN"
+      ],
+      "416.5": [
+        "AN"
+      ],
+      "416.6": [
+        "AN"
+      ],
+      "416.7": [
+        "AN"
+      ],
+      "419": [
+        "AN"
+      ],
+      "420": [
+        "AN"
+      ],
+      "421": [
+        "AN"
+      ],
+      "422": [
+        "AN"
+      ],
+      "423": [
+        "AN"
+      ],
+      "424": [
+        "AN"
+      ],
+      "429": [
+        "AN"
+      ],
+      "440": [
+        "AN"
+      ],
+      "443": [
+        "AN"
+      ],
+      "444": [
+        "AN"
+      ],
+      "445": [
+        "AN"
+      ],
+      "446": [
+        "AN"
+      ],
+      "449": [
+        "AN"
+      ],
+      "450": [
+        "AN"
+      ],
+      "451": [
+        "AN"
+      ],
+      "452": [
+        "AN"
+      ],
+      "453": [
+        "AN"
+      ],
+      "454": [
+        "AN"
+      ],
+      "455": [
+        "AN"
+      ],
+      "456": [
+        "AN"
+      ],
+      "459": [
+        "AN"
+      ],
+      "460": [
+        "AN"
+      ],
+      "461": [
+        "AN"
+      ],
+      "463": [
+        "AN"
+      ],
+      "464": [
+        "AN"
+      ],
+      "465": [
+        "AN"
+      ],
+      "468": [
+        "AN"
+      ],
+      "470": [
+        "AN"
+      ],
+      "471": [
+        "AN"
+      ],
+      "472": [
+        "AN"
+      ],
+      "473": [
+        "AN"
+      ],
+      "474": [
+        "AN"
+      ],
+      "475": [
+        "AN"
+      ],
+      "477": [
+        "AN"
+      ],
+      "478": [
+        "AN"
+      ],
+      "480": [
+        "AN"
+      ],
+      "481": [
+        "AN"
+      ],
+      "482": [
+        "AN"
+      ],
+      "483": [
+        "AN"
+      ],
+      "484": [
+        "AN"
+      ],
+      "485": [
+        "AN"
+      ],
+      "487": [
+        "AN"
+      ],
+      "488": [
+        "AN"
+      ],
+      "490": [
+        "AN"
+      ],
+      "491": [
+        "AN"
+      ],
+      "492": [
+        "AN"
+      ],
+      "493": [
+        "AN"
+      ],
+      "494": [
+        "AN"
+      ],
+      "495": [
+        "AN"
+      ],
+      "496": [
+        "AN"
+      ],
+      "498.2": [
+        "AN"
+      ],
+      "498.4": [
+        "AN"
+      ],
+      "499": [
+        "AN"
+      ],
+      "500": [
+        "AN"
+      ],
+      "501": [
+        "AN"
+      ],
+      "509": [
+        "AN"
+      ],
+      "510": [
+        "AN"
+      ],
+      "512.0": [
+        "AN"
+      ],
+      "512.1": [
+        "AN"
+      ],
+      "512.2": [
+        "AN"
+      ],
+      "512.3": [
+        "AN"
+      ],
+      "512.4": [
+        "AN"
+      ],
+      "512.5": [
+        "AN"
+      ],
+      "512.6": [
+        "AN"
+      ],
+      "519": [
+        "AN"
+      ],
+      "520": [
+        "AN"
+      ],
+      "521.0": [
+        "AN"
+      ],
+      "521.1": [
+        "AN"
+      ],
+      "522": [
+        "AN"
+      ],
+      "523": [
+        "AN"
+      ],
+      "524": [
+        "AN"
+      ],
+      "525": [
+        "AN"
+      ],
+      "529": [
+        "AN"
+      ],
+      "530": [
+        "AN"
+      ],
+      "531": [
+        "AN"
+      ],
+      "532": [
+        "AN"
+      ],
+      "533": [
+        "AN"
+      ],
+      "539": [
+        "AN"
+      ],
+      "540": [
+        "AN"
+      ],
+      "541": [
+        "AN"
+      ],
+      "542": [
+        "AN"
+      ],
+      "543": [
+        "AN"
+      ],
+      "545": [
+        "AN"
+      ],
+      "546": [
+        "AN"
+      ],
+      "548": [
+        "AN"
+      ],
+      "549": [
+        "AN"
+      ],
+      "550": [
+        "AN"
+      ],
+      "557": [
+        "AN"
+      ],
+      "558": [
+        "AN"
+      ],
+      "559": [
+        "AN"
+      ],
+      "560": [
+        "AN"
+      ],
+      "561": [
+        "AN"
+      ],
+      "562.2": [
+        "AN"
+      ],
+      "562.3": [
+        "AN"
+      ],
+      "562.4": [
+        "AN"
+      ],
+      "562.9": [
+        "AN"
+      ],
+      "563": [
+        "AN"
+      ],
+      "564": [
+        "AN"
+      ],
+      "565": [
+        "AN"
+      ],
+      "566": [
+        "AN"
+      ],
+      "567": [
+        "AN"
+      ],
+      "568": [
+        "AN"
+      ],
+      "569": [
+        "AN"
+      ],
+      "580": [
+        "AN"
+      ],
+      "581": [
+        "AN"
+      ],
+      "583": [
+        "AN",
+        "TB"
+      ],
+      "589": [
+        "AN"
+      ],
+      "6": [
+        "AN"
+      ],
+      "7": [
+        "AN"
+      ],
+      "8": [
+        "AN"
+      ],
+      "900": [
+        "AN"
+      ],
+      "901": [
+        "AN"
+      ],
+      "902": [
+        "AN"
+      ],
+      "908": [
+        "AN"
+      ],
+      "909": [
+        "AN"
+      ],
+      "910": [
+        "AN"
+      ],
+      "919": [
+        "AN"
+      ],
+      "920": [
+        "AN"
+      ],
+      "921": [
+        "AN"
+      ],
+      "929": [
+        "AN"
+      ],
+      "930": [
+        "AN"
+      ],
+      "939": [
+        "AN"
+      ],
+      "940": [
+        "AN"
+      ],
+      "949": [
+        "AN"
+      ],
+      "960": [
+        "AN"
+      ],
+      "969": [
+        "AN"
+      ],
+      "970": [
+        "AN"
+      ],
+      "979": [
+        "AN"
+      ],
+      "980": [
+        "AN"
+      ],
+      "989": [
+        "AN"
+      ],
+      "990": [
+        "AN"
+      ],
+      "991": [
+        "AN"
+      ],
+      "993": [
+        "AN"
+      ],
+      "996": [
+        "AN"
+      ],
+      "999": [
+        "AN"
+      ]
+    },
+    "fragen": {
+      "232.0": "TB",
+      "232.1": "TB",
+      "232.9": "AN"
     },
     "druck": {
       "nurVerwendete": true,
@@ -1552,20 +2885,24 @@
         "typ": "bullet",
         "id": "demo-ab7",
         "text": "Kostenschätzung nach BKP erstellen und zustellen.",
-        "kuerzel": ["AN"]
+        "kuerzel": [
+          "AN"
+        ]
       },
       {
         "typ": "bullet",
         "id": "demo-ab8",
         "text": "Richtofferten Dachdecker und Fenster einholen.",
-        "kuerzel": ["AN", "TB"]
+        "kuerzel": [
+          "AN",
+          "TB"
+        ]
       }
     ],
     "syncedPendenzIds": [],
     "updatedAt": "2026-10-27T16:00:00.000Z",
     "updatedBy": "Demo"
   },
-
   "Buero/Admin/App/Modellviewer/dachausbau-lindenweg/modell.json": {
     "titel": "Dachausbau Lindenweg, Volumenstudie",
     "projekt": "Dachausbau Lindenweg",

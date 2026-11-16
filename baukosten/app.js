@@ -377,47 +377,48 @@ let gewaehlteZeile = null; // { nr, id } der im Bearbeitungsfenster gezeigten Un
 // Wechsel der Zeile zurückgesetzt -- gesucht wird nach einer Vorlage für
 // DIESE Position, nicht dauerhaft gefiltert.
 let vorlageSuche = "";
-// Zuletzt gerechneter Durchgeh-Status je Knoten. Gebraucht beim Klick auf
-// das Kästchen einer Gruppe: dort wird vom ANGEZEIGTEN (abgeleiteten) Stand
-// aus weitergeschaltet, und der steht nur hier.
+// Zuletzt gerechneter Stand je Knoten ({ anzahl, kuerzel, gelb, fragen }).
+// Gebraucht beim Klick auf das Kästchen einer Gruppe: dort wird vom
+// ANGEZEIGTEN (abgeleiteten) Stand aus entschieden, und der steht nur hier.
 let letzterStatus = {};
-// Abgeleitete Prüfer-Kürzel je Knoten -- für ein Blatt die eigenen, für
-// eine Gruppe nur dann welche, wenn alles darunter von denselben Leuten
-// geprüft ist. Wird in statusBerechnen() mitgerechnet.
-let geprueftRoll = {};
 
 // Gedämpfte Farbtöne für die Modul-Markierungen (Strich in der Tabelle,
 // Rand an der Kennzahl-Kachel) -- aus derselben Palette wie die
 // Startseiten-Kacheln, bewusst zurückhaltend.
 const MODUL_FARBEN = ["#4F7089", "#8F9A85", "#C97960", "#8C6E86", "#BF9B4F", "#4A7856", "#7A95A6", "#8A7458"];
 
-// Durchgeh-Status pro BKP-Nummer, zum gemeinsamen Abhaken zu zweit.
-// Reihenfolge = Klick-Reihenfolge des Kästchens.
-const STATUS_FOLGE = ["", "pendent", "erledigt", "verifiziert"];
-const STATUS_RANG = { "": 0, pendent: 1, erledigt: 2, verifiziert: 3 };
-// Der Schlüssel "verifiziert" bleibt in den Dateien stehen (sonst müsste
-// jede bestehende Schätzung umgeschrieben werden) -- in der Oberfläche
-// heisst dieser Stand "Vieraugenprinzip".
-const STATUS_LABEL = {
-  "": "offen – noch nicht angeschaut",
-  pendent: "pendent – angeschaut, noch offene Punkte",
-  erledigt: "erledigt",
-  verifiziert: "Vieraugenprinzip – von der zweiten Person geprüft"
-};
-// Im Kästchen stehen die KÜRZEL der Personen, die geprüft haben ("JH",
-// nach dem Vieraugenprinzip "JH/MV") -- so sieht man auf einen Blick, wer
-// welche Position angeschaut hat. Die Haken sind der Rückfall: ältere
-// Schätzungen haben den Stand ohne Namen festgehalten, und über einer
-// Gruppe mit verschiedenen Prüfern gibt es kein eindeutiges Kürzel.
-const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓✓" };
+// ---------- Durchgehen zu zweit: Häkchen und Fragen ----------
+//
+// Jede Person setzt NUR IHR EIGENES Häkchen, und niemand kann das des
+// Partners entfernen -- damit ist das Vieraugenprinzip nicht mehr eine
+// Regel, die man prüfen muss, sondern folgt aus der Datenstruktur:
+//
+//   haken:  { "<bkp-nr>": ["JH"] }        ein Kürzel je Person, höchstens
+//                                          ZWEI (die dritte Person kommt
+//                                          nicht mehr dazu, siehe
+//                                          setzeHaken()).
+//   fragen: { "<bkp-nr>": "MV" }          wer eine Frage offen hat.
+//
+// Beides hängt an der BKP-NUMMER, nicht an der einzelnen Zeile: gefragt
+// wird zu einer Position ("Spenglerarbeiten"), nicht zu jeder Zeile im
+// Bearbeitungsfenster. Eine Gruppe darf eine EIGENE Frage tragen, die sich
+// nicht nach unten vererbt -- angezeigt wird zusätzlich, wie viele Fragen
+// in ihrem Ast offen sind.
+//
+// GELB gibt es nicht als gespeicherten Stand: es ist schlicht "hat einen
+// Betrag, aber noch kein Häkchen" und wird immer gerechnet. Bis November
+// 2026 gab es dafür einen gemeinsamen `status` je Nummer
+// (offen/pendent/erledigt/verifiziert) plus `geprueft`; migriere() wandelt
+// das um und räumt die alten Felder weg.
+const HAKEN_MAX = 2;
 
-// Wer hat geprüft? `geprueft` ist eine Liste von Mitarbeiter-Kürzeln je
-// BKP-Nummer, parallel zu `status` und genauso freiwillig: fehlt sie,
-// verhält sich alles wie vorher. Höchstens zwei Einträge, und nie zweimal
-// dieselbe Person -- das ist der ganze Sinn des Vieraugenprinzips.
-function geprueftVon(nr) {
-  const liste = (offen && offen.geprueft && offen.geprueft[nr]) || [];
+function hakenVon(nr) {
+  const liste = (offen && offen.haken && offen.haken[nr]) || [];
   return Array.isArray(liste) ? liste.filter(Boolean) : [];
+}
+function frageVon(nr) {
+  const wer = offen && offen.fragen && offen.fragen[nr];
+  return typeof wer === "string" && wer ? wer : "";
 }
 
 // Die Initialen eines Namens: erster Buchstabe des ersten und des LETZTEN
@@ -448,18 +449,18 @@ function kuerzelText(liste) {
   return liste.map((k) => String(k).toUpperCase()).join("/");
 }
 
-// Welcher Stand entsteht, wenn jemand auf `ziel` schaltet? Die zweite
-// Prüfung muss von einer ANDEREN Person kommen; geht das nicht, meldet die
-// Funktion das zurück, statt still etwas anderes zu tun.
-function standFuer(ziel, bisher, ich) {
-  if (ziel !== "verifiziert") {
-    return { status: ziel, geprueft: ziel === "erledigt" && ich ? [ich] : [], abgelehnt: false };
-  }
-  const erste = bisher[0] || "";
-  if (!erste || !ich || erste === ich) {
-    return { status: "erledigt", geprueft: erste ? [erste] : ich ? [ich] : [], abgelehnt: true };
-  }
-  return { status: "verifiziert", geprueft: [erste, ich], abgelehnt: false };
+// Mein Häkchen auf einer Liste setzen oder wegnehmen. `an` erzwingt die
+// Richtung (für den Gruppenklick, der alles darunter gleich setzt); ohne
+// Angabe wird umgeschaltet. Stehen schon zwei ANDERE drin, passiert nichts
+// -- die dritte Person prüft nicht mit (besprochen im November 2026: tritt
+// der Fall ein, redet man miteinander, statt es zu konfigurieren).
+function mitHaken(bisher, ich, an) {
+  if (!ich) return bisher;
+  const drin = bisher.includes(ich);
+  const soll = an === undefined ? !drin : !!an;
+  if (soll === drin) return bisher;
+  if (soll) return bisher.length >= HAKEN_MAX ? bisher : [...bisher, ich];
+  return bisher.filter((k) => k !== ich);
 }
 
 // MwSt: Kennwerte werden exklusive erfasst (so kommen sie aus Richtofferten
@@ -1006,41 +1007,59 @@ function kinderMap(knoten) {
   return map;
 }
 
-// Der Status einer Gruppe wird NICHT gespeichert, sondern aus ihren Kindern
-// gerechnet: sie nimmt den Stand an, den ALLE ihre Kinder mindestens
-// erreicht haben (das Minimum). Eine Elementgruppe wird also erst grün,
-// wenn jede ihrer Positionen grün ist -- genau das soll beim gemeinsamen
-// Durchgehen sichtbar machen, wo noch niemand war. Gespeichert wird nur an
-// den Blättern (Positionen, Gattungen bzw. eigene Unterkapitel, und
-// jene Reservegruppen, die gar keine Positionen haben).
-function statusBerechnen(knoten, kinder) {
-  const gespeichert = (offen && offen.status) || {};
+// Der Stand einer Gruppe wird NICHT gespeichert, sondern aus ihren Kindern
+// gerechnet: sie hat so viele Häkchen, wie ALLE ihre Kinder mindestens
+// haben (das Minimum). Eine Elementgruppe wird also erst grün, wenn jede
+// ihrer Positionen grün ist -- genau das soll beim gemeinsamen Durchgehen
+// sichtbar machen, wo noch niemand war. Gespeichert wird nur an den
+// Blättern (Positionen, Gattungen bzw. eigene Unterkapitel, und jene
+// Reservegruppen, die gar keine Positionen haben).
+//
+// Je Knoten entsteht: wie viele Häkchen (0-2), welche Kürzel (nur wenn
+// darunter alle dasselbe sagen -- sonst wäre die Angabe falsch), ob er
+// GELB ist (hat einen Betrag, aber noch kein Häkchen), die eigene Frage
+// und wie viele Fragen in seinem Ast offen sind.
+function statusBerechnen(knoten, kinder, summen) {
   const ergebnis = {};
-  geprueftRoll = {};
-  // Tiefste zuerst, damit Kinder vor ihren Eltern feststehen.
+  const betragVon = (nr) => !!(summen && summen[nr]);
   [...knoten]
     .sort((a, b) => knotenEbene(b.nr) - knotenEbene(a.nr))
     .forEach((k) => {
       const kids = kinder[k.nr];
+      const eigeneFrage = frageVon(k.nr);
       if (!kids || !kids.length) {
-        ergebnis[k.nr] = gespeichert[k.nr] || "";
-        geprueftRoll[k.nr] = geprueftVon(k.nr);
+        const haken = hakenVon(k.nr);
+        ergebnis[k.nr] = {
+          anzahl: haken.length,
+          kuerzel: haken,
+          gelb: !haken.length && betragVon(k.nr),
+          eigeneFrage,
+          fragen: eigeneFrage ? 1 : 0
+        };
         return;
       }
-      let min = 3;
+      let min = HAKEN_MAX;
+      let fragen = eigeneFrage ? 1 : 0;
       kids.forEach((c) => {
-        min = Math.min(min, STATUS_RANG[ergebnis[c] || ""]);
+        min = Math.min(min, ergebnis[c].anzahl);
+        fragen += ergebnis[c].fragen;
       });
-      ergebnis[k.nr] = STATUS_FOLGE[min];
-      // Über einer Gruppe steht nur dann ein Kürzel, wenn ALLES darunter
-      // von denselben Leuten geprüft wurde -- sonst wäre die Angabe
-      // schlicht falsch, und es bleibt beim Haken.
-      const erstes = kuerzelText(geprueftRoll[kids[0]] || []);
-      const einig = erstes && kids.every((c) => kuerzelText(geprueftRoll[c] || []) === erstes);
-      geprueftRoll[k.nr] = einig ? geprueftRoll[kids[0]] : [];
+      const erstes = kuerzelText(ergebnis[kids[0]].kuerzel);
+      const einig = erstes && kids.every((c) => kuerzelText(ergebnis[c].kuerzel) === erstes);
+      ergebnis[k.nr] = {
+        anzahl: min,
+        kuerzel: einig ? ergebnis[kids[0]].kuerzel : [],
+        gelb: !min && betragVon(k.nr),
+        eigeneFrage,
+        fragen
+      };
     });
   return ergebnis;
 }
+
+// Damit eine fehlende Angabe nirgends einen Absturz auslöst (z.B. ein
+// Knoten, den die Suche gerade nicht gerechnet hat).
+const LEERER_STAND = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0 };
 
 // Nur noch für den Einstiegshinweis unter der Werkzeugleiste: solange gar
 // nichts erfasst ist, erklärt er, wie man anfängt.
@@ -1306,28 +1325,64 @@ function renderKpis(gesamt) {
 
 // ---------- Rendering: Tabelle ----------
 
-// Das Statuskästchen vor der Nummer. Auf Blättern schaltet es den eigenen
-// Stand weiter; auf Gruppen (deren Stand sich aus den Kindern ergibt, siehe
-// statusBerechnen()) setzt es denselben Stand auf alles darunter -- sonst
-// müsste man beim gemeinsamen Durchgehen eine fertige Elementgruppe Zeile
-// für Zeile abhaken. Der Rest der Zeile bleibt fürs Auf- und Zuklappen.
-// Was steht im Kästchen: die Kürzel der Prüfer, sonst der Haken.
-function statusZeichen(nr, status) {
-  const k = geprueftRoll[nr] || [];
-  if (status === "erledigt" && k.length === 1) return kuerzelText(k);
-  if (status === "verifiziert" && k.length === 2) return kuerzelText(k);
-  return STATUS_ZEICHEN[status] || "";
+// Das Statuskästchen vor der Nummer, daneben das Fragezeichen. Auf
+// Blättern setzt das Kästchen MEIN Häkchen; auf Gruppen (deren Stand sich
+// aus den Kindern ergibt, siehe statusBerechnen()) setzt es meines auf
+// alles darunter -- sonst müsste man eine fertige Elementgruppe Zeile für
+// Zeile abhaken. Der Rest der Zeile bleibt fürs Auf- und Zuklappen.
+
+// Weiss (nichts erfasst) / gelb (Betrag, aber kein Häkchen) / hellgrün
+// (ein Häkchen) / dunkelgrün (beide). Gelb wird nie gespeichert.
+function statusKlasse(stand) {
+  if (stand.anzahl >= HAKEN_MAX) return "s-zwei";
+  if (stand.anzahl === 1) return "s-eins";
+  return stand.gelb ? "s-gelb" : "s-leer";
 }
 
-function statusHtml(nr, status, istBlatt) {
-  const k = geprueftRoll[nr] || [];
-  const wer = k.length ? ` (${kuerzelText(k)})` : "";
-  const titel = istBlatt
-    ? `${STATUS_LABEL[status]}${wer} – klicken zum Weiterschalten`
-    : `${STATUS_LABEL[status]}${wer} – klicken setzt alle Positionen darunter auf den nächsten Stand`;
-  return `<button type="button" class="bk-status s-${status || "leer"}" data-action="status" data-nr="${nr}"${
-    istBlatt ? ' data-blatt="1"' : ""
-  } title="${escapeHtml(titel)}">${escapeHtml(statusZeichen(nr, status))}</button>`;
+function statusTitel(stand, istBlatt) {
+  const wer = stand.kuerzel.length ? kuerzelText(stand.kuerzel) : "";
+  const was =
+    stand.anzahl >= HAKEN_MAX
+      ? `Vieraugenprinzip${wer ? ` – ${wer}` : ""}`
+      : stand.anzahl === 1
+      ? `Durchgegangen${wer ? ` von ${wer}` : ""} – die zweite Person fehlt noch`
+      : stand.gelb
+      ? "Erfasst, aber noch von niemandem durchgegangen"
+      : "Noch nichts erfasst";
+  return `${was} · ${istBlatt ? "klicken setzt mein Häkchen" : "klicken setzt mein Häkchen auf alles darunter"}`;
+}
+
+function statusHtml(nr, stand, istBlatt) {
+  const s = stand || LEERER_STAND;
+  return (
+    `<button type="button" class="bk-status ${statusKlasse(s)}" data-action="status" data-nr="${nr}"${
+      istBlatt ? ' data-blatt="1"' : ""
+    } title="${escapeHtml(statusTitel(s, istBlatt))}">${escapeHtml(kuerzelText(s.kuerzel))}</button>` +
+    frageHtml(nr, s)
+  );
+}
+
+// Das runde Fragezeichen: ein Hinweis an die andere Person, hier genauer
+// hinzuschauen. Es hängt an der NUMMER, nicht an der Zeile, und eine
+// Gruppe darf eine eigene Frage tragen -- die vererbt sich nicht nach
+// unten. Je mehr Fragen im Ast offen sind, desto kräftiger das Rot
+// (ab FRAGEN_VOLL ist Schluss); wegnehmen darf es jede und jeder, sonst
+// stapeln sich längst beantwortete Fragen.
+const FRAGEN_VOLL = 5;
+
+function frageHtml(nr, stand) {
+  const s = stand || LEERER_STAND;
+  const staerke = s.fragen ? Math.min(s.fragen, FRAGEN_VOLL) / FRAGEN_VOLL : 0;
+  const titel = s.eigeneFrage
+    ? `Frage von ${s.eigeneFrage}${s.fragen > 1 ? ` · ${s.fragen - 1} weiter unten` : ""} · klicken nimmt sie weg`
+    : s.fragen
+    ? `${s.fragen} ${s.fragen === 1 ? "Frage" : "Fragen"} weiter unten · klicken stellt hier eine eigene`
+    : "Frage stellen – die andere Person soll hier genauer hinschauen";
+  return `<button type="button" class="bk-frage${s.eigeneFrage ? " eigen" : ""}${
+    s.fragen ? " offen" : ""
+  }" data-action="frage" data-nr="${nr}" style="--frage-staerke:${staerke.toFixed(2)}" title="${escapeHtml(
+    titel
+  )}">?</button>`;
 }
 
 // Die Bemerkungen der Unterpositionen, zu EINEM Text zusammengezogen --
@@ -1478,8 +1533,8 @@ function renderTabelle() {
   const cols = spalten();
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
-  const status = statusBerechnen(knoten, kinder);
   const { summen, gesamt } = alleSummen();
+  const status = statusBerechnen(knoten, kinder, summen);
   const q = suche.trim().toLowerCase();
   const sucheAktiv = q.length > 0;
   const trefferSet = sucheAktiv ? sichtbarDurchSuche(knoten, q) : null;
@@ -1614,35 +1669,40 @@ function render() {
 function balkenHtml(blaetter, status) {
   const n = blaetter.length;
   if (!n) return '<span class="bk-kap-balken"></span>';
-  const zahl = { pendent: 0, erledigt: 0, verifiziert: 0 };
+  const zahl = { zwei: 0, eins: 0, gelb: 0 };
   blaetter.forEach((b) => {
-    const st = status[b] || "";
-    if (st in zahl) zahl[st]++;
+    const st = status[b] || LEERER_STAND;
+    if (st.anzahl >= HAKEN_MAX) zahl.zwei++;
+    else if (st.anzahl === 1) zahl.eins++;
+    else if (st.gelb) zahl.gelb++;
   });
-  const offen = n - zahl.pendent - zahl.erledigt - zahl.verifiziert;
+  const leer = n - zahl.zwei - zahl.eins - zahl.gelb;
   const breite = (k) => (zahl[k] / n) * 100;
+  // Die Fragen stehen NICHT im Balken: eine Position kann durchgegangen
+  // sein UND eine Frage tragen, ein eigener Abschnitt zählte sie doppelt.
+  // Dafür steht das Fragezeichen neben der Zeile.
   const titel =
     [
-      zahl.verifiziert ? `${zahl.verifiziert}× Vieraugenprinzip` : "",
-      zahl.erledigt ? `${zahl.erledigt}× erledigt` : "",
-      zahl.pendent ? `${zahl.pendent}× pendent` : "",
-      offen ? `${offen}× offen` : ""
+      zahl.zwei ? `${zahl.zwei}× Vieraugenprinzip` : "",
+      zahl.eins ? `${zahl.eins}× einmal durchgegangen` : "",
+      zahl.gelb ? `${zahl.gelb}× erfasst, noch nicht durchgegangen` : "",
+      leer ? `${leer}× nichts erfasst` : ""
     ]
       .filter(Boolean)
       .join(" · ") + ` (${n} ${n === 1 ? "Position" : "Positionen"})`;
   return `<span class="bk-kap-balken" title="${escapeHtml(titel)}">
-    <i class="s-verifiziert" style="width:${breite("verifiziert")}%"></i>
-    <i class="s-erledigt" style="width:${breite("erledigt")}%"></i>
-    <i class="s-pendent" style="width:${breite("pendent")}%"></i>
+    <i class="s-zwei" style="width:${breite("zwei")}%"></i>
+    <i class="s-eins" style="width:${breite("eins")}%"></i>
+    <i class="s-gelb" style="width:${breite("gelb")}%"></i>
   </span>`;
 }
 
 function renderKapitel() {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
-  const status = statusBerechnen(knoten, kinder);
-  letzterStatus = status;
   const { summen, gesamt } = alleSummen();
+  const status = statusBerechnen(knoten, kinder, summen);
+  letzterStatus = status;
   const verwendet = verwendeteKnoten();
   const summeVon = (nr) => (nr ? summen[nr] || 0 : gesamt);
 
@@ -1882,15 +1942,8 @@ function renderPanel() {
     <textarea rows="3" data-panel-feld="intern">${escapeHtml(zeile.intern || "")}</textarea>
     <label>Bemerkungen</label>
     <textarea rows="3" data-panel-feld="extern">${escapeHtml(zeile.extern || "")}</textarea>
-    <label>Status</label>
-    <select data-panel-feld="status">
-      ${STATUS_FOLGE.map(
-        (st) =>
-          `<option value="${st}"${(offen.status || {})[nr] === st || (!st && !(offen.status || {})[nr]) ? " selected" : ""}>${escapeHtml(
-            STATUS_LABEL[st]
-          )}</option>`
-      ).join("")}
-    </select>
+    <label>Durchgehen</label>
+    ${panelStandHtml(nr)}
     <div class="bk-panel-fuss">
       <button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>
       <span class="bk-panel-hinweis">Änderungen werden beim Schliessen gespeichert · Esc</span>
@@ -2094,6 +2147,26 @@ function schliessePanel() {
   renderTabelleErhalten();
 }
 
+// Das Durchgeh-Feld im Bearbeitungsfenster: dieselben zwei Knöpfe wie im
+// Baum, damit es nur EINE Bedienung gibt. `letzterStatus` steht hier schon,
+// weil renderPanel() immer nach dem Zeichnen der Tabelle läuft.
+function panelStandHtml(nr) {
+  const stand = letzterStatus[nr] || LEERER_STAND;
+  const text =
+    stand.anzahl >= HAKEN_MAX
+      ? `Vieraugenprinzip${stand.kuerzel.length ? ` – ${kuerzelText(stand.kuerzel)}` : ""}`
+      : stand.anzahl === 1
+      ? `Durchgegangen${stand.kuerzel.length ? ` von ${kuerzelText(stand.kuerzel)}` : ""} – die zweite Person fehlt noch`
+      : stand.gelb
+      ? "Erfasst, aber noch von niemandem durchgegangen"
+      : "Noch nichts erfasst";
+  const frage = stand.eigeneFrage ? ` · Frage von ${stand.eigeneFrage} offen` : "";
+  return `<div class="bk-panel-stand">
+    ${statusHtml(nr, stand, !kinderVon(nr).length)}
+    <span class="bk-panel-stand-text">${escapeHtml(text + frage)}</span>
+  </div>`;
+}
+
 // Zur vorherigen/nächsten Position derselben BKP-Nummer, ohne zu schliessen.
 function panelNachbar(richtung) {
   if (!gewaehlteZeile) return;
@@ -2281,7 +2354,23 @@ function migriere(data) {
   // "Zusätzlich"-Module (Positionen ausserhalb des Totals) gibt es nicht
   // mehr -- ihre Positionen zählen jetzt wie alle anderen ins Total.
   data.module.forEach((m) => delete m.zusatz);
-  if (!data.status) data.status = {};
+  if (!data.haken) data.haken = {};
+  if (!data.fragen) data.fragen = {};
+  // Bis November 2026 stand der Durchgeh-Stand als GEMEINSAMER `status` je
+  // Nummer in der Datei (offen/pendent/erledigt/verifiziert), daneben
+  // `geprueft` mit den Kürzeln. Jetzt setzt jede Person ihr eigenes
+  // Häkchen: `geprueft` IST die neue Liste, "pendent" entfällt ersatzlos
+  // (gelb wird gerechnet, siehe statusBerechnen()). Die alten Felder
+  // werden entfernt, damit die Datei beim nächsten Speichern dauerhaft im
+  // neuen Format landet -- wie bei den Jahres-Dateien der Finanzplanung.
+  if (data.geprueft) {
+    Object.entries(data.geprueft).forEach(([nr, liste]) => {
+      const kuerzel = (Array.isArray(liste) ? liste : []).filter(Boolean).slice(0, HAKEN_MAX);
+      if (kuerzel.length && !data.haken[nr]) data.haken[nr] = kuerzel;
+    });
+  }
+  delete data.geprueft;
+  delete data.status;
   // Vor dem MwSt-Satz waren die Kennwerte inklusive erfasst; für solche
   // Dateien ist 0 der richtige Startwert, sonst käme die MwSt doppelt drauf.
   if (typeof data.mwst !== "number") data.mwst = 0;
@@ -2330,7 +2419,7 @@ function migriereAuf2017(data) {
     eigene.forEach((p) => {
       if (passt(p.nr)) p.nr = ersetzt(p.nr);
     });
-    [data.positionen, data.status].forEach((topf) => {
+    [data.positionen, data.haken, data.fragen].filter(Boolean).forEach((topf) => {
       Object.keys(topf).forEach((n) => {
         if (!passt(n)) return;
         topf[ersetzt(n)] = topf[n];
@@ -2676,6 +2765,45 @@ function legeZeileAn(nr, { mitFenster } = {}) {
 // Eingabe aus der Tabelle oder aus dem Bearbeitungsfenster kam. Danach wird die
 // jeweils ANDERE Darstellung derselben Zeile nachgeführt, damit beide
 // nicht auseinanderlaufen.
+// Mein Häkchen setzen oder wegnehmen. Auf einer GRUPPE gilt es für alles
+// darunter, und zwar in EINE Richtung: habe ich schon überall mein Häkchen,
+// nimmt der Klick es überall weg, sonst setzt er es überall. Positionen,
+// auf denen bereits zwei andere stehen, bleiben dabei unberührt -- das
+// Häkchen des Partners kann niemand entfernen.
+function setzeHaken(nr, istBlatt) {
+  const ich = meinKuerzel();
+  if (!ich) return;
+  const ziele = istBlatt ? [nr] : blattNummernUnter(nr);
+  if (!ziele.length) return;
+  const an = !ziele.every((ziel) => hakenVon(ziel).includes(ich));
+  mutate((data) => {
+    if (!data.haken) data.haken = {};
+    ziele.forEach((ziel) => {
+      const neu = mitHaken(data.haken[ziel] || [], ich, an);
+      if (neu.length) data.haken[ziel] = neu;
+      else delete data.haken[ziel];
+    });
+    return data;
+  });
+  renderTabelleErhalten();
+}
+
+// Eine Frage stellen oder wegnehmen -- wegnehmen darf jede Person, auch
+// wenn die Frage von der anderen stammt: wer sie beantwortet hat, soll sie
+// schliessen können.
+function setzeFrage(nr) {
+  const ich = meinKuerzel();
+  const weg = !!frageVon(nr);
+  if (!weg && !ich) return;
+  mutate((data) => {
+    if (!data.fragen) data.fragen = {};
+    if (weg) delete data.fragen[nr];
+    else data.fragen[nr] = ich;
+    return data;
+  });
+  renderTabelleErhalten();
+}
+
 function setzeFeld(nr, rowId, feld, wert, quelle) {
   mutate((data) => {
     const zeile = (data.positionen[nr] || []).find((z) => z.id === rowId);
@@ -2958,35 +3086,12 @@ function onBodyClick(e) {
   const { action, nr, row } = btn.dataset;
 
   if (action === "status") {
-    const istBlatt = !!btn.dataset.blatt;
-    // Auf einer Gruppe zeigt das Kästchen den abgeleiteten Stand -- von dem
-    // aus wird weitergeschaltet, damit der sichtbare Stand und der nächste
-    // Klick zusammenpassen.
-    const jetzt = istBlatt ? (offen.status || {})[nr] || "" : letzterStatus[nr] || "";
-    const naechster = STATUS_FOLGE[(STATUS_RANG[jetzt] + 1) % STATUS_FOLGE.length];
-    const ziele = istBlatt ? [nr] : blattNummernUnter(nr);
-    const ich = meinKuerzel();
-    // Je Position gilt der eigene Prüfstand: wer schon drinsteht, kann
-    // nicht die zweite Person sein. Der Klick führt dann auf "offen"
-    // zurück -- sonst gäbe es keinen Weg mehr aus dem Stand heraus.
-    const staende = {};
-    ziele.forEach((ziel) => {
-      const stand = standFuer(naechster, geprueftVon(ziel), ich);
-      staende[ziel] = stand.abgelehnt ? { status: "", geprueft: [] } : stand;
-    });
-    mutate((data) => {
-      if (!data.status) data.status = {};
-      if (!data.geprueft) data.geprueft = {};
-      ziele.forEach((ziel) => {
-        const { status: st, geprueft } = staende[ziel];
-        if (st) data.status[ziel] = st;
-        else delete data.status[ziel];
-        if (geprueft.length) data.geprueft[ziel] = geprueft;
-        else delete data.geprueft[ziel];
-      });
-      return data;
-    });
-    renderTabelleErhalten();
+    setzeHaken(nr, !!btn.dataset.blatt);
+    return;
+  }
+
+  if (action === "frage") {
+    setzeFrage(nr);
     return;
   }
 
@@ -3055,8 +3160,10 @@ function onBodyClick(e) {
         Object.keys(data.positionen).forEach((n) => {
           if (drunter(n)) delete data.positionen[n];
         });
-        Object.keys(data.status || {}).forEach((n) => {
-          if (drunter(n)) delete data.status[n];
+        [data.haken, data.fragen].forEach((topf) => {
+          Object.keys(topf || {}).forEach((n) => {
+            if (drunter(n)) delete topf[n];
+          });
         });
         return data;
       },
@@ -3441,40 +3548,19 @@ function onPanelChange(e) {
   if (wahlEl) return onOptionWahl(wahlEl);
   const el = e.target.closest("[data-panel-feld]");
   if (!el || !gewaehlteZeile) return;
-  // Der Status gehört zur BKP-Nummer, nicht zur einzelnen Zeile -- er geht
-  // deshalb nicht über setzeFeld().
-  if (el.dataset.panelFeld === "status") {
-    const nr = gewaehlteZeile.nr;
-    const stand = standFuer(el.value, geprueftVon(nr), meinKuerzel());
-    // Hier wird der Stand ausdrücklich GEWÄHLT, nicht durchgeklickt -- also
-    // sagen, warum das Vieraugenprinzip nicht geht, statt still etwas
-    // anderes zu setzen.
-    if (stand.abgelehnt) {
-      alert(
-        "Vieraugenprinzip: die zweite Prüfung muss von einer anderen Person kommen.\n\n" +
-          (stand.geprueft.length
-            ? `Geprüft hat bisher ${kuerzelText(stand.geprueft)}.`
-            : "Diese Position ist noch von niemandem als erledigt markiert.")
-      );
-    }
-    mutate((data) => {
-      if (!data.status) data.status = {};
-      if (!data.geprueft) data.geprueft = {};
-      if (stand.status) data.status[nr] = stand.status;
-      else delete data.status[nr];
-      if (stand.geprueft.length) data.geprueft[nr] = stand.geprueft;
-      else delete data.geprueft[nr];
-      return data;
-    });
-    renderTabelleErhalten();
-    return;
-  }
   setzeFeld(gewaehlteZeile.nr, gewaehlteZeile.id, el.dataset.panelFeld, el.value, "panel");
 }
 
 function onPanelClick(e) {
   // Klick neben das Fenster schliesst ebenfalls.
   if (e.target.id === "detailPanel") return schliessePanel();
+  // Häkchen und Fragezeichen sind dieselben Knöpfe wie im Baum.
+  const stand = e.target.closest('[data-action="status"], [data-action="frage"]');
+  if (stand) {
+    if (stand.dataset.action === "status") setzeHaken(stand.dataset.nr, !!stand.dataset.blatt);
+    else setzeFrage(stand.dataset.nr);
+    return;
+  }
   const btn = e.target.closest("[data-panel-action]");
   if (!btn || !gewaehlteZeile) return;
   const was = btn.dataset.panelAction;

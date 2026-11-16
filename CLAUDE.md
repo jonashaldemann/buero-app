@@ -128,34 +128,45 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Skript merkt eine Verdeckung nie.
 - **Durchgeh-Status `baukosten/`** färbt NUR das Kästchen vor der Nummer,
   nie die ganze Zeile (das überdeckte die Ebenenfarben und machte die
-  Tabelle unruhig). Im Kästchen stehen die KÜRZEL der Prüfenden ("JH", nach
-  dem Vieraugenprinzip "JH/MV") -- hell- gegen dunkelgrün allein ist auf
-  34 x 15 Pixeln zu fein, und so sieht man zugleich, wer was angeschaut
-  hat. Die Breite ist FEST: mitwachsend stünden die BKP-Nummern von Zeile
-  zu Zeile woanders. In den Dateien heisst der Stand `verifiziert`, in der
-  Oberfläche "Vieraugenprinzip" (`STATUS_LABEL`) -- der Schlüssel bleibt,
-  sonst müsste jede bestehende Schätzung umgeschrieben werden.
-- **Wer geprüft hat, steht in `geprueft: { "<nr>": ["JH","MV"] }`**
-  (`geprueftVon()`, `meinKuerzel()`, `standFuer()`, seit November 2026),
-  parallel zu `status` und genauso freiwillig: fehlt das Feld, zeigen die
-  Kästchen die alten Haken `STATUS_ZEICHEN` -- ältere Schätzungen haben den
-  Stand ohne Namen festgehalten. Das Kürzel sind IMMER die INITIALEN des
-  Namens (`initialen()`: erstes und letztes Wort), nie `mitarbeitende[].key`
-  -- der Schlüssel in `config.json` ist eine interne Kennung und darf
-  beliebig lang sein ("jonas"), im Kästchen stünde dann "JONAS". Genau das
-  ist passiert: in den DEMODATEN sind die Schlüssel zufällig zweistellig
-  ("an", "tb"), deshalb fiel es im Test nicht auf -- Testdaten tragen
-  deshalb jetzt lange Schlüssel. `config.json` liefert nur noch die volle
-  Schreibweise des Namens, falls jemand mit einem Benutzernamen angemeldet
-  ist. Die ZWEITE Prüfung muss von einer anderen Person kommen: wer
-  schon drinsteht, landet mit dem nächsten Klick auf "offen" statt auf
-  verifiziert (sonst gäbe es keinen Weg mehr aus dem Stand heraus); im
-  Bearbeitungsfenster, wo der Stand GEWÄHLT wird, sagt das eine Meldung.
-  `standFuer()` ist die eine Stelle, die das entscheidet -- Kästchen und
-  Auswahlfeld laufen beide darüber. Über einer GRUPPE steht nur dann ein
-  Kürzel, wenn alles darunter von denselben Leuten geprüft ist
-  (`geprueftRoll`, in `statusBerechnen()` mitgerechnet); sonst bleibt es
-  beim Haken.
+  Tabelle unruhig). Seit November 2026 setzt JEDE PERSON IHR EIGENES
+  Häkchen, und niemand kann das der anderen entfernen -- damit ist das
+  Vieraugenprinzip keine Regel mehr, die man prüfen muss, sondern folgt aus
+  der Datenstruktur: zwei Häkchen sind immer zwei Leute.
+  `haken: { "<nr>": ["JH","MV"] }`, höchstens ZWEI (`HAKEN_MAX`); hat eine
+  Position schon zwei, kann eine dritte Person weder setzen noch
+  wegnehmen. Welche zwei es sind, entscheidet sich an der Position selbst
+  (die ersten zwei, die dort klicken) -- bewusst ohne Einstellung in den
+  Kopfdaten, "tritt der Fall ein, reden wir miteinander".
+  GELB wird nie gespeichert: es heisst "hat einen Betrag, aber kein
+  Häkchen" und fällt in `statusBerechnen()` an. Der frühere gemeinsame
+  `status` (offen/pendent/erledigt/verifiziert) samt `geprueft` ist weg;
+  `migriere()` wandelt `geprueft` in `haken` um, lässt "pendent" ersatzlos
+  fallen und RÄUMT DIE ALTEN FELDER WEG (selbstheilend beim nächsten
+  Speichern, wie bei den Jahres-Dateien der Finanzplanung). Ein
+  `erledigt` OHNE Namen ginge dabei verloren -- es gibt laut Nutzer keine
+  solchen Dateien mehr, die Demodaten sind umgeschrieben.
+  Das Kürzel sind IMMER die INITIALEN des Namens (`initialen()`: erstes und
+  letztes Wort), nie `mitarbeitende[].key` -- der Schlüssel in
+  `config.json` ist eine interne Kennung und darf beliebig lang sein
+  ("jonas"), im Kästchen stünde dann "JONAS". Genau das ist passiert: in
+  den DEMODATEN sind die Schlüssel zufällig zweistellig ("an", "tb"),
+  deshalb fiel es im Test nicht auf -- Testdaten tragen deshalb jetzt lange
+  Schlüssel.
+  Über einer GRUPPE steht das Minimum ihrer Blätter, und ein Kürzel nur,
+  wenn alles darunter von denselben Leuten kommt. Ein Klick aufs
+  Gruppen-Kästchen setzt MEIN Häkchen auf alles darunter (noch einer nimmt
+  es überall weg); die Häkchen der anderen Person bleiben.
+- **Fragen `baukosten/`** (`fragen: { "<nr>": "MV" }`, `frageHtml()`): das
+  runde Feld neben dem Kästchen ist ein Hinweis an die andere Person. Es
+  hängt wie das Häkchen an der NUMMER, nicht an der Zeile -- gefragt wird
+  zu einer Position, nicht zu jeder Zeile im Bearbeitungsfenster. Eine
+  GRUPPE darf eine eigene Frage tragen, die sich NICHT nach unten vererbt;
+  angezeigt wird zusätzlich, wie viele Fragen in ihrem Ast offen sind
+  (`--frage-staerke`, voll ab `FRAGEN_VOLL`). Wegnehmen darf jede Person,
+  auch wer sie nicht gestellt hat. Eine Frage trägt KEINEN Text (das
+  Notizfeld der Zeile ist dafür da) und ist UNABHÄNGIG vom Häkchen --
+  deshalb hat der Fortschrittsbalken bewusst KEIN rotes Segment, es würde
+  dieselbe Position zweimal zählen.
 - **Zu zweit an einer Schätzung `baukosten/`**: `persist()` legt jede
   Änderung auf einen frisch geholten Serverstand, verschiedene Zeilen
   überschreiben sich also nicht. Gesehen wird der fremde Stand über
@@ -190,11 +201,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `setzeEbene(4)`; Tests, die den Startzustand prüfen, müssen den
   `localStorage` leeren.
 - **Der Fortschrittsbalken `baukosten/` zeigt ALLE Stände** (`balkenHtml()`):
-  drei Abschnitte in den Farben der Statuskästchen (dunkelgrün / hellgrün /
-  gelb), der freie Rest ist das noch Unberührte. Vorher war es ein einziger
-  grüner Balken ab Rang 2 -- damit sah man nicht, ob der Rest pendent oder
-  gar nicht angeschaut war (genau so gemeldet). Gezählt wird über die
-  BLÄTTER, nicht über die abgeleiteten Gruppenstände.
+  drei Abschnitte in den Farben der Statuskästchen (zwei Häkchen / eines /
+  gelb), der freie Rest ist das noch gar nicht Erfasste. Vorher war es ein
+  einziger grüner Balken ab "erledigt" -- damit sah man nicht, ob der Rest
+  angefangen oder unberührt war (genau so gemeldet). Gezählt wird über die
+  BLÄTTER, nicht über die abgeleiteten Gruppenstände. Fragen kommen NICHT
+  in den Balken, siehe oben.
 - **Ansicht "Kapitel" `baukosten/`** (`ansichtModus`/`kapitelKnoten` in
   `app.js`, `renderKapitel()`): zeigt eine Ebene des Baums auf einmal, wie
   ein Steuerformular. Links der Pfad als Knöpfe, in der Mitte die direkten

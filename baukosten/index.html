@@ -178,9 +178,9 @@
     background: var(--surface-2); flex: none; overflow: hidden;
   }
   .bk-kap-balken i { display: block; height: 100%; }
-  .bk-kap-balken i.s-verifiziert { background: var(--st-verifiziert); }
-  .bk-kap-balken i.s-erledigt { background: var(--st-erledigt); }
-  .bk-kap-balken i.s-pendent { background: var(--st-pendent); }
+  .bk-kap-balken i.s-zwei { background: var(--st-verifiziert); }
+  .bk-kap-balken i.s-eins { background: var(--st-erledigt); }
+  .bk-kap-balken i.s-gelb { background: var(--st-pendent); }
   .bk-kap-betrag { width: 110px; text-align: right; font-variant-numeric: tabular-nums; flex: none; }
   .bk-kap-pfeil { color: var(--text-muted); flex: none; }
   .bk-kap-leer-hinweis { background: var(--surface); padding: 20px 14px; text-align: center; color: var(--text-muted); font-size: 13px; }
@@ -242,7 +242,7 @@
      Kopfzeile und dürfen deshalb lesbar, aber ruhig sein. */
   .bk-table ::placeholder { color: var(--text-muted); opacity: 0.75; }
 
-  .bk-col-nr { width: 127px; }
+  .bk-col-nr { width: 160px; }
   .bk-col-ausmass { width: 94px; }
   .bk-col-einheit { width: 86px; }
   .bk-col-kennwert { width: 100px; }
@@ -280,12 +280,11 @@
   /* Die Einrückung je Ebene setzt app.js als Stil (gleich grosse Stufen,
      beliebig tief) -- der Baum hat keine feste maximale Tiefe mehr. */
 
-  /* Statusfeld: durchklickbar leer -> pendent (gelb) -> erledigt (hellgrün,
-     Kürzel der prüfenden Person) -> Vieraugenprinzip (dunkelgrün, beide
-     Kürzel "JH/MV"; ohne festgehaltene Namen die alten Haken). Es trägt den
-     Status allein, deshalb etwas breiter als hoch -- der Doppelhaken
-     braucht den Platz, und eine feste Breite hält die Nummern in Flucht. */
-  /* Breit genug für zwei Kürzel samt Schrägstrich ("JH/MV"). FEST, nicht
+  /* Statusfeld: weiss (nichts erfasst) / gelb (erfasst, aber noch kein
+     Häkchen -- wird gerechnet, nie gespeichert) / hellgrün mit einem
+     Kürzel / dunkelgrün mit beiden ("JH/MV"). Ein Klick setzt oder nimmt
+     MEIN Häkchen; das des Partners bleibt. Daneben das runde Fragezeichen.
+     Breit genug für zwei Kürzel samt Schrägstrich ("JH/MV"), und FEST, nicht
      mitwachsend: sonst stünden die BKP-Nummern von Zeile zu Zeile woanders. */
   .bk-status {
     display: inline-flex; align-items: center; justify-content: center;
@@ -296,11 +295,33 @@
     padding: 0; vertical-align: middle; flex: none;
   }
   .bk-status[disabled] { cursor: default; opacity: 0.85; }
-  .bk-status.s-pendent { background: var(--st-pendent); border-color: #C9A94F; }
-  .bk-status.s-erledigt { background: var(--st-erledigt); border-color: #7FA173; }
-  .bk-status.s-verifiziert { background: var(--st-verifiziert); border-color: #5E8352; }
+  .bk-status.s-gelb { background: var(--st-pendent); border-color: #C9A94F; }
+  .bk-status.s-eins { background: var(--st-erledigt); border-color: #7FA173; }
+  .bk-status.s-zwei { background: var(--st-verifiziert); border-color: #5E8352; }
   .bk-l1 .bk-status { border-color: rgba(255,255,255,0.45); }
-  .bk-status-platz { display: inline-block; width: 34px; margin-right: 7px; }
+
+  /* Das runde Fragezeichen neben dem Kästchen: ein Hinweis an die andere
+     Person. Ohne Frage bleibt es blass -- es soll auffindbar sein, aber in
+     2450 Zeilen nicht lärmen. Die Stärke des Rots steigt mit der Zahl der
+     Fragen im Ast (--frage-staerke, 0 bis 1). */
+  .bk-frage {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%; margin-right: 8px;
+    border: 1px solid transparent; background: none;
+    font-size: 10px; line-height: 1; font-family: var(--font-medium);
+    color: var(--text-muted); opacity: 0.3; cursor: pointer;
+    padding: 0; vertical-align: middle; flex: none;
+  }
+  .bk-frage:hover { opacity: 1; border-color: var(--feld-rand); }
+  .bk-frage.offen {
+    opacity: 1; color: #fff;
+    background: rgba(181,101,76, calc(0.3 + 0.7 * var(--frage-staerke, 0)));
+    border-color: rgba(181,101,76, 0.9);
+  }
+  .bk-frage.eigen { box-shadow: 0 0 0 1px var(--surface), 0 0 0 2px rgba(181,101,76,0.55); }
+  .bk-l1 .bk-frage { color: rgba(255,255,255,0.8); }
+  .bk-l1 .bk-frage.offen { color: #fff; }
+  .bk-status-platz { display: inline-block; width: 58px; margin-right: 0; }
 
   /* Unterpositionen: die eigentlichen Eingabezeilen */
   .bk-sub td { padding: 2px 6px; background: var(--surface); }
@@ -597,6 +618,10 @@
   }
 
   /* ---------- Dialoge ---------- */
+
+  /* Durchgeh-Feld im Bearbeitungsfenster: dieselben Knöpfe wie im Baum. */
+  .bk-panel-stand { display: flex; align-items: center; margin-bottom: 4px; }
+  .bk-panel-stand-text { font-size: 12.5px; color: var(--text-muted); margin-left: 6px; }
 
   #helpOverlay .sheet, #kopfOverlay .sheet, #neuOverlay .sheet, #druckOverlay .sheet { max-width: 580px; }
   .bk-opt { display: flex; align-items: flex-start; gap: 9px; margin: 10px 0; font-size: 13.5px; }
@@ -983,15 +1008,32 @@
       einzelner Klick hebt sie für diese eine Zeile wieder auf.
     </p>
     <p class="hint">
-      <strong>Durchgehen zu zweit:</strong> das Kästchen links jeder
-      BKP-Nummer lässt sich durchklicken:
-      offen → <strong>pendent</strong> (gelb) → <strong>erledigt</strong>
-      (hellgrün, ✓) → <strong>Vieraugenprinzip</strong> (dunkelgrün, ✓✓) →
-      wieder offen. Gefärbt wird nur das Kästchen, nie die ganze Zeile.
-      Sobald alle Positionen einer Elementgruppe denselben Stand erreicht
-      haben, zeigt ihn auch deren Kästchen — und ebenso das der Hauptgruppe,
-      wenn all ihre Elementgruppen so weit sind. Ein Klick auf das Kästchen
-      einer Gruppe setzt den nächsten Stand auf alles darunter.
+      <strong>Durchgehen zu zweit:</strong> im Kästchen links jeder
+      BKP-Nummer setzt jede Person <em>ihr eigenes</em> Häkchen — ein Klick
+      setzt es, der nächste nimmt es wieder weg. Das Häkchen der anderen
+      Person kann niemand entfernen; damit sind zwei Häkchen immer zwei
+      Leute. Weiss heisst "noch nichts erfasst", <strong>gelb</strong>
+      "erfasst, aber noch niemand durchgegangen" (das rechnet die App, es
+      lässt sich nicht klicken), <strong>hellgrün</strong> mit einem Kürzel
+      "einmal durchgegangen", <strong>dunkelgrün</strong> mit beiden
+      Kürzeln ("JH/MV") das <strong>Vieraugenprinzip</strong>. Mehr als zwei
+      Häkchen gibt es nicht — hat eine Position schon zwei, kommt niemand
+      mehr dazu. Gefärbt wird nur das Kästchen, nie die ganze Zeile. Eine
+      Gruppe zeigt den Stand, den <em>alle</em> Positionen darunter
+      mindestens erreicht haben; ein Klick auf ihr Kästchen setzt mein
+      Häkchen auf alles darunter (und noch einer nimmt es überall weg).
+    </p>
+    <p class="hint">
+      <strong>Fragen (?):</strong> das runde Feld neben dem Kästchen stellt
+      der anderen Person eine Frage — "schau dir das bitte genauer an".
+      Es wird rot und nennt im Tooltip, von wem die Frage stammt; wegnehmen
+      darf sie jede und jeder, auch wer sie nicht gestellt hat. Fragen
+      hängen an der BKP-Nummer, nicht an der einzelnen Zeile, und lassen
+      sich auf jeder Ebene stellen — auch auf einer Gruppe, ohne dass die
+      Positionen darunter davon etwas abbekommen. Umgekehrt färbt sich das
+      Fragezeichen einer Gruppe nach dem, was in ihrem Ast offen ist: je
+      mehr Fragen, desto kräftiger das Rot. Was dazu zu sagen ist, gehört
+      ins Notizfeld der Zeile — eine Frage allein braucht keinen Text.
     </p>
     <p class="hint">
       <strong>Kapitel</strong> (Umschalter oben rechts) geht die Schätzung
