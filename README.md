@@ -1715,10 +1715,19 @@ klappt weiterhin auf und zu** — nur das Kästchen selbst setzt den Status.
   Komma als Dezimaltrennzeichen, Apostrophe (Tausender) werden ignoriert.
   Lässt sich eine Eingabe nicht rechnen, bleibt sie stehen und wird rot
   markiert statt kommentarlos verworfen.
-- **Kosten = Ausmass × Kennwert.** Ein leeres Ausmass zählt als 1 — eine
-  Pauschale/Budgetposition braucht also nur den Kennwert und z.B. die
-  Einheit "Pausch." (in der Excel stand dafür immer ein Pseudo-Ausmass
-  "1 Pl").
+- **Kosten = Ausmass × Kennwert.** Bei einer von Hand erfassten Zeile zählt
+  ein leeres Ausmass als 1 — eine Pauschale/Budgetposition braucht also nur
+  den Kennwert und z.B. die Einheit "Pausch." (in der Excel stand dafür
+  immer ein Pseudo-Ausmass "1 Pl").
+- **Eine Zeile mit Preispositionen braucht dagegen ein Ausmass.** Deren
+  Kennwert ist ein Einheitspreis (CHF pro m², m³, Stk): ohne Ausmass ist
+  noch gar nicht gesagt, wie viel davon gebaut wird. Solange das Feld leer
+  ist, steht in der Kostenspalte **"–"**, die Zeile ist **ausgegraut** und
+  zählt nirgends mit — in der Kapitelansicht bleibt die Position ebenfalls
+  grau. Ohne diese Regel legte schon das Anklicken einer Position in der
+  Preisliste Geld in die Schätzung, bloss weil dort Häkchen gesetzt sind.
+  Sobald eine Zahl im Ausmass steht, zählt die Zeile normal; löscht man sie
+  wieder, geht es zurück auf "–".
 - **Einheit** ist ein freies Feld mit Vorschlagsliste (Stk, m², m³, m, lfm,
   kg, t, h, Tag, Pausch., %).
 

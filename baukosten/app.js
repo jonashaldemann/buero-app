@@ -497,7 +497,21 @@ function franken(wert) {
   return Math.round(wert).toLocaleString("de-CH");
 }
 
+// Eine Zeile mit PREISPOSITIONEN trägt einen Einheitspreis (CHF pro m2, m3,
+// Stk): ohne Ausmass ist noch gar nicht gesagt, wie viel davon gebaut wird.
+// Sie zählt deshalb nichts, bis dort eine Zahl steht -- sonst legt schon das
+// Anklicken einer Position in der Preisliste Geld in die Schätzung, bloss
+// weil dort Häkchen gesetzt sind. VON HAND erfasste Zeilen bleiben wie
+// bisher: dort heisst ein leeres Ausmass weiterhin "einmal", damit eine
+// Pauschal-/Budgetzeile ohne das Pseudo-Ausmass "1 Pausch" auskommt (siehe
+// Dateikopf) -- bestehende Schätzungen rechnen also unverändert weiter.
+function ausmassFehlt(zeile) {
+  if (!zeile || zeile.basis) return false;
+  if (!optionenVon(zeile).length) return false;
+  return rechne(zeile.ausmass) === null;
+}
 function ausmassWert(zeile) {
+  if (ausmassFehlt(zeile)) return 0;
   const v = rechne(zeile.ausmass);
   if (v === null) return 1; // leeres Ausmass = Pauschale
   return isNaN(v) ? 0 : v;
@@ -1323,7 +1337,10 @@ function modulSelectHtml(zeile, cssKlasse) {
   return `<select class="${cssKlasse}" data-feld="modul"><option value="">–</option>${optionen}</select>`;
 }
 
+// "–" statt einer leeren Zelle, wenn das Ausmass fehlt: leer liesse offen,
+// ob hier noch nichts erfasst ist oder gerade nichts kostet.
 function zeilenKostenText(zeile) {
+  if (ausmassFehlt(zeile)) return "–";
   const kosten = zeilenKosten(zeile);
   return kosten ? franken(kosten) : "";
 }
@@ -1373,9 +1390,9 @@ function unterpositionHtml(nr, zeile, cols, stattKnoten) {
       zellen += `<td class="bk-col-aktion"><button type="button" class="bk-row-action" data-action="bearbeiten" data-nr="${nr}" data-row="${zeile.id}" title="Zeile im Fenster bearbeiten">⋯</button><button type="button" class="bk-row-action" data-action="del-zeile" data-nr="${nr}" data-row="${zeile.id}" title="Zeile löschen">×</button></td>`;
     }
   });
-  return `<tr class="bk-sub${stattKnoten ? " bk-sub-knoten" : ""}${gewaehlt}" data-nr="${nr}" data-row="${
-    zeile.id
-  }">${zellen}</tr>`;
+  return `<tr class="bk-sub${stattKnoten ? " bk-sub-knoten" : ""}${
+    ausmassFehlt(zeile) ? " bk-ohne-mass" : ""
+  }${gewaehlt}" data-nr="${nr}" data-row="${zeile.id}">${zellen}</tr>`;
 }
 
 function renderTabelle() {
@@ -1569,7 +1586,7 @@ function renderKapitel() {
   const positionenHtml = (liste) =>
     liste
         .map(
-          (z) => `<div class="bk-kap-pos" data-kap-zeile="${z.id}">
+          (z) => `<div class="bk-kap-pos${ausmassFehlt(z) ? " leer" : ""}" data-kap-zeile="${z.id}">
           <span class="bk-kap-zeile-haupt">
             <span class="bk-kap-zeile-titel">${escapeHtml(z.beschrieb || "(ohne Beschrieb)")}</span>
             ${z.extern ? `<span class="bk-kap-zeile-sub">${escapeHtml(z.extern)}</span>` : ""}
@@ -1602,7 +1619,10 @@ function renderKapitel() {
         const sub = enkel.length
           ? enkel.slice(0, 3).map((e) => knotenTitel(e)).join(" · ") + (enkel.length > 3 ? " …" : "")
           : `${zeilenVon(nr).length} ${zeilenVon(nr).length === 1 ? "Position" : "Positionen"}`;
-        return `<div class="bk-kap-zeile${verwendet.has(nr) ? "" : " leer"}" data-kap-ziel="${escapeHtml(nr)}">
+        // Grau heisst "hier zählt noch nichts" -- nicht bloss "hier steht
+        // noch keine Zeile". Eine angeklickte Preislisten-Position ohne
+        // Ausmass soll nicht schon schwarz werden.
+        return `<div class="bk-kap-zeile${verwendet.has(nr) && summen[nr] ? "" : " leer"}" data-kap-ziel="${escapeHtml(nr)}">
           ${statusHtml(nr, status[nr], !kinderVon(nr).length)}
           <span class="bk-kap-zeile-haupt">
             <span class="bk-kap-zeile-titel">${escapeHtml(knotenLabel(nr))}</span>
@@ -1647,7 +1667,12 @@ function refreshSummen() {
   });
   document.querySelectorAll("[data-kosten-for]").forEach((el) => {
     const zeile = zeileSuchen(offen, el.dataset.kostenFor);
-    if (zeile) el.innerHTML = zeilenKostenText(zeile);
+    if (!zeile) return;
+    el.innerHTML = zeilenKostenText(zeile);
+    // Tippt jemand das Ausmass, wird aus der ausgegrauten Zeile eine
+    // zählende (und umgekehrt) -- ohne das bliebe sie grau.
+    const tr = el.closest("tr");
+    if (tr) tr.classList.toggle("bk-ohne-mass", ausmassFehlt(zeile));
   });
   const gesamtZelle = document.getElementById("gesamtTotalZelle");
   if (gesamtZelle) gesamtZelle.textContent = "CHF " + franken(gesamt);
@@ -1740,7 +1765,7 @@ function renderPanel() {
     }
     <div class="bk-panel-kosten">
       <span style="font-size:11px; letter-spacing:0.4px; color:var(--text-muted); text-transform:uppercase;">Kosten</span>
-      <span class="wert" id="panelKosten">CHF ${franken(zeilenKosten(zeile))}</span>
+      <span class="wert" id="panelKosten">${panelKostenText(zeile)}</span>
     </div>
     <div id="panelVorlage">${vorlageBlockHtml(zeile)}</div>
     <div id="panelOptionen">${optionenBlockHtml(zeile)}</div>
@@ -2002,11 +2027,20 @@ function onPanelKeydown(e) {
   }
 }
 
+// Ohne Ausmass steht hier "– Ausmass fehlt" statt eines Betrags: sonst
+// zeigt das Fenster eine Zahl, die die Zeile gar nicht in die Schätzung
+// einbringt.
+function panelKostenText(zeile) {
+  return ausmassFehlt(zeile)
+    ? '<span class="bk-kosten-offen">– <small>Ausmass fehlt</small></span>'
+    : "CHF " + franken(zeilenKosten(zeile));
+}
+
 function renderPanelKosten() {
   const el = document.getElementById("panelKosten");
   if (!el || !gewaehlteZeile) return;
   const zeile = zeileSuchen(offen, gewaehlteZeile.id);
-  if (zeile) el.textContent = "CHF " + franken(zeilenKosten(zeile));
+  if (zeile) el.innerHTML = panelKostenText(zeile);
 }
 
 function waehleZeile(nr, rowId) {

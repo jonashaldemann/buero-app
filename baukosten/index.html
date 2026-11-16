@@ -182,6 +182,9 @@
   .bk-kap-pos { display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 9px 14px; cursor: pointer; }
   .bk-kap-pos:hover { filter: brightness(0.98); }
   .bk-kap-pos .mass { width: 150px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; flex: none; }
+  /* Ohne Ausmass zählt die Position noch nichts -- sie steht da wie ein
+     leeres Kapitel, nicht wie eine erfasste Zeile. */
+  .bk-kap-pos.leer .bk-kap-zeile-titel, .bk-kap-pos.leer .bk-kap-betrag { color: var(--text-muted); }
   .bk-kap-neu { background: var(--surface); padding: 9px 14px; }
 
   .bk-kap-fuss { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
@@ -317,6 +320,15 @@
   .bk-table td.bk-col-kennwert.bk-fest { text-align: right; }
 
   .bk-sub .bk-kosten { text-align: right; font-variant-numeric: tabular-nums; padding-right: 12px; white-space: nowrap; }
+  /* Eine Zeile aus der Preisliste OHNE Ausmass bringt noch nichts in die
+     Schätzung ein (ausmassFehlt() in app.js) -- sie zeigt "–" und steht
+     ausgegraut da, damit man sie nicht für erledigt hält. Die Eingabefelder
+     müssen eigens mit, sie erben die Farbe nicht von der Zeile. */
+  .bk-sub.bk-ohne-mass td,
+  .bk-sub.bk-ohne-mass textarea,
+  .bk-sub.bk-ohne-mass input,
+  .bk-sub.bk-ohne-mass .bk-num { color: var(--text-muted); }
+  .bk-kosten-offen small { font-family: var(--font-light); font-size: 11px; color: var(--text-muted); margin-left: 4px; }
   .bk-sub textarea.bk-bem { font-size: 11.5px; }
   .bk-sub select { appearance: none; -webkit-appearance: none; font-size: 11.5px; }
 

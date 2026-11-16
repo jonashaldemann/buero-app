@@ -225,6 +225,19 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   der Preis zusammensetzt. Der Schlüssel in den Dateien bleibt `optionen`
   (wie `verifiziert`/"Vieraugenprinzip"), sonst müsste jede bestehende
   Schätzung umgeschrieben werden.
+- **Ohne Ausmass zählt eine Zeile mit PREISPOSITIONEN nichts**
+  (`ausmassFehlt()`): deren Kennwert ist ein Einheitspreis, ohne Ausmass ist
+  nicht gesagt, wie viel davon gebaut wird -- sonst legte schon das
+  Anklicken einer Position in der Preisliste Geld in die Schätzung, bloss
+  weil dort Häkchen gesetzt sind (genau so gemeldet). Sie zeigt dann "–",
+  trägt `bk-ohne-mass` und steht ausgegraut da; in der Kapitelansicht ist
+  die Position ebenso grau, und eine Kapitelzeile wird erst schwarz, wenn
+  unter ihr wirklich ein Betrag steht (vorher hing das bloss daran, ob eine
+  Zeile existiert). VON HAND erfasste Zeilen bleiben, wie sie waren: dort
+  heisst ein leeres Ausmass weiterhin "einmal" (Pauschale, siehe
+  Dateikopf) -- jede bestehende Schätzung rechnet also unverändert weiter.
+  `refreshSummen()` führt Zelle UND Klasse nach, sonst bliebe die Zeile
+  grau, während jemand das Ausmass tippt.
 - **Ein Klick auf eine POSITION der Preisliste öffnet das Fenster**
   (`erfassePreislistePosition()`), statt auf- und zuzuklappen: dort wird
   erfasst. Gibt es noch keine Zeile, entsteht eine mit Einheit, Beschrieb
