@@ -584,6 +584,22 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   ausschliesslich über den angemeldeten Zugang. Die Auswertung war die
   letzte Ausnahme und hatte einen Share-Token im öffentlichen Repo stehen.
   Falls je wieder ein Freigabelink erwogen wird: nicht ins Repo.
+- **Abgeschlossene Monate `finanzplanung/`** (`istSaldo: { monat, betrag }`,
+  `abgeschlossenBis()`): was vorbei ist, ist keine Planung mehr -- dort
+  zählt der tatsächliche Kontostand. Der Knopf trägt den bis dahin
+  berechneten Saldo als Istwert im laufenden Monat ein und löscht die
+  Beträge aller Monate bis und mit diesem. `berechneSalden()` liefert davor
+  deshalb `null` (nicht 0): die Beträge sind weg, eine gerechnete Zahl wäre
+  erfunden -- jede neue Anzeigestelle muss das abfangen. Es gibt GENAU
+  EINEN solchen Punkt pro Jahr, nicht einen je Monat: zwei Istwerte würden
+  sich widersprechen, sobald dazwischen noch etwas geplant ist. Monatliche
+  Zeilen tragen nur EINEN Betrag für alle zwölf Monate und lassen sich gar
+  nicht teilweise löschen -- sie werden in den abgeschlossenen Monaten
+  bloss nicht mehr gezeigt und nicht gezählt; `rowJahresTotal()` zählt
+  darum nur die offenen Monate. Der Knopf gilt nur fürs LAUFENDE Jahr (in
+  einem vergangenen hiesse "bis heute" das ganze Jahr). Monat und Betrag
+  werden VOR dem `mutate()` festgehalten, sonst täte mutateFn in seinen
+  zwei Durchläufen Verschiedenes.
 - **Prozent-Zeilen `baukosten/`**: eine Unterposition kann statt
   "Ausmass × Kennwert" ein Prozentsatz der Baukosten sein (fürs
   Architektenhonorar). Es gibt bewusst nur EINE Bemessungsgrundlage

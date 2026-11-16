@@ -33,6 +33,18 @@
   }
   .fp-anfangssaldo label { font-family: var(--font-medium); font-size: 13px; flex: none; }
   .fp-anfangssaldo input { width: 160px; flex: none; }
+  /* Der Abschluss-Knopf steht rechts in derselben Zeile. Bewusst NICHT
+     .btn-secondary: das hat flex:1 und würde die Zeile auseinanderziehen.
+     Und bewusst kein eigenes display, sonst zieht [hidden] nicht. */
+  #abschlussInfo { font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
+  .fp-anfangssaldo.fp-still label, .fp-anfangssaldo.fp-still input { opacity: 0.45; }
+  #abschlussBtn {
+    background: var(--surface-2); border: none; border-radius: 10px;
+    padding: 9px 14px; font-size: 13px; font-family: var(--font-medium);
+    color: var(--text); cursor: pointer; flex: none;
+  }
+  #abschlussBtn:not(:first-of-type) { margin-left: 12px; }
+  #abschlussInfo:empty + #abschlussBtn { margin-left: auto; }
 
   .table-scroll { max-height: 70vh; overflow: auto; }
   table.fp-table { font-size: 12.5px; }
@@ -45,6 +57,12 @@
   .fp-month-cell:hover { background: var(--surface-2); }
   .fp-month-cell.negative { color: #B5654C; }
   .fp-month-cell.fp-has-note { text-decoration: underline dotted var(--text-muted); text-underline-offset: 2px; }
+  /* Abgeschlossene Monate: leer und nicht anklickbar -- dort ist nichts mehr
+     zu planen. Leicht abgesetzt, damit die Grenze zum offenen Teil sichtbar
+     ist (sonst sähe die Tabelle nur kaputt aus). */
+  .fp-month-cell.fp-zu, .fp-section-amount.fp-zu { background: var(--surface-2); cursor: default; }
+  .fp-saldo-row .fp-month-cell.fp-zu { background: transparent; }
+  .fp-saldo-row .fp-month-cell.fp-ist { box-shadow: inset 0 0 0 2px var(--accent-primary); border-radius: 6px; }
   .fp-total { text-align: right; font-family: var(--font-medium); white-space: nowrap; }
   .fp-total.negative { color: #B5654C; }
   .fp-row-actions { white-space: nowrap; }
@@ -107,6 +125,8 @@
   <div class="fp-anfangssaldo">
     <label for="inputAnfangssaldo">Anfangssaldo</label>
     <input type="number" id="inputAnfangssaldo" placeholder="0">
+    <span id="abschlussInfo"></span>
+    <button type="button" id="abschlussBtn" hidden></button>
   </div>
 
   <div class="table-wrap table-scroll">
@@ -168,6 +188,18 @@
       Info). Die Info erscheint dann als Tooltip beim Überfahren der Zahl
       mit der Maus; eine gepunktete Unterstreichung zeigt auch ohne Hover,
       dass dort eine Info hinterlegt ist.
+    </p>
+    <p class="hint">
+      <strong>Vergangene Monate abschliessen:</strong> was vorbei ist, ist
+      keine Planung mehr -- dort zählt der tatsächliche Kontostand. Der
+      Knopf oben rechts trägt den bis heute berechneten Saldo als Istwert
+      im aktuellen Monat ein und räumt die Beträge aller Monate bis und mit
+      diesem weg; gerechnet wird danach ab diesem Istwert weiter. Die Zahl
+      lässt sich jederzeit korrigieren: auf die umrandete Saldo-Zelle
+      klicken. Eine leere Eingabe hebt den Abschluss wieder auf (die
+      Beträge einmaliger Zeilen sind dann allerdings weg -- gelöscht ist
+      gelöscht). Der Anfangssaldo oben zählt nur, solange nichts
+      abgeschlossen ist.
     </p>
     <p class="hint">
       Auf die Bezeichnung einer Zeile klicken benennt sie um. Die Pfeile ▲▼

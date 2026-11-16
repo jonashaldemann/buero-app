@@ -26,6 +26,17 @@
    Liste mit einer einzigen Summe (übersichtlicher als zwei getrennte
    Abschnitte) -- ein kleines Icon pro Zeile zeigt den Typ.
 
+   ABGESCHLOSSENE MONATE (data.istSaldo = { monat, betrag }): Was vorbei
+   ist, ist keine Planung mehr -- dort zählt der tatsächliche Kontostand.
+   "Monate bis heute abschliessen" trägt den bis dahin berechneten Saldo
+   als ISTWERT im aktuellen Monat ein und räumt die Beträge aller Monate
+   bis und mit diesem weg. Danach beginnt die Rechnung im Folgemonat bei
+   diesem Istwert, die Monate davor sind in der Tabelle leer. Der Istwert
+   selbst bleibt jederzeit änderbar (Klick auf die Saldo-Zelle); eine leere
+   Eingabe hebt den Abschluss wieder auf. Es gibt genau EINEN solchen
+   Punkt pro Jahr, nicht einen je Monat: zwei Istwerte im selben Jahr
+   würden sich widersprechen, sobald dazwischen noch etwas geplant ist.
+
    Beträge werden immer POSITIV eingegeben -- ob ein Betrag den Saldo
    erhöht oder verringert, ergibt sich allein aus der Kategorie
    (SECTIONS[].vorzeichen), siehe berechneSalden().
@@ -250,17 +261,43 @@ function rowBetragFuerMonat(row, monat) {
   if (row.typ === "monatlich") return Number(row.betrag) || 0;
   return Number(row.monate && row.monate[monat]) || 0;
 }
-function rowJahresTotal(row) {
-  if (row.typ === "monatlich") return (Number(row.betrag) || 0) * 12;
-  return Object.values(row.monate || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+// Bis und mit welchem Monat ist das Jahr abgeschlossen? 0 = gar nicht.
+// Alles bis dahin ist erledigt und steht nicht mehr in der Tabelle -- auch
+// nicht bei "monatlich"-Zeilen, deren einer Betrag sich gar nicht pro Monat
+// löschen liesse.
+function abgeschlossenBis(data) {
+  const m = Number(data && data.istSaldo && data.istSaldo.monat) || 0;
+  return m >= 1 && m <= 12 ? m : 0;
+}
+function istAbgeschlossen(data, monat) {
+  return monat <= abgeschlossenBis(data);
+}
+
+// Jahrestotal einer Zeile -- NUR über die offenen Monate: stünde bei einer
+// monatlichen Zeile weiter 12 × Betrag, während elf Monatszellen leer sind,
+// wäre die Spalte schlicht falsch.
+function rowJahresTotal(row, data) {
+  const bis = abgeschlossenBis(data);
+  if (row.typ === "monatlich") return (Number(row.betrag) || 0) * (12 - bis);
+  return Object.entries(row.monate || {})
+    .reduce((sum, [m, v]) => sum + (Number(m) > bis ? Number(v) || 0 : 0), 0);
 }
 function sectionSubtotal(sec, data, monat) {
+  if (istAbgeschlossen(data, monat)) return 0;
   return (data[sec.key] || []).reduce((sum, row) => sum + rowBetragFuerMonat(row, monat), 0);
 }
+
 // salden[0] = Anfangssaldo, salden[1..12] = Saldo am Ende von Monat 1..12.
+// In einem abgeschlossenen Monat steht der eingetragene ISTWERT; davor ist
+// der Saldo unbekannt (null) -- die Beträge dieser Monate sind ja weg, eine
+// gerechnete Zahl wäre dort eine Erfindung.
 function berechneSalden(data) {
+  const bis = abgeschlossenBis(data);
   const salden = [Number(data.anfangssaldo) || 0];
   for (let m = 1; m <= 12; m++) {
+    if (m < bis) { salden.push(null); continue; }
+    if (m === bis) { salden.push(Number(data.istSaldo.betrag) || 0); continue; }
     let delta = 0;
     SECTIONS.forEach((sec) => {
       delta += sec.vorzeichen * sectionSubtotal(sec, data, m);
@@ -288,7 +325,10 @@ function findRow(data, sectionKey, rowId) {
 // beim Überfahren der Zelle, zusätzlich optisch per gepunkteter Unterstreichung
 // markiert (fp-has-note), damit man auch ohne Hover sieht, dass es dort eine
 // Notiz gibt.
-function monthCellHtml(sec, row, monat) {
+function monthCellHtml(sec, row, monat, bis) {
+  // Abgeschlossen: leer und nicht anklickbar. Der Monat ist erledigt, dort
+  // ist nichts mehr zu planen -- wieder öffnen geht über die Saldo-Zelle.
+  if (monat <= bis) return `<td class="fp-month-cell fp-zu" title="Abgeschlossen"></td>`;
   const val = row.typ === "monatlich" ? Number(row.betrag) || 0 : Number(row.monate && row.monate[monat]) || 0;
   const notiz = row.notizen && row.notizen[monat];
   const titleAttr = notiz ? ` title="${escapeHtml(notiz)}"` : "";
@@ -296,9 +336,10 @@ function monthCellHtml(sec, row, monat) {
   return `<td class="fp-month-cell${noteClass}" data-action="edit-month" data-section="${sec.key}" data-row="${row.id}" data-month="${monat}"${titleAttr}>${val ? chNumber(val) : ""}</td>`;
 }
 
-function rowHtml(sec, row, index, count) {
-  const cells = MONTH_LABELS.map((_, idx) => monthCellHtml(sec, row, idx + 1)).join("");
-  const total = rowJahresTotal(row);
+function rowHtml(sec, row, index, count, data) {
+  const bis = abgeschlossenBis(data);
+  const cells = MONTH_LABELS.map((_, idx) => monthCellHtml(sec, row, idx + 1, bis)).join("");
+  const total = rowJahresTotal(row, data);
   const icon = sec.mixed ? `<span class="fp-typ-icon" title="${TYP_LABEL[row.typ]}">${TYP_ICON[row.typ]}</span>` : "";
   const canUp = index > 0;
   const canDown = index < count - 1;
@@ -334,26 +375,40 @@ function addRowButtonsHtml(sec) {
 function sectionHtml(sec, data) {
   const rows = data[sec.key] || [];
   const subtotalCells = MONTH_LABELS.map((_, idx) => {
+    if (istAbgeschlossen(data, idx + 1)) return `<td class="fp-section-amount fp-zu"></td>`;
     const v = sectionSubtotal(sec, data, idx + 1);
     return `<td class="fp-section-amount">${v ? chNumber(v) : ""}</td>`;
   }).join("");
-  const subtotalTotal = rows.reduce((sum, row) => sum + rowJahresTotal(row), 0);
+  const subtotalTotal = rows.reduce((sum, row) => sum + rowJahresTotal(row, data), 0);
   let html = `<tr class="fp-section-row">
     <td>${escapeHtml(sec.label)}</td>
     ${subtotalCells}
     <td class="fp-section-amount fp-total">${subtotalTotal ? chNumber(subtotalTotal) : ""}</td>
     <td></td>
   </tr>`;
-  rows.forEach((row, idx) => { html += rowHtml(sec, row, idx, rows.length); });
+  rows.forEach((row, idx) => { html += rowHtml(sec, row, idx, rows.length, data); });
   html += addRowButtonsHtml(sec);
   return html;
 }
 
+// Jede Saldo-Zelle ist anklickbar: dort wird der tatsächliche Kontostand
+// eingetragen (und damit alles bis zu diesem Monat abgeschlossen). Der
+// Istwert ist hervorgehoben -- man muss sehen, welche Zahl gemessen und
+// welche gerechnet ist.
 function saldoRowHtml(data) {
   const salden = berechneSalden(data);
+  const bis = abgeschlossenBis(data);
   const cells = MONTH_LABELS.map((_, idx) => {
-    const v = salden[idx + 1];
-    return `<td class="fp-month-cell${v < 0 ? " negative" : ""}">${chNumber(v)}</td>`;
+    const m = idx + 1;
+    const v = salden[m];
+    const klassen = ["fp-month-cell"];
+    if (m === bis) klassen.push("fp-ist");
+    if (m < bis) klassen.push("fp-zu");
+    if (v !== null && v < 0) klassen.push("negative");
+    const titel = m === bis
+      ? `Tatsächlicher Stand per Ende ${MONTH_LABELS[idx]}, von Hand eingetragen`
+      : `Stand per Ende ${MONTH_LABELS[idx]} eintragen`;
+    return `<td class="${klassen.join(" ")}" data-action="edit-saldo" data-month="${m}" title="${titel}">${v === null ? "" : chNumber(v)}</td>`;
   }).join("");
   return `<tr class="fp-saldo-row">
     <td>Saldo</td>
@@ -363,8 +418,28 @@ function saldoRowHtml(data) {
   </tr>`;
 }
 
+// Der Abschluss-Knopf gilt nur fürs LAUFENDE Jahr: in einem vergangenen
+// Jahr hiesse "bis heute" das ganze Jahr, in einem künftigen nichts.
+function renderAbschluss() {
+  const info = document.getElementById("abschlussInfo");
+  const btn = document.getElementById("abschlussBtn");
+  const bis = abgeschlossenBis(yearData);
+  info.textContent = bis ? `Abgeschlossen bis Ende ${MONTH_LABELS[bis - 1]}` : "";
+  // Der Anfangssaldo zählt nur, solange nichts abgeschlossen ist -- sonst
+  // beginnt die Rechnung beim Istwert. Er bleibt änderbar (der Abschluss
+  // lässt sich ja aufheben), steht aber sichtbar still.
+  const saldoFeld = document.getElementById("inputAnfangssaldo");
+  saldoFeld.closest(".fp-anfangssaldo").classList.toggle("fp-still", bis > 0);
+  saldoFeld.title = bis ? "Zählt erst wieder, wenn der Abschluss aufgehoben ist" : "";
+  const heute = new Date();
+  const monat = heute.getMonth() + 1;
+  btn.textContent = `Monate bis und mit ${MONTH_LABELS[monat - 1]} abschliessen`;
+  btn.hidden = currentJahr !== heute.getFullYear() || bis >= monat;
+}
+
 function render() {
   document.getElementById("inputAnfangssaldo").value = yearData.anfangssaldo || "";
+  renderAbschluss();
 
   let html = "";
   SECTIONS.forEach((sec) => { html += sectionHtml(sec, yearData); });
@@ -448,6 +523,29 @@ function onTableClick(e) {
     return;
   }
 
+  // Tatsächlicher Kontostand -- und damit der Abschluss bis zu diesem Monat.
+  const editSaldo = e.target.closest('[data-action="edit-saldo"]');
+  if (editSaldo) {
+    const m = Number(editSaldo.dataset.month);
+    const bis = abgeschlossenBis(yearData);
+    const bisher = m === bis ? yearData.istSaldo.betrag : "";
+    const typed = prompt(
+      `Tatsächlicher Kontostand per Ende ${MONTH_LABELS[m - 1]}:\n\n` +
+      `Damit gelten alle Monate bis und mit ${MONTH_LABELS[m - 1]} als abgeschlossen. ` +
+      `Leer lassen hebt den Abschluss wieder auf.`,
+      bisher
+    );
+    if (typed === null) return;
+    const roh = String(typed).trim();
+    const betrag = parseAmount(roh);
+    mutate((data) => {
+      if (!roh) delete data.istSaldo;
+      else data.istSaldo = { monat: m, betrag };
+      return data;
+    });
+    return;
+  }
+
   const moveBtn = e.target.closest('[data-action="move-row"]');
   if (moveBtn) {
     const { section, row: rowId, direction } = moveBtn.dataset;
@@ -490,6 +588,39 @@ function onTableClick(e) {
   }
 }
 
+// Alles bis und mit dem laufenden Monat abschliessen: der bis dahin
+// BERECHNETE Saldo wird als Istwert eingetragen (er steht ja genau für das,
+// was tatsächlich passiert ist, solange die Planung stimmte -- korrigieren
+// lässt er sich danach jederzeit), und die Beträge dieser Monate werden
+// gelöscht. Monatliche Zeilen tragen nur EINEN Betrag für alle zwölf Monate
+// und lassen sich gar nicht teilweise löschen -- sie gelten weiter, werden
+// in den abgeschlossenen Monaten aber nicht mehr gezeigt und nicht gezählt.
+// monat und betrag werden VOR dem mutate() festgehalten: mutateFn läuft
+// zweimal (lokal und auf dem Serverstand) und muss beide Male dasselbe tun.
+function schliesseVergangeneMonateAb() {
+  const monat = new Date().getMonth() + 1;
+  const betrag = berechneSalden(yearData)[monat];
+  const label = MONTH_LABELS[monat - 1];
+  const ok = confirm(
+    `Alle Monate bis und mit ${label} abschliessen?\n\n` +
+    `Die Beträge dieser Monate werden gelöscht. Als tatsächlicher Stand per ` +
+    `Ende ${label} wird der bisher berechnete Saldo von CHF ${chNumber(betrag)} ` +
+    `eingetragen -- er lässt sich danach jederzeit korrigieren.`
+  );
+  if (!ok) return;
+  mutate((data) => {
+    SECTIONS.forEach((sec) => {
+      (data[sec.key] || []).forEach((row) => {
+        if (row.typ === "monatlich") return;
+        Object.keys(row.monate || {}).forEach((m) => { if (Number(m) <= monat) delete row.monate[m]; });
+        Object.keys(row.notizen || {}).forEach((m) => { if (Number(m) <= monat) delete row.notizen[m]; });
+      });
+    });
+    data.istSaldo = { monat, betrag };
+    return data;
+  });
+}
+
 // ---------- Init ----------
 
 function init() {
@@ -506,6 +637,8 @@ function init() {
     const val = parseAmount(e.target.value);
     mutate((data) => { data.anfangssaldo = val; return data; });
   });
+
+  document.getElementById("abschlussBtn").addEventListener("click", schliesseVergangeneMonateAb);
 
   document.getElementById("fpBody").addEventListener("click", onTableClick);
 

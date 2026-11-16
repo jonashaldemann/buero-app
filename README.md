@@ -1403,6 +1403,31 @@ berechnet der Saldo pro Monat.
     (am Rand deaktiviert); × löscht sie (mit Rückfrage).
 - **Saldo-Zeile** ganz unten: wird laufend für jeden Monat berechnet
   (`berechneSalden()`), rötlich eingefärbt bei negativem Saldo.
+- **Vergangene Monate abschliessen**: was vorbei ist, ist keine Planung
+  mehr — dort zählt der tatsächliche Kontostand. Der Knopf oben rechts
+  ("Monate bis und mit \<Monat\> abschliessen") trägt den bis dahin
+  berechneten Saldo als **Istwert** im laufenden Monat ein und löscht die
+  Beträge aller Monate bis und mit diesem. Danach:
+  - stehen diese Monate in der Tabelle leer und abgesetzt da und sind nicht
+    mehr anklickbar — es gibt dort nichts mehr zu planen;
+  - zeigt die Saldo-Zeile vor dem Abschlussmonat gar nichts (die Beträge
+    sind weg, eine gerechnete Zahl wäre dort erfunden), im Abschlussmonat
+    den umrandeten Istwert, danach rechnet sie von diesem aus weiter;
+  - zählen "Total"-Spalte und Monats-Subtotale nur noch die offenen Monate
+    — eine monatliche Zeile mit 12 × 2'000 neben elf leeren Zellen wäre
+    schlicht falsch;
+  - zählt der **Anfangssaldo** nicht mehr (er steht abgeblendet da).
+  Die Zahl ist jederzeit korrigierbar: auf die umrandete Saldo-Zelle
+  klicken. Dasselbe geht in jedem anderen Monat — man trägt den
+  tatsächlichen Stand ein und schliesst damit alles bis dorthin ab. Eine
+  **leere Eingabe hebt den Abschluss auf** (gelöschte Beträge bleiben
+  gelöscht). Es gibt **genau einen** solchen Punkt pro Jahr
+  (`istSaldo: { monat, betrag }`, bei älteren Dateien schlicht nicht
+  vorhanden): zwei Istwerte im selben Jahr würden sich widersprechen,
+  sobald dazwischen noch etwas geplant ist. **Monatliche Zeilen** tragen
+  nur EINEN Betrag für alle zwölf Monate und lassen sich gar nicht
+  teilweise löschen — sie gelten weiter, werden in den abgeschlossenen
+  Monaten aber weder gezeigt noch gezählt.
 - **Jahres-Übertrag**: öffnet man ein Jahr, für das noch keine Datei
   existiert, wird der Anfangssaldo mit dem berechneten Endsaldo des
   Vorjahres vorbefüllt (nur falls dessen Datei existiert) — bleibt aber ein

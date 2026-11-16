@@ -1,4 +1,4 @@
-const CACHE_NAME = "finanzplanung-v11";
+const CACHE_NAME = "finanzplanung-v12";
 const ASSETS = [
   "./",
   "./index.html",
