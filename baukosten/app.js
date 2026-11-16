@@ -381,6 +381,10 @@ let vorlageSuche = "";
 // das Kästchen einer Gruppe: dort wird vom ANGEZEIGTEN (abgeleiteten) Stand
 // aus weitergeschaltet, und der steht nur hier.
 let letzterStatus = {};
+// Abgeleitete Prüfer-Kürzel je Knoten -- für ein Blatt die eigenen, für
+// eine Gruppe nur dann welche, wenn alles darunter von denselben Leuten
+// geprüft ist. Wird in statusBerechnen() mitgerechnet.
+let geprueftRoll = {};
 
 // Gedämpfte Farbtöne für die Modul-Markierungen (Strich in der Tabelle,
 // Rand an der Kennzahl-Kachel) -- aus derselben Palette wie die
@@ -400,10 +404,56 @@ const STATUS_LABEL = {
   erledigt: "erledigt",
   verifiziert: "Vieraugenprinzip – von der zweiten Person geprüft"
 };
-// Ein Haken = erledigt, zwei = von der zweiten Person geprüft. Die Farbe
-// allein (hell- vs. dunkelgrün) wäre ein zu feiner Unterschied, seit der
-// Status nur noch im Kästchen steckt.
+// Im Kästchen stehen die KÜRZEL der Personen, die geprüft haben ("JH",
+// nach dem Vieraugenprinzip "JH/MV") -- so sieht man auf einen Blick, wer
+// welche Position angeschaut hat. Die Haken sind der Rückfall: ältere
+// Schätzungen haben den Stand ohne Namen festgehalten, und über einer
+// Gruppe mit verschiedenen Prüfern gibt es kein eindeutiges Kürzel.
 const STATUS_ZEICHEN = { "": "", pendent: "", erledigt: "✓", verifiziert: "✓✓" };
+
+// Wer hat geprüft? `geprueft` ist eine Liste von Mitarbeiter-Kürzeln je
+// BKP-Nummer, parallel zu `status` und genauso freiwillig: fehlt sie,
+// verhält sich alles wie vorher. Höchstens zwei Einträge, und nie zweimal
+// dieselbe Person -- das ist der ganze Sinn des Vieraugenprinzips.
+function geprueftVon(nr) {
+  const liste = (offen && offen.geprueft && offen.geprueft[nr]) || [];
+  return Array.isArray(liste) ? liste.filter(Boolean) : [];
+}
+
+// Das Kürzel der angemeldeten Person: der Schlüssel aus config.json, über
+// den Namen gesucht. Steht sie dort nicht (noch nicht eingetragen, anderer
+// Schreibweise), werden die Initialen aus dem Namen gebildet -- ein
+// Näherungswert ist besser als gar kein Vermerk, wer geprüft hat.
+function meinKuerzel() {
+  const name = (personName() || "").trim();
+  if (!name) return "";
+  const liste = (typeof appConfig !== "undefined" && appConfig.mitarbeitende) || [];
+  const treffer = liste.find(
+    (m) => (m.name || "").trim().toLowerCase() === name.toLowerCase() ||
+           (m.key || "").trim().toLowerCase() === name.toLowerCase()
+  );
+  if (treffer && treffer.key) return treffer.key.toUpperCase();
+  const teile = name.split(/\s+/).filter(Boolean);
+  return (teile.length > 1 ? teile[0][0] + teile[1][0] : name.slice(0, 2)).toUpperCase();
+}
+
+function kuerzelText(liste) {
+  return liste.map((k) => String(k).toUpperCase()).join("/");
+}
+
+// Welcher Stand entsteht, wenn jemand auf `ziel` schaltet? Die zweite
+// Prüfung muss von einer ANDEREN Person kommen; geht das nicht, meldet die
+// Funktion das zurück, statt still etwas anderes zu tun.
+function standFuer(ziel, bisher, ich) {
+  if (ziel !== "verifiziert") {
+    return { status: ziel, geprueft: ziel === "erledigt" && ich ? [ich] : [], abgelehnt: false };
+  }
+  const erste = bisher[0] || "";
+  if (!erste || !ich || erste === ich) {
+    return { status: "erledigt", geprueft: erste ? [erste] : ich ? [ich] : [], abgelehnt: true };
+  }
+  return { status: "verifiziert", geprueft: [erste, ich], abgelehnt: false };
+}
 
 // MwSt: Kennwerte werden exklusive erfasst (so kommen sie aus Richtofferten
 // und Kennwert-Sammlungen), die Kostenspalte und alle Summen zeigen den
@@ -959,6 +1009,7 @@ function kinderMap(knoten) {
 function statusBerechnen(knoten, kinder) {
   const gespeichert = (offen && offen.status) || {};
   const ergebnis = {};
+  geprueftRoll = {};
   // Tiefste zuerst, damit Kinder vor ihren Eltern feststehen.
   [...knoten]
     .sort((a, b) => knotenEbene(b.nr) - knotenEbene(a.nr))
@@ -966,6 +1017,7 @@ function statusBerechnen(knoten, kinder) {
       const kids = kinder[k.nr];
       if (!kids || !kids.length) {
         ergebnis[k.nr] = gespeichert[k.nr] || "";
+        geprueftRoll[k.nr] = geprueftVon(k.nr);
         return;
       }
       let min = 3;
@@ -973,6 +1025,12 @@ function statusBerechnen(knoten, kinder) {
         min = Math.min(min, STATUS_RANG[ergebnis[c] || ""]);
       });
       ergebnis[k.nr] = STATUS_FOLGE[min];
+      // Über einer Gruppe steht nur dann ein Kürzel, wenn ALLES darunter
+      // von denselben Leuten geprüft wurde -- sonst wäre die Angabe
+      // schlicht falsch, und es bleibt beim Haken.
+      const erstes = kuerzelText(geprueftRoll[kids[0]] || []);
+      const einig = erstes && kids.every((c) => kuerzelText(geprueftRoll[c] || []) === erstes);
+      geprueftRoll[k.nr] = einig ? geprueftRoll[kids[0]] : [];
     });
   return ergebnis;
 }
@@ -1246,13 +1304,23 @@ function renderKpis(gesamt) {
 // statusBerechnen()) setzt es denselben Stand auf alles darunter -- sonst
 // müsste man beim gemeinsamen Durchgehen eine fertige Elementgruppe Zeile
 // für Zeile abhaken. Der Rest der Zeile bleibt fürs Auf- und Zuklappen.
+// Was steht im Kästchen: die Kürzel der Prüfer, sonst der Haken.
+function statusZeichen(nr, status) {
+  const k = geprueftRoll[nr] || [];
+  if (status === "erledigt" && k.length === 1) return kuerzelText(k);
+  if (status === "verifiziert" && k.length === 2) return kuerzelText(k);
+  return STATUS_ZEICHEN[status] || "";
+}
+
 function statusHtml(nr, status, istBlatt) {
+  const k = geprueftRoll[nr] || [];
+  const wer = k.length ? ` (${kuerzelText(k)})` : "";
   const titel = istBlatt
-    ? `${STATUS_LABEL[status]} – klicken zum Weiterschalten`
-    : `${STATUS_LABEL[status]} – klicken setzt alle Positionen darunter auf den nächsten Stand`;
+    ? `${STATUS_LABEL[status]}${wer} – klicken zum Weiterschalten`
+    : `${STATUS_LABEL[status]}${wer} – klicken setzt alle Positionen darunter auf den nächsten Stand`;
   return `<button type="button" class="bk-status s-${status || "leer"}" data-action="status" data-nr="${nr}"${
     istBlatt ? ' data-blatt="1"' : ""
-  } title="${escapeHtml(titel)}">${STATUS_ZEICHEN[status] || ""}</button>`;
+  } title="${escapeHtml(titel)}">${escapeHtml(statusZeichen(nr, status))}</button>`;
 }
 
 // Die Bemerkungen der Unterpositionen, zu EINEM Text zusammengezogen --
@@ -2861,11 +2929,24 @@ function onBodyClick(e) {
     const jetzt = istBlatt ? (offen.status || {})[nr] || "" : letzterStatus[nr] || "";
     const naechster = STATUS_FOLGE[(STATUS_RANG[jetzt] + 1) % STATUS_FOLGE.length];
     const ziele = istBlatt ? [nr] : blattNummernUnter(nr);
+    const ich = meinKuerzel();
+    // Je Position gilt der eigene Prüfstand: wer schon drinsteht, kann
+    // nicht die zweite Person sein. Der Klick führt dann auf "offen"
+    // zurück -- sonst gäbe es keinen Weg mehr aus dem Stand heraus.
+    const staende = {};
+    ziele.forEach((ziel) => {
+      const stand = standFuer(naechster, geprueftVon(ziel), ich);
+      staende[ziel] = stand.abgelehnt ? { status: "", geprueft: [] } : stand;
+    });
     mutate((data) => {
       if (!data.status) data.status = {};
+      if (!data.geprueft) data.geprueft = {};
       ziele.forEach((ziel) => {
-        if (naechster) data.status[ziel] = naechster;
+        const { status: st, geprueft } = staende[ziel];
+        if (st) data.status[ziel] = st;
         else delete data.status[ziel];
+        if (geprueft.length) data.geprueft[ziel] = geprueft;
+        else delete data.geprueft[ziel];
       });
       return data;
     });
@@ -3328,11 +3409,25 @@ function onPanelChange(e) {
   // deshalb nicht über setzeFeld().
   if (el.dataset.panelFeld === "status") {
     const nr = gewaehlteZeile.nr;
-    const wert = el.value;
+    const stand = standFuer(el.value, geprueftVon(nr), meinKuerzel());
+    // Hier wird der Stand ausdrücklich GEWÄHLT, nicht durchgeklickt -- also
+    // sagen, warum das Vieraugenprinzip nicht geht, statt still etwas
+    // anderes zu setzen.
+    if (stand.abgelehnt) {
+      alert(
+        "Vieraugenprinzip: die zweite Prüfung muss von einer anderen Person kommen.\n\n" +
+          (stand.geprueft.length
+            ? `Geprüft hat bisher ${kuerzelText(stand.geprueft)}.`
+            : "Diese Position ist noch von niemandem als erledigt markiert.")
+      );
+    }
     mutate((data) => {
       if (!data.status) data.status = {};
-      if (wert) data.status[nr] = wert;
+      if (!data.geprueft) data.geprueft = {};
+      if (stand.status) data.status[nr] = stand.status;
       else delete data.status[nr];
+      if (stand.geprueft.length) data.geprueft[nr] = stand.geprueft;
+      else delete data.geprueft[nr];
       return data;
     });
     renderTabelleErhalten();

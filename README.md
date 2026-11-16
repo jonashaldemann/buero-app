@@ -48,8 +48,8 @@ ausprobieren, ohne echte Bürodaten zu sehen.
 
 - **Wie realistisch die Daten sind**: die Beispiel-Kostenschätzung ist
   einmal ganz durchgegangen (siehe "Durchgehen zu zweit"): erfasste und
-  geprüfte Positionen stehen auf "Vieraugenprinzip" (dunkelgrün,
-  Doppelhaken),
+  geprüfte Positionen stehen auf "Vieraugenprinzip" (dunkelgrün; dort stehen
+  die Kürzel der beiden Prüfenden, in den Demodaten noch der Doppelhaken),
   für das Projekt nicht relevante leere Positionen auf "erledigt"
   (hellgrün), und gelb bleibt, was noch offen ist — Elektro, Heizung,
   Sanitär, ein paar Ausbaupositionen, das Geländer und der Honorarsatz.
@@ -1675,20 +1675,42 @@ BKP-Nummer links ein Kästchen, das sich durchklicken lässt:
 |---|---|
 | offen (Start) | weiss, leer |
 | pendent | gelb, leer |
-| erledigt | hellgrün mit einem Haken ✓ |
-| Vieraugenprinzip | dunkelgrün mit Doppelhaken ✓✓ |
+| erledigt | hellgrün, **Kürzel der Person**, die es durchgegangen ist ("JH") |
+| Vieraugenprinzip | dunkelgrün, **beide Kürzel** ("JH/MV") |
+
+So steht an jeder Position, **wer** sie geprüft hat. Das Kürzel ist der
+Schlüssel aus `config.json` (`mitarbeitende[].key`), über den angemeldeten
+Namen gefunden; steht jemand dort nicht, werden die Initialen aus dem Namen
+gebildet.
+
+**Die zweite Prüfung muss von einer anderen Person kommen** — das ist der
+Sinn der Sache. Wer eine Position selbst auf "erledigt" gesetzt hat, kommt
+mit dem nächsten Klick darauf nicht aufs Vieraugenprinzip, sondern zurück
+auf "offen" (sonst gäbe es keinen Weg mehr aus dem Stand heraus). Wählt man
+den Stand stattdessen im Bearbeitungsfenster aus der Liste, sagt eine
+Meldung, warum er nicht geht. Welche zwei Personen es sind, spielt keine
+Rolle — es müssen einfach zwei sein.
+
+Ältere Schätzungen haben den Stand ohne Namen festgehalten; dort stehen
+weiterhin die **Haken ✓ / ✓✓**. Dasselbe gilt über einer Gruppe, unter der
+*verschiedene* Leute geprüft haben — ein einzelnes Kürzel wäre dort falsch.
+Sind sich alle Positionen darunter einig, steht ihr Kürzel auch auf der
+Gruppe.
 
 In den Dateien heisst der letzte Stand weiterhin `verifiziert` — nur die
 Oberfläche nennt ihn "Vieraugenprinzip", damit bestehende Schätzungen nicht
-umgeschrieben werden müssen.
+umgeschrieben werden müssen. Die Kürzel stehen parallel dazu in
+`geprueft: { "<BKP-Nr>": ["JH", "MV"] }` und sind genauso freiwillig: fehlt
+das Feld, verhält sich alles wie vorher.
 
 Der Stand färbt **nur das Kästchen, nie die ganze Zeile**. Ganze Zeilen in
 Gelb/Grün haben die Tabelle bei 500 Zeilen unruhig gemacht und die
 Ebenenfarben (Haupt-/Elementgruppe) überdeckt — die Struktur ging verloren,
-und das ist beim Durchgehen das Wichtigere. Dass das Vieraugenprinzip zusätzlich
-einen **Doppelhaken** trägt, hat denselben Grund: hell- gegen dunkelgrün
-allein wäre ein zu feiner Unterschied, wenn nur noch ein 19 × 15 Pixel
-grosses Kästchen den Stand zeigt.
+und das ist beim Durchgehen das Wichtigere. Dass im Kästchen zusätzlich die
+Kürzel stehen (früher ein bzw. zwei Haken), hat denselben Grund: hell- gegen
+dunkelgrün allein wäre ein zu feiner Unterschied, wenn nur ein 34 × 15 Pixel
+grosses Kästchen den Stand zeigt. Die Breite ist fest — mitwachsend stünden
+die BKP-Nummern von Zeile zu Zeile woanders.
 
 Nach dem Vieraugenprinzip geht es wieder auf "offen". Gespeichert wird der Stand
 nur an den **Blättern** (dreistellige Positionen, eigene Unterkapitel und

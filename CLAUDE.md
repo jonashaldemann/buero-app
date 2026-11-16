@@ -128,11 +128,28 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Skript merkt eine Verdeckung nie.
 - **Durchgeh-Status `baukosten/`** färbt NUR das Kästchen vor der Nummer,
   nie die ganze Zeile (das überdeckte die Ebenenfarben und machte die
-  Tabelle unruhig). Der letzte Stand trägt deshalb zusätzlich einen
-  Doppelhaken -- hell- gegen dunkelgrün allein ist auf 19 x 15 Pixeln zu
-  fein. In den Dateien heisst er `verifiziert`, in der Oberfläche
-  "Vieraugenprinzip" (`STATUS_LABEL`) -- der Schlüssel bleibt, sonst müsste
-  jede bestehende Schätzung umgeschrieben werden.
+  Tabelle unruhig). Im Kästchen stehen die KÜRZEL der Prüfenden ("JH", nach
+  dem Vieraugenprinzip "JH/MV") -- hell- gegen dunkelgrün allein ist auf
+  34 x 15 Pixeln zu fein, und so sieht man zugleich, wer was angeschaut
+  hat. Die Breite ist FEST: mitwachsend stünden die BKP-Nummern von Zeile
+  zu Zeile woanders. In den Dateien heisst der Stand `verifiziert`, in der
+  Oberfläche "Vieraugenprinzip" (`STATUS_LABEL`) -- der Schlüssel bleibt,
+  sonst müsste jede bestehende Schätzung umgeschrieben werden.
+- **Wer geprüft hat, steht in `geprueft: { "<nr>": ["JH","MV"] }`**
+  (`geprueftVon()`, `meinKuerzel()`, `standFuer()`, seit November 2026),
+  parallel zu `status` und genauso freiwillig: fehlt das Feld, zeigen die
+  Kästchen die alten Haken `STATUS_ZEICHEN` -- ältere Schätzungen haben den
+  Stand ohne Namen festgehalten. Das Kürzel ist `mitarbeitende[].key` aus
+  `config.json`, über `personName()` gesucht, sonst aus den Initialen
+  gebildet. Die ZWEITE Prüfung muss von einer anderen Person kommen: wer
+  schon drinsteht, landet mit dem nächsten Klick auf "offen" statt auf
+  verifiziert (sonst gäbe es keinen Weg mehr aus dem Stand heraus); im
+  Bearbeitungsfenster, wo der Stand GEWÄHLT wird, sagt das eine Meldung.
+  `standFuer()` ist die eine Stelle, die das entscheidet -- Kästchen und
+  Auswahlfeld laufen beide darüber. Über einer GRUPPE steht nur dann ein
+  Kürzel, wenn alles darunter von denselben Leuten geprüft ist
+  (`geprueftRoll`, in `statusBerechnen()` mitgerechnet); sonst bleibt es
+  beim Haken.
 - **Zu zweit an einer Schätzung `baukosten/`**: `persist()` legt jede
   Änderung auf einen frisch geholten Serverstand, verschiedene Zeilen
   überschreiben sich also nicht. Gesehen wird der fremde Stand über
