@@ -1599,6 +1599,37 @@ function render() {
 
 // Die Kapitelansicht rechnet ihre Summen und Stände selbst -- sie rendert
 // die Tabelle nicht, die sonst letzterStatus füllt.
+// Der Fortschrittsbalken zeigt ALLE Stände, nicht nur den fertigen Teil:
+// dunkelgrün (Vieraugenprinzip), hellgrün (erledigt), gelb (pendent) -- und
+// was übrig bleibt, ist noch gar nicht angeschaut. Vorher füllte ein
+// einziger grüner Balken alles ab "erledigt", und ob der Rest pendent oder
+// unberührt war, sah man nicht.
+function balkenHtml(blaetter, status) {
+  const n = blaetter.length;
+  if (!n) return '<span class="bk-kap-balken"></span>';
+  const zahl = { pendent: 0, erledigt: 0, verifiziert: 0 };
+  blaetter.forEach((b) => {
+    const st = status[b] || "";
+    if (st in zahl) zahl[st]++;
+  });
+  const offen = n - zahl.pendent - zahl.erledigt - zahl.verifiziert;
+  const breite = (k) => (zahl[k] / n) * 100;
+  const titel =
+    [
+      zahl.verifiziert ? `${zahl.verifiziert}× Vieraugenprinzip` : "",
+      zahl.erledigt ? `${zahl.erledigt}× erledigt` : "",
+      zahl.pendent ? `${zahl.pendent}× pendent` : "",
+      offen ? `${offen}× offen` : ""
+    ]
+      .filter(Boolean)
+      .join(" · ") + ` (${n} ${n === 1 ? "Position" : "Positionen"})`;
+  return `<span class="bk-kap-balken" title="${escapeHtml(titel)}">
+    <i class="s-verifiziert" style="width:${breite("verifiziert")}%"></i>
+    <i class="s-erledigt" style="width:${breite("erledigt")}%"></i>
+    <i class="s-pendent" style="width:${breite("pendent")}%"></i>
+  </span>`;
+}
+
 function renderKapitel() {
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
@@ -1685,8 +1716,6 @@ function renderKapitel() {
     ziel.innerHTML = kinderListe
       .map((nr) => {
         const blaetter = (kinderVon(nr).length ? blattNummernUnter(nr) : [nr]).filter(Boolean);
-        const fertig = blaetter.filter((b) => STATUS_RANG[status[b] || ""] >= 2).length;
-        const anteil = blaetter.length ? Math.round((fertig / blaetter.length) * 100) : 0;
         const enkel = kinderVon(nr);
         const sub = enkel.length
           ? enkel.slice(0, 3).map((e) => knotenTitel(e)).join(" · ") + (enkel.length > 3 ? " …" : "")
@@ -1700,7 +1729,7 @@ function renderKapitel() {
             <span class="bk-kap-zeile-titel">${escapeHtml(knotenLabel(nr))}</span>
             <span class="bk-kap-zeile-sub">${escapeHtml(sub)}</span>
           </span>
-          <span class="bk-kap-balken" title="${fertig} von ${blaetter.length} durchgegangen"><i style="width:${anteil}%"></i></span>
+          ${balkenHtml(blaetter, status)}
           <span class="bk-kap-betrag">${summen[nr] ? franken(summen[nr]) : "–"}</span>
           <span class="bk-kap-pfeil">›</span>
         </div>`;

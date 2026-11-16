@@ -1631,9 +1631,15 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
 - **Darunter die direkten Kinder**, eine Zeile pro Kind: Statuskästchen
   (dieselbe Logik wie in der Tabelle, anklickbar), Nummer und Bezeichnung,
   darunter klein die Titel der nächsten Ebene bzw. die Zahl der
-  Positionen, ein Fortschrittsbalken (Anteil der Blätter darunter mit
-  "erledigt" oder "Vieraugenprinzip"), die Summe und ein "›". Ein Klick auf
+  Positionen, ein Fortschrittsbalken, die Summe und ein "›". Ein Klick auf
   die Zeile zoomt hinein, ein Klick aufs Kästchen schaltet nur den Stand.
+- Der **Fortschrittsbalken** zeigt alle Stände der Positionen darunter in
+  drei Abschnitten, in den Farben der Statuskästchen: dunkelgrün
+  (Vieraugenprinzip), hellgrün (erledigt), gelb (pendent). Was frei bleibt,
+  hat noch niemand angeschaut — vorher füllte ein einziger grüner Balken
+  alles ab "erledigt", und ob der Rest pendent oder unberührt war, sah man
+  nicht. Der Tooltip zählt die vier Stände aus ("1× Vieraugenprinzip · 1×
+  erledigt · 1× pendent · 1× offen").
 - Auf einem **Blatt** (Position oder Gattung ohne eigenes Unterkapitel,
   oder ein eigenes Unterkapitel wie "Wände") stehen dort die
   **Unterpositionen** — Beschrieb, Bemerkung, Ausmass, Summe. Ein Klick

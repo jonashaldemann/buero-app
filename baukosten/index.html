@@ -171,8 +171,16 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .bk-kap-zeile-titel { display: block; }
-  .bk-kap-balken { width: 170px; height: 5px; border-radius: 3px; background: var(--surface-2); flex: none; overflow: hidden; }
-  .bk-kap-balken i { display: block; height: 100%; background: var(--st-verifiziert); }
+  /* Drei Abschnitte in der Reihenfolge des Fortschritts; der freie Rest ist
+     das, was noch niemand angeschaut hat (siehe balkenHtml() in app.js). */
+  .bk-kap-balken {
+    display: flex; width: 170px; height: 5px; border-radius: 3px;
+    background: var(--surface-2); flex: none; overflow: hidden;
+  }
+  .bk-kap-balken i { display: block; height: 100%; }
+  .bk-kap-balken i.s-verifiziert { background: var(--st-verifiziert); }
+  .bk-kap-balken i.s-erledigt { background: var(--st-erledigt); }
+  .bk-kap-balken i.s-pendent { background: var(--st-pendent); }
   .bk-kap-betrag { width: 110px; text-align: right; font-variant-numeric: tabular-nums; flex: none; }
   .bk-kap-pfeil { color: var(--text-muted); flex: none; }
   .bk-kap-leer-hinweis { background: var(--surface); padding: 20px 14px; text-align: center; color: var(--text-muted); font-size: 13px; }

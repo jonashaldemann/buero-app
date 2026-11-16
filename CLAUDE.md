@@ -183,6 +183,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   wiederhergestellt ist. Tests, die an tiefere Zeilen wollen, rufen weiter
   `setzeEbene(4)`; Tests, die den Startzustand prüfen, müssen den
   `localStorage` leeren.
+- **Der Fortschrittsbalken `baukosten/` zeigt ALLE Stände** (`balkenHtml()`):
+  drei Abschnitte in den Farben der Statuskästchen (dunkelgrün / hellgrün /
+  gelb), der freie Rest ist das noch Unberührte. Vorher war es ein einziger
+  grüner Balken ab Rang 2 -- damit sah man nicht, ob der Rest pendent oder
+  gar nicht angeschaut war (genau so gemeldet). Gezählt wird über die
+  BLÄTTER, nicht über die abgeleiteten Gruppenstände.
 - **Ansicht "Kapitel" `baukosten/`** (`ansichtModus`/`kapitelKnoten` in
   `app.js`, `renderKapitel()`): zeigt eine Ebene des Baums auf einmal, wie
   ein Steuerformular. Links der Pfad als Knöpfe, in der Mitte die direkten
