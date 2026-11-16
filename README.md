@@ -24,13 +24,39 @@ Beschreibungstext. Jede App hat ihr eigenes `manifest.json` und ihren eigenen
 hinzufügen" tippen, dann landet nur diese eine App als eigenes Icon auf dem
 Homescreen.
 
-Jeder Service Worker lädt seine Dateien beim Installieren mit
-`cache: "reload"`, holt sie also bewusst am HTTP-Cache vorbei. Sonst greift
-auf GitHub Pages (`Cache-Control: max-age=600`) eine Falle: der neue Worker
-legt bis zu zehn Minuten alte Dateien in seinen eigenen, frischen Cache und
-liefert sie danach cache-first weiter — eine neue Version käme trotz Reload
-nicht an. Wer eine Änderung nicht sieht, hat also fast immer einen alten
-Worker aktiv; ein Hard-Reload (<kbd>⌘⇧R</kbd>) hilft sofort.
+### Wie eine neue Fassung beim Nutzer ankommt
+
+Das war lange der wunde Punkt: nach einem Deploy sah man die Änderung oft
+nicht, und geholfen hat nur "Webseite vergessen" im Browser — was den
+`localStorage` mitlöscht und damit die Nextcloud-Zugangsdaten. Drei Dinge
+greifen jetzt ineinander:
+
+1. **Versionierte Adressen.** Jede Seite verweist auf ihre eigenen Dateien
+   mit `?v=<nummer>` (`app.js?v=41`). Eine neue Nummer ist eine neue
+   Adresse, die in keinem Cache liegen kann. Das ist der entscheidende
+   Punkt: GitHub Pages liefert alles mit `Cache-Control: max-age=600`, und
+   der Browser bedient sich bis zu zehn Minuten aus seinem **eigenen
+   HTTP-Cache — ohne den Service Worker überhaupt zu fragen** (so gemessen,
+   siehe CLAUDE.md). Gegen diesen Cache hilft weder ein neuer CACHE_NAME
+   noch irgendeine Einstellung im Worker.
+2. **Die Service Worker holen netz-zuerst.** Der Cache ist nur noch der
+   Rückfall fürs Offline-Arbeiten und wird bei jeder Antwort nachgeführt.
+   Vorher war es umgekehrt — die App kam aus dem Cache, und eine neue
+   Fassung musste erst einen ganzen Installations- und Aktivierungszyklus
+   durchlaufen.
+3. **Auto-Update.** Wird im Hintergrund doch ein neuer Worker aktiv, lädt
+   die Seite sich einmal selbst neu. Ein wartender Worker wird dabei
+   ausdrücklich angestossen, sonst bliebe er hängen, bis alle Tabs
+   geschlossen sind — und alle elf Module liegen auf derselben Adresse.
+
+Beim Entwickeln gehört deshalb zu jeder Änderung **`node version.mjs
+<modul>`** (bzw. `--alle` nach einer Änderung an `shared/common.js` oder
+`css/style.css`). Das Skript zählt den CACHE_NAME hoch und stempelt
+dieselbe Nummer auf alle Adressen in den HTML-Dateien des Moduls.
+
+Beim Installieren holt jeder Worker seine Dateien zusätzlich mit
+`cache: "reload"` — sonst legte er bis zu zehn Minuten alte Dateien in
+seinen eigenen, frischen Cache.
 
 Gemeinsamer Code (Nextcloud-Login, WebDAV-Zugriff, Einstellungen-Dialog,
 zentrale Konfiguration) liegt in `shared/common.js` und wird von allen Apps

@@ -73,11 +73,13 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   dass ein Schnitt am Rand das Modell auf 0 bringt und "umkehren" es
   zurückholt. Texturen sind erst nach `warteAufBeidateien()` da (siehe
   unten) -- misst man zu früh, ist das Modell schwarz.
-- Nach Änderungen an einer GEMEINSAMEN Datei (`shared/common.js` oder
-  `css/style.css`): **CACHE_NAME in JEDEM `service-worker.js` bumpen**, das
-  sie cached (aktuell alle Module + Root, ausser dem Redirect-Stub
-  `zeitplanung/`) — sonst bekommen bestehende Installationen die Änderung
-  nicht automatisch mit.
+- **Nach JEDER Änderung an ausgelieferten Dateien `node version.mjs <modul>`
+  laufen lassen** (mehrere Module als Liste, `--alle` nach einer Änderung an
+  `shared/common.js` oder `css/style.css`). Das Skript zählt den CACHE_NAME
+  des Service Workers hoch UND stempelt dieselbe Nummer als `?v=` auf jede
+  eigene `.js`/`.css`-Adresse in den HTML-Dateien des Moduls. Von Hand
+  bumpen ist damit erledigt -- beides muss zusammenpassen, siehe den
+  Eckpunkt zum HTTP-Cache unten.
 - Server danach beenden: `lsof -ti:<port> -sTCP:LISTEN | xargs -r kill`.
 - **Echte Büro-Daten zum Testen liegen in `.temp/`** (von `.gitignore`
   erfasst, gehören NIE ins Repo): der Export der Preisliste und echte
@@ -736,6 +738,32 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   eine neue Service-Worker-Version aktiv wird (wichtig, damit niemand
   nach einem Nextcloud-Pfad-Umzug versehentlich mit einer alten, gegen
   nicht mehr existierende Pfade laufenden Version weiterarbeitet).
+- **Versionierte Adressen (`?v=<nummer>`) sind das EINZIGE, was gegen den
+  HTTP-Cache hilft** (November 2026, gemessen): GitHub Pages liefert alles
+  mit `Cache-Control: max-age=600`, und der Browser bedient sich daraus,
+  OHNE den Service Worker zu fragen. Nachgewiesen mit einem Server, der
+  diese Header nachstellt: beim Neuladen sieht der Worker nur die
+  Nextcloud-Aufrufe -- `index.html`, `app.js` und `common.js` tauchen in
+  seinem `fetch`-Ereignis gar nicht auf. Derselbe Versuch mit `no-store`
+  liefert sofort die neue Fassung. Deshalb half dem Nutzer nach einem Push
+  nur noch "Webseite vergessen" im Browser -- und das löscht den
+  `localStorage` mit, also die Zugangsdaten. Weder ein neuer CACHE_NAME
+  noch `cache: "no-cache"` IM Worker ändern daran etwas, weil der Worker
+  nicht gefragt wird. `version.mjs` erledigt das Stempeln; eine neue Nummer
+  ist eine neue Adresse, die in keinem Cache liegen kann.
+  NICHT erfasst sind Dateien, die erst aus JavaScript nachgeladen werden
+  (`import("./viewer.js")` im Modellviewer, die Import-Map auf
+  `vendor/three...`): die bleiben bis zu zehn Minuten alt, aber nie länger.
+- **Die Service Worker holen NETZ ZUERST** (seit November 2026), Cache nur
+  als Rückfall fürs Offline-Arbeiten. Vorher war es umgekehrt, und eine
+  frisch deployte Fassung kam erst nach Installation, Aktivierung und
+  einem Neuladen durch -- ging davon etwas schief, blieb die alte Fassung
+  unbegrenzt stehen. Der Rückfall sucht mit `ignoreSearch: true`, weil die
+  Seiten mit `?v=` verweisen und der Vorrat ohne Query angelegt wird.
+  `registerServiceWorkerWithAutoUpdate()` stösst zusätzlich einen
+  WARTENDEN Worker per `postMessage("skipWaiting")` an: liegt eine ältere
+  Fassung ohne `skipWaiting()` aktiv, bliebe der neue sonst hängen, bis
+  alle Tabs zu sind -- und auf derselben Adresse liegen elf Module.
 - **`cache: "reload"` beim Install JEDES Service Workers** (nicht
   wegoptimieren): `cache.addAll()` holt die Dateien sonst durch den
   HTTP-Cache, und GitHub Pages liefert alles mit

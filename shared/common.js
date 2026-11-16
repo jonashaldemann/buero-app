@@ -358,13 +358,38 @@ async function ensureFolderPath(segments) {
 // weiterlaufende Version an inzwischen verschobene Ordner).
 function registerServiceWorkerWithAutoUpdate() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("service-worker.js").catch(() => {});
   let reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (reloading) return;
     reloading = true;
     window.location.reload();
   });
+
+  navigator.serviceWorker
+    .register("service-worker.js")
+    .then((reg) => {
+      // Ein WARTENDER Worker übernimmt nur, wenn skipWaiting() greift --
+      // und das steht in der NEUEN Fassung, die gerade wartet. Ist die
+      // installierte Fassung älter, bliebe er hängen, bis alle Tabs
+      // geschlossen sind; auf derselben Adresse liegen aber elf Module.
+      // Deshalb hier ausdrücklich anstossen.
+      const anstossen = () => {
+        if (reg.waiting) reg.waiting.postMessage("skipWaiting");
+      };
+      anstossen();
+      reg.addEventListener("updatefound", () => {
+        const neu = reg.installing;
+        if (neu) neu.addEventListener("statechange", anstossen);
+      });
+      // Nach einem Deploy soll die OFFLINE-Kopie auch dann nachziehen, wenn
+      // die Seite tagelang offen bleibt: beim Zurückkehren in den Tab
+      // nachsehen. Die angezeigte Fassung ist ohnehin schon aktuell -- die
+      // Service Worker holen die App seit November 2026 netz-zuerst.
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") reg.update().catch(() => {});
+      });
+    })
+    .catch(() => {});
 }
 
 // ---------- Einstellungen UI (Nextcloud-Login) ----------
