@@ -148,10 +148,24 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   gewinnt) und das Fenster zwischen Holen und Schreiben -- ein `If-Match`
   bräuchte einen Worker-Deploy, `worker.js` reicht weder `If-Match` hinein
   noch `ETag` heraus.
-- **Startsicht `baukosten/`**: eine Schätzung öffnet IMMER auf Ebene 1 (nur
-  die zehn Hauptgruppen), `oeffne()` setzt das fest. Die Ebene wird also
-  bewusst nicht gemerkt, die übrigen Ansichtseinstellungen schon. Tests,
-  die an tiefere Zeilen wollen, müssen vorher `setzeEbene(4)` aufrufen.
+- **Startsicht `baukosten/` ist, wo man zuletzt war** (`merkeSicht()`/
+  `stelleSichtHer()`, `LS_KEYS.sicht`, seit November 2026): Modus, offenes
+  Kapitel, Ebene und Scrollposition werden JE SCHÄTZUNG im `localStorage`
+  gemerkt -- es ist die Sicht dieser Person auf ihrem Gerät, nicht etwas
+  für die Datei auf Nextcloud. Davor öffnete eine Schätzung bewusst immer
+  auf Ebene 1 im Überblick; seit die Gliederung der Preisliste im Baum
+  hängt, ist der Weg zurück an die Arbeitsstelle zu weit. Beim ERSTEN
+  Öffnen gilt weiter Tabelle/Ebene 1.
+  Kapitel und Scrollposition werden erst gesetzt, wenn der Baum FERTIG ist
+  (`preislisteLaedt()`) -- die Preisliste kommt nachträglich und schiebt
+  alles nach unten; deshalb ruft auch `ladePreislisteBeiBedarf()` am Ende
+  `stelleSichtHer()`. Ein gemerktes Kapitel, das es nicht mehr gibt, führt
+  in den Überblick statt auf eine leere Seite. `merkeSicht()` wird NUR aus
+  Nutzeraktionen gerufen, nie aus `setzeEbene()` selbst -- das läuft auch
+  beim Öffnen und beim Nachladen und überschriebe das Gemerkte, bevor es
+  wiederhergestellt ist. Tests, die an tiefere Zeilen wollen, rufen weiter
+  `setzeEbene(4)`; Tests, die den Startzustand prüfen, müssen den
+  `localStorage` leeren.
 - **Ansicht "Kapitel" `baukosten/`** (`ansichtModus`/`kapitelKnoten` in
   `app.js`, `renderKapitel()`): zeigt eine Ebene des Baums auf einmal, wie
   ein Steuerformular. Links der Pfad als Knöpfe, in der Mitte die direkten
@@ -159,7 +173,8 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Weiter/Zurück durch die BLÄTTER des Baums. Sie hat den früheren Modus
   "Schritt für Schritt" (`wizard`) ersetzt. Alles rechnet über
   `alleKnoten()`/`kinderMap()`, NICHT über feste Ebenen -- Modus und
-  offener Knoten werden wie die Ebene bewusst nicht gemerkt.
+  offener Knoten werden wie die Ebene je Schätzung gemerkt (siehe
+  Startsicht).
 - **Vorlagen aus der Preisliste `baukosten/` liegen ebenfalls auf NEXTCLOUD**
   (`_preisliste.json`, `ladePreislisteBeiBedarf()`): die
   Preisdatenbank des Büros, gehört so wenig ins Repo wie die Norm

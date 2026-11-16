@@ -1548,14 +1548,21 @@ das merkt die App nicht.
 
 ### Startsicht und Ansicht
 
-- **Beim Öffnen steht immer Ebene 1**: die zehn Hauptgruppen und sonst
-  nichts. Das ist der Überblick, mit dem man anfängt — 876 Zeilen beim
-  Öffnen sind keiner. Aufklappen ist ein Klick (auf die Zeile oder über die
-  Ebenen-Knöpfe), und das gilt **bei jedem Öffnen neu**: die Ebene wird
-  bewusst nicht gemerkt. Die übrigen Ansichtseinstellungen ("Nur
-  verwendete", Bemerkungsspalten, Dichte) werden dagegen pro Gerät gemerkt
-  (`localStorage`, nicht in der Datei: zwei Leute dürfen dieselbe Schätzung
-  gleichzeitig unterschiedlich anschauen). Leere Gruppen sind grau
+- **Beim Öffnen landet man wieder dort, wo man war**: gleiche Ansicht
+  (Tabelle oder Kapitel), gleiches Kapitel, gleiche Ebene und dieselbe
+  Stelle in der Tabelle. Eine Kostenschätzung ist gross, und man arbeitet
+  tagelang an derselben Stelle — der Weg zurück dorthin war über die
+  Gliederung der Preisliste zu weit. Gemerkt wird **je Schätzung** und nur
+  auf diesem Gerät (`localStorage`, nicht in der Datei: zwei Leute sind an
+  derselben Schätzung an verschiedenen Stellen). Beim **ersten** Öffnen
+  einer Schätzung gilt weiterhin der Überblick: Tabelle, Ebene 1, nur die
+  zehn Hauptgruppen.
+  Wurde das gemerkte Kapitel inzwischen gelöscht, öffnet die Schätzung im
+  Überblick statt auf einer leeren Seite. Die Stelle in der Tabelle wird
+  erst gesetzt, wenn die Gliederung der Preisliste geladen ist — sie kommt
+  nachträglich und würde alles verschieben.
+  Die Einstellungen "Nur verwendete", Bemerkungsspalten und Dichte gelten
+  weiterhin für **alle** Schätzungen gleich. Leere Gruppen sind grau
   abgesetzt.
 - **Ebene 1 / 2 / 3 / 4 / Alles** klappt den ganzen Baum auf diese Tiefe
   auf. "3" zeigt die Positionen, "4" zusätzlich die Gattungen (die tiefste
@@ -1649,8 +1656,9 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   Liste.
 - Eine **Suche** schaltet zurück in die Tabelle — dort steht die
   Trefferliste.
-- Ansichtsmodus und offener Knoten werden wie die Ebene bewusst **nicht**
-  gemerkt; beim Öffnen gilt die Startsicht (Tabelle, Ebene 1).
+- Ansichtsmodus und offener Knoten werden wie die Ebene **je Schätzung
+  gemerkt** (siehe "Startsicht und Ansicht") — wer in der Kapitelansicht
+  aufhört, steigt dort wieder ein.
 
 Die Navigation rechnet durchgehend über den Baum (`alleKnoten()`,
 `kinderMap()`), nicht über feste Ebenen 1–4 — eigene Unterkapitel dürfen

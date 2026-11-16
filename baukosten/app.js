@@ -46,6 +46,7 @@
 const LS_KEYS = {
   cache: "baukosten_cache",
   ansicht: "baukosten_ansicht",
+  sicht: "baukosten_letzte_sicht", // wo man in welcher Schätzung zuletzt war
   katalog: "baukosten_katalog_cache" // zuletzt geladener BKP-Katalog, siehe ladeKatalog()
 };
 
@@ -186,6 +187,9 @@ function ladePreislisteBeiBedarf() {
     if (offen && preislisteBaum) {
       setzeEbene(ansicht.ebene);
     }
+    // Jetzt steht der Baum -- erst jetzt lässt sich das gemerkte Kapitel
+    // öffnen und die Stelle in der Tabelle wiederfinden.
+    stelleSichtHer();
     // Gibt es gar keine Vorlagen-Datei, hat der Auswahl-Dialog nichts zu
     // zeigen: dann weiter wie früher, Zeile anlegen und lostippen. Beim
     // Wechseln einer bestehenden Zeile bleibt der Hinweis stehen -- dort
@@ -355,18 +359,16 @@ let offenFilename = null;
 // localStorage -- zwei Leute dürfen dieselbe Schätzung gleichzeitig
 // unterschiedlich tief aufgeklappt anschauen.
 //
-// Die EBENE ist davon ausgenommen: eine Schätzung öffnet IMMER auf Ebene 1
-// (siehe oeffne()), also mit den zehn Hauptgruppen und sonst nichts. Das
-// ist der Überblick, mit dem man anfängt -- 541 Zeilen beim Öffnen sind
-// keiner. Aufklappen ist ein Klick, und die übrigen Einstellungen
-// ("Nur verwendete", Bemerkungsspalten, Dichte) bleiben gemerkt.
+// "Nur verwendete", Bemerkungsspalten und Dichte gelten für ALLE
+// Schätzungen gleich. Wo man WAR -- Modus, offenes Kapitel, Ebene und die
+// Stelle in der Tabelle -- hängt dagegen an der einzelnen Schätzung und
+// steht in LS_KEYS.sicht (siehe merkeSicht()). Ebene 1 ist nur noch der
+// Startwert für eine Schätzung, die man das erste Mal öffnet.
 const ansichtDefaults = { ebene: 1, nurVerwendet: false, bemerkungen: false };
 let ansicht = { ...ansichtDefaults, ...loadJSON(LS_KEYS.ansicht, {}) };
 let suche = "";
 // Ansicht: "tabelle" (die lange Liste) oder "kapitel" (eine Ebene auf
-// einmal, wie ein Steuerformular). Der Modus und der gerade offene Knoten
-// werden wie die Ebene bewusst NICHT gemerkt -- eine Schätzung öffnet immer
-// im Überblick, nicht dort, wo jemand zuletzt war.
+// einmal, wie ein Steuerformular).
 let ansichtModus = "tabelle";
 let kapitelKnoten = ""; // "" = Übersicht (alle Hauptgruppen)
 let zugeklappt = new Set(); // Knoten-Nummern, die zugeklappt sind
@@ -1042,6 +1044,7 @@ function setzeKapitel(nr) {
   gewaehlteZeile = null;
   render();
   window.scrollTo(0, 0);
+  merkeSicht();
 }
 
 function kapitelSchritt(richtung) {
@@ -1068,6 +1071,7 @@ function setzeModus(modus) {
   }
   renderToolbar();
   render();
+  merkeSicht();
 }
 
 // ---------- Suche ----------
@@ -2667,6 +2671,81 @@ function renderTabelleErhalten() {
   window.scrollTo(0, scroll);
 }
 
+// ---------- Wo war ich zuletzt? ----------
+//
+// Eine Kostenschätzung ist gross, und man arbeitet tagelang an derselben
+// Stelle. Beim Öffnen landet man deshalb wieder dort: gleicher Modus
+// (Tabelle/Kapitel), gleiches Kapitel, gleiche Ebene, gleiche Stelle in der
+// Tabelle. Gemerkt wird je SCHÄTZUNG und nur im localStorage -- es ist die
+// Sicht dieser Person auf ihrem Gerät, nicht etwas, das in die Datei auf
+// Nextcloud gehört (zwei Leute sind an derselben Schätzung an verschiedenen
+// Stellen).
+// Bis November 2026 öffnete eine Schätzung bewusst IMMER auf Ebene 1 im
+// Überblick. Das war bei elf Hauptgruppen vertretbar; seit die Gliederung
+// der Preisliste im Baum hängt, ist der Weg zurück an die Arbeitsstelle zu
+// weit -- deshalb umgestellt.
+
+const SICHT_MAX = 40; // mehr Schätzungen hat niemand gleichzeitig offen
+
+function alleSichten() {
+  const roh = loadJSON(LS_KEYS.sicht, {});
+  return roh && typeof roh === "object" ? roh : {};
+}
+
+function letzteSicht(filename) {
+  const eintrag = alleSichten()[filename];
+  return eintrag && typeof eintrag === "object" ? eintrag : {};
+}
+
+// Wird NUR aus Nutzeraktionen heraus gerufen (Ebene, Modus, Kapitel,
+// Scrollen, Zurück) -- nicht aus setzeEbene() selbst, das läuft auch beim
+// Öffnen und beim Nachladen der Preisliste und würde das Gemerkte
+// überschreiben, bevor es wiederhergestellt ist.
+function merkeSicht() {
+  if (!offenFilename) return;
+  const alle = alleSichten();
+  alle[offenFilename] = {
+    modus: ansichtModus,
+    kapitel: kapitelKnoten,
+    ebene: ansicht.ebene,
+    // Solange die Wiederherstellung noch aussteht, steht die Seite ganz
+    // oben -- dann zählt der gemerkte Wert, nicht die aktuelle Null.
+    scroll: wiederherstellen ? wiederherstellen.scroll : Math.round(window.scrollY),
+    at: Date.now()
+  };
+  const namen = Object.keys(alle);
+  if (namen.length > SICHT_MAX) {
+    namen
+      .sort((a, b) => (alle[a].at || 0) - (alle[b].at || 0))
+      .slice(0, namen.length - SICHT_MAX)
+      .forEach((n) => delete alle[n]);
+  }
+  saveJSON(LS_KEYS.sicht, alle);
+}
+
+// Kapitel und Scrollposition brauchen den FERTIGEN Baum: die Gliederung der
+// Preisliste kommt nachträglich und schiebt alles nach unten. Deshalb wird
+// beides erst gesetzt, wenn nichts mehr nachlädt -- einmal direkt beim
+// Öffnen (Preisliste schon da, Demomodus, offline) und sonst, sobald sie
+// geladen ist.
+let wiederherstellen = null; // { kapitel, scroll }
+
+function stelleSichtHer() {
+  if (!wiederherstellen || !offen) return;
+  if (preislisteLaedt()) return; // Baum noch nicht fertig
+  const { kapitel, scroll } = wiederherstellen;
+  wiederherstellen = null;
+  // Das Kapitel kann es nicht mehr geben (gelöscht, oder die Preisliste ist
+  // umsortiert) -- dann bleibt es beim Überblick.
+  if (kapitel && kapitel !== kapitelKnoten && alleKnoten().some((k) => k.nr === kapitel)) {
+    kapitelKnoten = kapitel;
+    render();
+  }
+  if (ansichtModus === "tabelle" && scroll) {
+    requestAnimationFrame(() => window.scrollTo(0, scroll));
+  }
+}
+
 // ---------- Interaktion: Tabelle ----------
 
 function setzeEbene(stufe) {
@@ -3366,17 +3445,30 @@ function oeffne(filename) {
   suche = "";
   gewaehlteZeile = null;
   document.getElementById("sucheInput").value = "";
-  ansichtModus = "tabelle";
+  // Dort weitermachen, wo man zuletzt war (siehe merkeSicht()). Beim ersten
+  // Öffnen einer Schätzung gilt der Überblick: Tabelle, Ebene 1.
+  const sicht = letzteSicht(filename);
+  ansichtModus = sicht.modus === "kapitel" ? "kapitel" : "tabelle";
   kapitelKnoten = "";
+  wiederherstellen = { kapitel: sicht.kapitel || "", scroll: Number(sicht.scroll) || 0 };
   renderToolbar();
   // Die Gliederung der Preisliste gehört zum BAUM, nicht nur zur Vorlagenwahl --
   // deshalb beim Öffnen einer Schätzung holen, nicht erst beim Erfassen.
   // In der Liste passiert nichts: wer nur schaut, lädt keine 6 MB.
   ladePreislisteBeiBedarf();
-  setzeEbene(1); // immer mit dem Überblick anfangen, siehe ansichtDefaults
+  setzeEbene(ebeneAusSicht(sicht.ebene));
+  stelleSichtHer();
+}
+
+// Nur Werte, die der Umschalter wirklich kennt -- sonst stünde nach einem
+// alten Eintrag eine Ebene da, die es nicht gibt.
+function ebeneAusSicht(wert) {
+  return [1, 2, 3, 4, 9].includes(Number(wert)) ? Number(wert) : 1;
 }
 
 function zurueckZurListe() {
+  merkeSicht();
+  wiederherstellen = null;
   offen = null;
   offenFilename = null;
   gewaehlteZeile = null;
@@ -3760,7 +3852,9 @@ function init() {
 
   document.getElementById("ebeneSeg").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-ebene]");
-    if (btn) setzeEbene(Number(btn.dataset.ebene));
+    if (!btn) return;
+    setzeEbene(Number(btn.dataset.ebene));
+    merkeSicht();
   });
   document.getElementById("modusSeg").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-modus]");
@@ -3850,10 +3944,26 @@ function init() {
   // Schätzung war. Ohne offene Schätzung ist die Liste dran, die holt
   // nebenbei den Katalog mit.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
+    if (document.visibilityState !== "visible") {
+      merkeSicht(); // Tab gewechselt oder weggelegt -- Stand festhalten
+      return;
+    }
     if (offenFilename) holeFremdenStand();
     else refreshAlle();
   });
+  // Beim Schliessen des Tabs kommt kein visibilitychange mehr, das ist die
+  // einzige verlässliche letzte Gelegenheit.
+  window.addEventListener("pagehide", merkeSicht);
+
+  // Die Stelle in der Tabelle: gedämpft mitschreiben, sonst schriebe jedes
+  // Rad-Tick in den localStorage. Solange die Wiederherstellung aussteht,
+  // steht die Seite oben -- das wäre kein Stand, den man merken will.
+  let scrollTimer = null;
+  window.addEventListener("scroll", () => {
+    if (!offenFilename || wiederherstellen) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(merkeSicht, 500);
+  }, { passive: true });
 
   // Der Katalog aus dem localStorage steht sofort, auch offline und bevor
   // refreshAlle() ihn frisch holt.
