@@ -1658,7 +1658,7 @@ das merkt die App nicht.
   Positionen auf dem normalen Hintergrund. Bei 500+ Zeilen gibt das
   durchgehende Beige der übrigen Apps zu wenig Struktur. Eingabefelder sind
   weiss mit feinem Rand — man sieht also, was sich bearbeiten lässt.
-- **"+ Zeile"** erscheint erst, wenn die Maus auf einer Positionszeile
+- **"+ Position"** (bzw. "+ Zeile" in einer Position) erscheint erst, wenn die Maus auf einer Positionszeile
   steht — bei über 400 sichtbaren Positionen wäre ein dauerhafter Knopf auf
   jeder davon das Auffälligste auf dem Bildschirm. Solange noch nichts
   erfasst ist, erklärt stattdessen ein Hinweis unter der Werkzeugleiste den
@@ -1698,9 +1698,11 @@ Steuerformular: man sieht immer nur **eine Ebene** und klickt sich hinein.
   oder ein eigenes Unterkapitel wie "Wände") stehen dort die
   **Unterpositionen** — Beschrieb, Bemerkung, Ausmass, Summe. Ein Klick
   öffnet das Bearbeitungsfenster.
-- Unter der Liste stehen auf jeder Position **"+ Zeile"** und
-  **"+ Unterkapitel"** (siehe unten) — auch auf einem Knoten, der schon
-  Unterkapitel hat.
+- Unter der Liste stehen **"+ Position"** und **"+ Unterkapitel"** (siehe
+  unten) — auch auf einem Knoten, der schon Unterkapitel hat. In einer
+  Position selbst (Preislisten-Position oder eigene Position mit mehreren
+  Zeilen) steht stattdessen **"+ Zeile"**. Ein eigenes Unterkapitel lässt
+  sich hier mit **"Unterkapitel löschen"** auch wieder entfernen.
 - Hat ein Knoten **beides** (Unterkapitel *und* eigene Positionen, z.B.
   "211.5" mit einer eigenen Zeile und dem Unterkapitel "Wände"), stehen
   beide Listen untereinander — sonst wären die eigenen Zeilen hier
@@ -1929,21 +1931,33 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
     Nummer sähe aus wie eine echte. Gezählt wird intern ab 10, damit eine
     eigene Gliederung nie mit einer Gattung (`.0` bis `.9`) kollidiert,
     auch wenn der Katalog später wächst.
-  - **"+ Zeile" und "+ Unterkapitel" stehen auf jeder Ebene ab der
-    dreistelligen Position nebeneinander**: jedes Kapitel kann eigene Zeilen
-    *und* weitere Unterkapitel haben. Auf Haupt- und Elementgruppen gibt es
-    beides nicht — deren Gliederung gibt die Norm vor.
-  - Ein neues Unterkapitel wird **ohne Zeile** angelegt (wer gleich erfassen
-    will, nimmt "+ Zeile"), damit sich auch bloss ein Kapitelbaum aufbauen
-    lässt, ohne jedes Mal eine leere Zeile wegzuräumen. In der
-    Kapitelansicht springt die Ansicht gleich hinein.
-  - **Eigene Endposition**: Ein eigenes Unterkapitel ohne weitere
-    Unterkapitel und mit **genau einer Zeile** ("Dach anheben" unter
-    "214.1 Zimmerarbeiten") verhält sich wie eine Preislisten-Position: Es
+  - **"+ Position" und "+ Unterkapitel" stehen auf jeder Ebene ab der
+    dreistelligen Position nebeneinander** (`ergaenzenKnoepfe()`). Auf
+    Haupt- und Elementgruppen gibt es beides nicht — deren Gliederung gibt
+    die Norm vor. Jeder Ast kann so auf seiner eigenen Tiefe enden: "Dach
+    anheben" direkt unter 214.1, "Carport in Holz" daneben drei Ebenen
+    tiefer.
+  - **"+ Position"** fragt nach dem Namen und dann (mit Vorlagen-Datei),
+    ob eine Vorlage dazukommt — erste Wahl ist "Ohne Vorlage". Erst danach
+    entsteht in EINEM Schritt eine **eigene Endposition**: ein Unterkapitel
+    samt genau einer Zeile mit demselben Beschrieb (`legeEndpositionAn()`).
+    Wer abbricht, hinterlässt nichts. Mit Vorlage bleibt die Position, wo
+    sie angelegt wurde, und behält ihren Namen; die Vorlage bringt Einheit
+    und Preispositionen.
+  - Eine eigene Endposition verhält sich wie eine Preislisten-Position: Sie
     steht neben "Planung (Grundarbeiten)" und Co., trägt Häkchen und Frage,
     und ein Klick öffnet direkt das Bearbeitungsfenster statt das Kapitel.
-    In der Tabelle ist der Knoten die Zeile selbst. Ab der zweiten Zeile ist
-    es wieder ein Kapitel zum Hineingehen (`istEigeneEndposition()`).
+    In der Tabelle ist der Knoten die Zeile selbst. **Name und Beschrieb
+    sind dasselbe**: Ändert man den Beschrieb, zieht der Name mit, solange es
+    die einzige Zeile ist. **"Position löschen"** im Fenster nimmt die
+    ganze Position weg, nicht bloss die Zeile. Mit "+ Zeile" bekommt sie
+    eine zweite Zeile ("EG" / "OG") und ist ab dann wieder ein Kapitel zum
+    Hineingehen (`istEigeneEndposition()`, `istPositionsKnoten()`).
+  - **"+ Unterkapitel"** ist nur noch für die Gliederung ("Wände" ›
+    "Innenwände"). Es wird **ohne Zeile** angelegt; in der Kapitelansicht
+    springt die Ansicht gleich hinein.
+  - Ältere Dateien mit **losen Zeilen** direkt unter einem Kapitel bleiben,
+    wie sie sind, und funktionieren weiter.
   - **Löschen nimmt alles darunter mit** (Zeilen und Enkelkapitel) und fragt
     vorher nach — ein stehengelassenes Enkelkapitel wäre im Baum nicht mehr
     erreichbar.
@@ -2044,11 +2058,12 @@ Ordnern, die gleich heissen wie die Kapitel hier. Das **Suchfeld** sucht
 dagegen im **ganzen Baum**: wer tippt, sucht etwas Bestimmtes, und das steht
 oft unter einer anderen Nummer.
 
-Gewählt wird die Vorlage **beim Anlegen einer Zeile**: "+ Zeile" fragt
-zuerst *"Was soll dazu?"* — eine Vorlage oder eine leere Zeile. Danach geht
+Gewählt wird die Vorlage **beim Anlegen**: "+ Position" (nach dem Namen)
+bzw. "+ Zeile" fragt zuerst *"Was soll dazu?"* — eine Vorlage oder ohne
+Vorlage. Danach geht
 es im Bearbeitungsfenster nur noch um die Zahlen; dort steht bloss noch,
 woher die Zeile stammt, mit einem Knopf "Andere Vorlage". Ohne
-Vorlagen-Datei verhält sich "+ Zeile" wie früher.
+Vorlagen-Datei entsteht die Position bzw. Zeile direkt.
 
 #### Die Gliederung steht im Baum
 
@@ -2112,7 +2127,7 @@ ebenfalls zu Unterkapiteln:
 
 Diese Kapitel sind dieselben frei benannten Unterkapitel wie die von Hand
 angelegten: ohne Nummer, aber sonst gleich organisiert wie der nummerierte
-Baum darüber — mit Summe, zum Ein- und Ausklappen, mit "+ Zeile" und
+Baum darüber — mit Summe, zum Ein- und Ausklappen, mit "+ Position" und
 "+ Unterkapitel". Gibt es ein Kapitel mit demselben Titel schon, wird es
 wiederverwendet statt verdoppelt. Stammt eine Vorlage aus einem **anderen
 BKP-Bereich** (das Suchfeld sucht überall), ist sie in der Auswahl so

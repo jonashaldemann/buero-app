@@ -302,6 +302,33 @@ function istEigeneEndposition(nr, kids) {
   return !kinder.length && zeilenVon(nr).length === 1;
 }
 
+// Ist der Knoten selbst eine POSITION (das unterste Glied, an dem Zeilen
+// hängen) statt eines Kapitels mit Positionen darin? Dann heisst "dazu"
+// eine weitere ZEILE ("Innenwände EG" / "OG"), sonst eine neue Position.
+// Das gilt für Preislisten-Positionen und für eigene Endpositionen, auch
+// wenn diese schon zwei Zeilen haben.
+function istPositionsKnoten(nr) {
+  if (!nr) return false;
+  if (istPreislistePosition(nr)) return true;
+  return istEigen(nr) && !preislisteZuNr(nr) && !kinderVon(nr).length && zeilenVon(nr).length > 0;
+}
+
+// Die Knöpfe zum Ergänzen unter einem Knoten -- gleich in der Tabelle und
+// in der Kapitelansicht. "+ Position" legt in EINEM Schritt eine eigene
+// Endposition an (Unterkapitel samt einer Zeile, mit Häkchen und Frage);
+// "+ Unterkapitel" ist nur noch für die Gliederung ("Wände" › "Innenwände").
+// In einer Position selbst gibt es stattdessen "+ Zeile".
+function ergaenzenKnoepfe(nr) {
+  const n = escapeHtml(nr);
+  if (istPositionsKnoten(nr)) {
+    return `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${n}" title="Weitere Zeile in dieser Position, z.B. &quot;EG&quot; und &quot;OG&quot;">+ Zeile</button>`;
+  }
+  return (
+    `<button type="button" class="bk-add-btn" data-action="add-endposition" data-nr="${n}" title="Eigene Position wie &quot;Dach anheben&quot; ergänzen">+ Position</button>` +
+    `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${n}" title="Eigenes Unterkapitel wie &quot;Wände&quot; ergänzen">+ Unterkapitel</button>`
+  );
+}
+
 function preislisteKinder(knoten) {
   return Array.isArray(knoten && knoten.unterpositionen) ? knoten.unterpositionen : [];
 }
@@ -1133,11 +1160,14 @@ function kinderVon(nr) {
 // Auf Haupt- und Elementgruppen nicht -- deren Gliederung gibt die Norm vor.
 function kapitelAktionen() {
   if (!kapitelKnoten || knotenEbene(kapitelKnoten) < 3) return "";
-  const nr = escapeHtml(kapitelKnoten);
-  return (
-    `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${nr}">+ Zeile</button>` +
-    `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${nr}" title="Eigenes Unterkapitel wie &quot;Wände&quot; ergänzen">+ Unterkapitel</button>`
-  );
+  // Ein eigenes Unterkapitel lässt sich auch hier löschen -- sonst bliebe
+  // ein leeres (z.B. nach einem abgebrochenen Anlegen) in der
+  // Kapitelansicht für immer stehen.
+  const loeschen =
+    istEigen(kapitelKnoten) && !preislisteZuNr(kapitelKnoten)
+      ? `<button type="button" class="bk-add-btn" data-action="del-position" data-nr="${escapeHtml(kapitelKnoten)}" title="Dieses eigene Unterkapitel samt Inhalt löschen">Unterkapitel löschen</button>`
+      : "";
+  return ergaenzenKnoepfe(kapitelKnoten) + loeschen;
 }
 
 function istBlattKnoten(nr) {
@@ -1465,10 +1495,9 @@ function gruppenZeileHtml(knoten, summe, klappbar, offenJetzt, cols, status, ist
   const indent = einzugStil(knoten.nr);
   let aktionen = "";
   if (e >= 3) {
-    aktionen = `<button type="button" class="bk-add-btn" data-action="add-zeile" data-nr="${knoten.nr}">+ Zeile</button>`;
     // Auch unter einem eigenen Unterkapitel darf ein weiteres entstehen
     // ("Wände" -> "Innenwände"), siehe knotenEbene().
-    aktionen += `<button type="button" class="bk-add-btn" data-action="add-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel wie &quot;Wände&quot; ergänzen">+ Unterkapitel</button>`;
+    aktionen = ergaenzenKnoepfe(knoten.nr);
     if (knoten.eigen) {
       aktionen += `<button type="button" class="bk-row-action" data-action="del-position" data-nr="${knoten.nr}" title="Eigenes Unterkapitel löschen">×</button>`;
     }
@@ -2006,7 +2035,9 @@ function renderPanel() {
         ausVorlage(zeile)
           ? `<button type="button" class="bk-toggle" data-panel-action="vorlage-loesen"
                      title="Nimmt die Herkunft aus der Preisliste weg. Beschrieb, Einheit und Preispositionen bleiben stehen, die Zeile lässt sich danach löschen.">Vorlage lösen</button>`
-          : `<button type="button" class="bk-toggle" data-panel-action="delete">Zeile löschen</button>`
+          : `<button type="button" class="bk-toggle" data-panel-action="delete">${
+              istEigeneEndposition(nr) ? "Position löschen" : "Zeile löschen"
+            }</button>`
       }
       <span class="bk-panel-hinweis">Änderungen werden beim Schliessen gespeichert · Esc</span>
       <span class="bk-panel-bl">
@@ -2809,6 +2840,35 @@ function materialisiereKnoten(data, nr) {
 // geht gleich auf (Kapitelansicht und nach der Vorlagenwahl) -- in der
 // Tabelle wird dagegen direkt in der Zeile getippt, ein Fenster würde sie
 // zudecken.
+// Eine eigene Endposition in EINEM Schritt: Unterkapitel mit dem Namen und
+// darin genau eine Zeile mit demselben Beschrieb -- damit trägt sie Häkchen
+// und Frage (die hängen an der Nummer) und öffnet direkt das Fenster
+// (istEigeneEndposition()). Gibt die neue Stelle zurück.
+function legeEndpositionAn(nr, titel) {
+  const neuNr = naechsteUnterteilung(nr);
+  // Wie bei legeZeileAn(): Zeile und Nummer EINMAL vor dem mutate(), damit
+  // beide Durchläufe (lokal und Serverstand) dasselbe anlegen.
+  const zeile = { ...neueZeile(), beschrieb: titel };
+  vorfahren(neuNr).forEach((v) => zugeklappt.delete(v));
+  gewaehlteZeile = { nr: neuNr, id: zeile.id };
+  vorlageSuche = "";
+  mutate(
+    (data) => {
+      // Liegt das Kapitel darüber nur in der Preisliste, muss es zuerst in
+      // die Datei -- sonst hinge die Position beim nächsten Öffnen im Leeren.
+      materialisiereKnoten(data, nr);
+      if (!data.eigenePositionen) data.eigenePositionen = [];
+      if (!data.eigenePositionen.some((p) => p.nr === neuNr)) data.eigenePositionen.push({ nr: neuNr, titel });
+      if (!data.positionen[neuNr]) data.positionen[neuNr] = [];
+      if (!data.positionen[neuNr].some((z) => z.id === zeile.id)) data.positionen[neuNr].push({ ...zeile });
+      return data;
+    },
+    { neuRendern: true }
+  );
+  fokussierePanel();
+  return { nr: neuNr, id: zeile.id };
+}
+
 function legeZeileAn(nr, { mitFenster } = {}) {
   vorfahren(nr).forEach((v) => zugeklappt.delete(v));
   zugeklappt.delete(nr);
@@ -2889,6 +2949,17 @@ function setzeFeld(nr, rowId, feld, wert, quelle) {
       // ist das Feld dann schreibgeschützt, in der Tabelle nicht: dort ist
       // dieses Tippen die Umschaltung.
       if (feld === "kennwert" && optionenVon(zeile).length) zeile.kennwertManuell = true;
+      // Bei einer eigenen Endposition SIND Name und Beschrieb dasselbe --
+      // also zieht der Name mit, solange es die einzige Zeile ist.
+      const name = String(wert || "").trim();
+      const eigene = data.eigenePositionen || [];
+      const knoten = eigene.find((p) => p.nr === nr);
+      if (
+        feld === "beschrieb" && name && knoten && !katalogTitel[nr] && !preislisteZuNr(nr) &&
+        (data.positionen[nr] || []).length === 1 && !eigene.some((p) => p.nr.startsWith(nr + "."))
+      ) {
+        knoten.titel = name;
+      }
     }
     return data;
   });
@@ -3195,6 +3266,16 @@ function onBodyClick(e) {
     return;
   }
 
+  if (action === "add-endposition") {
+    // Erst der Name, dann (wenn es Vorlagen gibt) die Wahl, WAS es ist --
+    // angelegt wird erst danach. Wer abbricht, hinterlässt nichts.
+    const titel = (prompt(`Neue Position in "${knotenLabel(nr)}":`, "") || "").trim();
+    if (!titel) return;
+    if (vorlagenMoeglich()) return oeffneVorlagenWahl(nr, null, { endposition: titel });
+    legeEndpositionAn(nr, titel);
+    return;
+  }
+
   if (action === "add-position") {
     // Gefragt wird nur nach dem Namen -- die Kennung vergibt die App
     // (siehe naechsteUnterteilung()), unterhalb der Norm gibt es keine
@@ -3203,7 +3284,7 @@ function onBodyClick(e) {
     if (!titel) return;
     const eingabe = naechsteUnterteilung(nr);
     // Nur die Gliederung anlegen, keine erste Zeile: wer gleich erfassen
-    // will, nimmt "+ Zeile". So lässt sich auch bloss ein Kapitelbaum
+    // will, nimmt "+ Position". So lässt sich auch bloss ein Kapitelbaum
     // aufbauen ("Wände" › "Innenwände" › "Aussenwände"), ohne jedes Mal
     // eine leere Zeile wegräumen zu müssen.
     vorfahren(eingabe).forEach((v) => zugeklappt.delete(v));
@@ -3263,16 +3344,26 @@ function loescheZeile(nr, rowId) {
   // ausVorlage()).
   if (ausVorlage(zeile)) return;
   const text = (zeile && zeile.beschrieb) || "";
-  if (text && !confirm(`Zeile "${text}" wirklich löschen?`)) return;
+  // Ist es die einzige Zeile einer eigenen Endposition, geht die Position
+  // mit -- ein leeres Unterkapitel ohne Sinn bliebe sonst stehen.
+  const endposition = istEigeneEndposition(nr);
+  if (endposition ? !confirm(`Position "${text || knotenLabel(nr)}" wirklich löschen?`) : text && !confirm(`Zeile "${text}" wirklich löschen?`)) return;
   if (gewaehlteZeile && gewaehlteZeile.id === rowId) gewaehlteZeile = null;
   mutate(
     (data) => {
       data.positionen[nr] = (data.positionen[nr] || []).filter((z) => z.id !== rowId);
       if (!data.positionen[nr].length) delete data.positionen[nr];
+      if (endposition && !data.positionen[nr]) {
+        data.eigenePositionen = (data.eigenePositionen || []).filter((p) => p.nr !== nr);
+        [data.haken, data.fragen].forEach((topf) => {
+          if (topf) delete topf[nr];
+        });
+      }
       return data;
     },
     { neuRendern: true }
   );
+  if (endposition && ansichtModus === "kapitel" && kapitelKnoten === nr) setzeKapitel(elterNummer(nr) || "");
 }
 
 // Beim Hineinklicken in ein Ausmass-/Kennwert-Feld erscheint wieder die
@@ -3385,6 +3476,13 @@ function uebernimmVorlage(pfadText, { verschieben = true } = {}) {
   const einheit = String(knoten.einheit || "");
   const beschrieb = String(knoten.bezeichnung || "");
   const { nr, id } = gewaehlteZeile;
+  // Eine eigene Endposition ("Dach anheben") bleibt, wo sie ist, und behält
+  // ihren Namen -- die Vorlage liefert nur Einheit und Preispositionen.
+  // Sonst wanderte die Zeile in den Ast der Vorlage und liesse ein leeres
+  // Unterkapitel zurück.
+  const endposition = istEigeneEndposition(nr);
+  // Gleiches gilt für eine weitere Zeile in einer eigenen Position.
+  if (endposition || (istPositionsKnoten(nr) && !istPreislistePosition(nr))) verschieben = false;
   // Die BKP-Nummer, unter der die Zeile heute hängt -- von dort aus wird
   // die Gliederung der Vorlage aufgebaut. Hängt die Zeile schon in einem
   // eigenen Unterkapitel, zählt der Katalogknoten darüber: sonst
@@ -3406,7 +3504,7 @@ function uebernimmVorlage(pfadText, { verschieben = true } = {}) {
       if (!data.positionen[zielNr]) data.positionen[zielNr] = [];
       data.positionen[zielNr].push(zeile);
     }
-    zeile.beschrieb = beschrieb;
+    if (!(endposition && String(zeile.beschrieb || "").trim())) zeile.beschrieb = beschrieb;
     // Eine leere Einheit der Vorlage überschreibt keine vorhandene -- im
     // echten Export tragen viele Platzhalter-Positionen gar keine.
     if (einheit) zeile.einheit = einheit;
@@ -3532,12 +3630,14 @@ function vorlagenMoeglich() {
   return !istDemo() && isConfigured() && !preislisteFehlt;
 }
 
-function oeffneVorlagenWahl(nr, rowId) {
-  vorlagenZiel = { nr, rowId: rowId || null };
+function oeffneVorlagenWahl(nr, rowId, { endposition = "" } = {}) {
+  vorlagenZiel = { nr, rowId: rowId || null, endposition };
   vorlageSuche = "";
   ladePreislisteBeiBedarf();
   document.getElementById("vorlagenTitel").textContent = rowId
     ? "Andere Vorlage"
+    : endposition
+    ? `Neue Position "${endposition}"`
     : `Was soll unter "${knotenLabel(nr)}"?`;
   zeichneVorlagenWahl();
   overlay("vorlagenOverlay", true);
@@ -3550,6 +3650,10 @@ function zeichneVorlagenWahl() {
   if (!box || !vorlagenZiel) return;
   const leer = vorlagenZiel.rowId
     ? ""
+    : vorlagenZiel.endposition
+    ? `<button type="button" class="bk-vorlage-leerzeile" data-vorlagen-aktion="leer">
+         + Ohne Vorlage — "${escapeHtml(vorlagenZiel.endposition)}" selber erfassen
+       </button>`
     : `<button type="button" class="bk-vorlage-leerzeile" data-vorlagen-aktion="leer">
          + Leere Zeile — Beschrieb und Kennwert selber erfassen
        </button>`;
@@ -3588,16 +3692,25 @@ function onVorlagenClick(e) {
   }
   const leer = e.target.closest('[data-vorlagen-aktion="leer"]');
   if (leer) {
-    const { nr } = vorlagenZiel || {};
+    const { nr, endposition } = vorlagenZiel || {};
     schliesseVorlagenWahl();
-    if (nr) legeZeileAn(nr, { mitFenster: ansichtModus === "kapitel" });
+    if (nr && endposition) legeEndpositionAn(nr, endposition);
+    else if (nr) legeZeileAn(nr, { mitFenster: ansichtModus === "kapitel" });
     return;
   }
   const btn = e.target.closest('[data-panel-action="vorlage"]');
   if (!btn || !vorlagenZiel) return;
-  const { nr, rowId } = vorlagenZiel;
+  const { nr, rowId, endposition } = vorlagenZiel;
   const pfad = btn.dataset.pfad || "";
   schliesseVorlagenWahl();
+  // Neue eigene Position MIT Vorlage: die Position entsteht unter dem
+  // gewählten Kapitel und behält ihren Namen, die Vorlage bringt Einheit
+  // und Preispositionen (siehe uebernimmVorlage()).
+  if (endposition) {
+    legeEndpositionAn(nr, endposition);
+    uebernimmVorlage(pfad);
+    return;
+  }
   // Eine neue Zeile entsteht zuerst leer unter der BKP-Nummer;
   // uebernimmVorlage() hängt sie anschliessend unter die Ordner.
   if (!rowId) legeZeileAn(nr, { mitFenster: true });
