@@ -123,6 +123,16 @@ function projektLabel(protokoll) {
   return protokoll.projektName ? `${protokoll.projekt} – ${protokoll.projektName}` : protokoll.projekt;
 }
 
+// "Anna Bächler (AB)" -- das Kürzel in Klammern hinter dem Namen, damit
+// sich die Kürzel rechts neben den Stichpunkten jemandem zuordnen lassen.
+// Büro-Personen tragen dort ihre Initialen (automatisch gesetzt), externe
+// Teilnehmende ein frei eingetipptes Kürzel; ohne Kürzel steht nur der Name.
+function teilnehmerZeile(t) {
+  const name = (t.name || "").trim();
+  const kuerzel = (t.kuerzel || "").trim();
+  return kuerzel ? `${name} (${kuerzel})` : name;
+}
+
 function drawHeader(ctx, protokoll, kopfZeilen) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
@@ -170,7 +180,7 @@ function drawHeader(ctx, protokoll, kopfZeilen) {
     drawText(ctx, "Teilnehmende", labelX, y, { size: SIZE_BODY, font: ctx.light, color: PDF_COLOR_MUTED });
     let ty = y;
     teilnehmende.forEach((t) => {
-      drawText(ctx, t.name, valueX, ty, { size: SIZE_BODY, font: ctx.light });
+      drawText(ctx, teilnehmerZeile(t), valueX, ty, { size: SIZE_BODY, font: ctx.light });
       ty -= SIZE_BODY + 6;
     });
     y = ty;

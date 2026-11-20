@@ -1264,7 +1264,10 @@ Protokoll, wie bei den Offerten).
   Meta-Infos, Teilnehmenden und dem Hauptteil; die Kopfzeile kommt aus der
   zentralen `config.json` (`bueroName`, `bueroZusatz`, `adresse` mit
   `strasse`/`plz`/`ort`, `email` — siehe Abschnitt "Zentrale Konfiguration"
-  oben), steht auf höchstens zwei Zeilen und nur auf der ersten Seite; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
+  oben), steht auf höchstens zwei Zeilen und nur auf der ersten Seite; bei
+  den **Teilnehmenden** steht das Kürzel in Klammern hinter dem Namen
+  ("Anna Bächler (AB)"), damit sich die Kürzel neben den Stichpunkten
+  zuordnen lassen — wer kein Kürzel hat, steht nur mit Namen da; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
   frei, in der — falls gesetzt — die Kürzel der zuständigen Personen stehen
   ("AN, TB").
   Nutzt dieselbe pdf-lib-Infrastruktur wie die Offerten (`protokoll/pdf.js`,
