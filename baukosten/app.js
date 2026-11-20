@@ -288,6 +288,20 @@ function istPreislistePosition(nr) {
   return !!k && k.knoten.typ === "position";
 }
 
+// Ein EIGENES Unterkapitel ohne weitere Gliederung und mit GENAU EINER
+// Zeile ist eine eigene Endposition ("Dach anheben"): Es steht auf derselben
+// Ebene wie die Preislisten-Positionen daneben, trägt wie diese Häkchen und
+// Frage (die hängen an der Nummer, eine lose Zeile hätte keine), und ein
+// Klick öffnet direkt das Fenster. Erst ab der zweiten Zeile ist es wieder
+// ein Kapitel zum Hineingehen -- gleich wie bei der Preisliste.
+// kids: die Kinder, falls schon bekannt (im Tabellen-Rendering), sonst
+// werden sie hier geholt.
+function istEigeneEndposition(nr, kids) {
+  if (!nr || !istEigen(nr) || preislisteZuNr(nr)) return false;
+  const kinder = kids || kinderVon(nr);
+  return !kinder.length && zeilenVon(nr).length === 1;
+}
+
 function preislisteKinder(knoten) {
   return Array.isArray(knoten && knoten.unterpositionen) ? knoten.unterpositionen : [];
 }
@@ -1603,7 +1617,10 @@ function renderTabelle() {
     // Eine Preislisten-Position mit GENAU EINER Erfassung braucht keine
     // eigene Kopfzeile: der Knoten ist die Zeile. Erst ab der zweiten
     // Erfassung ("Innenwände EG" / "OG") lohnt sich die Gliederung wieder.
-    if (istPreislistePosition(k.nr) && eigeneZeilen === 1 && !kids.length) {
+    if (
+      (istPreislistePosition(k.nr) && eigeneZeilen === 1 && !kids.length) ||
+      (eigeneZeilen === 1 && istEigeneEndposition(k.nr, kids))
+    ) {
       html += unterpositionHtml(k.nr, zeilenVon(k.nr)[0], cols, {
         indent: einzugStil(k.nr),
         status: statusHtml(k.nr, status[k.nr], true)
@@ -3122,6 +3139,7 @@ function onKapitelClick(e) {
   // Liste zu sehen.
   const nr = ziel.dataset.kapZiel;
   if (istPreislistePosition(nr) && zeilenVon(nr).length <= 1) return erfassePreislistePosition(nr);
+  if (istEigeneEndposition(nr)) return waehleZeile(nr, zeilenVon(nr)[0].id);
   setzeKapitel(nr);
 }
 

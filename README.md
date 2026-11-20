@@ -1937,6 +1937,13 @@ rechnen beim Öffnen auf dieser Grundlage weiter (`migriere()`).
     will, nimmt "+ Zeile"), damit sich auch bloss ein Kapitelbaum aufbauen
     lässt, ohne jedes Mal eine leere Zeile wegzuräumen. In der
     Kapitelansicht springt die Ansicht gleich hinein.
+  - **Eigene Endposition**: Ein eigenes Unterkapitel ohne weitere
+    Unterkapitel und mit **genau einer Zeile** ("Dach anheben" unter
+    "214.1 Zimmerarbeiten") verhält sich wie eine Preislisten-Position: Es
+    steht neben "Planung (Grundarbeiten)" und Co., trägt Häkchen und Frage,
+    und ein Klick öffnet direkt das Bearbeitungsfenster statt das Kapitel.
+    In der Tabelle ist der Knoten die Zeile selbst. Ab der zweiten Zeile ist
+    es wieder ein Kapitel zum Hineingehen (`istEigeneEndposition()`).
   - **Löschen nimmt alles darunter mit** (Zeilen und Enkelkapitel) und fragt
     vorher nach — ein stehengelassenes Enkelkapitel wäre im Baum nicht mehr
     erreichbar.
