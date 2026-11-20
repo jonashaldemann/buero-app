@@ -341,15 +341,19 @@ async function refreshAppConfig() {
   return appConfig;
 }
 
-// Büro-Anschrift als fertige Zeilen fürs PDF (Name, Zusatz, Strasse,
-// "PLZ Ort", E-Mail) -- leere Felder fallen weg, PLZ und Ort stehen auf
-// einer Zeile. Wird von protokoll/pdf.js für die Kopfzeile benutzt.
+// Büro-Anschrift als fertige Zeilen fürs PDF -- HÖCHSTENS ZWEI: oben der
+// Name mit seinem Zusatz, darunter die Anschrift und die E-Mail, je mit
+// "·" getrennt (ausdrücklich so gewünscht -- fünf einzelne Zeilen machten
+// aus der Kopfzeile einen Briefkopf). Leere Felder fallen weg, ist alles
+// leer, bleibt die Kopfzeile ganz aus. Wird von protokoll/pdf.js benutzt.
 function bueroAdressZeilen() {
   const adr = appConfig.adresse || {};
-  const plzOrt = [adr.plz, adr.ort].filter(Boolean).join(" ");
-  return [appConfig.bueroName, appConfig.bueroZusatz, adr.strasse, plzOrt, appConfig.email]
-    .map((l) => (l || "").trim())
-    .filter(Boolean);
+  const teil = (...felder) => felder.map((f) => (f || "").trim()).filter(Boolean).join(" · ");
+  const plzOrt = [adr.plz, adr.ort].map((f) => (f || "").trim()).filter(Boolean).join(" ");
+  return [
+    teil(appConfig.bueroName, appConfig.bueroZusatz),
+    teil(adr.strasse, plzOrt, appConfig.email)
+  ].filter(Boolean);
 }
 
 // MKCOL legt jeweils nur eine Ebene an -> Pfad Stück für Stück aufbauen.

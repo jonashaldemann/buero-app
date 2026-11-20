@@ -127,16 +127,22 @@ function drawHeader(ctx, protokoll, kopfZeilen) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
   // Büro-Anschrift oben rechts, durchgehend Light/10 -- gleiche Stelle und
-  // gleiche Auszeichnung wie der Absenderblock der Offerten.
+  // gleiche Auszeichnung wie der Absenderblock der Offerten. Es sind
+  // höchstens zwei Zeilen (siehe bueroAdressZeilen()); passt eine davon
+  // nicht auf die Seitenbreite (sehr langer Büro-Name, lange E-Mail), wird
+  // die Kopfzeile eine Stufe kleiner gesetzt statt über den Rand zu laufen.
+  const zeilen = kopfZeilen || [];
+  const passtNicht = zeilen.some((l) => ctx.light.widthOfTextAtSize(l, SIZE_BODY) > PDF_CONTENT_WIDTH);
+  const kopfGroesse = passtNicht ? SIZE_SMALL : SIZE_BODY;
   let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
-  (kopfZeilen || []).forEach((line) => {
-    drawText(ctx, line, rightX, ay, { size: SIZE_BODY, font: ctx.light, align: "right" });
-    ay -= SIZE_BODY + 4;
+  zeilen.forEach((line) => {
+    drawText(ctx, line, rightX, ay, { size: kopfGroesse, font: ctx.light, align: "right" });
+    ay -= kopfGroesse + 4;
   });
 
-  // Der Titel steht an fixer Stelle -- ausser die Kopfzeile ist so lang,
-  // dass sie bis dort reicht (mit bueroZusatz sind es fünf Zeilen); dann
-  // rutscht er so weit nach unten, dass eine Leerzeile dazwischen bleibt.
+  // Der Titel steht an fixer Stelle -- bei höchstens zwei Kopfzeilen ist
+  // darüber ohnehin genug Platz; der Vergleich ist nur das Netz, falls die
+  // Kopfzeile je wieder wächst.
   let y = Math.min(PDF_PAGE_HEIGHT - PDF_MARGIN - 70, ay - (SIZE_BODY + 4));
   const titleLine = `Protokoll${protokoll.titel ? " " + protokoll.titel : ""}`;
   drawText(ctx, titleLine, PDF_MARGIN, y, { size: SIZE_TITLE, font: ctx.medium });

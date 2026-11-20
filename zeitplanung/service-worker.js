@@ -3,7 +3,7 @@
    bereits installierte/gecachte alte Versionen an dieser Adresse zuverlässig
    auf die neue Version (den Redirect-Stub in index.html) aktualisiert
    werden, statt für immer die alte, alte gecachte App weiter auszuliefern. */
-const CACHE_NAME = "zeitplanung-redirect-v7";
+const CACHE_NAME = "zeitplanung-redirect-v8";
 const ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (event) => {

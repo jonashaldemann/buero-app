@@ -772,8 +772,12 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   der letzte bekannte Stand erhalten. Beides erfordert Login, kein
   öffentlicher Freigabelink mehr.
 - **Die Kopfzeile des Protokoll-PDF kommt aus `config.json`**
-  (`bueroAdressZeilen()` in `shared/common.js`, November 2026): Büro-Name,
-  Zusatz, Strasse, "PLZ Ort", E-Mail, rechts oben auf der ersten Seite. Vorher las
+  (`bueroAdressZeilen()` in `shared/common.js`, November 2026): rechts oben
+  auf der ersten Seite, HÖCHSTENS ZWEI ZEILEN (ausdrücklich so gewünscht) --
+  "Büro-Name · Zusatz" und "Strasse · PLZ Ort · E-Mail". Als fünf einzelne
+  Zeilen wurde daraus ein Briefkopf, der den Titel nach unten drückte.
+  Passt eine Zeile nicht auf die Seitenbreite, setzt `drawHeader()` die
+  Kopfzeile eine Stufe kleiner, statt sie über den Rand laufen zu lassen. Vorher las
   `protokoll/pdf.js` dafür `../offerten/absender.json` -- die Datei steht
   aber in `.gitignore` und war auf GitHub Pages darum nie da, die Kopfzeile
   fehlte also im ausgelieferten Stand und nur lokal nicht. Die Offerten
