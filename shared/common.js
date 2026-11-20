@@ -324,12 +324,12 @@ async function refreshAppConfig() {
   appConfig = {
     mitarbeitende: configFile ? configFile.mitarbeitende || [] : appConfig.mitarbeitende,
     bueroName: configFile ? configFile.bueroName || DEFAULT_BUERO_NAME : appConfig.bueroName,
-    // Büro-Adresse für Kopfzeilen in PDFs (protokoll/pdf.js): strasse, plz,
-    // ort, email stehen wie bueroName direkt in config.json. Alle vier sind
+    // Büro-Anschrift für Kopfzeilen in PDFs (protokoll/pdf.js): bueroZusatz
+    // (zweite Namenszeile, z.B. die Rechtsform) und email stehen direkt in
+    // config.json, strasse/plz/ort im Unterobjekt `adresse`. Alles davon ist
     // freiwillig -- was fehlt, fällt in der Kopfzeile einfach weg.
-    strasse: configFile ? configFile.strasse || "" : appConfig.strasse || "",
-    plz: configFile ? configFile.plz || "" : appConfig.plz || "",
-    ort: configFile ? configFile.ort || "" : appConfig.ort || "",
+    bueroZusatz: configFile ? configFile.bueroZusatz || "" : appConfig.bueroZusatz || "",
+    adresse: configFile ? configFile.adresse || {} : appConfig.adresse || {},
     email: configFile ? configFile.email || "" : appConfig.email || "",
     // Fahrzeuge samt Kilometeransatz für die Kilometer-Quittung
     // (quittung/km.js). Fehlt das Feld, gilt dort eine eingebaute Liste --
@@ -341,12 +341,13 @@ async function refreshAppConfig() {
   return appConfig;
 }
 
-// Büro-Anschrift als fertige Zeilen fürs PDF (Name, Strasse, "PLZ Ort",
-// E-Mail) -- leere Felder fallen weg, PLZ und Ort stehen auf einer Zeile.
-// Wird von protokoll/pdf.js für die Kopfzeile benutzt.
+// Büro-Anschrift als fertige Zeilen fürs PDF (Name, Zusatz, Strasse,
+// "PLZ Ort", E-Mail) -- leere Felder fallen weg, PLZ und Ort stehen auf
+// einer Zeile. Wird von protokoll/pdf.js für die Kopfzeile benutzt.
 function bueroAdressZeilen() {
-  const plzOrt = [appConfig.plz, appConfig.ort].filter(Boolean).join(" ");
-  return [appConfig.bueroName, appConfig.strasse, plzOrt, appConfig.email]
+  const adr = appConfig.adresse || {};
+  const plzOrt = [adr.plz, adr.ort].filter(Boolean).join(" ");
+  return [appConfig.bueroName, appConfig.bueroZusatz, adr.strasse, plzOrt, appConfig.email]
     .map((l) => (l || "").trim())
     .filter(Boolean);
 }

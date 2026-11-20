@@ -264,10 +264,13 @@ jeweils andere trotzdem der letzte bekannte Stand erhalten.
 **`Buero/Admin/App/config.json`** — Mitarbeitende, Büro-Name, Fahrzeuge:
 ```json
 {
-  "bueroName": "Muster Architekten AG",
-  "strasse": "Musterweg 7",
-  "plz": "8000",
-  "ort": "Musterstadt",
+  "bueroName": "Muster Architekten",
+  "bueroZusatz": "Architekten ETH SIA",
+  "adresse": {
+    "strasse": "Musterweg 7",
+    "plz": "8000",
+    "ort": "Musterstadt"
+  },
   "email": "info@muster-architekten.ch",
   "mitarbeitende": [
     { "key": "max", "name": "Max Muster", "datei": "Unterschrift_Max_Muster.png" },
@@ -287,10 +290,12 @@ Fallback. `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name`
 Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht, kann bei
 anderen Einträgen weggelassen werden).
 
-`strasse`, `plz`, `ort` und `email` (alle optional) sind die Anschrift des
-Büros. Sie stehen als Kopfzeile oben rechts auf dem **Protokoll-PDF**
-(Büro-Name, Strasse, "PLZ Ort", E-Mail — `bueroAdressZeilen()` in
-`shared/common.js`); was fehlt, fällt in der Kopfzeile einfach weg. Die
+`bueroZusatz` (zweite Namenszeile, z.B. die Rechtsform), das Unterobjekt
+`adresse` mit `strasse`/`plz`/`ort` sowie `email` sind die Anschrift des
+Büros — alle optional. Sie stehen als Kopfzeile oben rechts auf dem
+**Protokoll-PDF** (Büro-Name, Zusatz, Strasse, "PLZ Ort", E-Mail —
+`bueroAdressZeilen()` in `shared/common.js`); was fehlt, fällt in der
+Kopfzeile einfach weg. Die
 Offerten/Rechnungen nutzen dafür weiterhin ihre eigene `_absender.json`
 (siehe dort) — die trägt zusätzlich Telefon, Website und IBAN für den
 QR-Einzahlungsschein.
@@ -1256,8 +1261,9 @@ Protokoll, wie bei den Offerten).
 - **PDF-Export**: eine durchgehende Seite (kein Brief/Positionen-Split wie
   bei den Offerten) mit der Büro-Anschrift als Kopfzeile oben rechts, Titel,
   Meta-Infos, Teilnehmenden und dem Hauptteil; die Kopfzeile kommt aus der
-  zentralen `config.json` (`bueroName`, `strasse`, `plz`, `ort`, `email` —
-  siehe Abschnitt "Zentrale Konfiguration" oben) und steht nur auf der
+  zentralen `config.json` (`bueroName`, `bueroZusatz`, `adresse` mit
+  `strasse`/`plz`/`ort`, `email` — siehe Abschnitt "Zentrale Konfiguration"
+  oben) und steht nur auf der
   ersten Seite; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
   frei, in der — falls gesetzt — die Kürzel der zuständigen Personen stehen
   ("AN, TB").

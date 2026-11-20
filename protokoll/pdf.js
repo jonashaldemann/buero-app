@@ -134,7 +134,10 @@ function drawHeader(ctx, protokoll, kopfZeilen) {
     ay -= SIZE_BODY + 4;
   });
 
-  let y = PDF_PAGE_HEIGHT - PDF_MARGIN - 70;
+  // Der Titel steht an fixer Stelle -- ausser die Kopfzeile ist so lang,
+  // dass sie bis dort reicht (mit bueroZusatz sind es fünf Zeilen); dann
+  // rutscht er so weit nach unten, dass eine Leerzeile dazwischen bleibt.
+  let y = Math.min(PDF_PAGE_HEIGHT - PDF_MARGIN - 70, ay - (SIZE_BODY + 4));
   const titleLine = `Protokoll${protokoll.titel ? " " + protokoll.titel : ""}`;
   drawText(ctx, titleLine, PDF_MARGIN, y, { size: SIZE_TITLE, font: ctx.medium });
   y -= 10;
