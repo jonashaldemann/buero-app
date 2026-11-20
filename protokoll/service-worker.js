@@ -1,4 +1,4 @@
-const CACHE_NAME = "protokoll-v19";
+const CACHE_NAME = "protokoll-v20";
 const ASSETS = [
   "./",
   "./index.html",

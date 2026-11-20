@@ -265,6 +265,10 @@ jeweils andere trotzdem der letzte bekannte Stand erhalten.
 ```json
 {
   "bueroName": "Muster Architekten AG",
+  "strasse": "Musterweg 7",
+  "plz": "8000",
+  "ort": "Musterstadt",
+  "email": "info@muster-architekten.ch",
   "mitarbeitende": [
     { "key": "max", "name": "Max Muster", "datei": "Unterschrift_Max_Muster.png" },
     { "key": "erika", "name": "Erika Muster", "datei": "Unterschrift_Erika_Muster.png" }
@@ -282,6 +286,14 @@ Fallback. `key` (interner Schlüssel, z.B. für Kürzel/Zuordnung), `name`
 (Anzeigename), `datei` (Dateiname der Unterschrift auf Nextcloud, siehe
 Abschnitt "Unterschriften" bei den Offerten — nur dort gebraucht, kann bei
 anderen Einträgen weggelassen werden).
+
+`strasse`, `plz`, `ort` und `email` (alle optional) sind die Anschrift des
+Büros. Sie stehen als Kopfzeile oben rechts auf dem **Protokoll-PDF**
+(Büro-Name, Strasse, "PLZ Ort", E-Mail — `bueroAdressZeilen()` in
+`shared/common.js`); was fehlt, fällt in der Kopfzeile einfach weg. Die
+Offerten/Rechnungen nutzen dafür weiterhin ihre eigene `_absender.json`
+(siehe dort) — die trägt zusätzlich Telefon, Website und IBAN für den
+QR-Einzahlungsschein.
 
 `fahrzeuge` (optional) sind die Geschäftsfahrzeuge mit ihrem
 Kilometeransatz in Franken — gebraucht von der Kilometer-Quittung in der
@@ -1242,8 +1254,11 @@ Protokoll, wie bei den Offerten).
   bei einer Abweichung warnt die App und lässt die Wahl zwischen
   Überschreiben und neu laden.
 - **PDF-Export**: eine durchgehende Seite (kein Brief/Positionen-Split wie
-  bei den Offerten) mit Absenderblock, Titel, Meta-Infos, Teilnehmenden und
-  dem Hauptteil; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
+  bei den Offerten) mit der Büro-Anschrift als Kopfzeile oben rechts, Titel,
+  Meta-Infos, Teilnehmenden und dem Hauptteil; die Kopfzeile kommt aus der
+  zentralen `config.json` (`bueroName`, `strasse`, `plz`, `ort`, `email` —
+  siehe Abschnitt "Zentrale Konfiguration" oben) und steht nur auf der
+  ersten Seite; rechts neben jedem Stichpunkt bleibt eine schmale Spalte
   frei, in der — falls gesetzt — die Kürzel der zuständigen Personen stehen
   ("AN, TB").
   Nutzt dieselbe pdf-lib-Infrastruktur wie die Offerten (`protokoll/pdf.js`,

@@ -1,6 +1,10 @@
 {
   "Buero/Admin/App/config.json": {
     "bueroName": "Muster Architektur (Demo)",
+    "strasse": "Musterweg 7",
+    "plz": "8000",
+    "ort": "Musterstadt",
+    "email": "info@muster-architektur.example",
     "mitarbeitende": [
       {
         "key": "an",

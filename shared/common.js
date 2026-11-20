@@ -324,6 +324,13 @@ async function refreshAppConfig() {
   appConfig = {
     mitarbeitende: configFile ? configFile.mitarbeitende || [] : appConfig.mitarbeitende,
     bueroName: configFile ? configFile.bueroName || DEFAULT_BUERO_NAME : appConfig.bueroName,
+    // Büro-Adresse für Kopfzeilen in PDFs (protokoll/pdf.js): strasse, plz,
+    // ort, email stehen wie bueroName direkt in config.json. Alle vier sind
+    // freiwillig -- was fehlt, fällt in der Kopfzeile einfach weg.
+    strasse: configFile ? configFile.strasse || "" : appConfig.strasse || "",
+    plz: configFile ? configFile.plz || "" : appConfig.plz || "",
+    ort: configFile ? configFile.ort || "" : appConfig.ort || "",
+    email: configFile ? configFile.email || "" : appConfig.email || "",
     // Fahrzeuge samt Kilometeransatz für die Kilometer-Quittung
     // (quittung/km.js). Fehlt das Feld, gilt dort eine eingebaute Liste --
     // die Ansätze gehören dem Büro, nicht dem Programm.
@@ -332,6 +339,16 @@ async function refreshAppConfig() {
   };
   saveJSON(LS_APP_CONFIG_CACHE, appConfig);
   return appConfig;
+}
+
+// Büro-Anschrift als fertige Zeilen fürs PDF (Name, Strasse, "PLZ Ort",
+// E-Mail) -- leere Felder fallen weg, PLZ und Ort stehen auf einer Zeile.
+// Wird von protokoll/pdf.js für die Kopfzeile benutzt.
+function bueroAdressZeilen() {
+  const plzOrt = [appConfig.plz, appConfig.ort].filter(Boolean).join(" ");
+  return [appConfig.bueroName, appConfig.strasse, plzOrt, appConfig.email]
+    .map((l) => (l || "").trim())
+    .filter(Boolean);
 }
 
 // MKCOL legt jeweils nur eine Ebene an -> Pfad Stück für Stück aufbauen.

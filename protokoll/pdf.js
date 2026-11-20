@@ -13,9 +13,10 @@
    eine Liste, ein Punkt kann auf mehrere Personen laufen).
 
    Eigenständig gehalten (keine Funktionen aus app.js verwendet, siehe
-   Kommentar in offerten/pdf.js), nutzt aber proxyFetch/davPath/ncSegments/
-   authHeader aus ../shared/common.js indirekt nicht -- Protokoll-PDFs
-   brauchen keinen Nextcloud-Zugriff (keine Unterschriften/Bilder).
+   Kommentar in offerten/pdf.js) und ohne eigenen Nextcloud-Zugriff (keine
+   Unterschriften/Bilder) -- einzige Ausnahme ist bueroAdressZeilen() aus
+   ../shared/common.js für die Kopfzeile, das liest bloss die bereits
+   geladene config.json aus.
    ============================================================ */
 
 const PDF_PAGE_WIDTH = 595.28; // A4 in pt
@@ -122,16 +123,16 @@ function projektLabel(protokoll) {
   return protokoll.projektName ? `${protokoll.projekt} – ${protokoll.projektName}` : protokoll.projekt;
 }
 
-function drawHeader(ctx, protokoll, absender) {
+function drawHeader(ctx, protokoll, kopfZeilen) {
   const rightX = PDF_PAGE_WIDTH - PDF_MARGIN;
 
-  if (absender) {
-    let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
-    [absender.name, absender.adresse, absender.plz_ort].filter(Boolean).forEach((line) => {
-      drawText(ctx, line, PDF_MARGIN, ay, { size: SIZE_BODY, font: ctx.light });
-      ay -= SIZE_BODY + 4;
-    });
-  }
+  // Büro-Anschrift oben rechts, durchgehend Light/10 -- gleiche Stelle und
+  // gleiche Auszeichnung wie der Absenderblock der Offerten.
+  let ay = PDF_PAGE_HEIGHT - PDF_MARGIN;
+  (kopfZeilen || []).forEach((line) => {
+    drawText(ctx, line, rightX, ay, { size: SIZE_BODY, font: ctx.light, align: "right" });
+    ay -= SIZE_BODY + 4;
+  });
 
   let y = PDF_PAGE_HEIGHT - PDF_MARGIN - 70;
   const titleLine = `Protokoll${protokoll.titel ? " " + protokoll.titel : ""}`;
@@ -255,14 +256,6 @@ async function exportProtokollPdf(protokoll) {
   }
   initPdfColors();
 
-  let absender = null;
-  try {
-    const res = await fetch("../offerten/absender.json");
-    absender = res.ok ? await res.json() : null;
-  } catch (e) {
-    absender = null;
-  }
-
   const { PDFDocument } = PDFLib;
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -287,7 +280,11 @@ async function exportProtokollPdf(protokoll) {
   };
 
   newPage(ctx);
-  drawHeader(ctx, protokoll, absender);
+  // Die Büro-Anschrift kommt aus der zentralen config.json
+  // (bueroAdressZeilen() in ../shared/common.js) -- früher stand sie in
+  // offerten/absender.json, die aber bewusst nicht im Repo liegt und auf
+  // GitHub Pages darum nie da war.
+  drawHeader(ctx, protokoll, bueroAdressZeilen());
   drawAbschnitte(ctx, protokoll);
 
   const bytes = await pdfDoc.save();

@@ -761,15 +761,24 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `Buero/Admin/Finanzen` (nur die vertraulichen Stammdaten liegen in
   `App/Finanzen`), Unterschriften-Bilder bleiben unter `Buero/Admin/KLG und
   Rechtliches/Unterschriften`.
-- **Zentrale Konfiguration**: Mitarbeitende + Büro-Name in
-  `Buero/Admin/App/config.json` (`{ bueroName, mitarbeitende: [{key, name,
-  datei}] }`), Projekte bewusst separat als Klartext in
+- **Zentrale Konfiguration**: Mitarbeitende + Büro-Name + Büro-Anschrift in
+  `Buero/Admin/App/config.json` (`{ bueroName, strasse, plz, ort, email,
+  mitarbeitende: [{key, name, datei}] }`), Projekte bewusst separat als Klartext in
   `Buero/Admin/App/projekte.txt` (ein Projekt pro Zeile, optional "NNN
   Titel") — wird oft von Hand bearbeitet, dafür ist JSON unpraktisch. Beide
   werden unabhängig geladen (`refreshAppConfig()`/`appConfig` in
   `shared/common.js`); schlägt eine Datei fehl, bleibt für die andere Hälfte
   der letzte bekannte Stand erhalten. Beides erfordert Login, kein
   öffentlicher Freigabelink mehr.
+- **Die Kopfzeile des Protokoll-PDF kommt aus `config.json`**
+  (`bueroAdressZeilen()` in `shared/common.js`, November 2026): Büro-Name,
+  Strasse, "PLZ Ort", E-Mail, rechts oben auf der ersten Seite. Vorher las
+  `protokoll/pdf.js` dafür `../offerten/absender.json` -- die Datei steht
+  aber in `.gitignore` und war auf GitHub Pages darum nie da, die Kopfzeile
+  fehlte also im ausgelieferten Stand und nur lokal nicht. Die Offerten
+  behalten ihre `_absender.json` auf Nextcloud (sie brauchen zusätzlich
+  Telefon/Website/IBAN für den QR-Einzahlungsschein); doppelt gepflegt wird
+  damit nur die Anschrift selbst.
 - **Auto-Update**: `registerServiceWorkerWithAutoUpdate()` in
   `shared/common.js` lädt die Seite automatisch neu, sobald im Hintergrund
   eine neue Service-Worker-Version aktiv wird (wichtig, damit niemand
