@@ -3040,8 +3040,13 @@ let wiederherstellen = null; // { kapitel, scroll }
 function stelleSichtHer() {
   if (!wiederherstellen || !offen) return;
   if (preislisteLaedt()) return; // Baum noch nicht fertig
-  const { kapitel, scroll } = wiederherstellen;
+  const { scroll } = wiederherstellen;
+  let { kapitel } = wiederherstellen;
   wiederherstellen = null;
+  // Stand man zuletzt IN einer eigenen Endposition (gemerkt, als sie noch
+  // ein leeres Unterkapitel war), geht es beim Kapitel darüber weiter --
+  // sonst sähe die Endposition aus wie ein Kapitel mit sich selbst darin.
+  if (kapitel && istEigeneEndposition(kapitel)) kapitel = elterNummer(kapitel);
   // Das Kapitel kann es nicht mehr geben (gelöscht, oder die Preisliste ist
   // umsortiert) -- dann bleibt es beim Überblick.
   if (kapitel && kapitel !== kapitelKnoten && alleKnoten().some((k) => k.nr === kapitel)) {
