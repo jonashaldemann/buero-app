@@ -1796,8 +1796,17 @@ Position würde nie grün, obwohl alles Erfasste darunter abgehakt ist.
 "Noch nicht angeschaut" heisst hier also: *es ist etwas erfasst, aber
 niemand war dran* — nicht: *diese Katalognummer existiert und ist leer*.
 
+**Ein Kapitel, unter dem noch gar nichts steht, lässt sich trotzdem
+abhaken** — und zwar für sich selbst, als "durchgegangen, hier kommt
+nichts". Beim systematischen Durchgehen des Katalogs ist das der häufigste
+Fall: die allermeisten Nummern bleiben leer, und genau das will man
+festhalten. Gespeichert wird dabei ein einziger Eintrag, nicht einer je
+leerer Nummer darunter. Sobald später doch etwas erfasst wird, zählt wieder
+der Stand des Inhalts — das Kapitel ist dann nicht mehr leer und gehört neu
+angeschaut.
+
 Das **Kästchen einer Gruppe lässt sich anklicken**: es setzt mein Häkchen auf
-alle erfassten Positionen darunter, ein weiterer Klick nimmt es überall
+alles Abgehakte und Erfasste darunter, ein weiterer Klick nimmt es überall
 wieder weg — eine fertig besprochene Elementgruppe ist so mit einem Klick
 abgehakt statt Zeile für Zeile. Leere Katalognummern bleiben dabei aussen
 vor, sonst stünden nach einem Klick auf eine Hauptgruppe hunderte davon in

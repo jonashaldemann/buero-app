@@ -158,22 +158,36 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   wenn alles darunter von denselben Leuten kommt. Ein Klick aufs
   Gruppen-Kästchen setzt MEIN Häkchen auf alles darunter (noch einer nimmt
   es überall weg); die Häkchen der anderen Person bleiben.
-  Ins Minimum gehen NUR die MITZÄHLENDEN Knoten ein (`knotenZaehlt()`: hat
-  eine Zeile oder ein Häkchen), und `hakenZiele()` setzt auch nur dort --
-  November 2026, als Bug gemeldet und behoben. Davor zählte der leere Rest
-  des Katalogs mit: unter einer Position hängen acht Gattungen, unter einer
-  Gattung hunderte Knoten der Preisliste, erfasst ist ein Bruchteil -- das
-  Minimum stand auf ewig bei 0 und eine Position wurde NIE grün, obwohl
-  alles Erfasste darunter abgehakt war. Umgekehrt schrieb ein Klick auf
-  eine Hauptgruppe hunderte leerer Nummern in die Datei (mit Preisliste
-  tausende). "Noch nicht angeschaut" heisst also: etwas ist erfasst, aber
-  niemand war dran -- nicht: diese Katalognummer ist leer.
+  Ins Minimum gehen NUR die MITZÄHLENDEN Knoten ein (`zaehlt` aus
+  `statusBerechnen()`: an ihm oder unter ihm steht eine Zeile oder ein
+  Häkchen) -- November 2026, als Bug gemeldet und behoben. Davor zählte der
+  leere Rest des Katalogs mit: unter einer Position hängen acht Gattungen,
+  unter einer Gattung hunderte Knoten der Preisliste, erfasst ist ein
+  Bruchteil -- das Minimum stand auf ewig bei 0 und eine Position wurde NIE
+  grün, obwohl alles Erfasste darunter abgehakt war. Umgekehrt schrieb ein
+  Klick auf eine Hauptgruppe hunderte leerer Nummern in die Datei (mit
+  Preisliste tausende). "Noch nicht angeschaut" heisst also: etwas ist
+  erfasst, aber niemand war dran -- nicht: diese Katalognummer ist leer.
   Ein Knoten mit EIGENEN ZEILEN bringt zusätzlich seinen eigenen
-  `hakenVon(nr)` ins Minimum ein und steht selbst in `hakenZiele()`: ein
-  Knoten darf Zeilen und Unterkapitel gleichzeitig haben, und für seine
-  eigenen Zeilen liesse sich sonst nirgends ein Häkchen setzen.
-  `statusBerechnen()` führt dafür `zaehlt` je Knoten mit (`LEERER_STAND`
-  hat es auch).
+  `hakenVon(nr)` ins Minimum ein: ein Knoten darf Zeilen und Unterkapitel
+  gleichzeitig haben, und für seine eigenen Zeilen liesse sich sonst
+  nirgends ein Häkchen setzen.
+  **Ein Knoten, unter dem (noch) NICHTS erfasst ist, verhält sich wie ein
+  BLATT** (`wieBlatt` in `statusBerechnen()`, November 2026 als Folgefehler
+  der obigen Korrektur gemeldet): sein eigenes Häkchen gilt. Ohne das
+  passierte beim Klick aufs Kästchen eines leeren Preislisten-Ordners GAR
+  NICHTS -- `hakenZiele()` fand keine mitzählenden Blätter und
+  `setzeHaken()` brach wortlos ab. Dabei ist "durchgegangen, hier kommt
+  nichts" beim Durchgehen des Katalogs der häufigste Fall. Sobald darunter
+  etwas erfasst ist, zählt wieder das Minimum der Kinder.
+  `statusBerechnen()` führt je Knoten `zaehlt` UND `eigen` mit
+  (`LEERER_STAND` hat beides): `eigen` heisst "hier liegt ein Stand in
+  `haken`" und ist genau die Zielmenge eines Gruppenklicks
+  (`hakenZiele()` filtert auf `zaehlt && eigen`) -- Klick und Anzeige
+  laufen also über DIESELBE Definition. `eigen` ist auch gesetzt, wenn
+  bloss ein Häkchen darin steht, das für die Anzeige gerade keine Rolle
+  spielt: sonst bliebe ein einmal abgehaktes leeres Kapitel unerreichbar
+  liegen und tauchte wieder auf, sobald sein Inhalt verschwindet.
 - **Fragen `baukosten/`** (`fragen: { "<nr>": "MV" }`, `frageHtml()`): das
   runde Feld neben dem Kästchen ist ein Hinweis an die andere Person. Es
   hängt wie das Häkchen an der NUMMER, nicht an der Zeile -- gefragt wird

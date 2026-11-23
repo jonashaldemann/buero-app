@@ -1147,20 +1147,17 @@ function kinderMap(knoten) {
   return map;
 }
 
-// Ein Knoten ZÄHLT MIT, sobald unter ihm etwas steht: eine Zeile oder ein
-// gesetztes Häkchen. Alles andere bleibt beim Hochrechnen aussen vor --
-// und das ist der Kern der Sache: unter einer Position hängen acht
-// Gattungen des Katalogs, unter einer Gattung hunderte Knoten der
-// Preisliste, erfasst ist davon immer nur ein Bruchteil. Zählte der leere
-// Rest mit, stünde das Minimum einer Gruppe auf ewig bei null, und eine
-// Position würde nie grün, obwohl alles Erfasste darunter abgehakt ist
-// (genau so gemeldet). "Noch nicht angeschaut" heisst hier also: es ist
-// etwas erfasst, aber niemand war dran -- nicht: diese Katalognummer
+// Ein Knoten ZÄHLT MIT, sobald an ihm oder unter ihm etwas steht: eine
+// Zeile oder ein gesetztes Häkchen. Alles andere bleibt beim Hochrechnen
+// aussen vor -- und das ist der Kern der Sache: unter einer Position
+// hängen acht Gattungen des Katalogs, unter einer Gattung hunderte Knoten
+// der Preisliste, erfasst ist davon immer nur ein Bruchteil. Zählte der
+// leere Rest mit, stünde das Minimum einer Gruppe auf ewig bei null, und
+// eine Position würde nie grün, obwohl alles Erfasste darunter abgehakt
+// ist (genau so gemeldet). "Noch nicht angeschaut" heisst hier also: es
+// ist etwas erfasst, aber niemand war dran -- nicht: diese Katalognummer
 // existiert und ist leer.
-function knotenZaehlt(nr) {
-  return !!(zeilenVon(nr).length || hakenVon(nr).length);
-}
-
+//
 // Der Stand einer Gruppe wird NICHT gespeichert, sondern aus ihren Kindern
 // gerechnet: sie hat so viele Häkchen, wie alle MITZÄHLENDEN Kinder
 // mindestens haben (das Minimum). Eine Elementgruppe wird also grün,
@@ -1194,19 +1191,29 @@ function statusBerechnen(knoten, kinder, summen) {
       const eigeneZeilen = zeilenVon(k.nr).length;
       const eigenerHaken = hakenVon(k.nr);
       const zaehlendeKids = kids.filter((c) => ergebnis[c].zaehlt);
-      const zaehlt = kids.length
-        ? !!(zaehlendeKids.length || eigeneZeilen)
-        : knotenZaehlt(k.nr);
+      // Ein Knoten, unter dem (noch) NICHTS erfasst ist, verhält sich wie
+      // ein Blatt: sein eigenes Häkchen gilt. Sonst liesse sich eine leere
+      // Gruppe gar nicht abhaken -- und genau das ist beim Durchgehen des
+      // Katalogs der häufigste Fall ("durchgegangen, hier kommt nichts").
+      // Als Bug gemeldet (November 2026): bei den Preislisten-Ordnern einer
+      // Gattung passierte beim Klick aufs Kästchen gar nichts.
+      // Sobald darunter etwas erfasst ist, zählt wieder das Minimum der
+      // Kinder, und das eigene Häkchen bleibt als totes Feld liegen --
+      // bewusst: dann ist die Gruppe nicht mehr leer und gehört neu
+      // angeschaut.
+      const wieBlatt = !zaehlendeKids.length && !eigeneZeilen;
+      const zaehlt = wieBlatt ? !!eigenerHaken.length : true;
       if (!zaehlt) {
-        ergebnis[k.nr] = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage, fragen, zaehlt: false };
+        ergebnis[k.nr] = {
+          anzahl: 0, kuerzel: [], gelb: false, eigeneFrage, fragen, zaehlt: false, eigen: false
+        };
         return;
       }
 
       // Was ins Minimum eingeht: die mitzählenden Kinder -- und der eigene
-      // Stand, wenn der Knoten selbst die Position ist (keine Kinder) oder
-      // eigene Zeilen trägt.
+      // Stand, wenn der Knoten wie ein Blatt zählt oder eigene Zeilen trägt.
       const teile = zaehlendeKids.map((c) => ergebnis[c]);
-      if (!kids.length || eigeneZeilen) teile.push({ anzahl: eigenerHaken.length, kuerzel: eigenerHaken });
+      if (wieBlatt || eigeneZeilen) teile.push({ anzahl: eigenerHaken.length, kuerzel: eigenerHaken });
 
       const anzahl = teile.reduce((min, t) => Math.min(min, t.anzahl), HAKEN_MAX);
       const erstes = kuerzelText(teile[0].kuerzel);
@@ -1217,7 +1224,17 @@ function statusBerechnen(knoten, kinder, summen) {
         gelb: !anzahl && betragVon(k.nr),
         eigeneFrage,
         fragen,
-        zaehlt: true
+        zaehlt: true,
+        // `eigen` heisst: an diesem Knoten liegt ein Stand in `haken` --
+        // entweder weil er dort gelesen wird (`wieBlatt`, eigene Zeilen)
+        // oder weil schlicht einer darin steht. Genau diese Knoten sind
+        // die Ziele eines Gruppenklicks (siehe hakenZiele()). Das letzte
+        // Glied ist nötig, damit ein einmal abgehaktes leeres Kapitel auch
+        // dann noch über die Gruppe zurückgesetzt werden kann, wenn
+        // darunter inzwischen etwas erfasst wurde und sein eigenes Häkchen
+        // für die Anzeige keine Rolle mehr spielt -- sonst bliebe es
+        // liegen und tauchte wieder auf, sobald der Inhalt verschwindet.
+        eigen: wieBlatt || !!eigeneZeilen || !!eigenerHaken.length
       };
     });
   return ergebnis;
@@ -1225,7 +1242,9 @@ function statusBerechnen(knoten, kinder, summen) {
 
 // Damit eine fehlende Angabe nirgends einen Absturz auslöst (z.B. ein
 // Knoten, den die Suche gerade nicht gerechnet hat).
-const LEERER_STAND = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0, zaehlt: false };
+const LEERER_STAND = {
+  anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0, zaehlt: false, eigen: false
+};
 
 // Nur noch für den Einstiegshinweis unter der Werkzeugleiste: solange gar
 // nichts erfasst ist, erklärt er, wie man anfängt.
@@ -3433,22 +3452,32 @@ function legeZeileAn(nr, { mitFenster } = {}) {
 // nimmt der Klick es überall weg, sonst setzt er es überall. Positionen,
 // auf denen bereits zwei andere stehen, bleiben dabei unberührt -- das
 // Häkchen des Partners kann niemand entfernen.
-// Wo das Häkchen wirklich landet. Auf einer Gruppe sind das NUR die
-// Blätter, unter denen etwas steht (dieselbe Regel wie knotenZaehlt()) --
-// sonst schriebe ein Klick auf eine Hauptgruppe hunderte leerer
-// Katalognummern in die Datei, mit der Gliederung der Preisliste
-// tausende. Dazu der Knoten selbst, wenn er eigene Zeilen trägt: die
-// hängen an seiner Nummer und hätten sonst nirgends ein Häkchen.
+// Wo das Häkchen wirklich landet. Ein Gruppenklick trifft GENAU die
+// Knoten, an denen der Stand gespeichert ist und die mitzählen
+// (`zaehlt && eigen` aus statusBerechnen()) -- dieselbe Definition, die
+// auch die Anzeige benutzt. Nur so stimmen Klick und Kästchen überein:
+//
+//   - Blätter mit Inhalt und Knoten mit eigenen Zeilen: klar.
+//   - Leere Unterkapitel, die ihr eigenes Häkchen tragen: müssen mit,
+//     sonst liesse sich ein einmal abgehaktes leeres Kapitel über die
+//     Gruppe nicht mehr zurücksetzen.
+//   - Leere Knoten OHNE Häkchen: bleiben draussen, sonst schriebe ein
+//     Klick auf eine Hauptgruppe hunderte leerer Katalognummern in die
+//     Datei (mit der Gliederung der Preisliste tausende).
+//
+// Ist unter dem Knoten gar nichts dergleichen, hakt der Klick IHN selbst
+// ab ("durchgegangen, hier kommt nichts") statt ins Leere zu laufen.
 function hakenZiele(nr, istBlatt) {
   if (istBlatt) return [nr];
   const knoten = alleKnoten();
   const kinder = kinderMap(knoten);
+  const status = statusBerechnen(knoten, kinder, alleSummen().summen);
   const ziele = knoten
     .filter((k) => k.nr !== nr && vorfahren(k.nr).includes(nr))
-    .filter((k) => !(kinder[k.nr] || []).length && knotenZaehlt(k.nr))
+    .filter((k) => status[k.nr] && status[k.nr].zaehlt && status[k.nr].eigen)
     .map((k) => k.nr);
   if (zeilenVon(nr).length) ziele.push(nr);
-  return ziele;
+  return ziele.length ? ziele : [nr];
 }
 
 function setzeHaken(nr, istBlatt) {
