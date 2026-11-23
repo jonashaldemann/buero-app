@@ -803,6 +803,16 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   wäre ein Fehlklick auf eine Position der Preisliste für immer in der
   Datei -- `erfassePreislistePosition()` legt mit EINEM Klick eine Zeile
   an.
+- **Dasselbe Feld an zwei Orten braucht ZWEI Attribute `baukosten/`**
+  (`modulSelectHtml(zeile, klasse, imPanel)`, November 2026 als Bug
+  gemeldet): die Tabelle liest ihre Felder über `data-feld` plus die
+  umgebende `tr.bk-sub` (`onBodyChange()`), das Bearbeitungsfenster über
+  `data-panel-feld` (`onPanelChange()`) -- dort gibt es keine Zeile darum
+  herum. Das Modul-Dropdown trug an BEIDEN Orten `data-feld`; im Fenster
+  fiel die Auswahl damit durch beide Wege, auch durch
+  `uebernimmOffeneEingabe()` (findet ohne `tr.bk-sub` kein Ziel), und war
+  beim nächsten `renderPanel()` wieder auf "–". Jedes neue Feld, das in
+  beiden Ansichten steht, muss das Attribut vom Ort abhängig setzen.
 - **Module `baukosten/` werden separat ausgewiesen**: ein Modul ist ein
   separat zu ENTSCHEIDENDER Teilbereich ("Küche ersetzen"), nicht eine
   Aufteilung der ganzen Schätzung -- der Hauptteil der Kosten trägt kein

@@ -2232,7 +2232,11 @@ Der **Hauptteil der Kosten trägt deshalb gar kein Modul**: das ist, was so
 oder so gebaut wird.
 
 Module werden in den **Kopfdaten** als Liste gepflegt (nur der Name,
-"+ Modul" legt eines an). **Jedes Modul wird separat gerechnet**: unter der
+"+ Modul" legt eines an). **Zugewiesen** wird eine Zeile an zwei Orten,
+beide gleichwertig: über die Spalte "Modul" in der Tabelle (sie erscheint,
+sobald es mindestens ein Modul gibt) oder über das Dropdown im
+Bearbeitungsfenster. Was an einem Ort gewählt wird, steht sofort auch am
+anderen. **Jedes Modul wird separat gerechnet**: unter der
 Tabelle steht zuerst das Total der Positionen *ohne* Modulzuordnung
 ("Total ±25% ohne Module"), darunter je Modul eine eigene Zeile mit "+",
 zuletzt das Gesamttotal über alles. Dieselbe Reihenfolge haben die

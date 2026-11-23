@@ -1568,11 +1568,20 @@ function rechenZelle(zeile, feld, cssExtra, platzhalter) {
   return `<td><input type="text" class="bk-num ${cssExtra}${ungueltig ? " ungueltig" : ""}" data-feld="${feld}" data-roh="${escapeHtml(roh)}" value="${escapeHtml(anzeige)}" placeholder="${escapeHtml(platzhalter || "")}" title="${escapeHtml(roh)}"></td>`;
 }
 
-function modulSelectHtml(zeile, cssKlasse) {
+// Dasselbe Dropdown steht an zwei Orten -- und die beiden lesen ihre
+// Felder verschieden: in der Tabelle über `data-feld` samt umgebender
+// `tr.bk-sub` (onBodyChange()), im Bearbeitungsfenster über
+// `data-panel-feld` (onPanelChange()), denn dort gibt es keine Zeile
+// darum herum. Mit dem falschen Attribut fällt die Auswahl im Fenster
+// durch BEIDE Wege -- auch durch uebernimmOffeneEingabe(), das ohne
+// `tr.bk-sub` kein Ziel findet -- und ist beim nächsten Zeichnen wieder
+// weg. Genau so gemeldet (November 2026).
+function modulSelectHtml(zeile, cssKlasse, imPanel) {
+  const feldAttr = imPanel ? 'data-panel-feld="modul"' : 'data-feld="modul"';
   const optionen = module_()
     .map((m) => `<option value="${m.id}"${zeile.modul === m.id ? " selected" : ""}>${escapeHtml(m.name)}</option>`)
     .join("");
-  return `<select class="${cssKlasse}" data-feld="modul"><option value="">–</option>${optionen}</select>`;
+  return `<select class="${cssKlasse}" ${feldAttr}><option value="">–</option>${optionen}</select>`;
 }
 
 // "–" statt einer leeren Zelle, wenn das Ausmass fehlt: leer liesse offen,
@@ -1998,7 +2007,7 @@ function renderPanel() {
   const nr = gewaehlteZeile.nr;
   const posTitel = knotenTitel(nr);
   const modulFeld = module_().length
-    ? `<label>Modul</label>${modulSelectHtml(zeile, "bk-panel-modul")}`
+    ? `<label>Modul</label>${modulSelectHtml(zeile, "bk-panel-modul", true)}`
     : `<label>Modul</label><div class="hint" style="margin:0; font-size:11.5px;">Noch keine Module definiert — in den Kopfdaten anlegen.</div>`;
   // Pfad klein oben: "2 Gebäude › 22 Rohbau 2 › 224 Bedachungsarbeiten"
   const pfadText = [...vorfahren(nr)].reverse().concat(nr).map(knotenLabel).join(" › ");
