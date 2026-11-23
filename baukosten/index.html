@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="../icons/baukosten-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="../css/style.css?v=52">
+<link rel="stylesheet" href="../css/style.css?v=53">
 <style>
   /* ============================================================
      Baukosten — bewusst eine Layout-Ausnahme gegenüber den übrigen
@@ -258,6 +258,17 @@
   }
   .bk-einstieg { font-size: 12px; color: var(--text-muted); padding: 0 0 10px; }
   .bk-einstieg[hidden] { display: none; }
+
+  /* Zustand der Preislisten-Gliederung, direkt über der Tabelle: ohne sie
+     fehlen im Baum die Kapitel unterhalb der BKP-Nummer, und man sieht
+     etwas anderes als die andere Person. Eigenes display -> eigene
+     [hidden]-Zeile (siehe .bk-einstieg). */
+  .bk-gliederung {
+    display: flex; align-items: center; gap: 8px; padding: 0 0 8px;
+    font-size: 11.5px; color: var(--text-muted);
+  }
+  .bk-gliederung[hidden] { display: none; }
+  .bk-gliederung.fehler { color: #B5654C; }
 
   /* ---------- Tabelle ---------- */
 
@@ -800,6 +811,11 @@
         <span class="bk-toolbar-hint" id="sucheHinweis"></span>
       </div>
 
+      <!-- Steht die Gliederung der Preisliste? Ohne sie sieht man einen
+           ANDEREN Baum als die anderen -- bis November 2026 war das
+           nirgends zu sehen (app.js: renderGliederungHinweis()). -->
+      <div class="bk-gliederung" id="preislisteHinweis" hidden></div>
+
       <div class="bk-einstieg" id="einstiegHinweis" hidden>
         Alle BKP-Nummern sind sichtbar, damit beim Durchgehen nichts vergessen
         geht. Klick auf eine Zeile klappt sie auf und zu; zum Erfassen mit der
@@ -1209,8 +1225,8 @@
   </div>
 </div>
 
-<script src="../shared/common.js?v=52"></script>
-<script src="bkp.js?v=52"></script>
-<script src="app.js?v=52"></script>
+<script src="../shared/common.js?v=53"></script>
+<script src="bkp.js?v=53"></script>
+<script src="app.js?v=53"></script>
 </body>
 </html>

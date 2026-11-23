@@ -134,6 +134,9 @@ let preislisteFlach = null; // Zwischenspeicher: alle Knoten samt Pfad
 let preislistePromise = null; // läuft der Ladevorgang gerade?
 let preislisteFehlt = false; // 404: das Büro führt keine Vorlagen-Datei
 let preislisteFehler = ""; // Netz-/Formatfehler, damit man nicht ins Leere schaut
+// Nur ein NETZfehler lohnt einen neuen Versuch -- eine Datei ohne Baum
+// wird durchs Wiederholen nicht besser, und der Export ist 6 MB.
+let preislisteWiederholbar = false;
 
 function setzePreisliste(baum) {
   // Die Datei darf eine Liste oder einen einzelnen Wurzelknoten enthalten.
@@ -160,6 +163,7 @@ function ladePreislisteBeiBedarf() {
   if (preislistePromise) return;
   preislisteFehler = "";
   preislistePromise = (async () => {
+    renderGliederungHinweis(); // "wird geladen …", sobald es losgeht
     try {
       const daten = await fetchFile(PREISLISTE_FILENAME); // 404 -> null, kein Fehlerfall
       if (daten && setzePreisliste(daten.baum)) {
@@ -168,6 +172,7 @@ function ladePreislisteBeiBedarf() {
         // Datei da, aber ohne brauchbaren Baum -- das ist ein Fehler und
         // kein "gibt es nicht".
         preislisteFehler = "Datei enthält keinen Baum";
+        preislisteWiederholbar = false;
         preislistePromise = null;
       } else {
         preislisteFehlt = true; // gibt es nicht -- nicht bei jedem Öffnen neu fragen
@@ -179,8 +184,12 @@ function ladePreislisteBeiBedarf() {
       // Netzfehler: beim nächsten Öffnen noch einmal versuchen. Ohne das
       // bliebe der Hinweis "Vorlagen werden geladen …" für immer stehen.
       preislisteFehler = (e && e.message) || "unbekannter Fehler";
+      preislisteWiederholbar = true;
       preislistePromise = null;
     }
+    // Egal wie es ausgegangen ist: der Zustand gehört an den Baum, nicht
+    // nur ins Bearbeitungsfenster (siehe renderGliederungHinweis()).
+    renderGliederungHinweis();
     // Der Baum kennt die Gliederung jetzt -- neu zeichnen. Die Ebene wird
     // dabei neu gesetzt, damit die leeren Kapitel der Preisliste zugeklappt
     // starten (siehe setzeEbene()).
@@ -212,6 +221,63 @@ function ladePreislisteBeiBedarf() {
       }
     }
   })();
+}
+
+// ---------- Zustand der Gliederung, SICHTBAR am Baum ----------
+//
+// Der Baum unterhalb der BKP-Nummer kommt aus der Preisliste, und die wird
+// JE GERÄT geladen. Scheitert das, fehlen genau diese Kapitel -- man sieht
+// einen anderen Baum als die andere Person, ohne es zu merken: gemeldet
+// wurde ein Fehler bis November 2026 nur im Vorlagen-Block INNERHALB des
+// Bearbeitungsfensters, und "lädt noch" / "geladen" / "gescheitert" sahen
+// im Baum identisch aus. Genau so ist es passiert ("bei mir sind
+// Positionen aufgetaucht, die mein Kollege nicht hat").
+//
+// Der 404 bleibt still: dass das Büro gar keine Vorlagen-Datei führt, ist
+// ein gültiger Zustand -- dann sehen auch alle dasselbe.
+let gliederungStand = null;
+
+function renderGliederungHinweis() {
+  const el = document.getElementById("preislisteHinweis");
+  if (!el) return;
+  const html = preislisteLaedt()
+    ? "Gliederung der Preisliste wird geladen …"
+    : preislisteFehler
+    ? `Gliederung der Preisliste nicht geladen (${escapeHtml(preislisteFehler)}) – die ` +
+      "Kapitel unterhalb der BKP-Nummern fehlen hier, andere sehen an dieser Schätzung mehr. " +
+      '<button type="button" class="bk-toggle" data-gliederung="neu">Nochmals versuchen</button>'
+    : "";
+  // Der Live-Takt ruft das oft -- nur anfassen, wenn sich wirklich etwas
+  // ändert, sonst flackert der Knopf und messeSticht() läuft umsonst.
+  if (html === gliederungStand) return;
+  gliederungStand = html;
+  el.innerHTML = html;
+  el.classList.toggle("fehler", !!preislisteFehler);
+  el.hidden = !html;
+  messeSticky();
+}
+
+// Von Hand nochmals versuchen (Knopf im Hinweis).
+function wiederholeGliederung() {
+  preislistePromise = null;
+  preislisteFehler = "";
+  gliederungNaechsterVersuch = 0;
+  renderGliederungHinweis();
+  ladePreislisteBeiBedarf();
+}
+
+// Bisher wurde ein gescheitertes Laden erst beim nächsten ÖFFNEN der
+// Schätzung wiederholt -- die liegt aber stundenlang offen. Der Live-Takt
+// nimmt es mit, höchstens einmal pro Minute: ein Fehlversuch im
+// Sekundentakt zöge 6 MB und brächte nichts.
+const GLIEDERUNG_WIEDER_MS = 60000;
+let gliederungNaechsterVersuch = 0;
+
+function versucheGliederungNochmals() {
+  if (!offenFilename || !preislisteFehler || !preislisteWiederholbar) return;
+  if (preislistePromise || Date.now() < gliederungNaechsterVersuch) return;
+  gliederungNaechsterVersuch = Date.now() + GLIEDERUNG_WIEDER_MS;
+  ladePreislisteBeiBedarf();
 }
 
 // Läuft der Ladevorgang noch? Dann steht im Fenster ein Hinweis statt
@@ -1765,6 +1831,7 @@ function renderEditor() {
   document.getElementById("sucheHinweis").textContent = suche.trim()
     ? "Suche aktiv – Filter und Ein-/Ausklappen ausgesetzt"
     : "";
+  renderGliederungHinweis();
   // Der Einstiegshinweis ersetzt die dauerhaft sichtbaren "+ Zeile"-Knöpfe
   // (siehe .bk-add-btn in index.html) und verschwindet, sobald die erste
   // Position erfasst ist.
@@ -2955,6 +3022,7 @@ async function liveSchleife(lauf) {
   if (lauf !== liveLauf) return;
   liveTimer = null;
   await liveTakt();
+  versucheGliederungNochmals();
   planeLive(lauf);
 }
 
@@ -4752,6 +4820,9 @@ function init() {
 
   document.getElementById("bkList").addEventListener("click", onListClick);
   document.getElementById("neuBtn").addEventListener("click", oeffneNeuDialog);
+  document.getElementById("preislisteHinweis").addEventListener("click", (e) => {
+    if (e.target.closest("[data-gliederung]")) wiederholeGliederung();
+  });
   document.getElementById("backBtn").addEventListener("click", zurueckZurListe);
   document.getElementById("kopfBtn").addEventListener("click", oeffneKopfDialog);
   document.getElementById("druckBtn").addEventListener("click", oeffneDruckDialog);

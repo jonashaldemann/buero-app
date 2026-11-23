@@ -328,6 +328,27 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   aus wie "es gibt keine Vorlagen-Datei", und niemand kommt darauf,
   es nochmals zu versuchen. Nur der 404 bleibt still (so soll es sein) --
   er landet aber als `console.info` mit dem erwarteten Pfad.
+- **Der Zustand der Gliederung gehört an den BAUM, nicht nur ins Fenster**
+  (`renderGliederungHinweis()`, `#preislisteHinweis`, November 2026 als
+  Inkonsistenz gemeldet): die Knoten unterhalb der BKP-Nummer sind
+  VIRTUELL und entstehen JE GERÄT aus `_preisliste.json`. Scheitert das
+  Laden, fehlen genau diese Kapitel -- und "lädt noch" / "geladen" /
+  "gescheitert" sahen im Baum identisch aus, gemeldet wurde ein Fehler nur
+  im Vorlagen-Block INNERHALB des Bearbeitungsfensters. Zwei Leute sahen
+  so strukturell verschiedene Bäume, ohne es zu merken ("bei mir sind
+  Positionen aufgetaucht, die mein Kollege nicht hat"). Nachgemessen mit
+  zwei Klienten auf einer Datei: 9 Knoten gegenüber 4. Es ist eine reine
+  ANZEIGE-Sache -- der Klient ohne Gliederung speichert nachweislich ohne
+  Verlust (eigenePositionen, Zeilen und `zeile.vorlage` bleiben). Der 404
+  bleibt still: keine Vorlagen-Datei ist ein gültiger Zustand, dann sehen
+  alle dasselbe. Immer alle 5422 Kapitel in jede Schätzung zu schreiben
+  bleibt verworfen.
+- **Ein Netzfehler wird VON SELBST wiederholt**
+  (`versucheGliederungNochmals()`, aus `liveSchleife()`, höchstens alle
+  `GLIEDERUNG_WIEDER_MS` = 60 s): vorher half nur das nächste ÖFFNEN der
+  Schätzung -- die liegt aber stundenlang offen. Nur bei NETZfehlern
+  (`preislisteWiederholbar`): eine Datei ohne Baum wird durchs Wiederholen
+  nicht besser, und der Export ist 6 MB.
 - **Der Export der Preisliste wird ERST beim Öffnen des Bearbeitungsfensters
   geholt und NIE im `localStorage` abgelegt**: der echte Export ist rund
   6 MB (4242 Positionen, 12620 Optionen). Beim Start wäre das bei jedem

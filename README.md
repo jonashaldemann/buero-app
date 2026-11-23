@@ -2128,6 +2128,29 @@ deshalb auch **zugeklappt**, auch bei "Alles"; was benutzt wird, bleibt
 offen. Geholt wird die Gliederung beim Öffnen einer Schätzung, nicht in der
 Liste.
 
+##### Fehlt die Gliederung, steht das über der Tabelle
+
+Weil diese Kapitel nicht in der Datei stehen, entstehen sie **auf jedem
+Gerät neu** aus `_preisliste.json`. Kommt die Datei nicht an (Netzfehler),
+fehlen genau sie — und man sieht dann weniger als die andere Person, ohne
+dass sich an der Schätzung etwas geändert hätte. Genau so wurde es
+gemeldet: "bei mir sind Positionen aufgetaucht, die mein Kollege nicht
+hat".
+
+Deshalb steht der Zustand jetzt **über der Tabelle**, nicht mehr nur im
+Bearbeitungsfenster: "Gliederung der Preisliste wird geladen …" während
+des Ladens, und bei einem Fehler in Rot "… die Kapitel unterhalb der
+BKP-Nummern fehlen hier, andere sehen an dieser Schätzung mehr" mit einem
+Knopf **Nochmals versuchen**. Zusätzlich wird ein Netzfehler von selbst
+wiederholt, höchstens einmal pro Minute — vorher half nur, die Schätzung
+zu schliessen und neu zu öffnen. Gibt es gar keine Vorlagen-Datei (404),
+bleibt alles still: dann sehen ohnehin alle dasselbe.
+
+Es ist eine reine **Anzeigesache**. Wer ohne Gliederung arbeitet, kann
+bedenkenlos weiterarbeiten: Zeilen, Kapitel und der Vorlagen-Bezug einer
+Zeile bleiben beim Speichern vollständig erhalten (mit zwei Klienten an
+einer Datei nachgemessen).
+
 **Beim Übernehmen einer Vorlage über die Suche** werden ihre Ordner
 ebenfalls zu Unterkapiteln:
 
