@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="../icons/baukosten-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="../css/style.css?v=49">
+<link rel="stylesheet" href="../css/style.css?v=50">
 <style>
   /* ============================================================
      Baukosten — bewusst eine Layout-Ausnahme gegenüber den übrigen
@@ -84,6 +84,40 @@
   .bk-head-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
   .bk-head-spacer { flex: 1; }
   .bk-head-actions { display: flex; gap: 8px; }
+
+  /* Wer sonst noch an dieser Schätzung ist (siehe "_praesenz.json" in
+     app.js): ein Kürzel je Person, klein und im Kopfblock, der immer oben
+     klebt. Das Kürzel verschwindet von selbst, sobald sich jemand gut eine
+     Minute nicht mehr gemeldet hat.
+     Die eigene display-Angabe schlägt die eingebaute [hidden]-Regel --
+     darum die zweite Zeile (wie bei .form-group im Modellviewer). */
+  .bk-praesenz { display: flex; align-items: center; gap: 4px; }
+  .bk-praesenz[hidden] { display: none; }
+  .bk-praesenz-wer {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 20px; padding: 0 8px; border-radius: 10px;
+    background: var(--accent-primary); color: #fff;
+    font-family: var(--font-medium); font-size: 10px; letter-spacing: 0.3px;
+  }
+  .bk-praesenz-wer::before {
+    content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none;
+    background: #A8D49A; margin-right: 5px;
+    animation: bk-puls 2.4s ease-in-out infinite;
+  }
+  @keyframes bk-puls { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* Kurzes Aufblitzen am Kästchen, an dem die andere Person gerade etwas
+     getan hat -- ohne das ändert sich irgendwo in 2450 Zeilen lautlos ein
+     Häkchen. Als outline, nicht als box-shadow: .bk-frage.eigen benutzt
+     box-shadow bereits für seinen Ring. */
+  .bk-frisch { animation: bk-frisch 2.2s ease-out; }
+  @keyframes bk-frisch {
+    0%, 55% { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+    100%    { outline: 2px solid transparent; outline-offset: 1px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bk-frisch, .bk-praesenz-wer::before { animation: none; }
+  }
 
   /* Kennzahlen-Kacheln */
   .bk-kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -734,6 +768,8 @@
           <div class="bk-head-meta" id="headMeta"></div>
         </div>
         <div class="bk-head-spacer"></div>
+        <!-- Wer gerade sonst noch an dieser Schätzung ist (app.js: zeigePraesenz()) -->
+        <div class="bk-praesenz" id="praesenz" hidden></div>
         <div class="bk-head-actions">
           <div class="bk-seg" id="modusSeg">
             <button type="button" data-modus="tabelle">Tabelle</button>
@@ -1173,8 +1209,8 @@
   </div>
 </div>
 
-<script src="../shared/common.js?v=49"></script>
-<script src="bkp.js?v=49"></script>
-<script src="app.js?v=49"></script>
+<script src="../shared/common.js?v=50"></script>
+<script src="bkp.js?v=50"></script>
+<script src="app.js?v=50"></script>
 </body>
 </html>

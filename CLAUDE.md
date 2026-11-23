@@ -172,18 +172,65 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
 - **Zu zweit an einer Schätzung `baukosten/`**: `persist()` legt jede
   Änderung auf einen frisch geholten Serverstand, verschiedene Zeilen
   überschreiben sich also nicht. Gesehen wird der fremde Stand über
-  `holeFremdenStand()` beim `visibilitychange` (wie in `offerten/`) -- und
-  der vergleicht den INHALT (`inhaltsKennung()`, ohne updatedAt/updatedBy),
-  nicht den Zeitstempel: speichert nach der anderen Person auch diese hier,
-  trägt die Datei deren Namen und Zeit, die fremden Zeilen stünden aber
-  trotzdem nur auf dem Server (`persist()` ersetzt den lokalen Stand
-  bewusst nicht). Vorher laufen `uebernimmOffeneEingabe()` und
-  `await syncQueue`; bei gescheitertem Speichern (`letzteSpeicherungOk`)
-  wird NICHT nachgeladen, sonst überschriebe der Server das nur lokal
-  Vorhandene. Offen bleibt bewusst: dasselbe Feld gleichzeitig (der Letzte
-  gewinnt) und das Fenster zwischen Holen und Schreiben -- ein `If-Match`
-  bräuchte einen Worker-Deploy, `worker.js` reicht weder `If-Match` hinein
-  noch `ETag` heraus.
+  `holeFremdenStand()` -- und der vergleicht den INHALT
+  (`inhaltsKennung()`, ohne updatedAt/updatedBy), nicht den Zeitstempel:
+  speichert nach der anderen Person auch diese hier, trägt die Datei deren
+  Namen und Zeit, die fremden Zeilen stünden aber trotzdem nur auf dem
+  Server (`persist()` ersetzt den lokalen Stand bewusst nicht). Vorher
+  läuft `await syncQueue`; bei gescheitertem Speichern
+  (`letzteSpeicherungOk`) wird NICHT nachgeladen, sonst überschriebe der
+  Server das nur lokal Vorhandene. Offen bleibt bewusst: dasselbe Feld
+  gleichzeitig (der Letzte gewinnt) und das Fenster zwischen Holen und
+  Schreiben -- ein `If-Match` bräuchte einen Worker-Deploy, `worker.js`
+  reicht weder `If-Match` hinein noch `ETag` heraus.
+- **Live-Takt `baukosten/`** (`liveTakt()`, `LIVE_TAKT_MS` = 8000, seit
+  November 2026): solange eine Schätzung offen und der Tab sichtbar ist,
+  wird alle acht Sekunden `ordnerEintraege()` gerufen -- ein PROPFIND mit
+  `getetag` (ersatzweise `getlastmodified`) auf den ORDNER, also ein paar
+  hundert Bytes statt einer Schätzung von hunderten Kilobyte. Erst eine
+  geänderte Kennung löst den GET aus. Dieselbe Anfrage liefert nebenbei die
+  Kennung von `_praesenz.json`; `listFilenames()` baut jetzt darauf auf.
+  Nach dem EIGENEN Speichern ändert sich die Kennung auch -- der nächste
+  Takt holt die Datei einmal unnötig und stellt Gleichheit fest. Das ist
+  Absicht: die neue Kennung schon beim Speichern zu merken ginge nur mit
+  einer zweiten Anfrage danach, und hätte die andere Person dazwischen
+  geschrieben, wäre GENAU DEREN Änderung für immer als "gesehen" abgehakt.
+  Liefert der Server gar keine Kennung, schaltet sich der Takt ab
+  (`console.info`) statt alle acht Sekunden die ganze Datei zu ziehen.
+  Im Demomodus läuft er nicht (`liveMoeglich()`): dort gibt es keine zweite
+  Person, und die Attrappe kennt keine ETags -- `visibilitychange` fällt
+  dann auf den bisherigen `holeFremdenStand()` zurück.
+- **Der Live-Takt baut NICHT neu** (`aktualisiereStandAnzeige()`): sind nur
+  `haken`/`fragen` anders (`nurStandGeaendert()`, Vergleich ohne diese
+  beiden Felder), werden die Kästchen einzeln per `outerHTML` ersetzt --
+  `statusHtml()` liefert Kästchen UND Fragezeichen, das alte Fragezeichen
+  muss deshalb zuerst weg. Mitgeführt werden die `.bk-kap-balken` der
+  Kapitelansicht und `.bk-panel-stand-text` (dafür ist `panelStandText()`
+  aus `panelStandHtml()` herausgelöst). Grund ist derselbe wie bei
+  `aktualisierePanelZahlen()`: `renderTabelleErhalten()` nähme mitten im
+  Tippen den Fokus weg, und das alle acht Sekunden. Aus demselben Grund
+  ruft der sanfte Weg `uebernimmOffeneEingabe()` NICHT -- er schriebe sonst
+  einen halb getippten Wert weg. Ändert sich MEHR als die Kästchen, wird
+  der Neuaufbau aufgeschoben, solange ein Feld den Fokus hat
+  (`eingabeImFokus()`, `standAusstehend`); ein `focusout` holt ihn nach.
+  Der fremde Stand wird dabei bewusst NICHT aufbewahrt, sondern neu geholt:
+  bis zum Anwenden wäre er veraltet und überschriebe das eben Getippte.
+  Deshalb gibt `holeFremdenStand()` zurück, OB übernommen wurde -- nur dann
+  darf der Takt die Kennung als gesehen merken.
+- **Anwesenheit `baukosten/`** (`_praesenz.json`, `zeigePraesenz()`): die
+  EINZIGE Stelle im Repo, die im Hintergrund regelmässig SCHREIBT -- alle
+  30 Sekunden ein paar hundert Bytes, und nur solange eine Schätzung offen
+  und der Tab sichtbar ist. Inhalt `{ "<kuerzel>": { name, datei, at } }`,
+  geschrieben auf einen frisch geholten Stand (sonst trägt man die andere
+  Person aus); scheitert das Lesen, wird GAR NICHT geschrieben -- ein
+  leerer Stand würde alle anderen löschen. Angezeigt wird, wer dieselbe
+  `datei` offen hat und sich in den letzten `PRAESENZ_FRISCH_MS` (75 s)
+  gemeldet hat; geprüft wird die Frische bei JEDEM Takt, nicht nur beim
+  Lesen -- sonst bliebe ein Kürzel stehen, sobald niemand mehr schreibt
+  (dann ändert sich auch die Kennung nicht mehr). `zurueckZurListe()` ruft
+  `meldeAbwesend()` VOR `stoppeLive()`, solange `offenFilename` noch steht.
+  `.bk-praesenz` setzt eigenes `display` und braucht darum die
+  `[hidden]`-Zeile (wie `.form-group` im Modellviewer).
 - **Startsicht `baukosten/` ist, wo man zuletzt war** (`merkeSicht()`/
   `stelleSichtHer()`, `LS_KEYS.sicht`, seit November 2026): Modus, offenes
   Kapitel, Ebene und Scrollposition werden JE SCHÄTZUNG im `localStorage`
@@ -387,7 +434,8 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   `.gitignore` fängt eine Arbeitskopie ab. Format: `{ norm, ..., katalog:
   [[nr, titel], ...] }`, also dieselbe flache Liste wie `BKP_KATALOG`.
   Dateien mit `_` am Anfang werden in diesem Ordner nicht als Schätzung
-  aufgelistet (`listFilenames()`), wie `_optionen.json`/`_absender.json`.
+  aufgelistet (`listFilenames()`), wie `_optionen.json`/`_absender.json` --
+  hier ausserdem `_preisliste.json` und `_praesenz.json`.
 - **`baukosten/bkp.js` ist nur der GRUNDKATALOG** (876 Nummern, Ausgabe
   2017, aus öffentlichen Quellen zusammengesetzt -- sein Dateikopf sagt
   woher und was bereinigt wurde). Er gilt im Demomodus (dort bewusst, die

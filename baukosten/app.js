@@ -2250,8 +2250,9 @@ function schliessePanel() {
 // Das Durchgeh-Feld im Bearbeitungsfenster: dieselben zwei Knöpfe wie im
 // Baum, damit es nur EINE Bedienung gibt. `letzterStatus` steht hier schon,
 // weil renderPanel() immer nach dem Zeichnen der Tabelle läuft.
-function panelStandHtml(nr) {
-  const stand = letzterStatus[nr] || LEERER_STAND;
+// Eigene Funktion, weil der Live-Takt diesen Text nachführt, ohne das
+// Fenster neu zu bauen (siehe aktualisiereStandAnzeige()).
+function panelStandText(stand) {
   const text =
     stand.anzahl >= HAKEN_MAX
       ? `Vieraugenprinzip${stand.kuerzel.length ? ` – ${kuerzelText(stand.kuerzel)}` : ""}`
@@ -2260,10 +2261,14 @@ function panelStandHtml(nr) {
       : stand.gelb
       ? "Erfasst, aber noch von niemandem durchgegangen"
       : "Noch nichts erfasst";
-  const frage = stand.eigeneFrage ? ` · Frage von ${stand.eigeneFrage} offen` : "";
+  return text + (stand.eigeneFrage ? ` · Frage von ${stand.eigeneFrage} offen` : "");
+}
+
+function panelStandHtml(nr) {
+  const stand = letzterStatus[nr] || LEERER_STAND;
   return `<div class="bk-panel-stand">
     ${statusHtml(nr, stand, !kinderVon(nr).length)}
-    <span class="bk-panel-stand-text">${escapeHtml(text + frage)}</span>
+    <span class="bk-panel-stand-text">${escapeHtml(panelStandText(stand))}</span>
   </div>`;
 }
 
@@ -2352,10 +2357,17 @@ function pingRelPath() {
   return davPath([...bkSegments(), "_ping"].join("/"));
 }
 
+// Der ETag kommt mit, damit der Live-Takt sehen kann, OB sich eine Datei
+// geändert hat, ohne sie zu laden: eine Kostenschätzung sind hunderte
+// Kilobyte, diese Antwort ein paar hundert Bytes. `getlastmodified` steht
+// als Ersatz daneben, falls ein Server keinen ETag liefert.
 const PROPFIND_LIST_BODY =
-  '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>';
+  '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getetag/><d:getlastmodified/></d:prop></d:propfind>';
 
-async function listFilenames() {
+// Ordnerinhalt als [{ name, kennung }] -- eine Anfrage, zwei Verwendungen:
+// die Liste der Schätzungen (listFilenames()) und der Live-Takt, der daraus
+// die Kennung der offenen Datei UND die von "_praesenz.json" liest.
+async function ordnerEintraege() {
   const relPath = davPath(bkSegments().join("/") + "/");
   const res = await proxyFetch(relPath, {
     method: "PROPFIND",
@@ -2364,11 +2376,24 @@ async function listFilenames() {
   });
   if (!res.ok) throw new Error(`Ordnerinhalt lesen fehlgeschlagen (${res.status})`);
   const doc = new DOMParser().parseFromString(await res.text(), "application/xml");
-  return Array.from(doc.getElementsByTagNameNS("DAV:", "href"))
-    .map((el) => decodeURIComponent(el.textContent.replace(/\/$/, "").split("/").pop() || ""))
+  const text = (el) => (el ? el.textContent.trim() : "");
+  return Array.from(doc.getElementsByTagNameNS("DAV:", "response")).map((resp) => {
+    const href = text(resp.getElementsByTagNameNS("DAV:", "href")[0]);
+    return {
+      name: decodeURIComponent(href.replace(/\/$/, "").split("/").pop() || ""),
+      kennung:
+        text(resp.getElementsByTagNameNS("DAV:", "getetag")[0]) ||
+        text(resp.getElementsByTagNameNS("DAV:", "getlastmodified")[0])
+    };
+  });
+}
+
+async function listFilenames() {
+  return (await ordnerEintraege())
+    .map((e) => e.name)
     // Dateien mit "_" am Anfang sind Stammdaten, keine Kostenschätzung
-    // (hier "_bkp_katalog.json") -- gleiche Konvention wie "_optionen.json"
-    // in der Adressliste und "_absender.json" bei den Offerten.
+    // (hier "_bkp_katalog.json", "_praesenz.json") -- gleiche Konvention wie
+    // "_optionen.json" in der Adressliste und "_absender.json" bei den Offerten.
     .filter((name) => name.toLowerCase().endsWith(".json") && !name.startsWith("_"));
 }
 
@@ -2737,42 +2762,81 @@ async function persist(filename, mutateFn) {
 // Geholt wird nur DIESE Datei, nicht die ganze Liste wie refreshAlle(): der
 // Katalog und die übrigen Schätzungen ändern sich nicht, während man in
 // einer tippt, und ein Neuaufbau der Liste würde die Tabelle zurücksetzen.
-async function holeFremdenStand() {
-  if (!offenFilename || !isConfigured() || !navigator.onLine) return;
+// `sanft` ist der LIVE-Takt (siehe unten), `false` der bisherige Weg beim
+// Zurückkehren in den Tab. Rückgabe: ob der Serverstand wirklich verarbeitet
+// wurde -- nur dann darf der Takt dessen Kennung als "gesehen" merken.
+async function holeFremdenStand({ sanft = false } = {}) {
+  if (!offenFilename || !isConfigured() || !navigator.onLine) return false;
   // Zuerst das gerade offene Feld und die Warteschlange rausschreiben --
   // sonst holt man den Stand von VOR dem eigenen letzten Tastendruck.
-  uebernimmOffeneEingabe();
+  // Im Live-Takt NICHT: der läuft alle paar Sekunden, auch mitten im Tippen,
+  // und würde einen halb getippten Wert wegschreiben. Verloren geht dabei
+  // nichts -- was im Feld steht, ist ohnehin noch nicht in `offen`, und
+  // change/blur tragen es nach.
+  if (!sanft) uebernimmOffeneEingabe();
   await syncQueue.catch(() => {});
   // Ist das Schreiben gescheitert, steht die eigene Änderung nur hier. Dann
   // nicht überschreiben; die Sync-Zeile meldet den Fehler ohnehin.
-  if (!letzteSpeicherungOk || !offenFilename) return;
+  if (!letzteSpeicherungOk || !offenFilename) return false;
   const filename = offenFilename;
   let daten;
   try {
     daten = await fetchFile(filename);
   } catch (err) {
     console.warn("Stand konnte nicht nachgeladen werden:", err);
-    return;
+    return false;
   }
   // Zwischenzeitlich geschlossen oder gewechselt? Dann gehört der Stand
   // nicht mehr hierher.
-  if (!daten || typeof daten !== "object" || filename !== offenFilename) return;
+  if (!daten || typeof daten !== "object" || filename !== offenFilename) return false;
   // Verglichen wird der INHALT, nicht updatedAt: persist() ersetzt den
   // lokalen Stand bewusst nicht durch den gerade geschriebenen (siehe dort).
   // Speichert nach der anderen Person auch diese hier, trägt die Datei
   // deren Zeitstempel -- die fremden Zeilen stünden trotzdem nur auf dem
   // Server. Über den Inhalt fällt dieser Fall nicht durchs Raster.
   const neu = migriere(daten);
-  if (inhaltsKennung(neu) === inhaltsKennung(offen)) return;
+  if (inhaltsKennung(neu) === inhaltsKennung(offen)) return true;
   const fremd = (neu.updatedBy || "") !== personName();
+  const wer = fremd ? neu.updatedBy || "jemand" : "";
+
+  // Haben sich NUR Häkchen und Fragen geändert, werden die Kästchen einzeln
+  // ausgetauscht statt Tabelle und Fenster neu gebaut -- der Fokus bleibt,
+  // wo er ist. Genau dafür ist der Live-Takt da.
+  if (sanft && nurStandGeaendert(offen, neu)) {
+    const was = standUnterschied(offen, neu);
+    offen = neu;
+    cacheAktualisieren(filename, offen);
+    aktualisiereStandAnzeige(was.nummern);
+    setSyncLine(standMeldung(was, wer) || "Aktualisiert");
+    return true;
+  }
+  // Mehr als die Kästchen: das geht nur über einen Neuaufbau, und der
+  // nimmt den Fokus mit. Tippt gerade jemand, wird es aufgeschoben --
+  // der nächste Takt (oder das Verlassen des Feldes) holt es nach. Der
+  // Stand von JETZT wird bewusst nicht aufbewahrt: bis zum Anwenden wäre
+  // er veraltet und würde das eben Getippte überschreiben.
+  if (sanft && eingabeImFokus()) {
+    standAusstehend = true;
+    return false;
+  }
+  standAusstehend = false;
   offen = neu;
   cacheAktualisieren(filename, offen);
   renderTabelleErhalten();
   setSyncLine(
-    fremd
-      ? `Stand von ${neu.updatedBy || "jemandem"} übernommen · ${zeitpunktText(neu.updatedAt)}`
-      : "Aktualisiert"
+    fremd ? `Stand von ${wer} übernommen · ${zeitpunktText(neu.updatedAt)}` : "Aktualisiert"
   );
+  return true;
+}
+
+// Tippt gerade jemand in ein Feld? Dann darf nichts neu gezeichnet werden.
+// Die Felder tragen alle eines dieser data-Attribute (siehe
+// uebernimmOffeneEingabe()); Suchfeld und Dialoge sind bewusst nicht dabei,
+// die baut renderTabelleErhalten() nicht neu.
+function eingabeImFokus() {
+  const el = document.activeElement;
+  if (!el || !el.dataset) return false;
+  return !!(el.dataset.feld || el.dataset.panelFeld || el.dataset.optFeld);
 }
 
 // Inhalt ohne die Spuren des Speicherns -- wer zuletzt gespeichert hat,
@@ -2788,6 +2852,313 @@ function zeitpunktText(iso) {
   return heute
     ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleString("de-CH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+// ---------- Live: sehen, was die andere Person gerade tut ----------
+//
+// Nextcloud kann den Browser nicht anstupsen, und der Worker-Proxy reicht
+// nur durch -- "live" heisst hier also: in kurzen Abständen nachfragen.
+// Geladen wird dabei NICHT die Schätzung (hunderte Kilobyte), sondern ein
+// PROPFIND auf den Ordner (ein paar hundert Bytes). Erst wenn sich die
+// Kennung der Datei geändert hat, folgt der eigentliche GET.
+//
+// Nach dem EIGENEN Speichern ändert sich die Kennung ebenfalls, der
+// nächste Takt holt also einmal unnötig die Datei und stellt fest, dass
+// der Inhalt derselbe ist. Das ist Absicht: die neue Kennung schon beim
+// Speichern zu merken ginge nur mit einer zweiten Anfrage danach -- und
+// hätte die andere Person dazwischen geschrieben, wäre genau deren
+// Änderung für immer als "gesehen" abgehakt.
+const LIVE_TAKT_MS = 8000;
+
+let liveTimer = null;
+let liveLaeuft = false;
+let letzteDateiKennung = "";
+// Ein fremder Stand, der mehr als Häkchen/Fragen ändert, während hier
+// jemand in einem Feld tippt: aufgeschoben, nicht aufbewahrt (siehe
+// holeFremdenStand()).
+let standAusstehend = false;
+let nachholTimer = null;
+
+function liveMoeglich() {
+  // Im Demomodus gibt es keine zweite Person -- und die Attrappe liefert
+  // bei einem PROPFIND ohnehin keine ETags.
+  return !!offenFilename && isConfigured() && navigator.onLine && !istDemo();
+}
+
+function starteLive() {
+  stoppeLive();
+  if (!liveMoeglich()) return;
+  liveTimer = setInterval(liveTakt, LIVE_TAKT_MS);
+  liveTakt();
+}
+
+function stoppeLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = null;
+  clearTimeout(nachholTimer);
+  letzteDateiKennung = "";
+  letztePraesenzKennung = "";
+  letztePraesenzSchrift = 0;
+  standAusstehend = false;
+  praesenzStand = {};
+  zeigePraesenz();
+}
+
+async function liveTakt() {
+  // Ein langsamer Takt (grosse Datei, zähes Netz) soll sich nicht stapeln.
+  if (liveLaeuft || document.visibilityState !== "visible") return;
+  if (!liveMoeglich()) return stoppeLive();
+  liveLaeuft = true;
+  const filename = offenFilename;
+  try {
+    const eintraege = await ordnerEintraege();
+    if (filename !== offenFilename) return;
+    const eintrag = eintraege.find((e) => e.name === filename);
+    // Noch nie gespeichert (frisch angelegt, Speichern noch unterwegs):
+    // dann gibt es auch nichts zu vergleichen.
+    if (!eintrag) return;
+    if (!eintrag.kennung) {
+      // Ohne ETag und ohne Änderungsdatum bliebe nur, alle acht Sekunden
+      // die ganze Datei zu laden. Dann lieber kein Live-Takt; der Stand
+      // kommt weiterhin beim Wechsel in den Tab (visibilitychange).
+      console.info("Server liefert weder ETag noch Änderungsdatum – Live-Abgleich aus.");
+      stoppeLive();
+      return;
+    }
+    if (eintrag.kennung !== letzteDateiKennung || standAusstehend) {
+      const uebernommen = await holeFremdenStand({ sanft: true });
+      if (filename !== offenFilename) return;
+      // Nur als gesehen merken, wenn der Stand wirklich verarbeitet wurde --
+      // sonst bliebe eine aufgeschobene Änderung für immer liegen.
+      if (uebernommen) letzteDateiKennung = eintrag.kennung;
+    }
+
+    const praesenz = (eintraege.find((e) => e.name === PRAESENZ_DATEI) || {}).kennung || "";
+    if (praesenz && praesenz !== letztePraesenzKennung) {
+      await lesePraesenz();
+      letztePraesenzKennung = praesenz;
+    }
+    // Veraltete Einträge verschwinden auch dann, wenn niemand mehr schreibt
+    // (und die Kennung sich darum nicht mehr ändert).
+    zeigePraesenz();
+    await schreibePraesenz();
+  } catch (err) {
+    // Netz kurz weg, Nextcloud antwortet nicht: beim nächsten Takt nochmals.
+    console.debug("Live-Abgleich übersprungen:", err);
+  } finally {
+    liveLaeuft = false;
+  }
+}
+
+// ---------- Wer ist sonst noch an dieser Schätzung? ----------
+//
+// "_praesenz.json" liegt neben den Schätzungen; der Unterstrich hält sie
+// aus deren Liste heraus (wie "_bkp_katalog.json"). Darin steht je Person
+// das Kürzel, die offene Datei und wann sie sich zuletzt gemeldet hat.
+//
+// Das ist die einzige Stelle im Repo, die im Hintergrund regelmässig
+// SCHREIBT. Deshalb so sparsam wie möglich: nur solange eine Schätzung
+// offen und der Tab sichtbar ist, höchstens alle 30 Sekunden, und eine
+// Datei von wenigen hundert Bytes. Geschrieben wird wie überall sonst auf
+// einen frisch geholten Stand, damit sich zwei Leute nicht gegenseitig
+// austragen; geht dabei etwas schief, ist es nicht schlimm -- der Eintrag
+// veraltet von selbst und wird 30 Sekunden später neu gesetzt.
+const PRAESENZ_DATEI = "_praesenz.json";
+const PRAESENZ_SCHREIB_MS = 30000;
+const PRAESENZ_FRISCH_MS = 75000; // gut zwei Schreibtakte -- einer darf ausfallen
+const PRAESENZ_ALT_MS = 10 * 60 * 1000; // so alte Einträge fliegen beim Schreiben raus
+
+let praesenzStand = {};
+let letztePraesenzKennung = "";
+let letztePraesenzSchrift = 0;
+let letztePraesenzAnzeige = "";
+
+async function lesePraesenz() {
+  let stand;
+  try {
+    stand = await fetchFile(PRAESENZ_DATEI);
+  } catch (err) {
+    return; // beim nächsten Takt nochmals
+  }
+  praesenzStand = stand && typeof stand === "object" ? stand : {};
+}
+
+async function schreibePraesenz() {
+  const ich = meinKuerzel();
+  if (!ich || !offenFilename) return;
+  const jetzt = Date.now();
+  if (jetzt - letztePraesenzSchrift < PRAESENZ_SCHREIB_MS) return;
+  letztePraesenzSchrift = jetzt;
+  const datei = offenFilename;
+  let stand;
+  try {
+    stand = await fetchFile(PRAESENZ_DATEI);
+  } catch (err) {
+    // Nicht blind schreiben: ein leerer Stand würde die anderen austragen.
+    letztePraesenzSchrift = 0;
+    return;
+  }
+  const frisch = {};
+  Object.entries(stand && typeof stand === "object" ? stand : {}).forEach(([k, v]) => {
+    if (v && v.at && jetzt - Date.parse(v.at) < PRAESENZ_ALT_MS) frisch[k] = v;
+  });
+  frisch[ich] = { name: personName(), datei, at: new Date().toISOString() };
+  try {
+    await putFile(PRAESENZ_DATEI, frisch);
+    praesenzStand = frisch;
+    zeigePraesenz();
+  } catch (err) {
+    letztePraesenzSchrift = 0;
+  }
+}
+
+// Beim Zurück zur Liste den eigenen Eintrag wegnehmen -- sonst stünde das
+// eigene Kürzel bei der anderen Person noch über eine Minute da, obwohl man
+// längst weg ist. Fehler sind hier belanglos: der Eintrag veraltet ohnehin.
+function meldeAbwesend() {
+  const ich = meinKuerzel();
+  if (!liveTimer || !ich) return;
+  (async () => {
+    try {
+      const stand = await fetchFile(PRAESENZ_DATEI);
+      if (!stand || typeof stand !== "object" || !stand[ich]) return;
+      delete stand[ich];
+      await putFile(PRAESENZ_DATEI, stand);
+    } catch (err) {
+      /* egal */
+    }
+  })();
+}
+
+function zeigePraesenz() {
+  const el = document.getElementById("praesenz");
+  if (!el) return;
+  const jetzt = Date.now();
+  const ich = meinKuerzel();
+  const leute = Object.entries(praesenzStand)
+    .filter(([k, v]) => v && k !== ich && v.datei === offenFilename)
+    .filter(([, v]) => v.at && jetzt - Date.parse(v.at) < PRAESENZ_FRISCH_MS)
+    .map(([k, v]) => ({ kuerzel: k, name: v.name || k }));
+  const kennung = leute.map((p) => p.kuerzel).join("/");
+  if (kennung === letztePraesenzAnzeige) return;
+  letztePraesenzAnzeige = kennung;
+  el.innerHTML = leute
+    .map(
+      (p) =>
+        `<span class="bk-praesenz-wer" title="${escapeHtml(
+          p.name
+        )} ist gerade auch an dieser Schätzung">${escapeHtml(p.kuerzel)}</span>`
+    )
+    .join("");
+  el.hidden = !leute.length;
+  // Die Zeile kann dadurch höher oder niedriger werden -- die Spaltentitel
+  // rasten an der gemessenen Höhe ein.
+  messeSticky();
+}
+
+// ---------- Nur die Statuskästchen nachführen ----------
+
+// Haben sich NUR Häkchen und Fragen geändert? Dann sind Zeilen, Beträge und
+// Gliederung gleich geblieben, und es reicht, die Kästchen auszutauschen.
+function ohneStand(data) {
+  return JSON.stringify({ ...data, updatedAt: null, updatedBy: null, haken: null, fragen: null });
+}
+function nurStandGeaendert(alt, neu) {
+  return ohneStand(alt) === ohneStand(neu);
+}
+
+// Was genau ist passiert? Für die Meldung in der Sync-Zeile und fürs
+// Aufblitzen am richtigen Kästchen.
+function standUnterschied(alt, neu) {
+  const nummern = new Set();
+  const hakenAuf = [];
+  const hakenAb = [];
+  const fragenAuf = [];
+  const fragenAb = [];
+  const schluessel = (d, feld) => Object.keys((d && d[feld]) || {});
+  new Set([
+    ...schluessel(alt, "haken"),
+    ...schluessel(neu, "haken"),
+    ...schluessel(alt, "fragen"),
+    ...schluessel(neu, "fragen")
+  ]).forEach((nr) => {
+    const a = ((alt.haken || {})[nr] || []).filter(Boolean);
+    const b = ((neu.haken || {})[nr] || []).filter(Boolean);
+    const fa = (alt.fragen || {})[nr] || "";
+    const fb = (neu.fragen || {})[nr] || "";
+    if (a.join("/") === b.join("/") && fa === fb) return;
+    nummern.add(nr);
+    if (b.length > a.length) hakenAuf.push(nr);
+    else if (b.length < a.length) hakenAb.push(nr);
+    if (fb && !fa) fragenAuf.push(nr);
+    else if (fa && !fb) fragenAb.push(nr);
+  });
+  return { nummern, hakenAuf, hakenAb, fragenAuf, fragenAb };
+}
+
+// "MV hat eine Frage gestellt bei 211.5" -- bei einer einzelnen Änderung
+// steht die Nummer dabei, sonst wäre sie in 2450 Zeilen nicht zu finden.
+function standMeldung(was, wer) {
+  const teile = [];
+  const satz = (liste, eins, viele) => {
+    if (!liste.length) return;
+    teile.push(liste.length === 1 ? `${eins} bei ${liste[0]}` : `${liste.length} ${viele}`);
+  };
+  satz(was.hakenAuf, "ein Häkchen gesetzt", "Häkchen gesetzt");
+  satz(was.hakenAb, "ein Häkchen weggenommen", "Häkchen weggenommen");
+  satz(was.fragenAuf, "eine Frage gestellt", "Fragen gestellt");
+  satz(was.fragenAb, "eine Frage erledigt", "Fragen erledigt");
+  if (!teile.length) return "";
+  const text = teile.join(" · ");
+  return wer ? `${wer} hat ${text}` : text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Die Statuskästchen einzeln austauschen, ohne Tabelle und
+// Bearbeitungsfenster anzufassen: renderTabelleErhalten() würde den Fokus
+// aus dem Feld reissen, in dem gerade jemand tippt -- bei einem Takt alle
+// acht Sekunden wäre das unbenutzbar. Dasselbe Vorgehen wie bei
+// aktualisierePanelZahlen().
+function aktualisiereStandAnzeige(frisch) {
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  const { summen } = alleSummen();
+  const status = statusBerechnen(knoten, kinder, summen);
+  letzterStatus = status;
+
+  document.querySelectorAll('[data-action="status"]').forEach((btn) => {
+    const nr = btn.dataset.nr;
+    const istBlatt = btn.dataset.blatt === "1";
+    // statusHtml() liefert Kästchen UND Fragezeichen -- das alte
+    // Fragezeichen daneben muss darum zuerst weg.
+    const frage = btn.nextElementSibling;
+    if (frage && frage.dataset && frage.dataset.action === "frage") frage.remove();
+    btn.outerHTML = statusHtml(nr, status[nr], istBlatt);
+  });
+
+  // Der Fortschrittsbalken der Kapitelansicht zählt dieselben Stände.
+  document.querySelectorAll(".bk-kap-zeile[data-kap-ziel]").forEach((zeile) => {
+    const balken = zeile.querySelector(".bk-kap-balken");
+    if (!balken) return;
+    const nr = zeile.dataset.kapZiel;
+    const blaetter = (kinderVon(nr).length ? blattNummernUnter(nr) : [nr]).filter(Boolean);
+    balken.outerHTML = balkenHtml(blaetter, status);
+  });
+
+  // Im Bearbeitungsfenster steht der Stand zusätzlich im Klartext.
+  const standText = document.querySelector(".bk-panel-stand-text");
+  if (standText && gewaehlteZeile) {
+    standText.textContent = panelStandText(status[gewaehlteZeile.nr] || LEERER_STAND);
+  }
+
+  // Kurz aufblitzen lassen: sonst ändert sich irgendwo in 2450 Zeilen
+  // lautlos ein Kästchen und niemand merkt es.
+  if (frisch && frisch.size) {
+    document.querySelectorAll('[data-action="status"], [data-action="frage"]').forEach((el) => {
+      if (!frisch.has(el.dataset.nr)) return;
+      el.classList.add("bk-frisch");
+      setTimeout(() => el.classList.remove("bk-frisch"), 2200);
+    });
+  }
 }
 
 // ---------- Zeilen finden/ändern ----------
@@ -3899,6 +4270,7 @@ function oeffne(filename) {
   ladePreislisteBeiBedarf();
   setzeEbene(ebeneAusSicht(sicht.ebene));
   stelleSichtHer();
+  starteLive();
 }
 
 // Nur Werte, die der Umschalter wirklich kennt -- sonst stünde nach einem
@@ -3909,6 +4281,8 @@ function ebeneAusSicht(wert) {
 
 function zurueckZurListe() {
   merkeSicht();
+  meldeAbwesend(); // noch mit offenFilename -- stoppeLive() räumt danach auf
+  stoppeLive();
   wiederherstellen = null;
   offen = null;
   offenFilename = null;
@@ -4380,17 +4754,39 @@ function init() {
   window.addEventListener("scroll", () => sticky.classList.toggle("geklebt", window.scrollY > 4), { passive: true });
   messeSticky();
 
-  window.addEventListener("online", refreshAlle);
+  window.addEventListener("online", () => {
+    refreshAlle();
+    if (offenFilename) starteLive();
+  });
+
+  // Ein aufgeschobener fremder Stand (es wurde gerade getippt) wird
+  // nachgeholt, sobald das Feld verlassen ist -- sonst wartete er bis zum
+  // nächsten Takt. Die kurze Verzögerung überspringt das Weitertabben ins
+  // nächste Feld.
+  document.addEventListener("focusout", () => {
+    if (!standAusstehend) return;
+    clearTimeout(nachholTimer);
+    nachholTimer = setTimeout(() => {
+      if (!eingabeImFokus()) liveTakt();
+    }, 300);
+  });
   // Beim Zurückkehren in den Tab nachsehen, ob jemand anders an derselben
   // Schätzung war. Ohne offene Schätzung ist die Liste dran, die holt
   // nebenbei den Katalog mit.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") {
       merkeSicht(); // Tab gewechselt oder weggelegt -- Stand festhalten
+      // Im Hintergrund wird weder nachgefragt noch Anwesenheit gemeldet;
+      // beim anderen verschwindet das Kürzel darum nach gut einer Minute.
+      stoppeLive();
       return;
     }
-    if (offenFilename) holeFremdenStand();
-    else refreshAlle();
+    if (offenFilename) {
+      starteLive();
+      // Kein Live-Takt möglich (Demomodus, offline): dann wie bisher einmal
+      // beim Zurückkehren in den Tab nachladen.
+      if (!liveTimer) holeFremdenStand();
+    } else refreshAlle();
   });
   // Beim Schliessen des Tabs kommt kein visibilitychange mehr, das ist die
   // einzige verlässliche letzte Gelegenheit.

@@ -198,7 +198,7 @@ Unterordner pro Modul (`appModuleFolderPath()` in `shared/common.js`):
 | Wettbewerbsprogramme | `Buero/Admin/App/Wettbewerbe` |
 | Timeline | `Buero/Admin/App/Timeline` |
 | Finanzplanung | `Buero/Admin/App/Finanzplanung` (ein File pro Jahr) |
-| Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung, dazu `_bkp_katalog.json` mit dem BKP nach SN 506 500:2017) |
+| Baukosten | `Buero/Admin/App/Baukosten` (ein File pro Kostenschätzung, dazu `_bkp_katalog.json` mit dem BKP nach SN 506 500:2017, `_preisliste.json` und `_praesenz.json`) |
 | Modellviewer | `Buero/Admin/App/Modellviewer` (ein ORDNER pro Modell, darin die Modelldatei(en) und `modell.json`; dazu `_passwoerter.json` mit den Freigabepasswörtern) |
 | Finanzen-Stammdaten (Kontenplan/Kategorien/MwSt, vertraulich) | `Buero/Admin/App/Finanzen` |
 | Zentrale Konfiguration: Mitarbeitende + Büro-Name | `Buero/Admin/App/config.json` |
@@ -2328,15 +2328,52 @@ wird, überschreiben sich zwei Personen nicht, solange sie an
 **verschiedenen Zeilen** arbeiten — und das ist der Normalfall, eine
 Kostenschätzung hat hunderte davon.
 
-Dazu wird der Stand der anderen **beim Zurückkehren in den Tab**
-nachgeladen (dasselbe Muster wie bei den Offerten). Ist eine Schätzung
-offen, wird nur diese eine Datei geholt, nicht die ganze Liste; hat sich
-nichts geändert, passiert nichts. Sonst rücken die fremden Zeilen nach, die
-Scrollposition und ein offenes Bearbeitungsfenster bleiben, und die
-Sync-Zeile sagt, von wem der Stand ist ("Stand von Anna Beispiel übernommen
-· 14:12"). Eine noch offene Eingabe wird vorher übernommen und geschrieben,
-und ist das Speichern gescheitert, wird gar nicht erst nachgeladen — sonst
-überschriebe der Serverstand das, was nur hier steht.
+#### Live: was die andere Person tut, erscheint von selbst
+
+Solange eine Schätzung offen und das Fenster sichtbar ist, schaut die App
+**alle acht Sekunden** nach, ob sich auf Nextcloud etwas getan hat. Geladen
+wird dabei nicht die Schätzung — eine Anfrage nach dem Ordnerinhalt
+genügt, das sind ein paar hundert Bytes statt hunderter Kilobyte. Erst
+wenn die Datei sich wirklich geändert hat, wird sie geholt.
+
+Danach kommt es darauf an, **was** sich geändert hat:
+
+- **Nur Häkchen und Fragezeichen**: diese Kästchen werden einzeln
+  ausgetauscht, Tabelle und Bearbeitungsfenster bleiben unberührt. Das
+  geänderte Kästchen blitzt kurz blau auf, damit man es in hunderten
+  Zeilen überhaupt findet, und die Sync-Zeile sagt, was passiert ist —
+  "Anna Beispiel hat eine Frage gestellt bei 211.5". Bei mehreren
+  Änderungen auf einmal steht die Zahl da ("7 Häkchen gesetzt"). Das
+  funktioniert auch **mitten im Tippen**: der Fokus bleibt im Feld, der
+  getippte Text bleibt stehen.
+- **Alles andere** (eine neue Zeile, ein geänderter Betrag) braucht einen
+  Neuaufbau der Tabelle, und der nimmt den Fokus mit. Tippt gerade jemand,
+  wird er deshalb aufgeschoben, bis das Feld verlassen ist. Scrollposition
+  und offenes Bearbeitungsfenster bleiben dabei erhalten, die Sync-Zeile
+  meldet "Stand von Anna Beispiel übernommen · 14:12".
+
+Im Hintergrund (anderer Tab, weggelegtes Gerät) wird nicht gefragt;
+beim Zurückkehren einmal sofort. Ist das eigene Speichern gescheitert,
+wird gar nicht erst nachgeladen — sonst überschriebe der Serverstand das,
+was nur hier steht. Im Demomodus gibt es keinen Live-Takt: dort ist man
+allein.
+
+#### Wer sonst noch dran ist
+
+Oben im Kopf der Schätzung steht das Kürzel jeder anderen Person, die
+dieselbe Schätzung gerade offen hat (mit einem leise pulsierenden Punkt).
+Es erscheint innerhalb von rund einer halben Minute und verschwindet von
+selbst, wenn sich jemand gut eine Minute nicht mehr gemeldet hat — beim
+Zurück zur Liste sofort.
+
+Dahinter steckt eine eigene kleine Datei `_praesenz.json` im
+Baukosten-Ordner (der Unterstrich hält sie aus der Liste der Schätzungen
+heraus, wie beim BKP-Katalog). Jede Person trägt dort alle 30 Sekunden
+ein, welche Schätzung sie offen hat. Das ist die einzige Stelle in allen
+Apps, die im Hintergrund regelmässig schreibt — deshalb nur solange eine
+Schätzung offen und das Fenster sichtbar ist, und nur ein paar hundert
+Bytes. Geht das Schreiben schief, ist nichts verloren: der Eintrag
+veraltet von selbst.
 
 Was bleibt:
 
@@ -2347,8 +2384,8 @@ Was bleibt:
   derselben Sekunde, fällt eine Änderung weg. Ein `If-Match` würde das
   schliessen, bräuchte aber einen neuen Worker-Deploy — `worker.js` reicht
   weder `If-Match` hinein noch `ETag` heraus.
-- **Kein Live-Update während des Tippens**: nachgeladen wird beim
-  Tabwechsel, nicht im Sekundentakt.
+- **Ein paar Sekunden Verzögerung**: der Takt ist acht Sekunden, kein
+  Push. Nextcloud kann den Browser nicht von sich aus anstupsen.
 
 ---
 
