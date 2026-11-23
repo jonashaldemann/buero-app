@@ -264,6 +264,34 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   bis zum Anwenden wäre er veraltet und überschriebe das eben Getippte.
   Deshalb gibt `holeFremdenStand()` zurück, OB übernommen wurde -- nur dann
   darf der Takt die Kennung als gesehen merken.
+- **Der Takt darf einen Serverstand nur übernehmen, wenn seither NICHTS
+  EIGENES dazugekommen ist** (`lokaleAenderungen`, November 2026 als
+  "Häkchen verschwinden wieder" gemeldet): `offen = neu` ersetzt den
+  lokalen Stand vollständig. Dazwischen lagen ZWEI offene Fenster, die bei
+  einem Takt alle paar Sekunden ständig getroffen wurden (beim früheren
+  `visibilitychange` nie):
+  1. `await syncQueue` erwischt nur den Stand von VORHIN -- `mutate()`
+     hängt während des Wartens weiter an. Deshalb wird jetzt in einer
+     (gedeckelten) Schleife gewartet, bis `syncQueue` sich nicht mehr
+     ändert.
+  2. Zwischen dem Eintreffen der Antwort und `offen = neu` kann geklickt
+     worden sein. Deshalb zählt `mutate()` `lokaleAenderungen` hoch, und
+     `holeFremdenStand()` bricht ab, wenn der Zähler sich während des
+     Holens bewegt hat.
+  Der übersprungene Takt wird nachgeholt, weil die Kennung nur bei
+  erfolgreicher Übernahme gemerkt wird. OHNE das verschwand ein eben
+  gesetztes Häkchen lokal wieder (der Server hatte es, die Ansicht nicht) --
+  und wer dann nochmals klickte, nahm es damit auch dort weg. Nachgestellt
+  mit zwei Klienten und gebremstem GET; der Fehler heilte innert eines
+  Takts von selbst, weshalb ein zu spät gesetzter Messpunkt ihn NICHT
+  sieht.
+- **Ein Klick aufs Statuskästchen bleibt nie wortlos wirkungslos**
+  (`setzeHaken()`): ohne Kürzel (kein Anzeigename) und wenn dort schon zwei
+  andere abgehakt haben, sagt es die Sync-Zeile. Im zweiten Fall wird
+  bewusst GAR NICHT gespeichert -- ein Schreibvorgang ohne Wirkung
+  überschriebe die Erklärung sofort mit "Gespeichert". "Ich klicke und es
+  passiert nichts" ist von aussen nicht von einem Fehler zu unterscheiden,
+  und genau so wurde zweimal ein Bug gemeldet.
 - **Anwesenheit `baukosten/`** (`_praesenz.json`, `zeigePraesenz()`): die
   EINZIGE Stelle im Repo, die im Hintergrund regelmässig SCHREIBT -- alle
   30 Sekunden ein paar hundert Bytes, und nur solange eine Schätzung offen

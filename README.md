@@ -2412,6 +2412,15 @@ Danach kommt es darauf an, **was** sich geändert hat:
   und offenes Bearbeitungsfenster bleiben dabei erhalten, die Sync-Zeile
   meldet "Stand von Anna Beispiel übernommen · 14:12".
 
+**Das eigene Häkchen geht dabei nie verloren.** Der Takt übernimmt einen
+Serverstand nur, wenn seit dem Holen nichts Eigenes dazugekommen ist —
+sonst wird er verworfen und der nächste Takt holt frisch. Ohne das
+verschwand ein eben gesetztes Häkchen kurz wieder aus der Ansicht (auf dem
+Server stand es), und wer dann nochmals klickte, nahm es damit auch dort
+weg. Ein Klick aufs Kästchen bleibt ausserdem nie wortlos wirkungslos: ist
+kein Anzeigename hinterlegt oder haben dort schon zwei andere abgehakt,
+steht der Grund in der Sync-Zeile.
+
 Im Hintergrund (anderer Tab, weggelegtes Gerät) wird nicht gefragt;
 beim Zurückkehren einmal sofort. Ist das eigene Speichern gescheitert,
 wird gar nicht erst nachgeladen — sonst überschriebe der Serverstand das,

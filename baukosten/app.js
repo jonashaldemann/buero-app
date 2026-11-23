@@ -2801,6 +2801,10 @@ function planeUmbenennen(alterName, neuerName) {
 // ---------- Speichern (Muster wie Offerten/Finanzplanung) ----------
 
 let syncQueue = Promise.resolve();
+// Zählt JEDE eigene Änderung. Der Live-Takt darf einen Serverstand nur
+// übernehmen, wenn seither nichts Eigenes dazugekommen ist -- sonst wirft
+// er es weg (siehe holeFremdenStand()).
+let lokaleAenderungen = 0;
 // Nur wenn die letzte Speicherung durchkam, steht auf dem Server alles, was
 // hier getippt wurde -- erst dann darf holeFremdenStand() den lokalen Stand
 // durch den vom Server ersetzen.
@@ -2821,6 +2825,7 @@ function mutate(mutateFn, { neuRendern = false } = {}) {
   const filename = offenFilename;
   if (!filename) return Promise.resolve();
   offen = mutateFn(offen) || offen;
+  lokaleAenderungen++;
   cacheAktualisieren(filename, offen);
   beschleunigeLive();
   if (neuRendern) render();
@@ -2896,11 +2901,22 @@ async function holeFremdenStand({ sanft = false } = {}) {
   // nichts -- was im Feld steht, ist ohnehin noch nicht in `offen`, und
   // change/blur tragen es nach.
   if (!sanft) uebernimmOffeneEingabe();
-  await syncQueue.catch(() => {});
+  // Wirklich ALLES Eigene muss draussen sein, bevor geholt wird. Ein
+  // einzelnes `await syncQueue` genügt dafür nicht: `mutate()` hängt
+  // während des Wartens weiter an, und awaitet wird nur der Stand von
+  // vorhin. Genau daran verschwanden Häkchen wieder (November 2026
+  // gemeldet). Die Schleife ist gedeckelt -- wer ununterbrochen klickt,
+  // soll den Takt nicht festhalten; der Zähler unten fängt den Rest.
+  for (let i = 0; i < 5; i++) {
+    const warteAuf = syncQueue;
+    await warteAuf.catch(() => {});
+    if (warteAuf === syncQueue) break;
+  }
   // Ist das Schreiben gescheitert, steht die eigene Änderung nur hier. Dann
   // nicht überschreiben; die Sync-Zeile meldet den Fehler ohnehin.
   if (!letzteSpeicherungOk || !offenFilename) return false;
   const filename = offenFilename;
+  const standVorher = lokaleAenderungen;
   let daten;
   try {
     daten = await fetchFile(filename);
@@ -2911,6 +2927,10 @@ async function holeFremdenStand({ sanft = false } = {}) {
   // Zwischenzeitlich geschlossen oder gewechselt? Dann gehört der Stand
   // nicht mehr hierher.
   if (!daten || typeof daten !== "object" || filename !== offenFilename) return false;
+  // Während des Holens wurde hier geklickt oder getippt -- der geholte
+  // Stand kennt das noch nicht und würde es wegwerfen. Nicht übernehmen;
+  // der nächste Takt holt frisch (die Kennung wird nicht gemerkt).
+  if (lokaleAenderungen !== standVorher) return false;
   // Verglichen wird der INHALT, nicht updatedAt: persist() ersetzt den
   // lokalen Stand bewusst nicht durch den gerade geschriebenen (siehe dort).
   // Speichert nach der anderen Person auch diese hier, trägt die Datei
@@ -3480,12 +3500,34 @@ function hakenZiele(nr, istBlatt) {
   return ziele.length ? ziele : [nr];
 }
 
+// Ein Klick aufs Kästchen darf NIE wortlos wirkungslos bleiben: "ich klicke
+// und es passiert nichts" ist von aussen nicht von einem Fehler zu
+// unterscheiden, und genau so wurde es gemeldet (November 2026). Bleibt der
+// Stand gleich, sagt die Sync-Zeile warum.
 function setzeHaken(nr, istBlatt) {
   const ich = meinKuerzel();
-  if (!ich) return;
+  if (!ich) {
+    setSyncLine("Kein Kürzel vorhanden – Anzeigename in den Einstellungen ⚙ eintragen");
+    return;
+  }
   const ziele = hakenZiele(nr, istBlatt);
-  if (!ziele.length) return;
   const an = !ziele.every((ziel) => hakenVon(ziel).includes(ich));
+  // Würde sich überhaupt etwas ändern? Wenn nein, gar nicht erst speichern:
+  // ein Schreibvorgang ohne Wirkung überschriebe nur die Erklärung unten
+  // mit "Gespeichert". Übrig bleibt dann genau ein Grund -- dort stehen
+  // schon zwei andere Kürzel, und eine dritte Person hakt weder ab noch
+  // nimmt sie weg (HAKEN_MAX, siehe mitHaken()).
+  const wirkt = ziele.some(
+    (ziel) => mitHaken(hakenVon(ziel), ich, an).join("/") !== hakenVon(ziel).join("/")
+  );
+  if (!wirkt) {
+    setSyncLine(
+      ziele.length === 1
+        ? `Kein Häkchen gesetzt: bei ${ziele[0]} haben schon zwei andere abgehakt`
+        : "Kein Häkchen gesetzt: dort haben schon zwei andere abgehakt"
+    );
+    return;
+  }
   mutate((data) => {
     if (!data.haken) data.haken = {};
     ziele.forEach((ziel) => {
