@@ -1942,7 +1942,20 @@ function renderKapitel() {
       ]
         .filter(Boolean)
         .join(" · ");
+  // Das Statuskästchen des OFFENEN Kapitels gehört in den Kopf. Ohne das
+  // liess sich ein Kapitel nur aus der Liste des ELTERNS abhaken -- war man
+  // hineingegangen, gab es nichts mehr zum Anklicken, und bei einem
+  // Blatt-Kapitel (Positionszeilen) überhaupt nirgends: die Zeilen tragen
+  // bewusst kein eigenes Kästchen, das Häkchen hängt an der NUMMER.
+  // Genau so gemeldet (November 2026): "bei einigen Positionen und
+  // Unterpositionen geht das Abkreuzen nicht" -- es gab dort schlicht kein
+  // Kästchen. In der Übersicht (kein Kapitel offen) bleibt es weg, die
+  // ganze Schätzung hakt niemand ab.
+  const kopfStand = kapitelKnoten
+    ? `<div class="bk-kap-stand">${statusHtml(kapitelKnoten, status[kapitelKnoten], blatt)}</div>`
+    : "";
   document.getElementById("kapKopf").innerHTML = `
+    ${kopfStand}
     <div class="titel">
       <div class="bk-kap-meta">${escapeHtml(
         [kapitelKnoten ? (istEigen(kapitelKnoten) ? "Eigenes Unterkapitel" : `Kapitel ${kapitelKnoten}`) : "Ganze Schätzung", meta]

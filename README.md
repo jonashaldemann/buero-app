@@ -1805,6 +1805,11 @@ leerer Nummer darunter. Sobald später doch etwas erfasst wird, zählt wieder
 der Stand des Inhalts — das Kapitel ist dann nicht mehr leer und gehört neu
 angeschaut.
 
+In der **Kapitelansicht** steht das Kästchen des gerade offenen Kapitels
+**links neben dem Titel** — dort hakt man ab, während man das Kapitel
+anschaut. Die Positionszeilen darunter haben bewusst keines: das Häkchen
+hängt an der BKP-Nummer, nicht an der einzelnen Zeile.
+
 Das **Kästchen einer Gruppe lässt sich anklicken**: es setzt mein Häkchen auf
 alles Abgehakte und Erfasste darunter, ein weiterer Klick nimmt es überall
 wieder weg — eine fertig besprochene Elementgruppe ist so mit einem Klick

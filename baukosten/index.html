@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="../icons/baukosten-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="../css/style.css?v=55">
+<link rel="stylesheet" href="../css/style.css?v=56">
 <style>
   /* ============================================================
      Baukosten — bewusst eine Layout-Ausnahme gegenüber den übrigen
@@ -183,6 +183,12 @@
 
   .bk-kap-inhalt { flex: 1; min-width: 0; }
   .bk-kap-kopf { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 12px; }
+  /* Das Kästchen des offenen Kapitels, links neben dem Titel. Etwas grösser
+     als in der Tabelle -- hier ist Platz, und es ist die Stelle, an der man
+     "durchgegangen" setzt, während man das Kapitel anschaut. */
+  .bk-kap-stand { display: flex; align-items: center; gap: 2px; padding-bottom: 3px; }
+  .bk-kap-stand .bk-status { width: 42px; height: 19px; font-size: 10px; margin-right: 4px; }
+  .bk-kap-stand .bk-frage { width: 19px; height: 19px; font-size: 11px; margin-right: 0; }
   .bk-kap-kopf .titel { flex: 1; min-width: 0; }
   .bk-kap-meta { font-size: 11.5px; color: var(--text-muted); }
   .bk-kap-titel { font-family: var(--font-medium); font-size: 21px; line-height: 1.15; }
@@ -1225,8 +1231,8 @@
   </div>
 </div>
 
-<script src="../shared/common.js?v=55"></script>
-<script src="bkp.js?v=55"></script>
-<script src="app.js?v=55"></script>
+<script src="../shared/common.js?v=56"></script>
+<script src="bkp.js?v=56"></script>
+<script src="app.js?v=56"></script>
 </body>
 </html>

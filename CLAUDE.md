@@ -344,6 +344,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   machte die Liste doppelt so hoch, ohne eine Frage zu beantworten -- wer
   wissen will, was drinsteckt, geht hinein. `.bk-kap-zeile-sub` gibt es nur
   noch bei den POSITIONSzeilen, dort steht die Bemerkung darunter.
+  Der KOPF (`#kapKopf`) trägt das Statuskästchen des OFFENEN Kapitels
+  (`.bk-kap-stand`, November 2026 als "bei einigen Positionen geht das
+  Abkreuzen nicht" gemeldet): vorher liess sich ein Kapitel nur aus der
+  Liste des ELTERNS abhaken -- war man hineingegangen, gab es nichts mehr
+  zum Anklicken, und in einem BLATT-Kapitel (nur Positionszeilen) nirgends.
+  Die Positionszeilen (`.bk-kap-pos`) tragen bewusst KEIN eigenes Kästchen:
+  das Häkchen hängt an der NUMMER, nicht an der Zeile. In der Übersicht
+  (kein Kapitel offen) bleibt das Kästchen weg -- die ganze Schätzung hakt
+  niemand ab. Diagnose-Hinweis für den nächsten Fall: die Sync-Zeile stand
+  auf "Synchronisiert" (die Meldung von `refreshAlle()`), also hatte seit
+  dem Öffnen NICHTS geschrieben -- der Klick erreichte `setzeHaken()` gar
+  nie, weil es dort kein Kästchen gab.
 - **Vorlagen aus der Preisliste `baukosten/` liegen ebenfalls auf NEXTCLOUD**
   (`_preisliste.json`, `ladePreislisteBeiBedarf()`): die
   Preisdatenbank des Büros, gehört so wenig ins Repo wie die Norm
