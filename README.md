@@ -1779,13 +1779,19 @@ zusätzlich an jedem Knoten, der **eigene Zeilen** trägt: ein Kapitel darf
 Zeilen und Unterkapitel gleichzeitig haben, und seine eigenen Zeilen hängen
 an seiner Nummer.
 
-Eine **Gruppe rechnet ihren Stand aus den Kindern**: sie hat so viele
-Häkchen, wie *alle* ihre Kinder mindestens haben (`statusBerechnen()`). Das
-Kästchen einer Elementgruppe wird also grün, sobald jede Position darunter
-grün ist, und das einer Hauptgruppe, sobald all ihre Elementgruppen so weit
-sind — genau das macht sichtbar, wo noch niemand war. Ein Kürzel steht auf
-der Gruppe nur, wenn alles darunter von denselben Leuten kommt; sonst bleibt
-es leer.
+Eine **Gruppe rechnet ihren Stand aus den Kindern**, und zwar nach der
+Frage: **wer ist durch alles darunter durch?** (`statusBerechnen()`). Im
+Kästchen stehen genau die Kürzel der Personen, die unter dieser Gruppe
+*jede* Position abgehakt haben — und die Farbe folgt daraus: ein Kürzel
+hellgrün, zwei dunkelgrün, keines weiss bzw. gelb. Das Kästchen einer
+Elementgruppe wird also grün, sobald jemand jede Position darunter
+abgehakt hat, und das einer Hauptgruppe, sobald das für all ihre
+Elementgruppen gilt — genau das macht sichtbar, wo noch niemand war.
+
+Daraus folgt: **ein grünes Kästchen trägt immer ein Kürzel.** Haben zwei
+Personen verschiedene Äste abgehakt — JH den einen, MV den anderen —, ist
+*niemand* überall durch, und die Gruppe bleibt entsprechend ungrün. Früher
+stand dort ein grünes Kästchen ohne Beschriftung, was beides verwischte.
 
 Gezählt werden dabei **nur die Nummern, unter denen etwas steht** (eine
 Zeile oder ein Häkchen). Das ist entscheidend: unter einer Position hängen

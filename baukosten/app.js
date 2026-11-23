@@ -1215,13 +1215,27 @@ function statusBerechnen(knoten, kinder, summen) {
       const teile = zaehlendeKids.map((c) => ergebnis[c]);
       if (wieBlatt || eigeneZeilen) teile.push({ anzahl: eigenerHaken.length, kuerzel: eigenerHaken });
 
-      const anzahl = teile.reduce((min, t) => Math.min(min, t.anzahl), HAKEN_MAX);
-      const erstes = kuerzelText(teile[0].kuerzel);
-      const einig = erstes && teile.every((t) => kuerzelText(t.kuerzel) === erstes);
+      // WER ist durch alles darunter durch? Das ist der DURCHSCHNITT der
+      // Kürzel über alle mitzählenden Teile -- nicht das Minimum der
+      // ANZAHLEN. Die beiden fallen genau dann auseinander, wenn
+      // verschiedene Leute verschiedene Äste abgehakt haben, und dort war
+      // die alte Rechnung irreführend (November 2026 gemeldet):
+      //   - Das Kürzel erschien nur, wenn ALLE Kinder genau dasselbe
+      //     meldeten -- sonst stand da ein grünes Kästchen OHNE Kürzel
+      //     ("manchmal schreibt es keine Initialen rein").
+      //   - Und es konnte grün sein, obwohl NIEMAND alles angeschaut
+      //     hatte: ein Kind nur von MV, das andere nur von JH, Minimum 1.
+      // Mit dem Durchschnitt gilt beides zusammen: grün heisst "diese
+      // Person war überall darunter durch", und ein grünes Kästchen trägt
+      // IMMER ein Kürzel (anzahl ist genau dessen Länge).
+      const gemeinsam = teile.reduce(
+        (bisher, t) => bisher.filter((kuerzel) => t.kuerzel.includes(kuerzel)),
+        [...teile[0].kuerzel]
+      );
       ergebnis[k.nr] = {
-        anzahl,
-        kuerzel: einig ? teile[0].kuerzel : [],
-        gelb: !anzahl && betragVon(k.nr),
+        anzahl: gemeinsam.length,
+        kuerzel: gemeinsam,
+        gelb: !gemeinsam.length && betragVon(k.nr),
         eigeneFrage,
         fragen,
         zaehlt: true,

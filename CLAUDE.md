@@ -154,8 +154,18 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   den DEMODATEN sind die Schlüssel zufällig zweistellig ("an", "tb"),
   deshalb fiel es im Test nicht auf -- Testdaten tragen deshalb jetzt lange
   Schlüssel.
-  Über einer GRUPPE steht das Minimum ihrer Blätter, und ein Kürzel nur,
-  wenn alles darunter von denselben Leuten kommt. Ein Klick aufs
+  Über einer GRUPPE steht, WER durch alles darunter durch ist: der
+  DURCHSCHNITT der Kürzel über die mitzählenden Teile, nicht das Minimum
+  der ANZAHLEN (`gemeinsam` in `statusBerechnen()`, November 2026 als
+  "manchmal schreibt es keine Initialen rein" gemeldet). Die beiden fallen
+  auseinander, sobald verschiedene Leute verschiedene Äste abgehakt haben,
+  und dort war das Minimum irreführend: das Kürzel erschien nur, wenn ALLE
+  Kinder genau dasselbe meldeten -- sonst stand da ein grünes Kästchen OHNE
+  Kürzel --, und es konnte grün sein, obwohl NIEMAND alles angeschaut hatte
+  (ein Ast nur von MV, der andere nur von JH, Minimum 1). Mit dem
+  Durchschnitt gilt: grün heisst "diese Person war überall darunter durch",
+  `anzahl` ist genau die Länge des Kürzels, und ein grünes Kästchen trägt
+  IMMER eines. Ein Klick aufs
   Gruppen-Kästchen setzt MEIN Häkchen auf den Knoten selbst UND AUF ALLES
   DARUNTER -- Unterkapitel wie Blätter, leer oder nicht (`hakenZiele()`,
   November 2026 ausdrücklich so gewünscht: "man sollte auf jeder Ebene
