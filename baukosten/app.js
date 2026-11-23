@@ -1081,51 +1081,77 @@ function kinderMap(knoten) {
   return map;
 }
 
+// Ein Knoten ZÄHLT MIT, sobald unter ihm etwas steht: eine Zeile oder ein
+// gesetztes Häkchen. Alles andere bleibt beim Hochrechnen aussen vor --
+// und das ist der Kern der Sache: unter einer Position hängen acht
+// Gattungen des Katalogs, unter einer Gattung hunderte Knoten der
+// Preisliste, erfasst ist davon immer nur ein Bruchteil. Zählte der leere
+// Rest mit, stünde das Minimum einer Gruppe auf ewig bei null, und eine
+// Position würde nie grün, obwohl alles Erfasste darunter abgehakt ist
+// (genau so gemeldet). "Noch nicht angeschaut" heisst hier also: es ist
+// etwas erfasst, aber niemand war dran -- nicht: diese Katalognummer
+// existiert und ist leer.
+function knotenZaehlt(nr) {
+  return !!(zeilenVon(nr).length || hakenVon(nr).length);
+}
+
 // Der Stand einer Gruppe wird NICHT gespeichert, sondern aus ihren Kindern
-// gerechnet: sie hat so viele Häkchen, wie ALLE ihre Kinder mindestens
-// haben (das Minimum). Eine Elementgruppe wird also erst grün, wenn jede
-// ihrer Positionen grün ist -- genau das soll beim gemeinsamen Durchgehen
-// sichtbar machen, wo noch niemand war. Gespeichert wird nur an den
-// Blättern (Positionen, Gattungen bzw. eigene Unterkapitel, und jene
-// Reservegruppen, die gar keine Positionen haben).
+// gerechnet: sie hat so viele Häkchen, wie alle MITZÄHLENDEN Kinder
+// mindestens haben (das Minimum). Eine Elementgruppe wird also grün,
+// sobald jede erfasste Position darunter grün ist -- das soll beim
+// gemeinsamen Durchgehen sichtbar machen, wo noch niemand war.
+// Gespeichert wird an den Blättern (Positionen, Gattungen bzw. eigene
+// Unterkapitel) und zusätzlich an jedem Knoten, der EIGENE Zeilen trägt:
+// ein Knoten darf Zeilen und Unterkapitel gleichzeitig haben, und seine
+// eigenen Zeilen hängen an seiner Nummer -- ohne sie im Minimum liesse
+// sich für sie nirgends ein Häkchen setzen.
 //
 // Je Knoten entsteht: wie viele Häkchen (0-2), welche Kürzel (nur wenn
 // darunter alle dasselbe sagen -- sonst wäre die Angabe falsch), ob er
-// GELB ist (hat einen Betrag, aber noch kein Häkchen), die eigene Frage
-// und wie viele Fragen in seinem Ast offen sind.
+// GELB ist (hat einen Betrag, aber noch kein Häkchen), die eigene Frage,
+// wie viele Fragen in seinem Ast offen sind, und ob er mitzählt.
 function statusBerechnen(knoten, kinder, summen) {
   const ergebnis = {};
   const betragVon = (nr) => !!(summen && summen[nr]);
   [...knoten]
     .sort((a, b) => knotenEbene(b.nr) - knotenEbene(a.nr))
     .forEach((k) => {
-      const kids = kinder[k.nr];
+      const kids = kinder[k.nr] || [];
       const eigeneFrage = frageVon(k.nr);
-      if (!kids || !kids.length) {
-        const haken = hakenVon(k.nr);
-        ergebnis[k.nr] = {
-          anzahl: haken.length,
-          kuerzel: haken,
-          gelb: !haken.length && betragVon(k.nr),
-          eigeneFrage,
-          fragen: eigeneFrage ? 1 : 0
-        };
-        return;
-      }
-      let min = HAKEN_MAX;
+      // Fragen zählen über ALLE Kinder, auch über leere: eine Frage steht
+      // nur dort, wo jemand sie gestellt hat.
       let fragen = eigeneFrage ? 1 : 0;
       kids.forEach((c) => {
-        min = Math.min(min, ergebnis[c].anzahl);
         fragen += ergebnis[c].fragen;
       });
-      const erstes = kuerzelText(ergebnis[kids[0]].kuerzel);
-      const einig = erstes && kids.every((c) => kuerzelText(ergebnis[c].kuerzel) === erstes);
+
+      const eigeneZeilen = zeilenVon(k.nr).length;
+      const eigenerHaken = hakenVon(k.nr);
+      const zaehlendeKids = kids.filter((c) => ergebnis[c].zaehlt);
+      const zaehlt = kids.length
+        ? !!(zaehlendeKids.length || eigeneZeilen)
+        : knotenZaehlt(k.nr);
+      if (!zaehlt) {
+        ergebnis[k.nr] = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage, fragen, zaehlt: false };
+        return;
+      }
+
+      // Was ins Minimum eingeht: die mitzählenden Kinder -- und der eigene
+      // Stand, wenn der Knoten selbst die Position ist (keine Kinder) oder
+      // eigene Zeilen trägt.
+      const teile = zaehlendeKids.map((c) => ergebnis[c]);
+      if (!kids.length || eigeneZeilen) teile.push({ anzahl: eigenerHaken.length, kuerzel: eigenerHaken });
+
+      const anzahl = teile.reduce((min, t) => Math.min(min, t.anzahl), HAKEN_MAX);
+      const erstes = kuerzelText(teile[0].kuerzel);
+      const einig = erstes && teile.every((t) => kuerzelText(t.kuerzel) === erstes);
       ergebnis[k.nr] = {
-        anzahl: min,
-        kuerzel: einig ? ergebnis[kids[0]].kuerzel : [],
-        gelb: !min && betragVon(k.nr),
+        anzahl,
+        kuerzel: einig ? teile[0].kuerzel : [],
+        gelb: !anzahl && betragVon(k.nr),
         eigeneFrage,
-        fragen
+        fragen,
+        zaehlt: true
       };
     });
   return ergebnis;
@@ -1133,7 +1159,7 @@ function statusBerechnen(knoten, kinder, summen) {
 
 // Damit eine fehlende Angabe nirgends einen Absturz auslöst (z.B. ein
 // Knoten, den die Suche gerade nicht gerechnet hat).
-const LEERER_STAND = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0 };
+const LEERER_STAND = { anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0, zaehlt: false };
 
 // Nur noch für den Einstiegshinweis unter der Werkzeugleiste: solange gar
 // nichts erfasst ist, erklärt er, wie man anfängt.
@@ -2701,6 +2727,7 @@ function mutate(mutateFn, { neuRendern = false } = {}) {
   if (!filename) return Promise.resolve();
   offen = mutateFn(offen) || offen;
   cacheAktualisieren(filename, offen);
+  beschleunigeLive();
   if (neuRendern) render();
   else refreshSummen();
   syncQueue = syncQueue.then(() => persist(filename, mutateFn));
@@ -2804,6 +2831,7 @@ async function holeFremdenStand({ sanft = false } = {}) {
   // wo er ist. Genau dafür ist der Live-Takt da.
   if (sanft && nurStandGeaendert(offen, neu)) {
     const was = standUnterschied(offen, neu);
+    letzteAktivitaet = Date.now();
     offen = neu;
     cacheAktualisieren(filename, offen);
     aktualisiereStandAnzeige(was.nummern);
@@ -2820,6 +2848,7 @@ async function holeFremdenStand({ sanft = false } = {}) {
     return false;
   }
   standAusstehend = false;
+  letzteAktivitaet = Date.now();
   offen = neu;
   cacheAktualisieren(filename, offen);
   renderTabelleErhalten();
@@ -2868,10 +2897,26 @@ function zeitpunktText(iso) {
 // Speichern zu merken ginge nur mit einer zweiten Anfrage danach -- und
 // hätte die andere Person dazwischen geschrieben, wäre genau deren
 // Änderung für immer als "gesehen" abgehakt.
-const LIVE_TAKT_MS = 8000;
+// Der Takt PASST SICH AN, statt immer gleich schnell zu laufen: eine
+// Schätzung liegt oft stundenlang offen, ohne dass jemand anders drin
+// ist -- dort ist jede Anfrage verschenkt. Solange aber gerade etwas
+// passiert (eigene oder fremde Änderung in den letzten zwei Minuten),
+// sitzt man typischerweise zu zweit daran und geht sie durch. Dann sind
+// drei Sekunden praktisch sofort. Unter ein bis zwei Sekunden lohnt es
+// sich nicht: dort liegt schon der Roundtrip Browser -> Worker ->
+// Nextcloud, und sehen würde man den Unterschied nicht.
+const LIVE_TAKT_SCHNELL = 3000;
+const LIVE_TAKT_RUHIG = 15000;
+const LIVE_AKTIV_MS = 2 * 60 * 1000;
 
+let liveAn = false;
 let liveTimer = null;
+// Zählt bei jedem Start/Stopp hoch: eine noch laufende Schleife aus einem
+// früheren Durchgang (z.B. eine andere Schätzung) darf sich nicht selbst
+// wieder einplanen.
+let liveLauf = 0;
 let liveLaeuft = false;
+let letzteAktivitaet = 0;
 let letzteDateiKennung = "";
 // Ein fremder Stand, der mehr als Häkchen/Fragen ändert, während hier
 // jemand in einem Feld tippt: aufgeschoben, nicht aufbewahrt (siehe
@@ -2885,15 +2930,38 @@ function liveMoeglich() {
   return !!offenFilename && isConfigured() && navigator.onLine && !istDemo();
 }
 
+function liveTaktZeit() {
+  return Date.now() - letzteAktivitaet < LIVE_AKTIV_MS ? LIVE_TAKT_SCHNELL : LIVE_TAKT_RUHIG;
+}
+
+// Kein setInterval: der Abstand ändert sich, und ein zäher Takt soll sich
+// nicht stapeln. Die Schleife plant sich nach jedem Durchgang neu ein.
+function planeLive(lauf, verzoegerung) {
+  if (lauf !== liveLauf) return;
+  if (!liveMoeglich() || document.visibilityState !== "visible") return stoppeLive();
+  liveTimer = setTimeout(() => liveSchleife(lauf), verzoegerung === undefined ? liveTaktZeit() : verzoegerung);
+}
+
+async function liveSchleife(lauf) {
+  if (lauf !== liveLauf) return;
+  liveTimer = null;
+  await liveTakt();
+  planeLive(lauf);
+}
+
 function starteLive() {
   stoppeLive();
   if (!liveMoeglich()) return;
-  liveTimer = setInterval(liveTakt, LIVE_TAKT_MS);
-  liveTakt();
+  liveAn = true;
+  // Gerade geöffnet -- die ersten Minuten im schnellen Takt.
+  letzteAktivitaet = Date.now();
+  liveSchleife(++liveLauf);
 }
 
 function stoppeLive() {
-  if (liveTimer) clearInterval(liveTimer);
+  liveLauf++;
+  liveAn = false;
+  clearTimeout(liveTimer);
   liveTimer = null;
   clearTimeout(nachholTimer);
   letzteDateiKennung = "";
@@ -2902,6 +2970,18 @@ function stoppeLive() {
   standAusstehend = false;
   praesenzStand = {};
   zeigePraesenz();
+}
+
+// Nach einer eigenen Änderung kommt die Antwort der anderen Person oft
+// gleich darauf -- dann nicht erst den ruhigen Takt zu Ende warten.
+// Läuft gerade ein Durchgang (liveTimer === null), erledigt der das schon.
+function beschleunigeLive() {
+  const warRuhig = Date.now() - letzteAktivitaet >= LIVE_AKTIV_MS;
+  letzteAktivitaet = Date.now();
+  if (!liveAn || !liveTimer || !warRuhig) return;
+  clearTimeout(liveTimer);
+  liveTimer = null;
+  planeLive(liveLauf, LIVE_TAKT_SCHNELL);
 }
 
 async function liveTakt() {
@@ -3017,7 +3097,7 @@ async function schreibePraesenz() {
 // längst weg ist. Fehler sind hier belanglos: der Eintrag veraltet ohnehin.
 function meldeAbwesend() {
   const ich = meinKuerzel();
-  if (!liveTimer || !ich) return;
+  if (!liveAn || !ich) return;
   (async () => {
     try {
       const stand = await fetchFile(PRAESENZ_DATEI);
@@ -3276,10 +3356,28 @@ function legeZeileAn(nr, { mitFenster } = {}) {
 // nimmt der Klick es überall weg, sonst setzt er es überall. Positionen,
 // auf denen bereits zwei andere stehen, bleiben dabei unberührt -- das
 // Häkchen des Partners kann niemand entfernen.
+// Wo das Häkchen wirklich landet. Auf einer Gruppe sind das NUR die
+// Blätter, unter denen etwas steht (dieselbe Regel wie knotenZaehlt()) --
+// sonst schriebe ein Klick auf eine Hauptgruppe hunderte leerer
+// Katalognummern in die Datei, mit der Gliederung der Preisliste
+// tausende. Dazu der Knoten selbst, wenn er eigene Zeilen trägt: die
+// hängen an seiner Nummer und hätten sonst nirgends ein Häkchen.
+function hakenZiele(nr, istBlatt) {
+  if (istBlatt) return [nr];
+  const knoten = alleKnoten();
+  const kinder = kinderMap(knoten);
+  const ziele = knoten
+    .filter((k) => k.nr !== nr && vorfahren(k.nr).includes(nr))
+    .filter((k) => !(kinder[k.nr] || []).length && knotenZaehlt(k.nr))
+    .map((k) => k.nr);
+  if (zeilenVon(nr).length) ziele.push(nr);
+  return ziele;
+}
+
 function setzeHaken(nr, istBlatt) {
   const ich = meinKuerzel();
   if (!ich) return;
-  const ziele = istBlatt ? [nr] : blattNummernUnter(nr);
+  const ziele = hakenZiele(nr, istBlatt);
   if (!ziele.length) return;
   const an = !ziele.every((ziel) => hakenVon(ziel).includes(ich));
   mutate((data) => {
@@ -4785,7 +4883,7 @@ function init() {
       starteLive();
       // Kein Live-Takt möglich (Demomodus, offline): dann wie bisher einmal
       // beim Zurückkehren in den Tab nachladen.
-      if (!liveTimer) holeFremdenStand();
+      if (!liveAn) holeFremdenStand();
     } else refreshAlle();
   });
   // Beim Schliessen des Tabs kommt kein visibilitychange mehr, das ist die

@@ -158,6 +158,22 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   wenn alles darunter von denselben Leuten kommt. Ein Klick aufs
   Gruppen-Kästchen setzt MEIN Häkchen auf alles darunter (noch einer nimmt
   es überall weg); die Häkchen der anderen Person bleiben.
+  Ins Minimum gehen NUR die MITZÄHLENDEN Knoten ein (`knotenZaehlt()`: hat
+  eine Zeile oder ein Häkchen), und `hakenZiele()` setzt auch nur dort --
+  November 2026, als Bug gemeldet und behoben. Davor zählte der leere Rest
+  des Katalogs mit: unter einer Position hängen acht Gattungen, unter einer
+  Gattung hunderte Knoten der Preisliste, erfasst ist ein Bruchteil -- das
+  Minimum stand auf ewig bei 0 und eine Position wurde NIE grün, obwohl
+  alles Erfasste darunter abgehakt war. Umgekehrt schrieb ein Klick auf
+  eine Hauptgruppe hunderte leerer Nummern in die Datei (mit Preisliste
+  tausende). "Noch nicht angeschaut" heisst also: etwas ist erfasst, aber
+  niemand war dran -- nicht: diese Katalognummer ist leer.
+  Ein Knoten mit EIGENEN ZEILEN bringt zusätzlich seinen eigenen
+  `hakenVon(nr)` ins Minimum ein und steht selbst in `hakenZiele()`: ein
+  Knoten darf Zeilen und Unterkapitel gleichzeitig haben, und für seine
+  eigenen Zeilen liesse sich sonst nirgends ein Häkchen setzen.
+  `statusBerechnen()` führt dafür `zaehlt` je Knoten mit (`LEERER_STAND`
+  hat es auch).
 - **Fragen `baukosten/`** (`fragen: { "<nr>": "MV" }`, `frageHtml()`): das
   runde Feld neben dem Kästchen ist ein Hinweis an die andere Person. Es
   hängt wie das Häkchen an der NUMMER, nicht an der Zeile -- gefragt wird
@@ -183,9 +199,9 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   gleichzeitig (der Letzte gewinnt) und das Fenster zwischen Holen und
   Schreiben -- ein `If-Match` bräuchte einen Worker-Deploy, `worker.js`
   reicht weder `If-Match` hinein noch `ETag` heraus.
-- **Live-Takt `baukosten/`** (`liveTakt()`, `LIVE_TAKT_MS` = 8000, seit
-  November 2026): solange eine Schätzung offen und der Tab sichtbar ist,
-  wird alle acht Sekunden `ordnerEintraege()` gerufen -- ein PROPFIND mit
+- **Live-Takt `baukosten/`** (`liveTakt()`, seit November 2026): solange
+  eine Schätzung offen und der Tab sichtbar ist,
+  wird `ordnerEintraege()` gerufen -- ein PROPFIND mit
   `getetag` (ersatzweise `getlastmodified`) auf den ORDNER, also ein paar
   hundert Bytes statt einer Schätzung von hunderten Kilobyte. Erst eine
   geänderte Kennung löst den GET aus. Dieselbe Anfrage liefert nebenbei die
@@ -200,6 +216,23 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Im Demomodus läuft er nicht (`liveMoeglich()`): dort gibt es keine zweite
   Person, und die Attrappe kennt keine ETags -- `visibilitychange` fällt
   dann auf den bisherigen `holeFremdenStand()` zurück.
+- **Der Takt PASST SICH AN** (`liveTaktZeit()`, seit November 2026):
+  `LIVE_TAKT_SCHNELL` 3000, solange in den letzten `LIVE_AKTIV_MS` (2 min)
+  etwas passiert ist, sonst `LIVE_TAKT_RUHIG` 15000. Eine Schätzung liegt
+  oft stundenlang offen, ohne dass jemand anders drin ist -- dort ist jede
+  Anfrage verschenkt; beim gemeinsamen Durchgehen sind drei Sekunden
+  dagegen praktisch sofort. Unterm Strich WENIGER Anfragen als mit einem
+  festen Takt. `letzteAktivitaet` setzen: `mutate()` (eigene Änderung, über
+  `beschleunigeLive()`, das einen ruhig eingeplanten Takt vorzieht), die
+  beiden Übernahme-Zweige von `holeFremdenStand()` und `starteLive()`.
+  Deshalb KEIN `setInterval` mehr, sondern eine Schleife aus `setTimeout`
+  (`planeLive()`/`liveSchleife()`) mit `liveLauf` als Generationszähler --
+  eine Schleife aus einem früheren Durchgang darf sich nicht selbst wieder
+  einplanen. "Läuft der Takt?" ist `liveAn`, NICHT `liveTimer`: während
+  eines laufenden Durchgangs ist `liveTimer` null, und der
+  `visibilitychange`-Rückfall auf `holeFremdenStand()` würde sonst doppelt
+  holen. Unter ein bis zwei Sekunden lohnt es sich nicht -- dort liegt
+  schon der Roundtrip Browser -> Worker -> Nextcloud.
 - **Der Live-Takt baut NICHT neu** (`aktualisiereStandAnzeige()`): sind nur
   `haken`/`fragen` anders (`nurStandGeaendert()`, Vergleich ohne diese
   beiden Felder), werden die Kästchen einzeln per `outerHTML` ersetzt --

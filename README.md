@@ -1773,20 +1773,35 @@ feiner Unterschied, wenn nur ein 34 × 15 Pixel grosses Kästchen den Stand
 zeigt. Die Breite ist fest — mitwachsend stünden die BKP-Nummern von Zeile zu
 Zeile woanders.
 
-Gespeichert wird nur an den **Blättern** (dreistellige Positionen, eigene
-Unterkapitel und jene Reservegruppen ohne Positionen), in
-`haken: { "<BKP-Nr>": ["JH", "MV"] }`. Eine **Gruppe rechnet ihren Stand aus
-den Kindern**: sie hat so viele Häkchen, wie *alle* ihre Kinder mindestens
-haben (`statusBerechnen()`). Das Kästchen einer Elementgruppe wird also erst
-grün, wenn jede ihrer Positionen grün ist, und das einer Hauptgruppe erst,
-wenn all ihre Elementgruppen so weit sind — genau das macht sichtbar, wo noch
-niemand war. Ein Kürzel steht auf der Gruppe nur, wenn alles darunter von
-denselben Leuten kommt; sonst bleibt es leer.
+Gespeichert wird an den **Blättern** (dreistellige Positionen, Gattungen,
+eigene Unterkapitel) in `haken: { "<BKP-Nr>": ["JH", "MV"] }` — und
+zusätzlich an jedem Knoten, der **eigene Zeilen** trägt: ein Kapitel darf
+Zeilen und Unterkapitel gleichzeitig haben, und seine eigenen Zeilen hängen
+an seiner Nummer.
+
+Eine **Gruppe rechnet ihren Stand aus den Kindern**: sie hat so viele
+Häkchen, wie *alle* ihre Kinder mindestens haben (`statusBerechnen()`). Das
+Kästchen einer Elementgruppe wird also grün, sobald jede Position darunter
+grün ist, und das einer Hauptgruppe, sobald all ihre Elementgruppen so weit
+sind — genau das macht sichtbar, wo noch niemand war. Ein Kürzel steht auf
+der Gruppe nur, wenn alles darunter von denselben Leuten kommt; sonst bleibt
+es leer.
+
+Gezählt werden dabei **nur die Nummern, unter denen etwas steht** (eine
+Zeile oder ein Häkchen). Das ist entscheidend: unter einer Position hängen
+acht Gattungen des Katalogs, unter einer Gattung hunderte Knoten der
+Preisliste — erfasst ist davon immer nur ein Bruchteil. Zählte der leere
+Rest mit, stünde das Minimum jeder Gruppe auf ewig bei null und eine
+Position würde nie grün, obwohl alles Erfasste darunter abgehakt ist.
+"Noch nicht angeschaut" heisst hier also: *es ist etwas erfasst, aber
+niemand war dran* — nicht: *diese Katalognummer existiert und ist leer*.
 
 Das **Kästchen einer Gruppe lässt sich anklicken**: es setzt mein Häkchen auf
-alle Positionen darunter, ein weiterer Klick nimmt es überall wieder weg —
-eine fertig besprochene Elementgruppe ist so mit einem Klick abgehakt statt
-Zeile für Zeile. Die Häkchen der anderen Person bleiben dabei unberührt. Der
+alle erfassten Positionen darunter, ein weiterer Klick nimmt es überall
+wieder weg — eine fertig besprochene Elementgruppe ist so mit einem Klick
+abgehakt statt Zeile für Zeile. Leere Katalognummern bleiben dabei aussen
+vor, sonst stünden nach einem Klick auf eine Hauptgruppe hunderte davon in
+der Datei. Die Häkchen der anderen Person bleiben unberührt. Der
 **restliche Teil der Zeile klappt weiterhin auf und zu** — nur das Kästchen
 selbst setzt das Häkchen.
 
@@ -2331,10 +2346,19 @@ Kostenschätzung hat hunderte davon.
 #### Live: was die andere Person tut, erscheint von selbst
 
 Solange eine Schätzung offen und das Fenster sichtbar ist, schaut die App
-**alle acht Sekunden** nach, ob sich auf Nextcloud etwas getan hat. Geladen
+regelmässig nach, ob sich auf Nextcloud etwas getan hat. Geladen
 wird dabei nicht die Schätzung — eine Anfrage nach dem Ordnerinhalt
 genügt, das sind ein paar hundert Bytes statt hunderter Kilobyte. Erst
 wenn die Datei sich wirklich geändert hat, wird sie geholt.
+
+**Wie oft gefragt wird, richtet sich danach, ob gerade etwas läuft**: alle
+**3 Sekunden**, solange in den letzten zwei Minuten eine Änderung kam
+(eigene oder fremde) — dann sitzt ihr typischerweise zu zweit daran und
+geht sie durch, und 3 Sekunden fühlen sich praktisch sofort an. Ist es
+still, fällt der Takt auf **15 Sekunden** zurück; eine Schätzung liegt oft
+stundenlang offen, ohne dass jemand anders drin ist. Eine eigene Änderung
+weckt den schnellen Takt sofort wieder — die Antwort der anderen Person
+kommt meist genau dann.
 
 Danach kommt es darauf an, **was** sich geändert hat:
 
@@ -2384,8 +2408,10 @@ Was bleibt:
   derselben Sekunde, fällt eine Änderung weg. Ein `If-Match` würde das
   schliessen, bräuchte aber einen neuen Worker-Deploy — `worker.js` reicht
   weder `If-Match` hinein noch `ETag` heraus.
-- **Ein paar Sekunden Verzögerung**: der Takt ist acht Sekunden, kein
-  Push. Nextcloud kann den Browser nicht von sich aus anstupsen.
+- **Ein paar Sekunden Verzögerung**: es bleibt ein Takt, kein Push.
+  Nextcloud kann den Browser nicht von sich aus anstupsen. Unter ein bis
+  zwei Sekunden brächte es ohnehin nichts — dort liegt schon der Weg
+  Browser → Worker → Nextcloud und zurück.
 
 ---
 
