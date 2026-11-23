@@ -156,8 +156,25 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   Schlüssel.
   Über einer GRUPPE steht das Minimum ihrer Blätter, und ein Kürzel nur,
   wenn alles darunter von denselben Leuten kommt. Ein Klick aufs
-  Gruppen-Kästchen setzt MEIN Häkchen auf alles darunter (noch einer nimmt
-  es überall weg); die Häkchen der anderen Person bleiben.
+  Gruppen-Kästchen setzt MEIN Häkchen auf den Knoten selbst UND AUF ALLES
+  DARUNTER -- Unterkapitel wie Blätter, leer oder nicht (`hakenZiele()`,
+  November 2026 ausdrücklich so gewünscht: "man sollte auf jeder Ebene
+  abhaken können und immer werden die Unterkapitel entsprechend
+  überschrieben"). Noch einer nimmt es überall weg; die Häkchen der anderen
+  Person bleiben. Kurzzeitig war das enger gefasst (nur Knoten mit Inhalt),
+  um die Datei klein zu halten -- dabei blieben die Unterkapitel beim Klick
+  aufs Überkapitel weiss, und genau das wurde als Fehler gemeldet. Der
+  Preis ist bekannt und in Kauf genommen: ein Klick weit oben schreibt für
+  jede Nummer darunter einen Eintrag (mit der Gliederung der Preisliste
+  also tausende, rund 30 Bytes je Eintrag).
+  ACHTUNG FÜR TESTS: ein Gruppenklick nimmt seinen ganzen Ast mit. Zwei
+  Klicks auf Gruppe-dann-Blatt-darunter NEHMEN das Häkchen am Blatt wieder
+  WEG. Jeder unabhängige Fall braucht deshalb einen frischen Stand -- und
+  der muss über `mutate()` laufen, nicht bloss `offen.haken = {}`, sonst
+  kennt die nachgestellte Nextcloud den alten Stand weiter und der
+  Live-Takt holt ihn zurück. Ein Stand, der von Hand nur AUF DEN KNOTEN
+  geschrieben wird (ohne seinen Ast), ist über die Oberfläche gar nicht
+  erreichbar und taugt nicht als Vorbedingung.
   Ins Minimum gehen NUR die MITZÄHLENDEN Knoten ein (`zaehlt` aus
   `statusBerechnen()`: an ihm oder unter ihm steht eine Zeile oder ein
   Häkchen) -- November 2026, als Bug gemeldet und behoben. Davor zählte der

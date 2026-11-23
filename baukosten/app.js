@@ -3485,31 +3485,29 @@ function legeZeileAn(nr, { mitFenster } = {}) {
 // nimmt der Klick es überall weg, sonst setzt er es überall. Positionen,
 // auf denen bereits zwei andere stehen, bleiben dabei unberührt -- das
 // Häkchen des Partners kann niemand entfernen.
-// Wo das Häkchen wirklich landet. Ein Gruppenklick trifft GENAU die
-// Knoten, an denen der Stand gespeichert ist und die mitzählen
-// (`zaehlt && eigen` aus statusBerechnen()) -- dieselbe Definition, die
-// auch die Anzeige benutzt. Nur so stimmen Klick und Kästchen überein:
+// Wo das Häkchen landet: auf dem Knoten SELBST und auf ALLEM darunter --
+// Unterkapitel wie Blätter, leer oder nicht. Ein Klick auf ein Überkapitel
+// hakt damit alles darunter mit ab und überschreibt dort einen abweichenden
+// Stand; derselbe Klick nochmals nimmt es überall wieder weg. Auf jeder
+// Ebene abhaken zu können und die Unterkapitel immer mitzunehmen ist
+// ausdrücklich so gewünscht (November 2026).
 //
-//   - Blätter mit Inhalt und Knoten mit eigenen Zeilen: klar.
-//   - Leere Unterkapitel, die ihr eigenes Häkchen tragen: müssen mit,
-//     sonst liesse sich ein einmal abgehaktes leeres Kapitel über die
-//     Gruppe nicht mehr zurücksetzen.
-//   - Leere Knoten OHNE Häkchen: bleiben draussen, sonst schriebe ein
-//     Klick auf eine Hauptgruppe hunderte leerer Katalognummern in die
-//     Datei (mit der Gliederung der Preisliste tausende).
+// Kurzzeitig war das enger gefasst (nur Knoten mit Inhalt), um die Datei
+// klein zu halten -- dabei blieben die Unterkapitel beim Klick aufs
+// Überkapitel weiss, und genau das wurde als Fehler gemeldet. Der Preis
+// ist bekannt und in Kauf genommen: ein Klick weit oben schreibt für jede
+// Nummer darunter einen Eintrag in `haken`, mit der Gliederung der
+// Preisliste also tausende (rund 30 Bytes je Eintrag).
 //
-// Ist unter dem Knoten gar nichts dergleichen, hakt der Klick IHN selbst
-// ab ("durchgegangen, hier kommt nichts") statt ins Leere zu laufen.
+// Die ANZEIGE bleibt davon unberührt: `statusBerechnen()` rechnet das
+// Minimum weiterhin nur über die MITZÄHLENDEN Knoten (`zaehlt`), eine
+// leere Katalognummer ohne Häkchen zieht eine Gruppe also nach wie vor
+// nicht auf null.
 function hakenZiele(nr, istBlatt) {
   if (istBlatt) return [nr];
-  const knoten = alleKnoten();
-  const kinder = kinderMap(knoten);
-  const status = statusBerechnen(knoten, kinder, alleSummen().summen);
-  const ziele = knoten
-    .filter((k) => k.nr !== nr && vorfahren(k.nr).includes(nr))
-    .filter((k) => status[k.nr] && status[k.nr].zaehlt && status[k.nr].eigen)
+  const ziele = alleKnoten()
+    .filter((k) => k.nr === nr || vorfahren(k.nr).includes(nr))
     .map((k) => k.nr);
-  if (zeilenVon(nr).length) ziele.push(nr);
   return ziele.length ? ziele : [nr];
 }
 

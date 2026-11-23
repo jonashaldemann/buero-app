@@ -47,3 +47,11 @@ _preisliste.json
 # Prompts mit Projekt- und Programmnamen -- war bis November 2026
 # versehentlich versioniert.
 claude_todos.txt
+
+# Bildschirmfotos, die der Nutzer zum Zeigen eines Fehlers kurz im
+# Repo-Root ablegt. Sie zeigen echte Schätzungen samt PROJEKTNAMEN und
+# gehören nie ins (öffentliche!) Repo -- einmal ist eines über `git add -A`
+# versehentlich in einen Commit gerutscht (November 2026).
+/Bildschirmfoto*.png
+/Screenshot*.png
+/Bildschirmfoto*.jpg

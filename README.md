@@ -1810,14 +1810,20 @@ In der **Kapitelansicht** steht das Kästchen des gerade offenen Kapitels
 anschaut. Die Positionszeilen darunter haben bewusst keines: das Häkchen
 hängt an der BKP-Nummer, nicht an der einzelnen Zeile.
 
-Das **Kästchen einer Gruppe lässt sich anklicken**: es setzt mein Häkchen auf
-alles Abgehakte und Erfasste darunter, ein weiterer Klick nimmt es überall
-wieder weg — eine fertig besprochene Elementgruppe ist so mit einem Klick
-abgehakt statt Zeile für Zeile. Leere Katalognummern bleiben dabei aussen
-vor, sonst stünden nach einem Klick auf eine Hauptgruppe hunderte davon in
-der Datei. Die Häkchen der anderen Person bleiben unberührt. Der
-**restliche Teil der Zeile klappt weiterhin auf und zu** — nur das Kästchen
-selbst setzt das Häkchen.
+**Abgehakt wird auf jeder Ebene**, und ein Klick nimmt immer **alles
+darunter** mit: das Kästchen einer Gruppe setzt mein Häkchen auf sie selbst
+und auf jedes Unterkapitel und jede Position darunter, leer oder nicht. Ein
+weiterer Klick nimmt es überall wieder weg. Eine fertig besprochene
+Elementgruppe ist so mit einem Klick erledigt statt Zeile für Zeile, und die
+Unterkapitel zeigen danach denselben Stand. Die Häkchen der anderen Person
+bleiben dabei unberührt — hat sie ihren Ast schon abgehakt, steht danach
+überall *beides*. Der **restliche Teil der Zeile klappt weiterhin auf und
+zu** — nur das Kästchen selbst setzt das Häkchen.
+
+Ein Klick weit oben schreibt damit für jede Nummer darunter einen Eintrag
+in die Datei; mit der Gliederung der Preisliste können das einige tausend
+sein. Das ist bewusst in Kauf genommen — die Alternative wäre, dass die
+Unterkapitel beim Klick aufs Überkapitel weiss bleiben.
 
 #### Fragen
 
