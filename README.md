@@ -78,7 +78,8 @@ ausprobieren, ohne echte Bürodaten zu sehen.
   Projekt nicht relevante leere Positionen eines (hellgrün, "AN"), und weiss
   bzw. gelb bleibt, was noch offen ist — Elektro, Heizung, Sanitär, ein paar
   Ausbaupositionen, das Geländer und der Honorarsatz. Drei Positionen tragen
-  ein **Fragezeichen**, damit auch das zu sehen ist.
+  ein **Fragezeichen** mit Wortlaut ("Anzahl Steckdosen mit der Bauherrschaft
+  nochmals anschauen."), damit auch das zu sehen ist.
   Auch die **Module** sind so gesetzt, wie sie gemeint sind: rund 80%
   der Kosten tragen keines, und die beiden Module ("Dachterrasse", "Ersatz
   Küche") sind separat zu entscheidende Teilbereiche. Jede Zeile mit einem
@@ -1834,20 +1835,30 @@ Unterkapitel beim Klick aufs Überkapitel weiss bleiben.
 #### Fragen
 
 Das runde Feld **?** neben dem Kästchen stellt der anderen Person eine Frage:
-"schau dir das bitte genauer an". Es wird rot und nennt im Tooltip, von wem
-die Frage stammt. **Wegnehmen darf sie jede und jeder** — auch wer sie nicht
-gestellt hat, sonst stapeln sich längst beantwortete Fragen.
+"schau dir das bitte genauer an". Beim Klick wird nach dem **Wortlaut der
+Frage** gefragt; danach ist das Feld rot. **Wegnehmen darf sie jede und
+jeder** — auch wer sie nicht gestellt hat, sonst stapeln sich längst
+beantwortete Fragen. Mit dem Fragezeichen verschwindet auch ihr Text: eine
+Frage ist ein Hinweis, kein Verlauf. Wer sie anders formulieren will, nimmt
+sie weg und stellt sie neu.
+
+**Was gefragt wurde, steht beim Überfahren mit der Maus** — Kürzel und
+Wortlaut in einem kleinen Kasten unter dem Fragezeichen. Am Fragezeichen
+einer **Gruppe** stehen alle Fragen ihres Astes untereinander, jede mit dem
+Kapitel, zu dem sie gehört: von oben sieht man, was weiter unten offen ist,
+ohne aufzuklappen. Im Bearbeitungsfenster steht die Frage zusätzlich als
+Klartext neben dem Statuskästchen ("Frage von MV: Kennwert wirkt hoch").
 
 Fragen hängen wie die Häkchen an der **BKP-Nummer**, nicht an der einzelnen
-Zeile (`fragen: { "<BKP-Nr>": "MV" }`): gefragt wird zu einer Position
-("Spenglerarbeiten"), nicht zu jeder Zeile im Bearbeitungsfenster. Sie lassen
-sich auf **jeder Ebene** stellen — auch auf einer Gruppe, ohne dass die
-Positionen darunter etwas davon abbekommen. Umgekehrt färbt sich das
-Fragezeichen einer Gruppe nach dem, was in ihrem Ast offen ist: je mehr
-Fragen, desto kräftiger das Rot (ab fünf ist es voll ausgefärbt).
-
-Eine Frage trägt **keinen Text** — was dazu zu sagen ist, gehört ins
-Notizfeld der Zeile. Eine Frage ist damit ein Klick und kein Formular.
+Zeile (`fragen: { "<BKP-Nr>": { "von": "MV", "text": "…" } }`): gefragt wird
+zu einer Position ("Spenglerarbeiten"), nicht zu jeder Zeile im
+Bearbeitungsfenster. Sie lassen sich auf **jeder Ebene** stellen — auch auf
+einer Gruppe, ohne dass die Positionen darunter etwas davon abbekommen.
+Umgekehrt färbt sich das Fragezeichen einer Gruppe nach dem, was in ihrem Ast
+offen ist: je mehr Fragen, desto kräftiger das Rot (ab fünf ist es voll
+ausgefärbt). Ältere Schätzungen, in denen dort nur das Kürzel stand
+(`"232.0": "TB"`), werden beim Öffnen umgeschrieben; ihre Fragen stehen dann
+eben "ohne Text" da.
 
 Eine Frage ist **unabhängig vom Häkchen**: eine Position kann durchgegangen
 sein und trotzdem eine Frage tragen. Deshalb gibt es im Fortschrittsbalken
@@ -2419,7 +2430,8 @@ Danach kommt es darauf an, **was** sich geändert hat:
   ausgetauscht, Tabelle und Bearbeitungsfenster bleiben unberührt. Das
   geänderte Kästchen blitzt kurz blau auf, damit man es in hunderten
   Zeilen überhaupt findet, und die Sync-Zeile sagt, was passiert ist —
-  "Anna Beispiel hat eine Frage gestellt bei 211.5". Bei mehreren
+  "Anna Beispiel hat eine Frage gestellt bei 211.5" — der Wortlaut der
+  neuen Frage steht beim Überfahren des Fragezeichens. Bei mehreren
   Änderungen auf einmal steht die Zahl da ("7 Häkchen gesetzt"). Das
   funktioniert auch **mitten im Tippen**: der Fokus bleibt im Feld, der
   getippte Text bleibt stehen.

@@ -484,6 +484,10 @@ let gewaehlteZeile = null; // { nr, id } der im Bearbeitungsfenster gezeigten Un
 // Wechsel der Zeile zurückgesetzt -- gesucht wird nach einer Vorlage für
 // DIESE Position, nicht dauerhaft gefiltert.
 let vorlageSuche = "";
+// Eine einzige geteilte leere Liste statt tausender eigener: die meisten
+// der 5422 Knoten tragen keine Frage.
+const KEINE_FRAGEN = [];
+
 // Zuletzt gerechneter Stand je Knoten ({ anzahl, kuerzel, gelb, fragen }).
 // Gebraucht beim Klick auf das Kästchen einer Gruppe: dort wird vom
 // ANGEZEIGTEN (abgeleiteten) Stand aus entschieden, und der steht nur hier.
@@ -523,9 +527,21 @@ function hakenVon(nr) {
   const liste = (offen && offen.haken && offen.haken[nr]) || [];
   return Array.isArray(liste) ? liste.filter(Boolean) : [];
 }
+// Eine Frage ist { von: "<kürzel>", text: "<frage>" }. ÄLTERE Dateien
+// tragen dort bloss das Kürzel als Zeichenkette -- damals hatte eine Frage
+// keinen Text. Gelesen wird beides, geschrieben immer das Objekt;
+// migriere() bringt die Datei beim nächsten Speichern dauerhaft in Form.
+function frageEintrag(nr) {
+  const wert = offen && offen.fragen && offen.fragen[nr];
+  if (typeof wert === "string") return wert ? { von: wert, text: "" } : null;
+  if (wert && typeof wert === "object" && wert.von) {
+    return { von: String(wert.von), text: String(wert.text || "") };
+  }
+  return null;
+}
 function frageVon(nr) {
-  const wer = offen && offen.fragen && offen.fragen[nr];
-  return typeof wer === "string" && wer ? wer : "";
+  const eintrag = frageEintrag(nr);
+  return eintrag ? eintrag.von : "";
 }
 
 // Die Initialen eines Namens: erster Buchstabe des ersten und des LETZTEN
@@ -1172,7 +1188,8 @@ function kinderMap(knoten) {
 // Je Knoten entsteht: wie viele Häkchen (0-2), welche Kürzel (nur wenn
 // darunter alle dasselbe sagen -- sonst wäre die Angabe falsch), ob er
 // GELB ist (hat einen Betrag, aber noch kein Häkchen), die eigene Frage,
-// wie viele Fragen in seinem Ast offen sind, und ob er mitzählt.
+// welche Fragen in seinem Ast offen sind (im Klartext, für den Kasten beim
+// Überfahren) und ob er mitzählt.
 function statusBerechnen(knoten, kinder, summen) {
   const ergebnis = {};
   const betragVon = (nr) => !!(summen && summen[nr]);
@@ -1180,13 +1197,23 @@ function statusBerechnen(knoten, kinder, summen) {
     .sort((a, b) => knotenEbene(b.nr) - knotenEbene(a.nr))
     .forEach((k) => {
       const kids = kinder[k.nr] || [];
-      const eigeneFrage = frageVon(k.nr);
-      // Fragen zählen über ALLE Kinder, auch über leere: eine Frage steht
-      // nur dort, wo jemand sie gestellt hat.
-      let fragen = eigeneFrage ? 1 : 0;
+      const eigenerEintrag = frageEintrag(k.nr);
+      const eigeneFrage = eigenerEintrag ? eigenerEintrag.von : "";
+      // Die Fragen des Astes im KLARTEXT, nicht nur ihre Zahl: das
+      // Fragezeichen einer Gruppe zeigt beim Überfahren alles, was darunter
+      // offen ist (siehe zeigeFrageTip()). Gesammelt wird über ALLE Kinder,
+      // auch über leere -- eine Frage steht nur dort, wo jemand sie gestellt
+      // hat. Die Liste eines Kindes wird WEITERGEREICHT statt kopiert,
+      // solange es die einzige ist: bei 5422 Knoten lohnt sich das, und
+      // eine einmal gebaute Liste verändert niemand mehr.
+      let fragenListe = eigenerEintrag ? [{ nr: k.nr, ...eigenerEintrag }] : null;
       kids.forEach((c) => {
-        fragen += ergebnis[c].fragen;
+        const kind = ergebnis[c].fragenListe;
+        if (!kind.length) return;
+        fragenListe = fragenListe ? fragenListe.concat(kind) : kind;
       });
+      if (!fragenListe) fragenListe = KEINE_FRAGEN;
+      const fragen = fragenListe.length;
 
       const eigeneZeilen = zeilenVon(k.nr).length;
       const eigenerHaken = hakenVon(k.nr);
@@ -1205,7 +1232,7 @@ function statusBerechnen(knoten, kinder, summen) {
       const zaehlt = wieBlatt ? !!eigenerHaken.length : true;
       if (!zaehlt) {
         ergebnis[k.nr] = {
-          anzahl: 0, kuerzel: [], gelb: false, eigeneFrage, fragen, zaehlt: false, eigen: false
+          anzahl: 0, kuerzel: [], gelb: false, eigeneFrage, fragen, fragenListe, zaehlt: false, eigen: false
         };
         return;
       }
@@ -1238,6 +1265,7 @@ function statusBerechnen(knoten, kinder, summen) {
         gelb: !gemeinsam.length && betragVon(k.nr),
         eigeneFrage,
         fragen,
+        fragenListe,
         zaehlt: true,
         // `eigen` heisst: an diesem Knoten liegt ein Stand in `haken` --
         // entweder weil er dort gelesen wird (`wieBlatt`, eigene Zeilen)
@@ -1257,7 +1285,8 @@ function statusBerechnen(knoten, kinder, summen) {
 // Damit eine fehlende Angabe nirgends einen Absturz auslöst (z.B. ein
 // Knoten, den die Suche gerade nicht gerechnet hat).
 const LEERER_STAND = {
-  anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0, zaehlt: false, eigen: false
+  anzahl: 0, kuerzel: [], gelb: false, eigeneFrage: "", fragen: 0, fragenListe: [],
+  zaehlt: false, eigen: false
 };
 
 // Nur noch für den Einstiegshinweis unter der Werkzeugleiste: solange gar
@@ -1582,11 +1611,98 @@ function frageHtml(nr, stand) {
     : s.fragen
     ? `${s.fragen} ${s.fragen === 1 ? "Frage" : "Fragen"} weiter unten · klicken stellt hier eine eigene`
     : "Frage stellen – die andere Person soll hier genauer hinschauen";
-  return `<button type="button" class="bk-frage${s.eigeneFrage ? " eigen" : ""}${
-    s.fragen ? " offen" : ""
-  }" data-action="frage" data-nr="${nr}" style="--frage-staerke:${staerke.toFixed(2)}" title="${escapeHtml(
-    titel
-  )}">?</button>`;
+  // Die Fragen hängen als Daten AM KNOPF: so gibt es genau eine Stelle, die
+  // weiss, welche Fragen zu einem Kästchen gehören -- der Kasten beim
+  // Überfahren liest sie bloss ab und findet auch die Knöpfe wieder, die
+  // der Live-Takt zwischendurch per outerHTML ausgetauscht hat.
+  // Wo es Fragen gibt, tritt der Kasten AN DIE STELLE des eingebauten
+  // `title`: beides zusammen hiesse, dass nach einer Sekunde ein zweiter,
+  // grauer Kasten danebenklappt. Der Wortlaut geht als `aria-label`
+  // mit -- für Vorlesesoftware, die den Kasten nicht sieht.
+  if (!s.fragen) {
+    return `<button type="button" class="bk-frage" data-action="frage" data-nr="${nr}" style="--frage-staerke:0.00" title="${escapeHtml(
+      titel
+    )}">?</button>`;
+  }
+  const vorgelesen = `${titel} · ${s.fragenListe
+    .map((f) => `${f.von}: ${f.text || "ohne Text"}`)
+    .join(" · ")}`;
+  return `<button type="button" class="bk-frage offen${s.eigeneFrage ? " eigen" : ""}" data-action="frage" data-nr="${nr}" data-fragen="${escapeHtml(
+    JSON.stringify(s.fragenListe)
+  )}" style="--frage-staerke:${staerke.toFixed(2)}" aria-label="${escapeHtml(vorgelesen)}">?</button>`;
+}
+
+// ---------- Der Kasten mit den Fragen im Klartext ----------
+//
+// Seit November 2026 trägt eine Frage einen TEXT, und der steht beim
+// Überfahren des Fragezeichens. Ein eigener Kasten statt des eingebauten
+// `title`: dort stünden mehrere Fragen als ein Block grauer Text, ohne
+// Kürzel und ohne die Nummer, zu der sie gehören -- und er erscheint erst
+// nach gut einer Sekunde. Am Fragezeichen einer GRUPPE stehen alle Fragen
+// ihres Astes: von oben sehen, was unten offen ist, ohne aufzuklappen, ist
+// der eigentliche Zweck.
+let frageTip = null;
+let frageTipKnopf = null;
+
+function verbergeFrageTip() {
+  if (frageTip) frageTip.remove();
+  frageTip = null;
+  frageTipKnopf = null;
+}
+
+function zeigeFrageTip(btn) {
+  verbergeFrageTip();
+  let liste = [];
+  try {
+    liste = JSON.parse(btn.dataset.fragen || "[]");
+  } catch (e) {
+    liste = [];
+  }
+  if (!liste.length) return;
+  const hier = btn.dataset.nr;
+  frageTip = document.createElement("div");
+  frageTip.className = "bk-frage-tip";
+  frageTip.innerHTML = liste
+    .map(
+      (f) => `<div class="bk-frage-tip-zeile">
+        <span class="bk-frage-tip-wer">${escapeHtml(f.von || "?")}</span>
+        <span>
+          <span class="bk-frage-tip-text${f.text ? "" : " ohne"}">${escapeHtml(
+        f.text || "ohne Text"
+      )}</span>
+          ${f.nr === hier ? "" : `<span class="bk-frage-tip-wo">${escapeHtml(knotenLabel(f.nr))}</span>`}
+        </span>
+      </div>`
+    )
+    .join("");
+  document.body.appendChild(frageTip);
+  frageTipKnopf = btn;
+  platziereFrageTip();
+}
+
+// Unter den Knopf, und nur wenn dort Platz ist -- sonst darüber. Der Kasten
+// liegt FIX im Fenster (sonst bliebe er an einer klebenden Ebene hängen),
+// deshalb wird er beim Scrollen nachgeführt statt weggenommen: ein
+// Mausrad-Stupser beim Lesen soll ihn nicht schliessen. Verlässt der Knopf
+// das Fenster, geht auch der Kasten.
+function platziereFrageTip() {
+  if (!frageTip || !frageTipKnopf) return;
+  if (!frageTipKnopf.isConnected) return verbergeFrageTip();
+  const r = frageTipKnopf.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > window.innerHeight) return verbergeFrageTip();
+  const breite = frageTip.offsetWidth;
+  const hoehe = frageTip.offsetHeight;
+  const links = Math.min(Math.max(8, r.left + r.width / 2 - breite / 2), window.innerWidth - breite - 8);
+  const drunter = r.bottom + 6 + hoehe <= window.innerHeight - 8;
+  frageTip.style.left = `${Math.round(Math.max(8, links))}px`;
+  frageTip.style.top = `${Math.round(drunter ? r.bottom + 6 : Math.max(8, r.top - hoehe - 6))}px`;
+}
+
+function onFrageHover(e) {
+  const btn = e.target.closest && e.target.closest('[data-action="frage"][data-fragen]');
+  if (btn) {
+    if (btn !== frageTipKnopf) zeigeFrageTip(btn);
+  } else if (frageTip && !(e.target.closest && e.target.closest(".bk-frage-tip"))) verbergeFrageTip();
 }
 
 // Die Bemerkungen der Unterpositionen, zu EINEM Text zusammengezogen --
@@ -2409,7 +2525,13 @@ function panelStandText(stand) {
       : stand.gelb
       ? "Erfasst, aber noch von niemandem durchgegangen"
       : "Noch nichts erfasst";
-  return text + (stand.eigeneFrage ? ` · Frage von ${stand.eigeneFrage} offen` : "");
+  if (!stand.eigeneFrage) return text;
+  // Die eigene Frage steht IMMER zuvorderst in der Liste (statusBerechnen()
+  // stellt sie den Fragen der Kinder voran) -- über `von` zu suchen würde
+  // die gleichnamige Frage eines Unterkapitels erwischen.
+  const eigene = (stand.fragenListe || [])[0];
+  const frageText = eigene && eigene.text ? `: ${eigene.text}` : " offen";
+  return `${text} · Frage von ${stand.eigeneFrage}${frageText}`;
 }
 
 function panelStandHtml(nr) {
@@ -2650,6 +2772,21 @@ function migriere(data) {
   }
   delete data.geprueft;
   delete data.status;
+  // Bis November 2026 trug eine Frage nur das Kürzel ("232.0": "TB"), jetzt
+  // zusätzlich ihren Text. Gelesen wird beides (frageEintrag()), geschrieben
+  // immer das Objekt -- so landet die Datei beim nächsten Speichern dauerhaft
+  // im neuen Format, wie bei `geprueft` oben.
+  Object.keys(data.fragen).forEach((nr) => {
+    const wert = data.fragen[nr];
+    if (typeof wert === "string") {
+      if (wert) data.fragen[nr] = { von: wert, text: "" };
+      else delete data.fragen[nr];
+    } else if (wert && typeof wert === "object" && wert.von) {
+      data.fragen[nr] = { von: String(wert.von), text: String(wert.text || "") };
+    } else {
+      delete data.fragen[nr];
+    }
+  });
   // Vor dem MwSt-Satz waren die Kennwerte inklusive erfasst; für solche
   // Dateien ist 0 der richtige Startwert, sonst käme die MwSt doppelt drauf.
   if (typeof data.mwst !== "number") data.mwst = 0;
@@ -3290,6 +3427,16 @@ function nurStandGeaendert(alt, neu) {
   return ohneStand(alt) === ohneStand(neu);
 }
 
+// Eine Frage auf eine vergleichbare Zeichenkette gebracht -- Kürzel UND
+// Text, sonst bliebe eine umformulierte Frage unbemerkt. Nimmt rohe Daten
+// entgegen (auch den Serverstand), deshalb nicht über frageEintrag(), das
+// auf `offen` schaut.
+function frageKennung(data, nr) {
+  const wert = (data && data.fragen && data.fragen[nr]) || "";
+  if (typeof wert === "string") return wert ? `${wert}\u0000` : "";
+  return wert.von ? `${wert.von}\u0000${wert.text || ""}` : "";
+}
+
 // Was genau ist passiert? Für die Meldung in der Sync-Zeile und fürs
 // Aufblitzen am richtigen Kästchen.
 function standUnterschied(alt, neu) {
@@ -3298,6 +3445,7 @@ function standUnterschied(alt, neu) {
   const hakenAb = [];
   const fragenAuf = [];
   const fragenAb = [];
+  const fragenNeu = [];
   const schluessel = (d, feld) => Object.keys((d && d[feld]) || {});
   new Set([
     ...schluessel(alt, "haken"),
@@ -3307,16 +3455,17 @@ function standUnterschied(alt, neu) {
   ]).forEach((nr) => {
     const a = ((alt.haken || {})[nr] || []).filter(Boolean);
     const b = ((neu.haken || {})[nr] || []).filter(Boolean);
-    const fa = (alt.fragen || {})[nr] || "";
-    const fb = (neu.fragen || {})[nr] || "";
+    const fa = frageKennung(alt, nr);
+    const fb = frageKennung(neu, nr);
     if (a.join("/") === b.join("/") && fa === fb) return;
     nummern.add(nr);
     if (b.length > a.length) hakenAuf.push(nr);
     else if (b.length < a.length) hakenAb.push(nr);
     if (fb && !fa) fragenAuf.push(nr);
     else if (fa && !fb) fragenAb.push(nr);
+    else if (fa !== fb) fragenNeu.push(nr);
   });
-  return { nummern, hakenAuf, hakenAb, fragenAuf, fragenAb };
+  return { nummern, hakenAuf, hakenAb, fragenAuf, fragenAb, fragenNeu };
 }
 
 // "MV hat eine Frage gestellt bei 211.5" -- bei einer einzelnen Änderung
@@ -3331,6 +3480,11 @@ function standMeldung(was, wer) {
   satz(was.hakenAb, "ein Häkchen weggenommen", "Häkchen weggenommen");
   satz(was.fragenAuf, "eine Frage gestellt", "Fragen gestellt");
   satz(was.fragenAb, "eine Frage erledigt", "Fragen erledigt");
+  // Über die Oberfläche kommt das nicht vor (eine Frage wird weggenommen
+  // und neu gestellt, nicht umgeschrieben) -- wohl aber, wenn beides
+  // zwischen zwei Takten passiert. Ohne diesen Satz stünde dann bloss
+  // "Aktualisiert".
+  satz(was.fragenNeu, "eine Frage umformuliert", "Fragen umformuliert");
   if (!teile.length) return "";
   const text = teile.join(" · ");
   return wer ? `${wer} hat ${text}` : text.charAt(0).toUpperCase() + text.slice(1);
@@ -3567,17 +3721,32 @@ function setzeHaken(nr, istBlatt) {
 
 // Eine Frage stellen oder wegnehmen -- wegnehmen darf jede Person, auch
 // wenn die Frage von der anderen stammt: wer sie beantwortet hat, soll sie
-// schliessen können.
+// schliessen können. Beim Wegnehmen geht der TEXT mit weg; wer ihn ändern
+// will, nimmt die Frage weg und stellt sie neu (eine Frage ist ein
+// Hinweis, kein Verlauf).
 function setzeFrage(nr) {
   const ich = meinKuerzel();
   const weg = !!frageVon(nr);
-  if (!weg && !ich) return;
+  if (!weg && !ich) {
+    setSyncLine("Keine Frage gestellt – Anzeigename in den Einstellungen ⚙ eintragen");
+    return;
+  }
+  // Der Text wird VOR mutate() erfragt: mutateFn läuft zweimal -- einmal
+  // lokal und einmal auf dem frisch geholten Serverstand -- und würde sonst
+  // zweimal nach derselben Frage fragen.
+  let text = "";
+  if (!weg) {
+    const eingabe = prompt(`Frage zu "${knotenLabel(nr)}":`, "");
+    if (eingabe === null) return; // abgebrochen: es bleibt beim Alten
+    text = eingabe.trim();
+  }
   mutate((data) => {
     if (!data.fragen) data.fragen = {};
     if (weg) delete data.fragen[nr];
-    else data.fragen[nr] = ich;
+    else data.fragen[nr] = { von: ich, text };
     return data;
   });
+  verbergeFrageTip();
   renderTabelleErhalten();
 }
 
@@ -4938,6 +5107,15 @@ function init() {
   vorlagenBox.addEventListener("input", onVorlagenInput);
   document.getElementById("closeVorlagen").addEventListener("click", schliesseVorlagenWahl);
   panel.addEventListener("keydown", onPanelKeydown);
+
+  // Die Fragen im Klartext: ein Kasten beim Überfahren des Fragezeichens.
+  // Delegiert auf dem ganzen Dokument, weil dieselben Knöpfe in Tabelle,
+  // Kapitelansicht und Bearbeitungsfenster stehen -- und weil der Live-Takt
+  // sie zwischendurch per outerHTML austauscht.
+  document.addEventListener("mouseover", onFrageHover);
+  document.addEventListener("focusin", onFrageHover);
+  document.addEventListener("scroll", platziereFrageTip, true);
+  window.addEventListener("resize", platziereFrageTip);
 
   document.getElementById("ebeneSeg").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-ebene]");

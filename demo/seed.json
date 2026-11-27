@@ -2568,9 +2568,18 @@
       ]
     },
     "fragen": {
-      "232.0": "TB",
-      "232.1": "TB",
-      "232.9": "AN"
+      "232.0": {
+        "von": "TB",
+        "text": "Ist der Blitzschutz hier schon drin oder kommt der separat?"
+      },
+      "232.1": {
+        "von": "TB",
+        "text": "Anzahl Steckdosen mit der Bauherrschaft nochmals anschauen."
+      },
+      "232.9": {
+        "von": "AN",
+        "text": "Kennwert wirkt hoch – Offerte vom Elektriker abwarten."
+      }
     },
     "druck": {
       "nurVerwendete": true,

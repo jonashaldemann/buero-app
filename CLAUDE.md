@@ -215,17 +215,43 @@ Datei im selben Zug anpassen — nicht erst auf Nachfrage warten.
   bloss ein Häkchen darin steht, das für die Anzeige gerade keine Rolle
   spielt: sonst bliebe ein einmal abgehaktes leeres Kapitel unerreichbar
   liegen und tauchte wieder auf, sobald sein Inhalt verschwindet.
-- **Fragen `baukosten/`** (`fragen: { "<nr>": "MV" }`, `frageHtml()`): das
-  runde Feld neben dem Kästchen ist ein Hinweis an die andere Person. Es
-  hängt wie das Häkchen an der NUMMER, nicht an der Zeile -- gefragt wird
-  zu einer Position, nicht zu jeder Zeile im Bearbeitungsfenster. Eine
-  GRUPPE darf eine eigene Frage tragen, die sich NICHT nach unten vererbt;
-  angezeigt wird zusätzlich, wie viele Fragen in ihrem Ast offen sind
-  (`--frage-staerke`, voll ab `FRAGEN_VOLL`). Wegnehmen darf jede Person,
-  auch wer sie nicht gestellt hat. Eine Frage trägt KEINEN Text (das
-  Notizfeld der Zeile ist dafür da) und ist UNABHÄNGIG vom Häkchen --
-  deshalb hat der Fortschrittsbalken bewusst KEIN rotes Segment, es würde
-  dieselbe Position zweimal zählen.
+- **Fragen `baukosten/`** (`fragen: { "<nr>": { von, text } }`,
+  `frageHtml()`): das runde Feld neben dem Kästchen ist ein Hinweis an die
+  andere Person. Es hängt wie das Häkchen an der NUMMER, nicht an der Zeile
+  -- gefragt wird zu einer Position, nicht zu jeder Zeile im
+  Bearbeitungsfenster. Eine GRUPPE darf eine eigene Frage tragen, die sich
+  NICHT nach unten vererbt; angezeigt wird zusätzlich, wie viele Fragen in
+  ihrem Ast offen sind (`--frage-staerke`, voll ab `FRAGEN_VOLL`).
+  Wegnehmen darf jede Person, auch wer sie nicht gestellt hat. Eine Frage
+  ist UNABHÄNGIG vom Häkchen -- deshalb hat der Fortschrittsbalken bewusst
+  KEIN rotes Segment, es würde dieselbe Position zweimal zählen.
+- **Eine Frage trägt seit November 2026 ihren WORTLAUT** (`setzeFrage()`,
+  `zeigeFrageTip()`): beim Stellen fragt ein `prompt()` nach dem Text (VOR
+  `mutate()` -- mutateFn läuft zweimal und würde sonst zweimal fragen),
+  beim Wegnehmen geht er mit weg. Umformulieren gibt es nicht: wegnehmen
+  und neu stellen. Gelesen wird über `frageEintrag()`, das die ALTE Form
+  (nur das Kürzel als String) weiterhin annimmt; `migriere()` schreibt sie
+  um, die Datei heilt sich beim nächsten Speichern selbst. `frageKennung()`
+  vergleicht Kürzel UND Text, sonst bliebe eine umformulierte Frage im
+  Live-Takt unbemerkt.
+- **Der Wortlaut steht in einem EIGENEN Kasten beim Überfahren**
+  (`.bk-frage-tip`, `zeigeFrageTip()`/`platziereFrageTip()`): der eingebaute
+  `title` zeigte mehrere Fragen als einen Block grauen Text, ohne Kürzel und
+  ohne die Nummer dazu, und erst nach gut einer Sekunde. Wo es Fragen gibt,
+  TRITT der Kasten AN DIE STELLE des `title` (sonst klappt nach einer
+  Sekunde ein zweiter Kasten daneben auf); der Wortlaut geht als
+  `aria-label` mit. `statusBerechnen()` führt dafür je Knoten `fragenListe`
+  (`[{ nr, von, text }]`, EIGENE Frage zuvorderst, dann der ganze Ast) --
+  `fragen` ist nur noch deren Länge, und `panelStandText()` nimmt den
+  eigenen Text aus `fragenListe[0]`, NICHT über `von` (das fände die
+  gleichnamige Frage eines Unterkapitels). Die Liste hängt als
+  `data-fragen` (JSON) AM KNOPF: so findet der Kasten sie auch an den
+  Knöpfen wieder, die `aktualisiereStandAnzeige()` per `outerHTML`
+  ausgetauscht hat. `position: fixed` und z-index 90 (über dem
+  Bearbeitungsfenster 70 und der Vorlagen-Auswahl 80); beim Scrollen wird
+  er NACHGEFÜHRT statt weggenommen -- ein Mausrad-Stupser beim Lesen soll
+  ihn nicht schliessen. ACHTUNG FÜR TESTS: Playwrights `hover()` scrollt
+  erst und bewegt dann die Maus, das Scroll-Ereignis trifft danach ein.
 - **Zu zweit an einer Schätzung `baukosten/`**: `persist()` legt jede
   Änderung auf einen frisch geholten Serverstand, verschiedene Zeilen
   überschreiben sich also nicht. Gesehen wird der fremde Stand über
